@@ -154,7 +154,7 @@ export default function NieuweWerkbonScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#4361ee" />
+          <ActivityIndicator size="large" color="#F5A623" />
         </View>
       </SafeAreaView>
     );
@@ -426,8 +426,8 @@ const styles = StyleSheet.create({
     borderColor: '#2d3a5f',
   },
   optionButtonActive: {
-    backgroundColor: '#4361ee',
-    borderColor: '#4361ee',
+    backgroundColor: '#F5A623',
+    borderColor: '#F5A623',
   },
   optionText: {
     color: '#a0a0a0',
@@ -447,7 +447,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#4361ee',
+    backgroundColor: '#F5A623',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
@@ -517,7 +517,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#4361ee',
+    backgroundColor: '#F5A623',
     padding: 16,
     borderRadius: 12,
   },

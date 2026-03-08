@@ -22,7 +22,7 @@ const getStatusColor = (status: string) => {
   switch (status) {
     case 'concept': return '#ffc107';
     case 'ondertekend': return '#28a745';
-    case 'verzonden': return '#4361ee';
+    case 'verzonden': return '#F5A623';
     default: return '#6c757d';
   }
 };
@@ -86,7 +86,7 @@ export default function WerkbonDetailScreen() {
           .info-value { color: #333; }
           table { width: 100%; border-collapse: collapse; margin-top: 20px; }
           th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
-          th { background-color: #4361ee; color: white; }
+          th { background-color: #F5A623; color: white; }
           .name-cell { text-align: left; }
           .total-row { background-color: #f0f0f0; font-weight: bold; }
           .signature-section { margin-top: 40px; }
@@ -251,7 +251,7 @@ export default function WerkbonDetailScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#4361ee" />
+          <ActivityIndicator size="large" color="#F5A623" />
         </View>
       </SafeAreaView>
     );
@@ -383,7 +383,7 @@ export default function WerkbonDetailScreen() {
         )}
 
         <TouchableOpacity style={styles.pdfButton} onPress={generatePDF}>
-          <Ionicons name="document" size={20} color="#4361ee" />
+          <Ionicons name="document" size={20} color="#F5A623" />
           <Text style={styles.pdfButtonText}>PDF</Text>
         </TouchableOpacity>
       </View>
@@ -531,7 +531,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   totalText: {
-    color: '#4361ee',
+    color: '#F5A623',
     fontSize: 12,
     fontWeight: '600',
   },
@@ -549,7 +549,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   grandTotalValue: {
-    color: '#4361ee',
+    color: '#F5A623',
     fontSize: 18,
     fontWeight: 'bold',
   },
@@ -589,7 +589,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#4361ee',
+    backgroundColor: '#F5A623',
     padding: 16,
     borderRadius: 12,
   },
@@ -611,10 +611,10 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#4361ee',
+    borderColor: '#F5A623',
   },
   pdfButtonText: {
-    color: '#4361ee',
+    color: '#F5A623',
     fontSize: 16,
     fontWeight: '600',
   },

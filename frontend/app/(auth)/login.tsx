@@ -10,6 +10,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -52,7 +53,11 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
-            <Ionicons name="document-text" size={60} color="#4361ee" />
+            <Image 
+              source={require('../../assets/images/smarttech-logo.png')} 
+              style={styles.logo}
+              resizeMode="contain"
+            />
             <Text style={styles.title}>Werkbon</Text>
             <Text style={styles.subtitle}>Inloggen met uw bedrijfse-mail</Text>
           </View>
@@ -168,7 +173,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   button: {
-    backgroundColor: '#4361ee',
+    backgroundColor: '#F5A623',
     height: 56,
     borderRadius: 12,
     alignItems: 'center',
@@ -179,7 +184,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   buttonText: {
-    color: '#fff',
+    color: '#000',
     fontSize: 18,
     fontWeight: '600',
   },
@@ -192,7 +197,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   linkTextBold: {
-    color: '#4361ee',
+    color: '#F5A623',
     fontWeight: '600',
+  },
+  logo: {
+    width: 200,
+    height: 100,
+    marginBottom: 8,
   },
 });

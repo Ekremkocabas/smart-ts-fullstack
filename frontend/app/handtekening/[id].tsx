@@ -126,7 +126,7 @@ export default function HandtekeningScreen() {
                 onEnd={handleSignatureEnd}
                 webStyle={webStyle}
                 backgroundColor="#16213e"
-                penColor="#4361ee"
+                penColor="#F5A623"
                 dotSize={2}
                 minWidth={2}
                 maxWidth={4}

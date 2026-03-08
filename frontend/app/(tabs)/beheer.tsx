@@ -154,7 +154,7 @@ export default function BeheerScreen() {
             {teamleden.map((lid) => (
               <View key={lid.id} style={styles.listItem}>
                 <View style={styles.listItemLeft}>
-                  <Ionicons name="person" size={20} color="#4361ee" />
+                  <Ionicons name="person" size={20} color="#F5A623" />
                   <Text style={styles.listItemText}>{lid.naam}</Text>
                 </View>
                 <TouchableOpacity onPress={() => confirmDelete('team', lid.id, lid.naam)}>
@@ -180,7 +180,7 @@ export default function BeheerScreen() {
             {klanten.map((klant) => (
               <View key={klant.id} style={styles.listItem}>
                 <View style={styles.listItemLeft}>
-                  <Ionicons name="business" size={20} color="#4361ee" />
+                  <Ionicons name="business" size={20} color="#F5A623" />
                   <View>
                     <Text style={styles.listItemText}>{klant.naam}</Text>
                     <Text style={styles.listItemSubtext}>{klant.email}</Text>
@@ -211,7 +211,7 @@ export default function BeheerScreen() {
               return (
                 <View key={werf.id} style={styles.listItem}>
                   <View style={styles.listItemLeft}>
-                    <Ionicons name="construct" size={20} color="#4361ee" />
+                    <Ionicons name="construct" size={20} color="#F5A623" />
                     <View>
                       <Text style={styles.listItemText}>{werf.naam}</Text>
                       <Text style={styles.listItemSubtext}>{klant?.naam || 'Onbekende klant'}</Text>
@@ -459,7 +459,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#16213e',
   },
   activeTab: {
-    backgroundColor: '#4361ee',
+    backgroundColor: '#F5A623',
   },
   tabText: {
     color: '#6c757d',
@@ -487,7 +487,7 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   addBtn: {
-    backgroundColor: '#4361ee',
+    backgroundColor: '#F5A623',
     width: 36,
     height: 36,
     borderRadius: 18,
@@ -542,7 +542,7 @@ const styles = StyleSheet.create({
     borderColor: '#2d3a5f',
   },
   saveButton: {
-    backgroundColor: '#4361ee',
+    backgroundColor: '#F5A623',
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -589,8 +589,8 @@ const styles = StyleSheet.create({
     borderColor: '#2d3a5f',
   },
   klantOptionActive: {
-    backgroundColor: '#4361ee',
-    borderColor: '#4361ee',
+    backgroundColor: '#F5A623',
+    borderColor: '#F5A623',
   },
   klantOptionText: {
     color: '#6c757d',

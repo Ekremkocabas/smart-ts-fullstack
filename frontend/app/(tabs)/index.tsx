@@ -21,7 +21,7 @@ const getStatusColor = (status: string) => {
     case 'ondertekend':
       return '#28a745';
     case 'verzonden':
-      return '#4361ee';
+      return '#F5A623';
     default:
       return '#6c757d';
   }
@@ -105,7 +105,7 @@ export default function WerkbonnenScreen() {
 
       {isLoading && werkbonnen.length === 0 ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#4361ee" />
+          <ActivityIndicator size="large" color="#F5A623" />
         </View>
       ) : werkbonnen.length === 0 ? (
         <View style={styles.emptyContainer}>
@@ -129,7 +129,7 @@ export default function WerkbonnenScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor="#4361ee"
+              tintColor="#F5A623"
             />
           }
         />
@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   addButton: {
-    backgroundColor: '#4361ee',
+    backgroundColor: '#F5A623',
     width: 44,
     height: 44,
     borderRadius: 22,
@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   emptyButton: {
-    backgroundColor: '#4361ee',
+    backgroundColor: '#F5A623',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,

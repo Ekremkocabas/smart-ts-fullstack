@@ -42,7 +42,7 @@ export default function ProfielScreen() {
       <View style={styles.content}>
         <View style={styles.avatarContainer}>
           <View style={styles.avatar}>
-            <Ionicons name="person" size={48} color="#4361ee" />
+            <Ionicons name="person" size={48} color="#F5A623" />
           </View>
           <Text style={styles.userName}>{user?.naam}</Text>
           <Text style={styles.userEmail}>{user?.email}</Text>
@@ -50,7 +50,7 @@ export default function ProfielScreen() {
 
         <View style={styles.infoSection}>
           <View style={styles.infoItem}>
-            <Ionicons name="shield-checkmark" size={24} color="#4361ee" />
+            <Ionicons name="shield-checkmark" size={24} color="#F5A623" />
             <View style={styles.infoContent}>
               <Text style={styles.infoLabel}>Rol</Text>
               <Text style={styles.infoValue}>

@@ -71,7 +71,7 @@ export default function RegisterScreen() {
           </TouchableOpacity>
 
           <View style={styles.header}>
-            <Ionicons name="person-add" size={60} color="#4361ee" />
+            <Ionicons name="person-add" size={60} color="#F5A623" />
             <Text style={styles.title}>Registreren</Text>
             <Text style={styles.subtitle}>Maak een nieuw account aan</Text>
           </View>
@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   button: {
-    backgroundColor: '#4361ee',
+    backgroundColor: '#F5A623',
     height: 56,
     borderRadius: 12,
     alignItems: 'center',
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   buttonText: {
-    color: '#fff',
+    color: '#000',
     fontSize: 18,
     fontWeight: '600',
   },
@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   linkTextBold: {
-    color: '#4361ee',
+    color: '#F5A623',
     fontWeight: '600',
   },
 });
