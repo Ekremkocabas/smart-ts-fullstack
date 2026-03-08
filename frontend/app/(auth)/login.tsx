@@ -3,7 +3,7 @@ import {
   View,
   Text,
   TextInput,
-  Pressable,
+  TouchableOpacity,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
@@ -14,7 +14,10 @@ import {
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../../context/AuthContext';
+import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -22,11 +25,9 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const { login } = useAuth();
   const router = useRouter();
 
   const handleLogin = async () => {
-    console.log('handleLogin called with email:', email);
     setErrorMessage('');
     
     if (!email.trim()) {
@@ -41,13 +42,21 @@ export default function LoginScreen() {
 
     setIsLoading(true);
     try {
-      console.log('Calling login...');
-      await login(email.trim(), password);
-      console.log('Login successful, navigating...');
+      const response = await axios.post(`${BACKEND_URL}/api/auth/login`, {
+        email: email.trim().toLowerCase(),
+        password: password,
+      });
+      
+      const userData = response.data;
+      await AsyncStorage.setItem('user', JSON.stringify(userData));
       router.replace('/(tabs)');
     } catch (error: any) {
-      console.error('Login failed:', error);
-      setErrorMessage(error.message || 'Inloggen mislukt. Controleer uw gegevens.');
+      console.error('Login error:', error);
+      if (error.response?.status === 401) {
+        setErrorMessage('Onjuist e-mailadres of wachtwoord');
+      } else {
+        setErrorMessage('Kan niet verbinden met server. Probeer opnieuw.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -113,7 +122,7 @@ export default function LoginScreen() {
                 secureTextEntry={!showPassword}
                 editable={!isLoading}
               />
-              <Pressable 
+              <TouchableOpacity 
                 onPress={() => setShowPassword(!showPassword)}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
@@ -122,36 +131,21 @@ export default function LoginScreen() {
                   size={20}
                   color="#6c757d"
                 />
-              </Pressable>
+              </TouchableOpacity>
             </View>
 
-            <Pressable
-              style={({ pressed }) => [
-                styles.button,
-                isLoading && styles.buttonDisabled,
-                pressed && { opacity: 0.8 }
-              ]}
-              onPress={() => {
-                console.log('Button pressed!');
-                handleLogin();
-              }}
+            <TouchableOpacity
+              style={[styles.button, isLoading && styles.buttonDisabled]}
+              onPress={handleLogin}
               disabled={isLoading}
+              activeOpacity={0.7}
             >
               {isLoading ? (
                 <ActivityIndicator color="#000" />
               ) : (
                 <Text style={styles.buttonText}>Inloggen</Text>
               )}
-            </Pressable>
-
-            <Pressable
-              style={styles.linkButton}
-              onPress={() => router.push('/(auth)/register')}
-            >
-              <Text style={styles.linkText}>
-                Nog geen account? <Text style={styles.linkTextBold}>Registreren</Text>
-              </Text>
-            </Pressable>
+            </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -241,19 +235,6 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#000',
     fontSize: 18,
-    fontWeight: '600',
-  },
-  linkButton: {
-    alignItems: 'center',
-    marginTop: 16,
-    padding: 8,
-  },
-  linkText: {
-    color: '#a0a0a0',
-    fontSize: 14,
-  },
-  linkTextBold: {
-    color: '#F5A623',
     fontWeight: '600',
   },
 });

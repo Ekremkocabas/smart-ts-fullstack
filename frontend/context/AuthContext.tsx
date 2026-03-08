@@ -1,22 +1,19 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
-
-const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 interface User {
   id: string;
   email: string;
   naam: string;
   rol: string;
+  team_id?: string;
   actief: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, naam: string) => Promise<void>;
+  setUser: (user: User | null) => void;
   logout: () => Promise<void>;
 }
 
@@ -43,48 +40,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const login = async (email: string, password: string) => {
-    console.log('AuthContext: Starting login for', email);
-    console.log('BACKEND_URL:', BACKEND_URL);
-    try {
-      const response = await axios.post(`${BACKEND_URL}/api/auth/login`, {
-        email,
-        password,
-      });
-      console.log('Login response:', response.data);
-      const userData = response.data;
-      await AsyncStorage.setItem('user', JSON.stringify(userData));
-      setUser(userData);
-      console.log('User set successfully');
-    } catch (error: any) {
-      console.error('Login error:', error);
-      console.error('Error response:', error.response?.data);
-      throw new Error(error.response?.data?.detail || 'Inloggen mislukt');
-    }
-  };
-
-  const register = async (email: string, password: string, naam: string) => {
-    try {
-      const response = await axios.post(`${BACKEND_URL}/api/auth/register`, {
-        email,
-        password,
-        naam,
-      });
-      const userData = response.data;
-      await AsyncStorage.setItem('user', JSON.stringify(userData));
-      setUser(userData);
-    } catch (error: any) {
-      throw new Error(error.response?.data?.detail || 'Registratie mislukt');
-    }
-  };
-
   const logout = async () => {
     await AsyncStorage.removeItem('user');
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, setUser, logout }}>
       {children}
     </AuthContext.Provider>
   );
