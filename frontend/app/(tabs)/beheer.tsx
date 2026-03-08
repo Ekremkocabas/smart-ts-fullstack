@@ -19,7 +19,7 @@ import { useAuth } from '../../context/AuthContext';
 type Tab = 'teams' | 'klanten' | 'werven' | 'instellingen';
 
 export default function BeheerScreen() {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const isAdmin = user?.rol === 'admin';
   
   const [activeTab, setActiveTab] = useState<Tab>('teams');
@@ -182,6 +182,19 @@ export default function BeheerScreen() {
   };
 
   // Only show for admin
+  if (authLoading) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Beheer</Text>
+        </View>
+        <View style={styles.noAccessContainer}>
+          <Text style={styles.noAccessText}>Laden...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+  
   if (!isAdmin) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>

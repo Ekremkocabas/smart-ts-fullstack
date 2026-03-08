@@ -3,7 +3,7 @@ import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
@@ -33,9 +33,12 @@ export default function LoginScreen() {
 
     setIsLoading(true);
     try {
+      console.log('Attempting login with:', email);
       await login(email, password);
+      console.log('Login successful, navigating to tabs');
       router.replace('/(tabs)');
     } catch (error: any) {
+      console.error('Login error:', error);
       Alert.alert('Inloggen mislukt', error.message);
     } finally {
       setIsLoading(false);
@@ -87,35 +90,44 @@ export default function LoginScreen() {
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
               />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+              <Pressable onPress={() => setShowPassword(!showPassword)}>
                 <Ionicons
                   name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                   size={20}
                   color="#6c757d"
                 />
-              </TouchableOpacity>
+              </Pressable>
             </View>
 
-            <TouchableOpacity
-              style={[styles.button, isLoading && styles.buttonDisabled]}
-              onPress={handleLogin}
+            <Pressable
+              style={({ pressed }) => [
+                styles.button,
+                isLoading && styles.buttonDisabled,
+                pressed && { opacity: 0.8 }
+              ]}
+              onPress={() => {
+                console.log('Button pressed');
+                handleLogin();
+              }}
               disabled={isLoading}
+              accessibilityRole="button"
             >
               {isLoading ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color="#000" />
               ) : (
                 <Text style={styles.buttonText}>Inloggen</Text>
               )}
-            </TouchableOpacity>
+            </Pressable>
 
-            <TouchableOpacity
+            <Pressable
               style={styles.linkButton}
               onPress={() => router.push('/(auth)/register')}
+              accessibilityRole="button"
             >
               <Text style={styles.linkText}>
                 Nog geen account? <Text style={styles.linkTextBold}>Registreren</Text>
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

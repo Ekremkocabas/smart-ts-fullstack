@@ -44,15 +44,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const login = async (email: string, password: string) => {
+    console.log('AuthContext: Starting login for', email);
+    console.log('BACKEND_URL:', BACKEND_URL);
     try {
       const response = await axios.post(`${BACKEND_URL}/api/auth/login`, {
         email,
         password,
       });
+      console.log('Login response:', response.data);
       const userData = response.data;
       await AsyncStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
+      console.log('User set successfully');
     } catch (error: any) {
+      console.error('Login error:', error);
+      console.error('Error response:', error.response?.data);
       throw new Error(error.response?.data?.detail || 'Inloggen mislukt');
     }
   };
