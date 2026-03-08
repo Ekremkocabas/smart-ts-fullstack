@@ -9,7 +9,6 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,31 +22,45 @@ export default function RegisterScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const { register } = useAuth();
   const router = useRouter();
 
   const handleRegister = async () => {
-    if (!naam || !email || !password || !confirmPassword) {
-      Alert.alert('Fout', 'Vul alle velden in');
+    setErrorMessage('');
+    
+    if (!naam.trim()) {
+      setErrorMessage('Vul uw naam in');
+      return;
+    }
+    
+    if (!email.trim()) {
+      setErrorMessage('Vul uw e-mailadres in');
+      return;
+    }
+    
+    if (!password) {
+      setErrorMessage('Vul een wachtwoord in');
+      return;
+    }
+    
+    if (password.length < 6) {
+      setErrorMessage('Wachtwoord moet minimaal 6 tekens bevatten');
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Fout', 'Wachtwoorden komen niet overeen');
-      return;
-    }
-
-    if (password.length < 6) {
-      Alert.alert('Fout', 'Wachtwoord moet minimaal 6 tekens bevatten');
+      setErrorMessage('Wachtwoorden komen niet overeen');
       return;
     }
 
     setIsLoading(true);
     try {
-      await register(email, password, naam);
+      await register(email.trim(), password, naam.trim());
       router.replace('/(tabs)');
     } catch (error: any) {
-      Alert.alert('Registratie mislukt', error.message);
+      console.error('Register failed:', error);
+      setErrorMessage(error.message || 'Registratie mislukt. Probeer het opnieuw.');
     } finally {
       setIsLoading(false);
     }
@@ -66,6 +79,7 @@ export default function RegisterScreen() {
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
+            activeOpacity={0.7}
           >
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
@@ -76,6 +90,13 @@ export default function RegisterScreen() {
             <Text style={styles.subtitle}>Maak een nieuw account aan</Text>
           </View>
 
+          {errorMessage ? (
+            <View style={styles.errorContainer}>
+              <Ionicons name="alert-circle" size={20} color="#dc3545" />
+              <Text style={styles.errorText}>{errorMessage}</Text>
+            </View>
+          ) : null}
+
           <View style={styles.form}>
             <View style={styles.inputContainer}>
               <Ionicons name="person-outline" size={20} color="#6c757d" style={styles.inputIcon} />
@@ -84,8 +105,12 @@ export default function RegisterScreen() {
                 placeholder="Volledige naam"
                 placeholderTextColor="#6c757d"
                 value={naam}
-                onChangeText={setNaam}
+                onChangeText={(text) => {
+                  setNaam(text);
+                  setErrorMessage('');
+                }}
                 autoCapitalize="words"
+                editable={!isLoading}
               />
             </View>
 
@@ -96,10 +121,14 @@ export default function RegisterScreen() {
                 placeholder="Bedrijfse-mail"
                 placeholderTextColor="#6c757d"
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  setErrorMessage('');
+                }}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
+                editable={!isLoading}
               />
             </View>
 
@@ -107,13 +136,20 @@ export default function RegisterScreen() {
               <Ionicons name="lock-closed-outline" size={20} color="#6c757d" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="Wachtwoord"
+                placeholder="Wachtwoord (min. 6 tekens)"
                 placeholderTextColor="#6c757d"
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  setErrorMessage('');
+                }}
                 secureTextEntry={!showPassword}
+                editable={!isLoading}
               />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+              <TouchableOpacity 
+                onPress={() => setShowPassword(!showPassword)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
                 <Ionicons
                   name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                   size={20}
@@ -129,8 +165,12 @@ export default function RegisterScreen() {
                 placeholder="Bevestig wachtwoord"
                 placeholderTextColor="#6c757d"
                 value={confirmPassword}
-                onChangeText={setConfirmPassword}
+                onChangeText={(text) => {
+                  setConfirmPassword(text);
+                  setErrorMessage('');
+                }}
                 secureTextEntry={!showPassword}
+                editable={!isLoading}
               />
             </View>
 
@@ -138,9 +178,10 @@ export default function RegisterScreen() {
               style={[styles.button, isLoading && styles.buttonDisabled]}
               onPress={handleRegister}
               disabled={isLoading}
+              activeOpacity={0.7}
             >
               {isLoading ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color="#000" />
               ) : (
                 <Text style={styles.buttonText}>Registreren</Text>
               )}
@@ -149,6 +190,7 @@ export default function RegisterScreen() {
             <TouchableOpacity
               style={styles.linkButton}
               onPress={() => router.back()}
+              activeOpacity={0.7}
             >
               <Text style={styles.linkText}>
                 Al een account? <Text style={styles.linkTextBold}>Inloggen</Text>
@@ -180,8 +222,8 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: 32,
-    marginTop: 16,
+    marginBottom: 24,
+    marginTop: 8,
   },
   title: {
     fontSize: 32,
@@ -193,6 +235,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#a0a0a0',
     marginTop: 8,
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(220, 53, 69, 0.1)',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    gap: 8,
+  },
+  errorText: {
+    color: '#dc3545',
+    fontSize: 14,
+    flex: 1,
   },
   form: {
     gap: 16,
@@ -234,6 +290,7 @@ const styles = StyleSheet.create({
   linkButton: {
     alignItems: 'center',
     marginTop: 16,
+    padding: 8,
   },
   linkText: {
     color: '#a0a0a0',

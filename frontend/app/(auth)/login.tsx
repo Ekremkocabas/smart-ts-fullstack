@@ -9,7 +9,6 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
-  Alert,
   Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -22,24 +21,33 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const { login } = useAuth();
   const router = useRouter();
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Fout', 'Vul alle velden in');
+    console.log('handleLogin called with email:', email);
+    setErrorMessage('');
+    
+    if (!email.trim()) {
+      setErrorMessage('Vul uw e-mailadres in');
+      return;
+    }
+    
+    if (!password) {
+      setErrorMessage('Vul uw wachtwoord in');
       return;
     }
 
     setIsLoading(true);
     try {
-      console.log('Attempting login with:', email);
-      await login(email, password);
-      console.log('Login successful, navigating to tabs');
+      console.log('Calling login...');
+      await login(email.trim(), password);
+      console.log('Login successful, navigating...');
       router.replace('/(tabs)');
     } catch (error: any) {
-      console.error('Login error:', error);
-      Alert.alert('Inloggen mislukt', error.message);
+      console.error('Login failed:', error);
+      setErrorMessage(error.message || 'Inloggen mislukt. Controleer uw gegevens.');
     } finally {
       setIsLoading(false);
     }
@@ -65,6 +73,13 @@ export default function LoginScreen() {
             <Text style={styles.subtitle}>Inloggen met uw bedrijfse-mail</Text>
           </View>
 
+          {errorMessage ? (
+            <View style={styles.errorContainer}>
+              <Ionicons name="alert-circle" size={20} color="#dc3545" />
+              <Text style={styles.errorText}>{errorMessage}</Text>
+            </View>
+          ) : null}
+
           <View style={styles.form}>
             <View style={styles.inputContainer}>
               <Ionicons name="mail-outline" size={20} color="#6c757d" style={styles.inputIcon} />
@@ -73,10 +88,14 @@ export default function LoginScreen() {
                 placeholder="E-mailadres"
                 placeholderTextColor="#6c757d"
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  setErrorMessage('');
+                }}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
+                editable={!isLoading}
               />
             </View>
 
@@ -87,10 +106,17 @@ export default function LoginScreen() {
                 placeholder="Wachtwoord"
                 placeholderTextColor="#6c757d"
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  setErrorMessage('');
+                }}
                 secureTextEntry={!showPassword}
+                editable={!isLoading}
               />
-              <Pressable onPress={() => setShowPassword(!showPassword)}>
+              <Pressable 
+                onPress={() => setShowPassword(!showPassword)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
                 <Ionicons
                   name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                   size={20}
@@ -106,11 +132,10 @@ export default function LoginScreen() {
                 pressed && { opacity: 0.8 }
               ]}
               onPress={() => {
-                console.log('Button pressed');
+                console.log('Button pressed!');
                 handleLogin();
               }}
               disabled={isLoading}
-              accessibilityRole="button"
             >
               {isLoading ? (
                 <ActivityIndicator color="#000" />
@@ -122,7 +147,6 @@ export default function LoginScreen() {
             <Pressable
               style={styles.linkButton}
               onPress={() => router.push('/(auth)/register')}
-              accessibilityRole="button"
             >
               <Text style={styles.linkText}>
                 Nog geen account? <Text style={styles.linkTextBold}>Registreren</Text>
@@ -150,7 +174,12 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 32,
+  },
+  logo: {
+    width: 200,
+    height: 100,
+    marginBottom: 8,
   },
   title: {
     fontSize: 32,
@@ -162,6 +191,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#a0a0a0',
     marginTop: 8,
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(220, 53, 69, 0.1)',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    gap: 8,
+  },
+  errorText: {
+    color: '#dc3545',
+    fontSize: 14,
+    flex: 1,
   },
   form: {
     gap: 16,
@@ -203,6 +246,7 @@ const styles = StyleSheet.create({
   linkButton: {
     alignItems: 'center',
     marginTop: 16,
+    padding: 8,
   },
   linkText: {
     color: '#a0a0a0',
@@ -211,10 +255,5 @@ const styles = StyleSheet.create({
   linkTextBold: {
     color: '#F5A623',
     fontWeight: '600',
-  },
-  logo: {
-    width: 200,
-    height: 100,
-    marginBottom: 8,
   },
 });
