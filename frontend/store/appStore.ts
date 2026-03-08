@@ -4,9 +4,10 @@ import axios from 'axios';
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 // Types
-export interface TeamLid {
+export interface Team {
   id: string;
   naam: string;
+  leden: string[];
   actief: boolean;
 }
 
@@ -16,6 +17,7 @@ export interface Klant {
   email: string;
   telefoon?: string;
   adres?: string;
+  uurtarief: number;
   actief: boolean;
 }
 
@@ -36,17 +38,44 @@ export interface UrenRegel {
   vrijdag: number;
   zaterdag: number;
   zondag: number;
+  afkorting_ma: string;
+  afkorting_di: string;
+  afkorting_wo: string;
+  afkorting_do: string;
+  afkorting_vr: string;
+  afkorting_za: string;
+  afkorting_zo: string;
+}
+
+export interface KmRegel {
+  maandag: number;
+  dinsdag: number;
+  woensdag: number;
+  donderdag: number;
+  vrijdag: number;
+  zaterdag: number;
+  zondag: number;
 }
 
 export interface Werkbon {
   id: string;
   week_nummer: number;
   jaar: number;
+  datum_maandag?: string;
+  datum_dinsdag?: string;
+  datum_woensdag?: string;
+  datum_donderdag?: string;
+  datum_vrijdag?: string;
+  datum_zaterdag?: string;
+  datum_zondag?: string;
   klant_id: string;
   klant_naam: string;
   werf_id: string;
   werf_naam: string;
   uren: UrenRegel[];
+  km_afstand: KmRegel;
+  uitgevoerde_werken: string;
+  extra_materialen: string;
   handtekening_data?: string;
   handtekening_naam: string;
   handtekening_datum?: string;
@@ -62,15 +91,26 @@ export interface BedrijfsInstellingen {
   id: string;
   bedrijfsnaam: string;
   email: string;
+  admin_emails: string[];
   telefoon?: string;
   adres?: string;
   kvk_nummer?: string;
   btw_nummer?: string;
 }
 
+export interface WeekDates {
+  datum_maandag: string;
+  datum_dinsdag: string;
+  datum_woensdag: string;
+  datum_donderdag: string;
+  datum_vrijdag: string;
+  datum_zaterdag: string;
+  datum_zondag: string;
+}
+
 interface AppState {
   // Data
-  teamleden: TeamLid[];
+  teams: Team[];
   klanten: Klant[];
   werven: Werf[];
   werkbonnen: Werkbon[];
@@ -81,9 +121,10 @@ interface AppState {
   error: string | null;
   
   // Actions
-  fetchTeamleden: () => Promise<void>;
-  addTeamlid: (naam: string) => Promise<void>;
-  deleteTeamlid: (id: string) => Promise<void>;
+  fetchTeams: () => Promise<void>;
+  addTeam: (naam: string, leden: string[]) => Promise<void>;
+  updateTeam: (id: string, naam: string, leden: string[]) => Promise<void>;
+  deleteTeam: (id: string) => Promise<void>;
   
   fetchKlanten: () => Promise<void>;
   addKlant: (data: Omit<Klant, 'id' | 'actief'>) => Promise<void>;
@@ -100,7 +141,9 @@ interface AppState {
   createWerkbon: (data: any, userId: string, userName: string) => Promise<Werkbon>;
   updateWerkbon: (id: string, data: any) => Promise<Werkbon>;
   deleteWerkbon: (id: string) => Promise<void>;
-  verzendWerkbon: (id: string) => Promise<void>;
+  verzendWerkbon: (id: string) => Promise<any>;
+  
+  fetchWeekDates: (year: number, week: number) => Promise<WeekDates>;
   
   fetchInstellingen: () => Promise<void>;
   updateInstellingen: (data: Partial<BedrijfsInstellingen>) => Promise<void>;
@@ -110,7 +153,7 @@ interface AppState {
 
 export const useAppStore = create<AppState>((set, get) => ({
   // Initial state
-  teamleden: [],
+  teams: [],
   klanten: [],
   werven: [],
   werkbonnen: [],
@@ -119,29 +162,40 @@ export const useAppStore = create<AppState>((set, get) => ({
   error: null,
   
   // Team actions
-  fetchTeamleden: async () => {
+  fetchTeams: async () => {
     set({ isLoading: true, error: null });
     try {
-      const response = await axios.get(`${BACKEND_URL}/api/team`);
-      set({ teamleden: response.data, isLoading: false });
+      const response = await axios.get(`${BACKEND_URL}/api/teams`);
+      set({ teams: response.data, isLoading: false });
     } catch (error: any) {
       set({ error: error.message, isLoading: false });
     }
   },
   
-  addTeamlid: async (naam: string) => {
+  addTeam: async (naam: string, leden: string[]) => {
     try {
-      const response = await axios.post(`${BACKEND_URL}/api/team`, { naam });
-      set(state => ({ teamleden: [...state.teamleden, response.data] }));
+      const response = await axios.post(`${BACKEND_URL}/api/teams`, { naam, leden });
+      set(state => ({ teams: [...state.teams, response.data] }));
     } catch (error: any) {
       set({ error: error.message });
     }
   },
   
-  deleteTeamlid: async (id: string) => {
+  updateTeam: async (id: string, naam: string, leden: string[]) => {
     try {
-      await axios.delete(`${BACKEND_URL}/api/team/${id}`);
-      set(state => ({ teamleden: state.teamleden.filter(t => t.id !== id) }));
+      const response = await axios.put(`${BACKEND_URL}/api/teams/${id}`, { naam, leden });
+      set(state => ({
+        teams: state.teams.map(t => t.id === id ? response.data : t)
+      }));
+    } catch (error: any) {
+      set({ error: error.message });
+    }
+  },
+  
+  deleteTeam: async (id: string) => {
+    try {
+      await axios.delete(`${BACKEND_URL}/api/teams/${id}`);
+      set(state => ({ teams: state.teams.filter(t => t.id !== id) }));
     } catch (error: any) {
       set({ error: error.message });
     }
@@ -285,12 +339,23 @@ export const useAppStore = create<AppState>((set, get) => ({
   
   verzendWerkbon: async (id: string) => {
     try {
-      await axios.post(`${BACKEND_URL}/api/werkbonnen/${id}/verzenden`);
+      const response = await axios.post(`${BACKEND_URL}/api/werkbonnen/${id}/verzenden`);
       set(state => ({
         werkbonnen: state.werkbonnen.map(w => 
           w.id === id ? { ...w, status: 'verzonden', email_verzonden: true } : w
         )
       }));
+      return response.data;
+    } catch (error: any) {
+      set({ error: error.message });
+      throw error;
+    }
+  },
+  
+  fetchWeekDates: async (year: number, week: number) => {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/week-dates/${year}/${week}`);
+      return response.data;
     } catch (error: any) {
       set({ error: error.message });
       throw error;
