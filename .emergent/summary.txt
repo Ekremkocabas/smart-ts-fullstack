@@ -3,196 +3,212 @@
 **original_problem_statement:**
 The user wants to build a mobile application for their construction company, which will function as a digital timesheet (Werkbon).
 
-**PRODUCT REQUIREMENTS:**
-1.  **User Authentication:**
-    *   Employees will log in using their company email addresses.
-    *   There must be a distinction between 'Admin' and 'Worker' roles.
-    *   Admins should have access to a settings/management panel ('Beheer').
-    *   Workers should only be able to create and manage their timesheets.
+**PRODUCT REQUIREMENTS (based on initial request and subsequent user feedback):**
+1.  **User Authentication & Roles:**
+    *    is the sole 'Admin' (). All other users are 'Workers' ().
+    *   Admins have access to a management panel ('Beheer'). Workers do not.
+    *   Workers can change their own password.
 
-2.  **Timesheet (Werkbon) Creation:**
-    *   Select a client and a worksite (werf). The list of worksites should be filtered based on the selected client.
-    *   The form should be based on a weekly view, automatically populating dates when a week number is entered.
-    *   Log effectief gewerkte uren (effective hours worked) for each team member per day.
-    *   Log KM afstand (kilometer distance) per day.
-    *   Include a text area for uitgevoerde werken (work performed).
-    *   Include a text area for gebruikte extra materialen (extra materials used).
-    *   Ability to mark days with abbreviations for non-working reasons: Z (ziek/sick), V (verlof/leave), BV (betaald verlof/paid leave), BF (betaald feestdag/paid holiday).
-    *   Calculate and display total hours per employee for the week.
-    *   Calculate and display a grand total of all hours for the team for the week.
+2.  **Admin Management ('Beheer') Panel:**
+    *   **Worker Management:** Admins must be able to add new workers by providing an email and name. A temporary password should be generated and displayed to the admin. A welcome email with login instructions should be sent. Admins must also be able to delete workers.
+    *   **PDF Settings:** Admins must be able to customize the generated PDF by uploading a company logo and editing the footer text/disclaimer.
+    *   **Company Settings:** Admins must be able to manage company details (name, address, KVK, BTW) which will be used in the PDF.
+    *   **Client/Team Management:** (Requested but not fully implemented) Manage clients, teams, and hourly rates.
 
-3.  **Admin Management ('Beheer') Panel:**
-    *   Manage Teams: Create/edit teams and assign employees to them.
-    *   Manage Clients: Add/edit client information, including a specific hourly rate ().
-    *   Manage Worksites (Werven).
-    *   Manage Company Settings: A place to input company details like address, which will be used in the PDF.
+3.  **Timesheet (Werkbon) Functionality:**
+    *   (Partially implemented) Create a weekly timesheet.
+    *   (Requested) Workers must be able to select a client when filling out a timesheet.
+    *   (Requested) Non-working day abbreviations (Z, V, BV, BF) must appear on the final PDF.
+    *   (Requested) Hourly rates () should NOT be visible to workers.
 
-4.  **Signature & PDF Generation:**
-    *   A feature for the client's representative to sign the timesheet directly on the mobile device.
-    *   Generate a professional-looking PDF of the completed and signed timesheet.
-    *   The PDF must include the Smart Tech logo, all the timesheet details, the signature, and company information.
-
-5.  **Email Functionality:**
-    *   After signing, the PDF should be automatically emailed to both the company (a predefined address) and the client.
-    *   The email sent to the client should include the total cost (total hours * client's hourly rate) and a legal disclaimer stating that the invoice is considered approved if no objections are raised within a week.
+4.  **Signature, PDF Generation & Email:**
+    *   A signature page for clients to sign off on the werkbon.
+    *   A Versturen als PDF button should generate a professional PDF.
+    *   The PDF must include the company logo, company details, all timesheet info (including abbreviations), and the signature.
+    *   The signed PDF should be emailed to the company () and the client.
 
 **User's preferred language**: Nederlands
 
 **what currently exists?**
-A full-stack application with an Expo frontend and a FastAPI backend has been built.
--   **Frontend:** The UI has been styled with a yellow theme and includes the company logo on the login page. It has screens for login, a list of timesheets, a detailed timesheet creation form with many of the requested fields (week selection, KM, work description), and a management ('Beheer') section.
--   **Backend:** FastAPI endpoints for CRUD operations on Users, Werkbons, Clients, etc., are in place. A basic role system (, ) has been implemented.
--   **Authentication:** A login system exists, but it is currently the source of major issues.
+A full-stack Expo/FastAPI application. The critical admin login issue has been resolved.  can log in as an admin.
+-   **Frontend:** The 'Beheer' (Admin) panel has been significantly built out with tabs for Werknemers (Workers), PDF, and Instellingen (Company Settings). The worker creation flow now shows a temporary password in a modal. The profile page has a working logout button and a password change form. The login page displays the correct company logo.
+-   **Backend:** Endpoints for user management (create, update active status, change password), company settings (CRUD), and PDF settings have been created.
+-   **Email:** Resend.com has been integrated for sending emails. Due to domain verification limitations, emails (like the new worker welcome email) are currently sent to the admin's address () instead of the new worker directly.
 
 **Last working item**:
--   **Last item agent was working:** The agent was trying to resolve a critical and recurring issue where admin users ( and ) could not log in correctly or, if they could, were not recognized as 'admin' () and were blocked from accessing the admin panel. The user reported this failure multiple times, even after the agent believed it was fixed.
--   **Status**: BLOCKED
--   **Agent Testing Done**: Y
--   **Which testing method agent to use?**: backend testing agent
--   **User Testing Done**: N (User repeatedly failed to test due to the login issue).
+-   Last item agent was working: Implementing the ability for an admin to delete a worker. This involved adding a backend  endpoint, updating the frontend state management (Zustand store), and adding a delete button with a confirmation dialog to the worker list UI in .
+-   Status: IN PROGRESS
+-   Agent Testing Done: N
+-   Which testing method agent to use? backend testing agent
+-   User Testing Done: N
 
 **All Pending/In progress Issue list**:
--   Issue 1: (P0) Admin login and role recognition is completely broken for the user.
--   Issue 2: (P1) Navigation tab bar is positioned too low on Android, clashing with system navigation buttons.
--   Issue 3: (P2) The signature pad component () is known to not work in the web preview, which may hinder testing.
+-   Issue 1: (P0) Test and Finalize 'Delete Worker' Feature
+-   Issue 2: (P1) Signature page does not navigate back after saving
+-   Issue 3: (P1) The Versturen als PDF button is non-functional
+-   Issue 4: (P2) Emails are sent to the admin, not the new worker
+-   Issue 5: (P3) PDF content is incomplete
 
 Issues Detail:
--   **Issue 1: Admin login and role recognition is broken**
-    -   **Attempted fixes:** The agent tried numerous fixes: rewriting login components, switching from  to , clearing databases, re-creating users, fixing  configurations, and correcting a bug where the  was not updated with user data post-login ( was not called). Despite multiple successes on the agent's side, the user continues to face the exact same problem.
-    -   **Next debug checklist**: A full end-to-end verification of the authentication/authorization flow is required.
-        1.  **Database:** Connect to the  MongoDB database and manually verify that the user  exists and its  field is set to .
-        2.  **Backend API:** Use  to test the  endpoint with the admin credentials. Ensure the JSON response contains .
-            
-        3.  **Frontend Login Logic:** In , inside the  function, add a  right after the  call to see the exact data received from the backend.
-        4.  **Frontend Context Update:** In the same function, verify that  is being called and that  contains the complete user object including the role.
-        5.  **Admin Screen Logic:** In , add  at the top to see the user object as received from the . Verify the condition that checks .
-    -   **Why fix this issue and what will be achieved with the fix?**: This is the highest priority blocker. The user cannot test or use any of the admin features, which are central to the app's purpose. Fixing this will unblock all further development and testing.
-    -   **Status**: IN PROGRESS
-    -   **Is recurring issue?**: Y
-    -   **Should Test frontend/backend/both after fix?**: both
-    -   **Blocked on other issue**: None. This is the main blocker.
-
--   **Issue 2: Android tab bar position**
-    -   **Attempted fixes:** The agent added  of padding to the tab bar. This may not be a robust solution.
-    -   **Next debug checklist**: A better approach is to use  from  to handle the layout on different devices correctly, or adjust the  property in the navigator options based on . The agent set it to , but the user may want it at the bottom but clear of the OS buttons. This needs clarification.
-    -   **Why fix this issue and what will be achieved with the fix?**: Improves usability on Android devices.
+-   **Issue 1: Test and Finalize 'Delete Worker' Feature**
+    -   **Attempted fixes:** The code has been written across the stack (backend endpoint, frontend store, UI button). No testing has been performed yet.
+    -   **Next debug checklist**:
+        1.  Use the backend testing agent to verify the  endpoint works as expected.
+        2.  Manually test the frontend flow: Log in as admin, go to Beheer -> Werknemers, click the delete icon next to a test user, confirm the dialog, and verify the user is removed from the list and the database.
+    -   **Why fix this issue and what will be achieved with the fix?**: This is a direct user request to manage the user list and remove test/old accounts.
     -   **Status**: IN PROGRESS
     -   **Is recurring issue?**: N
+    -   **Should Test frontend/backend/both after fix?**: both
+
+-   **Issue 2: Signature page does not navigate back after saving**
+    -   **Attempted fixes:** The agent identified that  (which was used for confirmation) does not work well on the web preview and blocks navigation. The agent replaced it with a direct call to  in  within the  function. This fix has not been tested.
+    -   **Next debug checklist**:
+        1.  Go to a werkbon, open the signature page.
+        2.  Fill in the name and sign.
+        3.  Click 'Bevestigen' (or 'Opslaan').
+        4.  Verify the app navigates back to the previous screen and that the signature data was successfully saved to the backend.
+    -   **Why fix this issue and what will be achieved with the fix?**: Fixes a broken and confusing user flow, making the signature feature usable.
+    -   **Status**: TESTING PENDING
+    -   **Is recurring issue?**: Y
     -   **Should Test frontend/backend/both after fix?**: frontend
 
--   **Issue 3: Signature pad web incompatibility**
-    -   **Attempted fixes**: None. The agent correctly identified it as a limitation of the library.
-    -   **Next debug checklist**: This is not a bug to be fixed but a limitation to be aware of. The final testing of this feature must be done on a mobile device using Expo Go, not the web preview.
-    -   **Why fix this issue and what will be achieved with the fix?**: N/A. This is for awareness.
+-   **Issue 3: The Versturen als PDF button is non-functional**
+    -   **Attempted fixes:** None. This feature has been requested but not implemented. The agent has focused on fixing authentication and user management bugs.
+    -   **Next debug checklist**: This is a feature to be built, not a bug to be fixed. See Upcoming Tasks.
+    -   **Why fix this issue and what will be achieved with the fix?**: This is a core requirement of the application. Implementing it will allow users to get the final timesheet document.
     -   **Status**: NOT STARTED
     -   **Is recurring issue?**: N
-    -   **Should Test frontend/backend/both after fix?**: frontend
+    -   **Should Test frontend/backend/both after fix?**: both
+
+-   **Issue 4: Emails are sent to the admin, not the new worker**
+    -   **Attempted fixes:** The agent correctly identified that the Resend free plan requires domain verification to send emails to external addresses. As a workaround, the backend  function was modified to send the notification to the admin's verified email ().
+    -   **Next debug checklist**: This is not a bug, but a known limitation. The next agent should:
+        1.  Confirm this behavior with the user and explain the reason (domain verification).
+        2.  Suggest the next step for the user is to verify their domain with Resend to enable direct-to-worker emails.
+    -   **Why fix this issue and what will be achieved with the fix?**: Improves the onboarding flow for new workers by sending credentials directly to them.
+    -   **Status**: BLOCKED (on user action: domain verification)
+    -   **Is recurring issue?**: N
+    -   **Should Test frontend/backend/both after fix?**: backend
+
+-   **Issue 5: PDF content is incomplete**
+    -   **Attempted fixes:** The backend  has a placeholder for PDF generation, and the  page allows setting a logo URL and footer text. However, the actual PDF generation logic does not yet incorporate all the required data.
+    -   **Next debug checklist**: The  function in  needs to be enhanced to fetch and render the werkbon details, including the non-working day abbreviations (Z, V, BF).
+    -   **Why fix this issue and what will be achieved with the fix?**: Fulfills the user's requirement for a complete and professional timesheet document.
+    -   **Status**: NOT STARTED
+    -   **Is recurring issue?**: N
+    -   **Should Test frontend/backend/both after fix?**: backend
 
 **In progress Task List**:
--   **Task 1: Finalize Admin/Worker Role Separation**
-    -   **Where to resume:** The entire auth flow needs to be re-verified as per the debug checklist for Issue #1.
-    -   **What will be achieved with this?**: A working login system that correctly identifies user roles, which is critical for the application's security and functionality.
+-   **Task 1: Implement Worker Deletion**
+    -   **Where to resume:** The code is written. The next step is to test the functionality end-to-end as described in Issue 1 of the pending list.
+    -   **What will be achieved with this?**: Admins will be able to manage their list of employees.
     -   **Status**: IN PROGRESS
     -   **Should Test frontend/backend/both after fix?**: both
-    -   **Blocked on something**: This is the blocker for other tasks.
+    -   **Blocked on something**: Nothing.
 
 **Upcoming and Future Tasks**
 **Upcoming Tasks:**
--   **P0: Professional PDF Generation:** (Backend/Frontend)
-    -   Implement a PDF generation service on the backend using a library like .
-    -   The PDF must include the company logo, company details from the new admin settings, all timesheet data, and the captured signature.
--   **P1: Admin Company Settings Page:** (Backend/Frontend)
-    -   Create a new DB model and API endpoints for company settings (address, VAT number, etc.).
-    -   Build a form in the Beheer section for admins to edit this information.
--   **P2: Email Integration:** (Backend)
-    -   Integrate an SMTP service for sending emails.
-    -   Create a function to send the generated PDF to the client and the company.
-    -   The email to the client must contain the calculated total price and the legal disclaimer.
--   **P2: Implement Totals Calculation on Werkbon:** (Frontend)
-    -   Add logic to  to calculate and display the total hours per employee and the grand total for the team.
+-   **P0: Implement Versturen als PDF Functionality:** (Frontend/Backend)
+    -   Create a new endpoint on the backend (e.g., ) that triggers PDF generation and emailing.
+    -   The PDF generation logic in  must be built out to use a library like  or  to create a professional document including the logo, company info from settings, werkbon data (hours, tasks, materials), and non-working day abbreviations (Z, V, etc.).
+    -   The frontend needs to call this new endpoint from the werkbon detail page.
+-   **P1: Client Selection on Werkbon Form:** (Frontend/Backend)
+    -   The  form for werkbons needs a dropdown to select a client.
+    -   This dropdown should be populated by fetching data from the  endpoint.
+-   **P2: Admin ability to save/sign/email Werkbons:** (Frontend)
+    -   Ensure the admin role has the same permissions and UI available as a worker to complete and process a werkbon.
 
 **Future Tasks:**
--   **P3: App Store / PWA Deployment Strategy:** Decide on and implement the final deployment method for the app.
+-   **P3: Auto-populate team members on Werkbon form.**
+-   **P3: Hide hourly rate () from workers on all screens.**
 
 **Completed work in this session**
--   Initial project setup for a full-stack Expo/FastAPI application.
--   Creation of basic CRUD API endpoints and database models for users, clients, sites, and timesheets.
--   Development of the basic frontend structure with navigation ().
--   UI rebranding with a yellow color scheme and addition of the company logo on the login screen ().
--   Significant expansion of the Create Werkbon form () to include fields for KM distance, work performed, materials, and non-working day abbreviations.
--   Initial implementation of a role-based view on the management screen ().
+-   Fixed the critical and recurring admin login and role recognition bug.
+-   Redesigned the Beheer (Admin) panel with a tabbed interface for managing Workers, PDF Settings, and Company Settings.
+-   Implemented the Add New Worker feature, including generating a temporary password and displaying it in a custom modal.
+-   Fixed the non-functional Uitloggen (Logout) button on the profile page.
+-   Implemented a Change Password feature on the user profile page.
+-   Successfully integrated the correct company logo on the login page and created settings for a PDF logo.
+-   Integrated the Resend service for sending emails and implemented a welcome email for new workers (currently sent to the admin).
+-   Resolved multiple UI/UX bugs reported by the user, including the display of the password modal and the logout button's position.
 
 **Earlier issues found/mentioned but not fixed**
--   The core issue of admin login and role recognition has been present for a significant part of the session and remains unresolved from the user's perspective. It has been documented as the P0 Pending Issue.
+- The core functionality of generating and emailing a complete PDF (Versturen als PDF) has been mentioned multiple times but is not yet implemented. This is now the most significant missing piece of the application.
 
 **Known issue recurrence from previous fork**
--   N/A. This is the first summary.
+- The admin login/role issue was the major recurring problem from the start of the session, but it appears to be definitively resolved now.
+- The  issue on web causing navigation/UI blocks has recurred multiple times. The agent has been replacing it with custom modals or direct navigation calls.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Frontend:** Expo (React Native) with TypeScript.
--   **Routing:**  (file-based).
--   **State Management:** Zustand for global state, React Context () for authentication.
--   **Backend:** FastAPI (Python).
--   **Database:** MongoDB.
--   **Styling:** React Native  with a custom color theme.
+-   **Frontend:** Expo (React Native), TypeScript, 
+-   **State Management:** Zustand, React Context
+-   **Backend:** FastAPI (Python)
+-   **Database:** MongoDB
+-   **Email Integration:** Resend.com
+-   **PDF Generation:**  (installed but logic not fully implemented)
 
 **key DB schema**
 -   **users:** 
--   **clients:** 
--   **werven:** 
--   **teams:** 
+-   **instellingen:**  (singleton document/collection)
 -   **werkbons:** 
 
 **All files of reference**
--   : The source of the login bug. Contains the  function.
--   : Manages the user session state. A bug where  was not called was fixed here, but needs re-verification.
--   : The admin screen where the role check fails.
--   : Contains all API logic, including user creation, login, and role assignment. The logic for assigning roles during registration needs to be checked.
--   : Defines the main tab navigation. The tab bar position was modified here for Android.
--   : The complex form for creating a new timesheet.
+-   : Contains all new/updated endpoints for deleting users, sending welcome emails, and the placeholder for PDF generation.
+-   : Heavily modified to include the worker management tab, delete functionality, and the custom modal for displaying temporary passwords.
+-   : Updated with  and other worker management functions.
+-   :  function was modified to use  instead of .
+-   : Rewritten to fix the layout of the logout button.
+-   : Updated to use the correct logo file.
 
 **Critical Info for New Agent**
-The user is extremely frustrated with the recurring admin login failure. This is your **number one priority**. Do not attempt any new features until the user confirms they can successfully log in as  and access the Beheer (admin) panel. The issue is likely a combination of frontend state management (), backend role assignment, and potential caching on the user's device. You must be methodical in your debugging and confirm each step of the authentication flow works before presenting it to the user. The previous agent found that  was not being called in  after login; this fix is critical and must be verified immediately.
+The user is frustrated by the iterative bug-fixing process. Your top priority is to deliver a stable and functional set of features based on the user's latest requests.
+1.  **Test Thoroughly:** Before handing anything to the user, test it yourself. The immediate priority is testing the Delete Worker feature that was just implemented.
+2.  **Focus on Core Gaps:** The biggest missing piece is the Versturen als PDF functionality. This should be the next major feature to tackle after the pending bugs are resolved.
+3.  **Manage Expectations:** Be clear about the Resend email limitation (domain verification). Explain that emails are being sent to the admin as a temporary, working solution.
+4.  **Signature Pad on Web:** Remember that  does not work on the web preview. Final testing for this feature must be done on a mobile device via Expo Go.
 
 **documents created in this job**
 -   None.
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **Hala info@smart-techbv.be beheerder deyil...**: User reports  is still a worker, not an admin, and requests PDF enhancements (logo, professional look, editable company info). (UNRESOLVED)
-2.  **Fix only the login system...**: User explicitly asks to reset and fix only the login system. (UNRESOLVED)
-3.  **Ekipen nedemek?...**: User points out a language error (Ekipen should be Dutch). (RESOLVED)
-4.  **Neden ikidebir duruyosun...**: User is frustrated with the agent pausing. (AGENT ISSUE)
-5.  **Oldumu?**: User asks if the fix is done. (PENDING)
-6.  **Neden pause aldin**: User asks why the agent paused. (AGENT ISSUE)
-7.  **This is blocked on authentication...**: User clearly states the issue is a blocker and gives precise instructions to fix the admin account. (UNRESOLVED)
-8.  **Iki sorun hala var...**: User reports both  and  are not working as admins. (UNRESOLVED)
-9.  **Bu inlog admin deyil werknemer yapmisin...**: User reports login is for a worker, not admin, and the tab bar is too low on Android. (UNRESOLVED)
-10. **Evet ama deploy basma dugmesi gondermedin**: User is confused about how to deploy. (ADDRESSED)
+1.  **Hala eksikler var... (msg 376):** User reports: Signature save doesn't navigate back; PDF button does nothing; no way to delete workers; asks why password email isn't sent. (UNRESOLVED - IN PROGRESS)
+2.  **Ondertekenen yerinde giriyo... (msg 376):** Same as above, more detail.
+3.  **User provides screenshot of broken UI (msg 339):** Reports password not showing, signature broken, logout button missing. (RESOLVED)
+4.  **Gonderdigim resimlerdede... (msg 339):** Same as above.
+5.  **Hala eksikler var werknemers de... (msg 294):** User reports password not visible, 'actief' toggle doesn't work, email not sent, PDF logo missing. (PARTIALLY RESOLVED - some issues fixed, email limitation remains)
+6.  **Provides Resend API Key and feedback (msg 233):** User gives API key, says the logo is wrong, and asks to see email templates. Expresses frustration with the slow progress. (RESOLVED)
+7.  **re_CN8ucdED_... anahtar bu. (msg 233):** Same as above.
+8.  **Provides new logos and requirements (msg 174):** User asks for temp password on screen, welcome email, password change feature, and specifies which logos to use where. (RESOLVED)
+9.  **Resend api anahtari vericem... (msg 174):** Same as above.
+10. **Mailide yap ne lazimsa bedava olan systemi kur (msg 153):** User explicitly requests the implementation of a free email system. (RESOLVED)
 
 **Project Health Check:**
--   **Broken:** The authentication and authorization system is fundamentally broken from the user's perspective, preventing access to core admin features.
+-   **Broken:**
+    -   The core workflow of signing a werkbon and emailing it as a PDF is incomplete and partially broken.
+-   **Mocked:**
+    -   Emailing new user credentials is functional but limited, as all emails are routed to the admin's address as a workaround for domain verification.
 
 **3rd Party Integrations**
--   None explicitly configured yet. SMTP for email and a PDF library for the backend will be needed.
+-   **Resend:** Used for sending emails. Requires a user-provided API key. The free tier has a limitation requiring domain verification to send emails to unverified addresses.
+-   **MongoDB:** The database for the application.
+-   : Used for capturing signatures. Known not to work on web previews.
 
 **Testing status**
--   **Testing agent used after significant changes**: YES (Backend tester was used)
+-   **Testing agent used after significant changes**: YES (Backend tester was used previously).
 -   **Troubleshoot agent used after agent stuck in loop**: NO
 -   **Test files created**: None.
--   **Known regressions**: The admin login functionality has regressed or failed repeatedly throughout the session.
+-   **Known regressions**: The Uitloggen (Logout) button disappeared and was fixed. UI elements on the  page have been fragile.
 
 **Credentials to test flow:**
-The following credentials *should* work, but are the source of the main bug. They must be verified.
 -   **Email:** 
 -   **Password:** 
 -   **Expected Role:** 
 
 **What agent forgot to execute**
--   The agent repeatedly failed to permanently fix the user role issue. Despite identifying multiple root causes (including a critical bug in ), the problem persisted for the user, suggesting an incomplete fix or another underlying issue was missed.
--   The agent did not fully address the user's request for PDF enhancements from message #397, as it was still stuck on the login bug.
--   The agent did not implement the company info management page requested in message #397.
+-   The agent has consistently pushed the implementation of the Versturen als PDF functionality to a later stage, despite it being a core user request. The focus has been on fixing user management and authentication bugs.
+-   The agent did not fully implement the PDF content generation (e.g., adding abbreviations like Z, V, BF) even after setting up the basics for the PDF settings.
 
 </analysis>

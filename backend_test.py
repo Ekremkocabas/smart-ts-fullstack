@@ -10,7 +10,7 @@ from datetime import datetime
 import uuid
 
 # Configuration
-BACKEND_URL = "https://beheer-preview.preview.emergentagent.com/api"
+BACKEND_URL = "https://work-pulse-16.preview.emergentagent.com/api"
 HEADERS = {"Content-Type": "application/json"}
 
 # Test data - realistic construction company data

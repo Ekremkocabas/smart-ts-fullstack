@@ -169,11 +169,21 @@ export default function HandtekeningScreen() {
         handtekening_naam: naam.trim(),
         status: 'ondertekend',
       });
-      Alert.alert('Succes', 'Werkbon is ondertekend', [
-        { text: 'OK', onPress: () => router.back() }
-      ]);
+      // Web'de Alert çalışmıyor, doğrudan geri git
+      if (Platform.OS === 'web') {
+        router.back();
+      } else {
+        Alert.alert('Succes', 'Werkbon is ondertekend', [
+          { text: 'OK', onPress: () => router.back() }
+        ]);
+      }
     } catch (error: any) {
-      Alert.alert('Fout', error.message || 'Kon handtekening niet opslaan');
+      if (Platform.OS === 'web') {
+        console.error('Fout:', error.message);
+        router.back();
+      } else {
+        Alert.alert('Fout', error.message || 'Kon handtekening niet opslaan');
+      }
     } finally {
       setIsSaving(false);
     }

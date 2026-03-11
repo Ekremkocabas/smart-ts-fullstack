@@ -68,7 +68,7 @@ export default function BeheerScreen() {
     addTeam, updateTeam, deleteTeam,
     addKlant, updateKlant, deleteKlant,
     addWerf, deleteWerf,
-    addWerknemer, updateWerknemer,
+    addWerknemer, updateWerknemer, deleteWerknemer,
     updateInstellingen,
   } = useAppStore();
 
@@ -256,23 +256,33 @@ export default function BeheerScreen() {
     }
   };
 
-  const confirmDelete = (type: 'team' | 'klant' | 'werf', id: string, naam: string) => {
-    Alert.alert(
-      'Verwijderen',
-      `Weet u zeker dat u "${naam}" wilt verwijderen?`,
-      [
-        { text: 'Annuleren', style: 'cancel' },
-        {
-          text: 'Verwijderen',
-          style: 'destructive',
-          onPress: async () => {
-            if (type === 'team') await deleteTeam(id);
-            else if (type === 'klant') await deleteKlant(id);
-            else if (type === 'werf') await deleteWerf(id);
+  const confirmDelete = (type: 'team' | 'klant' | 'werf' | 'werknemer', id: string, naam: string) => {
+    if (Platform.OS === 'web') {
+      if (confirm(`Weet u zeker dat u "${naam}" wilt verwijderen?`)) {
+        if (type === 'team') deleteTeam(id);
+        else if (type === 'klant') deleteKlant(id);
+        else if (type === 'werf') deleteWerf(id);
+        else if (type === 'werknemer') deleteWerknemer(id);
+      }
+    } else {
+      Alert.alert(
+        'Verwijderen',
+        `Weet u zeker dat u "${naam}" wilt verwijderen?`,
+        [
+          { text: 'Annuleren', style: 'cancel' },
+          {
+            text: 'Verwijderen',
+            style: 'destructive',
+            onPress: async () => {
+              if (type === 'team') await deleteTeam(id);
+              else if (type === 'klant') await deleteKlant(id);
+              else if (type === 'werf') await deleteWerf(id);
+              else if (type === 'werknemer') await deleteWerknemer(id);
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    }
   };
 
   const toggleWerknemerActief = async (werknemer: User) => {
@@ -331,12 +341,14 @@ export default function BeheerScreen() {
             {werknemers.filter(w => w.rol !== 'admin').map((werknemer) => {
               const team = teams.find(t => t.id === werknemer.team_id);
               return (
-                <TouchableOpacity 
+                <View 
                   key={werknemer.id} 
                   style={[styles.listItem, !werknemer.actief && styles.listItemInactive]}
-                  onPress={() => openModal('werknemer', werknemer)}
                 >
-                  <View style={styles.listItemLeft}>
+                  <TouchableOpacity 
+                    style={styles.listItemLeft}
+                    onPress={() => openModal('werknemer', werknemer)}
+                  >
                     <Ionicons name="person" size={20} color={werknemer.actief ? "#F5A623" : "#6c757d"} />
                     <View>
                       <Text style={[styles.listItemText, !werknemer.actief && styles.textInactive]}>
@@ -345,17 +357,22 @@ export default function BeheerScreen() {
                       <Text style={styles.listItemSubtext}>{werknemer.email}</Text>
                       {team && <Text style={styles.teamBadge}>{team.naam}</Text>}
                     </View>
-                  </View>
-                  <View style={styles.switchContainer}>
-                    <Text style={styles.switchLabel}>{werknemer.actief ? 'Actief' : 'Inactief'}</Text>
+                  </TouchableOpacity>
+                  <View style={styles.werknemerActions}>
                     <Switch
                       value={werknemer.actief}
                       onValueChange={() => toggleWerknemerActief(werknemer)}
                       trackColor={{ false: '#2d3a5f', true: '#F5A623' }}
                       thumbColor="#fff"
                     />
+                    <TouchableOpacity 
+                      style={styles.deleteBtn}
+                      onPress={() => confirmDelete('werknemer', werknemer.id, werknemer.naam)}
+                    >
+                      <Ionicons name="trash-outline" size={18} color="#dc3545" />
+                    </TouchableOpacity>
                   </View>
-                </TouchableOpacity>
+                </View>
               );
             })}
             {werknemers.filter(w => w.rol !== 'admin').length === 0 && (
@@ -1015,6 +1032,8 @@ const styles = StyleSheet.create({
   emptyText: { color: '#6c757d', textAlign: 'center', marginTop: 24 },
   switchContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   switchLabel: { color: '#6c757d', fontSize: 12 },
+  werknemerActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  deleteBtn: { padding: 8 },
   formGroup: { marginBottom: 16 },
   rowGroup: { flexDirection: 'row', gap: 12, marginBottom: 16 },
   halfInput: { flex: 1 },

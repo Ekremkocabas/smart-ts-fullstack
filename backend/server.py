@@ -273,7 +273,7 @@ async def is_admin(email: str) -> bool:
 # ==================== AUTH ROUTES ====================
 
 async def send_welcome_email(user_email: str, user_naam: str, temp_password: str, instellingen: dict):
-    """Send welcome email to new worker with step-by-step instructions"""
+    """Send welcome email notification to ADMIN (beheerder) about new worker"""
     
     if not resend.api_key:
         logging.warning("RESEND_API_KEY not configured, skipping welcome email")
@@ -281,6 +281,7 @@ async def send_welcome_email(user_email: str, user_naam: str, temp_password: str
     
     bedrijfsnaam = instellingen.get('bedrijfsnaam', 'Smart-Tech BV')
     
+    # Send to ADMIN email, not worker email (Resend free tier limitation)
     html_content = f"""
     <!DOCTYPE html>
     <html>
@@ -293,100 +294,47 @@ async def send_welcome_email(user_email: str, user_naam: str, temp_password: str
             .content {{ padding: 30px; }}
             .credentials {{ background: #f8f9fa; border-left: 4px solid #F5A623; padding: 20px; margin: 20px 0; }}
             .credentials strong {{ color: #F5A623; }}
+            .forward-box {{ background: #e3f2fd; border: 2px solid #2196f3; padding: 20px; border-radius: 8px; margin: 20px 0; }}
+            .forward-box h3 {{ color: #1565c0; margin-top: 0; }}
             .steps {{ background: #fff3cd; padding: 20px; border-radius: 8px; margin: 20px 0; }}
             .steps h3 {{ color: #856404; margin-top: 0; }}
-            .step {{ display: flex; margin: 15px 0; }}
-            .step-number {{ background: #F5A623; color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 15px; flex-shrink: 0; }}
-            .step-text {{ flex: 1; }}
-            .important {{ background: #dc3545; color: white; padding: 15px; border-radius: 8px; margin: 20px 0; }}
+            .step {{ margin: 10px 0; padding-left: 20px; }}
             .footer {{ background: #f8f9fa; padding: 20px; text-align: center; font-size: 12px; color: #666; }}
         </style>
     </head>
     <body>
         <div class="header">
             <h1>{bedrijfsnaam}</h1>
-            <p>Werkbon Systeem</p>
+            <p>Nieuwe Werknemer Aangemaakt</p>
         </div>
         
         <div class="content">
-            <h2>Welkom {user_naam}!</h2>
+            <h2>Nieuwe werknemer: {user_naam}</h2>
             
-            <p>Er is een account voor u aangemaakt in het werkbon systeem van {bedrijfsnaam}.</p>
+            <p>Er is een nieuw account aangemaakt in het werkbon systeem.</p>
             
             <div class="credentials">
-                <h3>Uw Inloggegevens</h3>
+                <h3>Inloggegevens voor {user_naam}</h3>
                 <p><strong>E-mail:</strong> {user_email}</p>
                 <p><strong>Tijdelijk wachtwoord:</strong> {temp_password}</p>
             </div>
             
-            <div class="steps">
-                <h3>Stappenplan - Zo gebruikt u het systeem</h3>
-                
-                <div class="step">
-                    <div class="step-number">1</div>
-                    <div class="step-text">
-                        <strong>Inloggen</strong><br/>
-                        Open de werkbon app en log in met bovenstaande gegevens.
-                    </div>
-                </div>
-                
-                <div class="step">
-                    <div class="step-number">2</div>
-                    <div class="step-text">
-                        <strong>Wachtwoord wijzigen (optioneel)</strong><br/>
-                        Ga naar Profiel om uw wachtwoord te wijzigen indien gewenst.
-                    </div>
-                </div>
-                
-                <div class="step">
-                    <div class="step-number">3</div>
-                    <div class="step-text">
-                        <strong>Nieuwe Werkbon</strong><br/>
-                        Tik op de + knop om een nieuwe werkbon aan te maken.
-                    </div>
-                </div>
-                
-                <div class="step">
-                    <div class="step-number">4</div>
-                    <div class="step-text">
-                        <strong>Week & Klant kiezen</strong><br/>
-                        Selecteer de juiste week, klant en werf.
-                    </div>
-                </div>
-                
-                <div class="step">
-                    <div class="step-number">5</div>
-                    <div class="step-text">
-                        <strong>Uren invullen</strong><br/>
-                        Vul per dag de gewerkte uren in. Gebruik afkortingen: Z (ziek), V (verlof), BV (betaald verlof), BF (betaald feestdag).
-                    </div>
-                </div>
-                
-                <div class="step">
-                    <div class="step-number">6</div>
-                    <div class="step-text">
-                        <strong>KM en beschrijving</strong><br/>
-                        Voeg eventuele kilometers en een beschrijving van de uitgevoerde werken toe.
-                    </div>
-                </div>
-                
-                <div class="step">
-                    <div class="step-number">7</div>
-                    <div class="step-text">
-                        <strong>Opslaan & Ondertekenen</strong><br/>
-                        Sla de werkbon op en laat deze ondertekenen door de klant.
-                    </div>
-                </div>
+            <div class="forward-box">
+                <h3>📧 Doorsturen naar werknemer</h3>
+                <p>Stuur deze gegevens door naar <strong>{user_email}</strong> zodat de werknemer kan inloggen.</p>
             </div>
             
-            <div class="important">
-                <strong>Belangrijk:</strong> Bewaar dit wachtwoord veilig. U kunt het later wijzigen via uw profiel.
+            <div class="steps">
+                <h3>Instructies voor de werknemer:</h3>
+                <div class="step">1. Open de werkbon app</div>
+                <div class="step">2. Log in met bovenstaande gegevens</div>
+                <div class="step">3. Wachtwoord wijzigen via Profiel (optioneel)</div>
+                <div class="step">4. Werkbonnen aanmaken en invullen</div>
             </div>
         </div>
         
         <div class="footer">
             <p>Dit is een automatisch gegenereerd bericht van {bedrijfsnaam}.</p>
-            <p>Bij vragen kunt u contact opnemen met uw beheerder.</p>
         </div>
     </body>
     </html>
@@ -395,13 +343,13 @@ async def send_welcome_email(user_email: str, user_naam: str, temp_password: str
     try:
         params = {
             "from": SENDER_EMAIL,
-            "to": [user_email],
-            "subject": f"Welkom bij {bedrijfsnaam} - Uw werkbon account",
+            "to": [COMPANY_EMAIL],  # Send to admin, not worker
+            "subject": f"Nieuwe Werknemer: {user_naam} - Inloggegevens",
             "html": html_content
         }
         
         result = await asyncio.to_thread(resend.Emails.send, params)
-        logging.info(f"Welcome email sent to {user_email}: {result}")
+        logging.info(f"Welcome email sent to admin for {user_email}: {result}")
         return {"success": True, "email_id": result.get("id")}
     except Exception as e:
         logging.error(f"Failed to send welcome email: {str(e)}")
@@ -521,6 +469,22 @@ async def change_password(user_id: str, password_data: PasswordChange):
     await db.users.update_one({"id": user_id}, {"$set": {"password_hash": new_hash}})
     
     return {"message": "Wachtwoord succesvol gewijzigd"}
+
+@api_router.delete("/auth/users/{user_id}")
+async def delete_user(user_id: str):
+    """Delete a user (werknemer only, not admin)"""
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
+    
+    if user.get("rol") == "admin":
+        raise HTTPException(status_code=400, detail="Admin gebruikers kunnen niet worden verwijderd")
+    
+    result = await db.users.delete_one({"id": user_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
+    
+    return {"message": "Gebruiker verwijderd"}
 
 # ==================== TEAM ROUTES ====================
 

@@ -157,6 +157,7 @@ interface AppState {
   fetchWerknemers: () => Promise<void>;
   addWerknemer: (email: string, naam: string, teamId?: string) => Promise<User>;
   updateWerknemer: (id: string, data: { naam?: string; team_id?: string; actief?: boolean }) => Promise<void>;
+  deleteWerknemer: (id: string) => Promise<void>;
   
   clearError: () => void;
 }
@@ -443,6 +444,17 @@ export const useAppStore = create<AppState>((set, get) => ({
   updateWerknemer: async (id: string, data: { naam?: string; team_id?: string; actief?: boolean }) => {
     try {
       await axios.put(`${BACKEND_URL}/api/auth/users/${id}`, data);
+      const { fetchWerknemers } = get();
+      await fetchWerknemers();
+    } catch (error: any) {
+      set({ error: error.message });
+      throw error;
+    }
+  },
+  
+  deleteWerknemer: async (id: string) => {
+    try {
+      await axios.delete(`${BACKEND_URL}/api/auth/users/${id}`);
       const { fetchWerknemers } = get();
       await fetchWerknemers();
     } catch (error: any) {

@@ -365,7 +365,7 @@ agent_communication:
       - Signature functionality (status changes to 'ondertekend')
       - Error handling scenarios
       
-      Backend testing is COMPLETE. All endpoints working correctly at https://beheer-preview.preview.emergentagent.com/api
+      Backend testing is COMPLETE. All endpoints working correctly at https://work-pulse-16.preview.emergentagent.com/api
   - agent: "testing"
     message: |
       ADMIN LOGIN TESTING COMPLETED SUCCESSFULLY!
