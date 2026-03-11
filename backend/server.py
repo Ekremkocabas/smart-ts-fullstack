@@ -1,17 +1,24 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends
+from fastapi import FastAPI, APIRouter, HTTPException
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 import asyncio
+import base64
+import io
 from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import hashlib
 import resend
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import mm
+from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -273,7 +280,7 @@ async def is_admin(email: str) -> bool:
 # ==================== AUTH ROUTES ====================
 
 async def send_welcome_email(user_email: str, user_naam: str, temp_password: str, instellingen: dict):
-    """Send welcome email notification to ADMIN (beheerder) about new worker"""
+    """Send welcome email directly to the new worker."""
     
     if not resend.api_key:
         logging.warning("RESEND_API_KEY not configured, skipping welcome email")
@@ -281,7 +288,9 @@ async def send_welcome_email(user_email: str, user_naam: str, temp_password: str
     
     bedrijfsnaam = instellingen.get('bedrijfsnaam', 'Smart-Tech BV')
     
-    # Send to ADMIN email, not worker email (Resend free tier limitation)
+    sender_email = os.environ.get("SENDER_EMAIL") or instellingen.get("email") or COMPANY_EMAIL
+    sender = sender_email if "<" in sender_email else f"{bedrijfsnaam} <{sender_email}>"
+
     html_content = f"""
     <!DOCTYPE html>
     <html>
@@ -319,11 +328,6 @@ async def send_welcome_email(user_email: str, user_naam: str, temp_password: str
                 <p><strong>Tijdelijk wachtwoord:</strong> {temp_password}</p>
             </div>
             
-            <div class="forward-box">
-                <h3>📧 Doorsturen naar werknemer</h3>
-                <p>Stuur deze gegevens door naar <strong>{user_email}</strong> zodat de werknemer kan inloggen.</p>
-            </div>
-            
             <div class="steps">
                 <h3>Instructies voor de werknemer:</h3>
                 <div class="step">1. Open de werkbon app</div>
@@ -342,18 +346,304 @@ async def send_welcome_email(user_email: str, user_naam: str, temp_password: str
     
     try:
         params = {
-            "from": SENDER_EMAIL,
-            "to": [COMPANY_EMAIL],  # Send to admin, not worker
+            "from": sender,
+            "to": [user_email],
             "subject": f"Nieuwe Werknemer: {user_naam} - Inloggegevens",
             "html": html_content
         }
         
         result = await asyncio.to_thread(resend.Emails.send, params)
-        logging.info(f"Welcome email sent to admin for {user_email}: {result}")
+        logging.info(f"Welcome email sent to worker {user_email}: {result}")
         return {"success": True, "email_id": result.get("id")}
     except Exception as e:
         logging.error(f"Failed to send welcome email: {str(e)}")
         return {"success": False, "error": str(e)}
+
+
+DAY_COLUMNS = [
+    ("maandag", "Ma", "datum_maandag", "afkorting_ma"),
+    ("dinsdag", "Di", "datum_dinsdag", "afkorting_di"),
+    ("woensdag", "Wo", "datum_woensdag", "afkorting_wo"),
+    ("donderdag", "Do", "datum_donderdag", "afkorting_do"),
+    ("vrijdag", "Vr", "datum_vrijdag", "afkorting_vr"),
+    ("zaterdag", "Za", "datum_zaterdag", "afkorting_za"),
+    ("zondag", "Zo", "datum_zondag", "afkorting_zo"),
+]
+
+
+def get_sender_email(instellingen: dict) -> str:
+    bedrijfsnaam = instellingen.get("bedrijfsnaam", "Smart-Tech BV")
+    sender_email = os.environ.get("SENDER_EMAIL") or instellingen.get("email") or COMPANY_EMAIL
+    return sender_email if "<" in sender_email else f"{bedrijfsnaam} <{sender_email}>"
+
+
+def get_company_recipient(instellingen: dict) -> str:
+    return instellingen.get("email") or COMPANY_EMAIL
+
+
+def get_unique_recipients(*emails: Optional[str]) -> List[str]:
+    recipients: List[str] = []
+    for email in emails:
+        normalized = (email or "").strip().lower()
+        if normalized and normalized not in recipients:
+            recipients.append(normalized)
+    return recipients
+
+
+def format_number(value: float) -> str:
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return "-"
+
+    if numeric == 0:
+        return "-"
+    if numeric.is_integer():
+        return str(int(numeric))
+    return f"{numeric:.2f}".rstrip("0").rstrip(".")
+
+
+def calculate_total_uren(werkbon: dict) -> float:
+    total_uren = 0.0
+    for regel in werkbon.get("uren", []):
+        for dag, _, _, _ in DAY_COLUMNS:
+            total_uren += float(regel.get(dag, 0) or 0)
+    return total_uren
+
+
+def decode_base64_data(data_uri: Optional[str]) -> Optional[bytes]:
+    if not data_uri:
+        return None
+
+    source = data_uri.strip()
+    if source.startswith("http://") or source.startswith("https://"):
+        try:
+            response = requests.get(source, timeout=15)
+            response.raise_for_status()
+            return response.content
+        except Exception:
+            logging.warning("Could not download image source: %s", source)
+            return None
+
+    encoded = source.split(",", 1)[1] if "," in source else source
+    try:
+        return base64.b64decode(encoded)
+    except Exception:
+        logging.warning("Could not decode image source as base64")
+        return None
+
+
+def get_hours_or_code(regel: dict, dag: str, afkorting_key: str) -> str:
+    afkorting = (regel.get(afkorting_key) or "").strip()
+    if afkorting:
+        return afkorting
+    return format_number(regel.get(dag, 0))
+
+
+def build_pdf_filename(werkbon: dict) -> str:
+    werf = (werkbon.get("werf_naam") or "werf").lower().replace(" ", "-")
+    safe_werf = "".join(char for char in werf if char.isalnum() or char == "-") or "werf"
+    return f"werkbon-week-{werkbon.get('week_nummer', 'x')}-{werkbon.get('jaar', 'x')}-{safe_werf}.pdf"
+
+
+def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: dict, total_uren: float, totaal_bedrag: float) -> tuple[bytes, str]:
+    buffer = io.BytesIO()
+    pdf = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(A4),
+        leftMargin=12 * mm,
+        rightMargin=12 * mm,
+        topMargin=12 * mm,
+        bottomMargin=12 * mm,
+    )
+
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(name="SectionTitle", parent=styles["Heading2"], fontSize=13, textColor=colors.HexColor("#1a1a2e"), spaceAfter=6))
+    styles.add(ParagraphStyle(name="BodySmall", parent=styles["BodyText"], fontSize=9, leading=12))
+    styles.add(ParagraphStyle(name="FooterText", parent=styles["BodyText"], fontSize=8, leading=10, textColor=colors.HexColor("#555555")))
+
+    story = []
+
+    logo_bytes = decode_base64_data(instellingen.get("logo_base64"))
+    header_left = []
+    if logo_bytes:
+        logo = Image(io.BytesIO(logo_bytes), width=38 * mm, height=20 * mm)
+        header_left.append(logo)
+        header_left.append(Spacer(1, 4))
+    header_left.append(Paragraph(f"<b>{instellingen.get('bedrijfsnaam', 'Smart-Tech BV')}</b>", styles["Title"]))
+    header_left.append(Paragraph("Werkbon / Urenstaat", styles["BodySmall"]))
+
+    company_lines = [
+        instellingen.get("adres") or "",
+        " ".join(filter(None, [instellingen.get("postcode"), instellingen.get("stad")])).strip(),
+        instellingen.get("telefoon") or "",
+        instellingen.get("email") or COMPANY_EMAIL,
+        f"KvK: {instellingen['kvk_nummer']}" if instellingen.get("kvk_nummer") else "",
+        f"BTW: {instellingen['btw_nummer']}" if instellingen.get("btw_nummer") else "",
+    ]
+    company_text = "<br/>".join(line for line in company_lines if line)
+    header_table = Table(
+        [[header_left, Paragraph(company_text or "-", styles["BodySmall"]) ]],
+        colWidths=[170 * mm, 85 * mm],
+    )
+    header_table.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor("#F5A623")),
+        ("LEFTPADDING", (0, 0), (-1, -1), 10),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    story.append(header_table)
+    story.append(Spacer(1, 10))
+
+    info_left = [
+        ["Week", f"{werkbon.get('week_nummer', '-')}/{werkbon.get('jaar', '-') }"],
+        ["Periode", f"{werkbon.get('datum_maandag', '-')} t/m {werkbon.get('datum_zondag', '-')}"],
+        ["Status", werkbon.get("status", "concept").capitalize()],
+        ["Ingevuld door", werkbon.get("ingevuld_door_naam", "-")],
+    ]
+    info_right = [
+        ["Klant", werkbon.get("klant_naam", "-")],
+        ["Werf", werkbon.get("werf_naam", "-")],
+        ["Adres werf", werf.get("adres") or "-"],
+        ["Klant e-mail", klant.get("email") or "-"],
+    ]
+
+    left_table = Table(info_left, colWidths=[30 * mm, 70 * mm])
+    right_table = Table(info_right, colWidths=[30 * mm, 125 * mm])
+    for table in (left_table, right_table):
+        table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#f5f5f5")),
+            ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
+            ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#dddddd")),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+            ("TOPPADDING", (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ]))
+
+    story.append(Table([[left_table, right_table]], colWidths=[105 * mm, 155 * mm], style=[("VALIGN", (0, 0), (-1, -1), "TOP")]))
+    story.append(Spacer(1, 10))
+
+    story.append(Paragraph("Gewerkte uren", styles["SectionTitle"]))
+    hours_header = [["Werknemer"] + [f"{label}\n{werkbon.get(date_key, '')}" for _, label, date_key, _ in DAY_COLUMNS] + ["Totaal"]]
+    hours_rows = []
+    for regel in werkbon.get("uren", []):
+        totaal = sum(float(regel.get(dag, 0) or 0) for dag, _, _, _ in DAY_COLUMNS)
+        hours_rows.append(
+            [regel.get("teamlid_naam", "-")]
+            + [get_hours_or_code(regel, dag, afkorting_key) for dag, _, _, afkorting_key in DAY_COLUMNS]
+            + [format_number(totaal)]
+        )
+
+    dag_totalen = [format_number(sum(float(regel.get(dag, 0) or 0) for regel in werkbon.get("uren", []))) for dag, _, _, _ in DAY_COLUMNS]
+    hours_rows.append(["TOTAAL"] + dag_totalen + [format_number(total_uren)])
+    hours_table = Table(hours_header + hours_rows, colWidths=[55 * mm] + [24 * mm] * 7 + [24 * mm])
+    hours_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#F5A623")),
+        ("TEXTCOLOR", (0, -1), (-1, -1), colors.black),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+        ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor("#cccccc")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#d9d9d9")),
+        ("ALIGN", (1, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("LEFTPADDING", (0, 0), (-1, -1), 5),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    story.append(hours_table)
+    story.append(Spacer(1, 6))
+    story.append(Paragraph("Afkortingen: Z = Ziek, V = Verlof, BV = Betaald Verlof, BF = Betaalde Feestdag", styles["FooterText"]))
+
+    km_total = sum(float(werkbon.get("km_afstand", {}).get(dag, 0) or 0) for dag, _, _, _ in DAY_COLUMNS)
+    if km_total > 0:
+        story.append(Spacer(1, 10))
+        story.append(Paragraph("KM-afstand", styles["SectionTitle"]))
+        km_header = [[label for _, label, _, _ in DAY_COLUMNS] + ["Totaal"]]
+        km_row = [[format_number(werkbon.get("km_afstand", {}).get(dag, 0)) for dag, _, _, _ in DAY_COLUMNS] + [format_number(km_total)]]
+        km_table = Table(km_header + km_row, colWidths=[24 * mm] * 8)
+        km_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("BACKGROUND", (-1, 1), (-1, 1), colors.HexColor("#F5A623")),
+            ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor("#cccccc")),
+            ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#d9d9d9")),
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ]))
+        story.append(km_table)
+
+    if werkbon.get("uitgevoerde_werken"):
+        story.append(Spacer(1, 10))
+        story.append(Paragraph("Uitgevoerde werken", styles["SectionTitle"]))
+        story.append(Paragraph(werkbon.get("uitgevoerde_werken", "-").replace("\n", "<br/>"), styles["BodySmall"]))
+
+    if werkbon.get("extra_materialen"):
+        story.append(Spacer(1, 10))
+        story.append(Paragraph("Extra materialen", styles["SectionTitle"]))
+        story.append(Paragraph(werkbon.get("extra_materialen", "-").replace("\n", "<br/>"), styles["BodySmall"]))
+
+    story.append(Spacer(1, 10))
+    story.append(Paragraph("Samenvatting", styles["SectionTitle"]))
+    summary_table = Table(
+        [["Totaal uren", format_number(total_uren)], ["Uurtarief", f"€ {klant.get('uurtarief', 0):.2f}"], ["Totaalbedrag", f"€ {totaal_bedrag:.2f}"]],
+        colWidths=[45 * mm, 35 * mm],
+    )
+    summary_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#f5f5f5")),
+        ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#dddddd")),
+        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+    ]))
+    story.append(summary_table)
+
+    if werkbon.get("handtekening_data"):
+        story.append(Spacer(1, 10))
+        story.append(Paragraph("Handtekening klant", styles["SectionTitle"]))
+        signature_rows = [[Paragraph(f"<b>Naam ondertekenaar:</b> {werkbon.get('handtekening_naam', '-')}", styles["BodySmall"])]]
+        if werkbon.get("handtekening_datum"):
+            datum = werkbon.get("handtekening_datum")
+            if isinstance(datum, datetime):
+                datum_text = datum.strftime("%d-%m-%Y %H:%M")
+            else:
+                datum_text = str(datum)
+            signature_rows.append([Paragraph(f"<b>Datum:</b> {datum_text}", styles["BodySmall"])])
+
+        signature_bytes = decode_base64_data(werkbon.get("handtekening_data"))
+        if signature_bytes:
+            signature_rows.append([Image(io.BytesIO(signature_bytes), width=55 * mm, height=22 * mm)])
+
+        signature_table = Table(signature_rows, colWidths=[90 * mm])
+        signature_table.setStyle(TableStyle([
+            ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor("#cccccc")),
+            ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#fafafa")),
+            ("LEFTPADDING", (0, 0), (-1, -1), 8),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+            ("TOPPADDING", (0, 0), (-1, -1), 8),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ]))
+        story.append(signature_table)
+
+    story.append(Spacer(1, 12))
+    footer_text = instellingen.get("pdf_voettekst") or "Factuur wordt als goedgekeurd beschouwd indien geen klacht wordt ingediend binnen 1 week."
+    story.append(Paragraph(footer_text.replace("\n", "<br/>"), styles["FooterText"]))
+    story.append(Spacer(1, 4))
+    story.append(Paragraph(f"Gegenereerd op {datetime.now(timezone.utc).astimezone().strftime('%d-%m-%Y %H:%M')}.", styles["FooterText"]))
+
+    pdf.build(story)
+    pdf_bytes = buffer.getvalue()
+    buffer.close()
+    return pdf_bytes, build_pdf_filename(werkbon)
 
 class UserCreateWithEmail(BaseModel):
     email: str
@@ -694,8 +984,16 @@ async def update_instellingen(update_data: BedrijfsInstellingenUpdate):
 
 # ==================== EMAIL SERVICE ====================
 
-async def send_werkbon_email(werkbon: dict, klant: dict, instellingen: dict, total_uren: float, totaal_bedrag: float):
-    """Send werkbon notification email to company"""
+async def send_werkbon_email(
+    werkbon: dict,
+    klant: dict,
+    instellingen: dict,
+    total_uren: float,
+    totaal_bedrag: float,
+    pdf_bytes: bytes,
+    pdf_filename: str,
+):
+    """Send werkbon PDF email to company and customer."""
     
     if not resend.api_key:
         logging.warning("RESEND_API_KEY not configured, skipping email")
@@ -706,6 +1004,11 @@ async def send_werkbon_email(werkbon: dict, klant: dict, instellingen: dict, tot
     werf_naam = werkbon.get("werf_naam", "Onbekend")
     klant_naam = werkbon.get("klant_naam", "Onbekend")
     ondertekend_door = werkbon.get("handtekening_naam", "Onbekend")
+    company_recipient = get_company_recipient(instellingen)
+    recipients = get_unique_recipients(company_recipient, klant.get("email"))
+
+    if not recipients:
+        return {"success": False, "error": "Geen ontvangers geconfigureerd", "recipients": []}
     
     # Build HTML email
     html_content = f"""
@@ -724,6 +1027,7 @@ async def send_werkbon_email(werkbon: dict, klant: dict, instellingen: dict, tot
             th {{ background: #F5A623; color: white; }}
             .total-row {{ background: #fff3cd; font-weight: bold; }}
             .footer {{ background: #f8f9fa; padding: 15px; font-size: 12px; color: #666; margin-top: 20px; }}
+            .note {{ background: #eef6ff; border-left: 4px solid #1a73e8; padding: 15px; margin: 15px 0; }}
         </style>
     </head>
     <body>
@@ -763,6 +1067,10 @@ async def send_werkbon_email(werkbon: dict, klant: dict, instellingen: dict, tot
                     <td>€{totaal_bedrag:.2f}</td>
                 </tr>
             </table>
+
+            <div class="note">
+                De ondertekende werkbon is als PDF bij deze e-mail toegevoegd.
+            </div>
             
             <p>De werkbon is ondertekend door <strong>{ondertekend_door}</strong> namens de klant.</p>
             
@@ -777,24 +1085,31 @@ async def send_werkbon_email(werkbon: dict, klant: dict, instellingen: dict, tot
     
     try:
         params = {
-            "from": SENDER_EMAIL,
-            "to": [COMPANY_EMAIL],
-            "subject": f"Werkbon Getekend - Week {week} - {werf_naam}",
-            "html": html_content
+            "from": get_sender_email(instellingen),
+            "to": recipients,
+            "subject": f"Werkbon PDF - Week {week} - {werf_naam}",
+            "html": html_content,
+            "attachments": [
+                {
+                    "filename": pdf_filename,
+                    "content": base64.b64encode(pdf_bytes).decode(),
+                    "contentType": "application/pdf",
+                }
+            ],
         }
         
         # Run sync SDK in thread to keep FastAPI non-blocking
         result = await asyncio.to_thread(resend.Emails.send, params)
         logging.info(f"Email sent successfully: {result}")
-        return {"success": True, "email_id": result.get("id")}
+        return {"success": True, "email_id": result.get("id"), "recipients": recipients}
     except Exception as e:
         logging.error(f"Failed to send email: {str(e)}")
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": str(e), "recipients": recipients}
 
 @api_router.post("/werkbonnen/{werkbon_id}/verzenden")
 async def verzend_werkbon(werkbon_id: str):
-    """Send werkbon notification email with cost calculation"""
-    werkbon = await db.werkbonnen.find_one({"id": werkbon_id})
+    """Generate signed werkbon PDF and email it to company + customer."""
+    werkbon = await db.werkbonnen.find_one({"id": werkbon_id}, {"_id": 0})
     if not werkbon:
         raise HTTPException(status_code=404, detail="Werkbon niet gevonden")
     
@@ -802,42 +1117,56 @@ async def verzend_werkbon(werkbon_id: str):
         raise HTTPException(status_code=400, detail="Werkbon moet eerst ondertekend worden")
     
     # Get klant for hourly rate
-    klant = await db.klanten.find_one({"id": werkbon["klant_id"]})
+    klant = await db.klanten.find_one({"id": werkbon["klant_id"]}, {"_id": 0})
     uurtarief = klant.get("uurtarief", 0) if klant else 0
+    werf = await db.werven.find_one({"id": werkbon["werf_id"]}, {"_id": 0}) or {}
     
     # Get company settings
-    instellingen = await db.instellingen.find_one({"id": "company_settings"})
+    instellingen = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0})
     if not instellingen:
         instellingen = {}
     
-    # Calculate total hours
-    total_uren = 0
-    for regel in werkbon.get("uren", []):
-        total_uren += regel.get("maandag", 0) + regel.get("dinsdag", 0) + regel.get("woensdag", 0)
-        total_uren += regel.get("donderdag", 0) + regel.get("vrijdag", 0)
-        total_uren += regel.get("zaterdag", 0) + regel.get("zondag", 0)
-    
+    total_uren = calculate_total_uren(werkbon)
     totaal_bedrag = total_uren * uurtarief
+
+    try:
+        pdf_bytes, pdf_filename = generate_werkbon_pdf(werkbon, klant or {}, werf, instellingen, total_uren, totaal_bedrag)
+    except Exception as exc:
+        logging.exception("PDF generation failed for werkbon %s", werkbon_id)
+        raise HTTPException(status_code=500, detail=f"PDF genereren mislukt: {str(exc)}")
     
     # Send email
-    email_result = await send_werkbon_email(werkbon, klant or {}, instellingen, total_uren, totaal_bedrag)
+    email_result = await send_werkbon_email(
+        werkbon,
+        klant or {},
+        instellingen,
+        total_uren,
+        totaal_bedrag,
+        pdf_bytes,
+        pdf_filename,
+    )
+    nieuwe_status = "verzonden" if email_result.get("success") else werkbon.get("status", "ondertekend")
     
     # Update werkbon status
     await db.werkbonnen.update_one(
         {"id": werkbon_id},
         {"$set": {
-            "status": "verzonden", 
+            "status": nieuwe_status,
             "email_verzonden": email_result.get("success", False),
             "email_error": email_result.get("error"),
-            "updated_at": datetime.utcnow()
+            "pdf_bestandsnaam": pdf_filename,
+            "updated_at": datetime.now(timezone.utc)
         }}
     )
     
     return {
-        "message": "Werkbon verzonden" if email_result.get("success") else "Werkbon status bijgewerkt (email niet verzonden)",
+        "message": "Werkbon als PDF verzonden" if email_result.get("success") else "PDF gemaakt, maar e-mail kon niet worden verzonden",
+        "status": nieuwe_status,
         "totaal_uren": total_uren,
         "uurtarief": uurtarief,
         "totaal_bedrag": totaal_bedrag,
+        "pdf_filename": pdf_filename,
+        "recipients": email_result.get("recipients", []),
         "email_sent": email_result.get("success", False),
         "email_error": email_result.get("error"),
         "success": True

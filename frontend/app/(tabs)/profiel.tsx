@@ -128,6 +128,7 @@ export default function ProfielScreen() {
         </View>
 
         <TouchableOpacity 
+          testID="change-password-open-button"
           style={styles.actionButton} 
           onPress={() => setPasswordModalVisible(true)}
         >
@@ -136,7 +137,7 @@ export default function ProfielScreen() {
           <Ionicons name="chevron-forward" size={20} color="#6c757d" />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+        <TouchableOpacity testID="logout-button" style={styles.logoutButton} onPress={handleLogout}>
           <Ionicons name="log-out-outline" size={24} color="#dc3545" />
           <Text style={styles.logoutText}>Uitloggen</Text>
         </TouchableOpacity>
@@ -165,6 +166,7 @@ export default function ProfielScreen() {
               <Text style={styles.label}>Huidig wachtwoord</Text>
               <View style={styles.inputContainer}>
                 <TextInput
+                  testID="current-password-input"
                   style={styles.input}
                   value={currentPassword}
                   onChangeText={setCurrentPassword}
@@ -186,6 +188,7 @@ export default function ProfielScreen() {
               <Text style={styles.label}>Nieuw wachtwoord</Text>
               <View style={styles.inputContainer}>
                 <TextInput
+                  testID="new-password-input"
                   style={styles.input}
                   value={newPassword}
                   onChangeText={setNewPassword}
@@ -207,6 +210,7 @@ export default function ProfielScreen() {
               <Text style={styles.label}>Bevestig nieuw wachtwoord</Text>
               <View style={styles.inputContainer}>
                 <TextInput
+                  testID="confirm-password-input"
                   style={styles.input}
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
@@ -218,6 +222,7 @@ export default function ProfielScreen() {
             </View>
 
             <TouchableOpacity 
+              testID="change-password-submit-button"
               style={[styles.saveButton, isLoading && styles.saveButtonDisabled]} 
               onPress={handleChangePassword}
               disabled={isLoading}

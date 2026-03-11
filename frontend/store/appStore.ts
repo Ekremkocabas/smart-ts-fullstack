@@ -102,6 +102,12 @@ export interface BedrijfsInstellingen {
   pdf_voettekst?: string;
 }
 
+export interface AddWerknemerResult extends User {
+  tempPassword: string;
+  emailSent: boolean;
+  emailError?: string;
+}
+
 export interface WeekDates {
   datum_maandag: string;
   datum_dinsdag: string;
@@ -155,7 +161,7 @@ interface AppState {
   
   // Werknemer actions
   fetchWerknemers: () => Promise<void>;
-  addWerknemer: (email: string, naam: string, teamId?: string) => Promise<User>;
+  addWerknemer: (email: string, naam: string, teamId?: string) => Promise<AddWerknemerResult>;
   updateWerknemer: (id: string, data: { naam?: string; team_id?: string; actief?: boolean }) => Promise<void>;
   deleteWerknemer: (id: string) => Promise<void>;
   
@@ -189,7 +195,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const response = await axios.get(`${BACKEND_URL}/api/teams`);
       set({ teams: response.data, isLoading: false });
     } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+      set({ error: error.response?.data?.detail || error.message, isLoading: false });
     }
   },
   
@@ -198,7 +204,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const response = await axios.post(`${BACKEND_URL}/api/teams`, { naam, leden });
       set(state => ({ teams: [...state.teams, response.data] }));
     } catch (error: any) {
-      set({ error: error.message });
+      set({ error: error.response?.data?.detail || error.message });
     }
   },
   
@@ -209,7 +215,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         teams: state.teams.map(t => t.id === id ? response.data : t)
       }));
     } catch (error: any) {
-      set({ error: error.message });
+      set({ error: error.response?.data?.detail || error.message });
     }
   },
   
@@ -229,7 +235,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const response = await axios.get(`${BACKEND_URL}/api/klanten`);
       set({ klanten: response.data, isLoading: false });
     } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+      set({ error: error.response?.data?.detail || error.message, isLoading: false });
     }
   },
   
@@ -238,7 +244,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const response = await axios.post(`${BACKEND_URL}/api/klanten`, data);
       set(state => ({ klanten: [...state.klanten, response.data] }));
     } catch (error: any) {
-      set({ error: error.message });
+      set({ error: error.response?.data?.detail || error.message });
     }
   },
   
@@ -249,7 +255,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         klanten: state.klanten.map(k => k.id === id ? response.data : k)
       }));
     } catch (error: any) {
-      set({ error: error.message });
+      set({ error: error.response?.data?.detail || error.message });
     }
   },
   
@@ -269,7 +275,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const response = await axios.get(`${BACKEND_URL}/api/werven`);
       set({ werven: response.data, isLoading: false });
     } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+      set({ error: error.response?.data?.detail || error.message, isLoading: false });
     }
   },
   
@@ -278,7 +284,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const response = await axios.get(`${BACKEND_URL}/api/werven/klant/${klantId}`);
       return response.data;
     } catch (error: any) {
-      set({ error: error.message });
+      set({ error: error.response?.data?.detail || error.message });
       return [];
     }
   },
@@ -288,7 +294,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const response = await axios.post(`${BACKEND_URL}/api/werven`, data);
       set(state => ({ werven: [...state.werven, response.data] }));
     } catch (error: any) {
-      set({ error: error.message });
+      set({ error: error.response?.data?.detail || error.message });
     }
   },
   
@@ -308,16 +314,18 @@ export const useAppStore = create<AppState>((set, get) => ({
       const response = await axios.get(`${BACKEND_URL}/api/werkbonnen`);
       set({ werkbonnen: response.data, isLoading: false });
     } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+      set({ error: error.response?.data?.detail || error.message, isLoading: false });
     }
   },
   
   fetchWerkbon: async (id: string) => {
     try {
-      const response = await axios.get(`${BACKEND_URL}/api/werkbonnen/${id}`);
+      const response = await axios.get(`${BACKEND_URL}/api/werkbonnen/${id}`, {
+        params: { _ts: Date.now() },
+      });
       return response.data;
     } catch (error: any) {
-      set({ error: error.message });
+      set({ error: error.response?.data?.detail || error.message });
       throw error;
     }
   },
@@ -331,7 +339,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       set(state => ({ werkbonnen: [response.data, ...state.werkbonnen] }));
       return response.data;
     } catch (error: any) {
-      set({ error: error.message });
+      set({ error: error.response?.data?.detail || error.message });
       throw error;
     }
   },
@@ -363,12 +371,18 @@ export const useAppStore = create<AppState>((set, get) => ({
       const response = await axios.post(`${BACKEND_URL}/api/werkbonnen/${id}/verzenden`);
       set(state => ({
         werkbonnen: state.werkbonnen.map(w => 
-          w.id === id ? { ...w, status: 'verzonden', email_verzonden: true } : w
+          w.id === id
+            ? {
+                ...w,
+                status: response.data.status || w.status,
+                email_verzonden: !!response.data.email_sent,
+              }
+            : w
         )
       }));
       return response.data;
     } catch (error: any) {
-      set({ error: error.message });
+      set({ error: error.response?.data?.detail || error.message });
       throw error;
     }
   },
@@ -378,7 +392,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const response = await axios.get(`${BACKEND_URL}/api/week-dates/${year}/${week}`);
       return response.data;
     } catch (error: any) {
-      set({ error: error.message });
+      set({ error: error.response?.data?.detail || error.message });
       throw error;
     }
   },
@@ -389,7 +403,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const response = await axios.get(`${BACKEND_URL}/api/instellingen`);
       set({ instellingen: response.data });
     } catch (error: any) {
-      set({ error: error.message });
+      set({ error: error.response?.data?.detail || error.message });
     }
   },
   
@@ -398,7 +412,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const response = await axios.put(`${BACKEND_URL}/api/instellingen`, data);
       set({ instellingen: response.data });
     } catch (error: any) {
-      set({ error: error.message });
+      set({ error: error.response?.data?.detail || error.message });
     }
   },
   
@@ -433,10 +447,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       return { 
         ...response.data.user, 
         tempPassword: response.data.temp_password,
-        emailSent: response.data.email_sent
+        emailSent: response.data.email_sent,
+        emailError: response.data.email_error,
       };
     } catch (error: any) {
-      set({ error: error.message });
+      set({ error: error.response?.data?.detail || error.message });
       throw error;
     }
   },
@@ -447,7 +462,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const { fetchWerknemers } = get();
       await fetchWerknemers();
     } catch (error: any) {
-      set({ error: error.message });
+      set({ error: error.response?.data?.detail || error.message });
       throw error;
     }
   },
@@ -458,7 +473,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const { fetchWerknemers } = get();
       await fetchWerknemers();
     } catch (error: any) {
-      set({ error: error.message });
+      set({ error: error.response?.data?.detail || error.message });
       throw error;
     }
   },

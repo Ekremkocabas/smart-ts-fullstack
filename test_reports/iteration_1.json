@@ -1,0 +1,62 @@
+{
+  "summary": "Backend + frontend regression getest voor werknemer verwijderen, handtekening flow en PDF verzenden. Kernflows werken grotendeels; 1 kritieke integratiebug gevonden in handtekening-refresh op detailpagina.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/werkbonnen/{id}/verzenden",
+        "issue": "Intermitterende 500 gezien in backend logs bij PDF generatie wanneer logo URL/image stream ongeldig is (broken data stream).",
+        "priority": "HIGH/CRITICAL"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Handtekening -> Werkbon detail",
+        "issue": "Na opslaan van handtekening navigeert UI terug, maar detail blijft soms op Concept met Ondertekenen knop (stale state) terwijl backend status al ondertekend is.",
+        "testID": "signature-save-button, werkbon-sign-button, werkbon-send-pdf-button",
+        "priority": "high"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Handtekening opslaan -> detail refresh",
+        "issue": "PUT /api/werkbonnen/{id} retourneert 200 en data wordt opgeslagen, maar detailview toont niet direct de nieuwe status zonder harde refresh/direct reload.",
+        "affected_testIDs": [
+          "signature-save-button",
+          "werkbon-sign-button",
+          "werkbon-send-pdf-button"
+        ]
+      }
+    ],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_review_regression_jan2026.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Fix detail refresh na handtekening-save zodat status direct Ondertekend toont en Versturen als PDF knop zichtbaar wordt.",
+    "Harden PDF-logo verwerking: negeer kapotte/ongeldige logo-image i.p.v. 500 zodat verzenden-flow robuust blijft.",
+    "Behoud huidige gedrag bij Resend domeinblokkade: status ondertekend + email_verzonden=false blijft correct."
+  ],
+  "critical_code_review_comments": [
+    "server.py gebruikt requests.get in decode_base64_data voor externe logo URL; ontbrekende/kapotte image stream kan PDF-build hard laten falen.",
+    "Niet alle interactieve frontend-elementen hebben testID (met name tab/werkbon kaarten), wat regressietesten fragiel maakt."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_review_regression_jan2026.py",
+    "/app/test_reports/iteration_1.json"
+  ],
+  "success_rate": {
+    "backend": "100% (2/2 pytest cases passed)",
+    "frontend": "75% (3 van 4 gevraagde flows bevestigd; handtekening-refresh faalt)"
+  },
+  "seed_data_creation": "Aangemaakt tijdens test: tijdelijke werknemers, klanten, werven en werkbonnen met prefix TEST/UI/Sig.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Gebruik bestaande ondertekende werkbon id cda57644-6662-4960-8ec6-28a9c658c660 voor snelle verzend-check; signature-save issue reproduceerbaar via nieuw concept werkbon en UI canvas save.",
+  "rca_of_issue": "RCA handtekening-bug: backend ontvangt en bewaart handtekening/status=ondertekend (PUT 200 bevestigd), maar detail-scherm blijft op conceptstate direct na save. Repro: open concept werkbon -> Ondertekenen -> naam + canvas -> Bevestigen -> terug op detail toont concept + Ondertekenen knop. Vermoedelijke oorzaak: client state/refresh race of route reload niet consistent toegepast na save op web. RCA PDF 500: logo via externe URL kan een broken image stream geven; reportlab crasht tijdens drawImage, endpoint geeft 500 in plaats van graceful fallback zonder logo."
+}

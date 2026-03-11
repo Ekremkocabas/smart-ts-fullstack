@@ -20,8 +20,7 @@ import { useAuth } from '../../context/AuthContext';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
-// Smart-Tech logo (dark background)
-const LOGO_DARK = 'https://customer-assets.emergentagent.com/job_6e6dc794-165f-4437-8a90-2ab03206dff2/artifacts/acjlde9p_1000136791.jpg';
+const LOGO_DARK = require('../../assets/images/smarttech-logo.png');
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -80,7 +79,7 @@ export default function LoginScreen() {
         >
           <View style={styles.header}>
             <Image 
-              source={{ uri: LOGO_DARK }} 
+              source={LOGO_DARK}
               style={styles.logo}
               resizeMode="contain"
             />
@@ -99,6 +98,7 @@ export default function LoginScreen() {
             <View style={styles.inputContainer}>
               <Ionicons name="mail-outline" size={20} color="#6c757d" style={styles.inputIcon} />
               <TextInput
+                testID="login-email-input"
                 style={styles.input}
                 placeholder="E-mailadres"
                 placeholderTextColor="#6c757d"
@@ -117,6 +117,7 @@ export default function LoginScreen() {
             <View style={styles.inputContainer}>
               <Ionicons name="lock-closed-outline" size={20} color="#6c757d" style={styles.inputIcon} />
               <TextInput
+                testID="login-password-input"
                 style={styles.input}
                 placeholder="Wachtwoord"
                 placeholderTextColor="#6c757d"
@@ -129,6 +130,7 @@ export default function LoginScreen() {
                 editable={!isLoading}
               />
               <TouchableOpacity 
+                testID="login-password-visibility-button"
                 onPress={() => setShowPassword(!showPassword)}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
@@ -141,6 +143,7 @@ export default function LoginScreen() {
             </View>
 
             <TouchableOpacity
+              testID="login-submit-button"
               style={[styles.button, isLoading && styles.buttonDisabled]}
               onPress={handleLogin}
               disabled={isLoading}

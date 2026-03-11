@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import SignatureScreen from 'react-native-signature-canvas';
 import { useAppStore } from '../../store/appStore';
 
 // Web-compatible signature component
@@ -131,32 +132,50 @@ export default function HandtekeningScreen() {
   const [naam, setNaam] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [hasSignature, setHasSignature] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const signaturePadStyle = `
+    .m-signature-pad {box-shadow: none; border: none; background: #16213e;}
+    .m-signature-pad--body {border: 2px solid #2d3a5f; border-radius: 12px; overflow: hidden; background: #16213e;}
+    .m-signature-pad--footer {display: none; margin: 0;}
+    body, html {background: #16213e;}
+  `;
 
   const handleClear = () => {
     signatureRef.current?.clearSignature();
     setHasSignature(false);
+    setErrorMessage('');
   };
 
   const handleSave = async () => {
     if (!naam.trim()) {
+      setErrorMessage('Vul uw naam in');
       Alert.alert('Fout', 'Vul uw naam in');
       return;
     }
 
     if (!hasSignature) {
+      setErrorMessage('Plaats uw handtekening');
       Alert.alert('Fout', 'Plaats uw handtekening');
       return;
     }
 
+    setErrorMessage('');
     // Get signature data
-    const signature = signatureRef.current?.readSignature();
-    if (signature) {
-      await handleSignatureData(signature);
+    if (Platform.OS === 'web') {
+      const signature = signatureRef.current?.readSignature();
+      if (signature) {
+        await handleSignatureData(signature);
+      }
+      return;
     }
+
+    signatureRef.current?.readSignature();
   };
 
   const handleSignatureEnd = () => {
     setHasSignature(true);
+    setErrorMessage('');
   };
 
   const handleSignatureData = async (signature: string) => {
@@ -169,21 +188,16 @@ export default function HandtekeningScreen() {
         handtekening_naam: naam.trim(),
         status: 'ondertekend',
       });
-      // Web'de Alert çalışmıyor, doğrudan geri git
-      if (Platform.OS === 'web') {
-        router.back();
-      } else {
-        Alert.alert('Succes', 'Werkbon is ondertekend', [
-          { text: 'OK', onPress: () => router.back() }
-        ]);
+      const detailRoute = `/werkbon/${id}?refresh=${Date.now()}`;
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        window.location.href = detailRoute;
+        return;
       }
+      router.replace(detailRoute);
     } catch (error: any) {
-      if (Platform.OS === 'web') {
-        console.error('Fout:', error.message);
-        router.back();
-      } else {
-        Alert.alert('Fout', error.message || 'Kon handtekening niet opslaan');
-      }
+      const message = error.message || 'Kon handtekening niet opslaan';
+      setErrorMessage(message);
+      Alert.alert('Fout', message);
     } finally {
       setIsSaving(false);
     }
@@ -196,7 +210,7 @@ export default function HandtekeningScreen() {
         style={styles.keyboardView}
       >
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity testID="signature-close-button" onPress={() => router.back()}>
             <Ionicons name="close" size={28} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.title}>Handtekening</Text>
@@ -207,13 +221,19 @@ export default function HandtekeningScreen() {
           <View style={styles.formGroup}>
             <Text style={styles.label}>Naam ondertekenaar</Text>
             <TextInput
+              testID="signature-name-input"
               style={styles.input}
               value={naam}
-              onChangeText={setNaam}
+              onChangeText={(value) => {
+                setNaam(value);
+                if (errorMessage) setErrorMessage('');
+              }}
               placeholder="Uw volledige naam"
               placeholderTextColor="#6c757d"
             />
           </View>
+
+          {!!errorMessage && <Text testID="signature-error-text" style={styles.errorText}>{errorMessage}</Text>}
 
           <View style={styles.signatureContainer}>
             <Text style={styles.label}>Handtekening</Text>
@@ -225,14 +245,20 @@ export default function HandtekeningScreen() {
                   onClear={() => setHasSignature(false)}
                 />
               ) : (
-                <View style={styles.nativeSignature}>
-                  <Text style={styles.nativeSignatureText}>
-                    Signature pad - gebruik de mobiele app voor beste ervaring
-                  </Text>
-                </View>
+                <SignatureScreen
+                  ref={signatureRef}
+                  onOK={handleSignatureData}
+                  onBegin={handleSignatureEnd}
+                  onEmpty={() => setHasSignature(false)}
+                  descriptionText=""
+                  webStyle={signaturePadStyle}
+                  backgroundColor="#16213e"
+                  penColor="#F5A623"
+                  autoClear={false}
+                />
               )}
             </View>
-            <TouchableOpacity style={styles.clearButton} onPress={handleClear}>
+            <TouchableOpacity testID="signature-clear-button" style={styles.clearButton} onPress={handleClear}>
               <Ionicons name="refresh" size={18} color="#6c757d" />
               <Text style={styles.clearText}>Wissen</Text>
             </TouchableOpacity>
@@ -241,6 +267,7 @@ export default function HandtekeningScreen() {
 
         <View style={styles.footer}>
           <TouchableOpacity 
+            testID="signature-save-button"
             style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
             onPress={handleSave}
             disabled={isSaving}
@@ -313,19 +340,7 @@ const styles = StyleSheet.create({
     minHeight: 220,
     padding: 10,
   },
-  nativeSignature: {
-    width: '100%',
-    height: 200,
-    backgroundColor: '#16213e',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-  },
-  nativeSignatureText: {
-    color: '#6c757d',
-    textAlign: 'center',
-    padding: 20,
-  },
+  errorText: { color: '#dc3545', fontSize: 14, marginBottom: 12 },
   clearButton: {
     flexDirection: 'row',
     alignItems: 'center',

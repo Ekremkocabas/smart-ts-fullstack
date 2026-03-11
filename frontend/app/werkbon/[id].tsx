@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -11,12 +11,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAppStore, Werkbon, UrenRegel } from '../../store/appStore';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
 const DAGEN_KORT = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'];
 const DAGEN = ['maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag', 'zondag'];
+const AFKORTING_KEYS = ['afkorting_ma', 'afkorting_di', 'afkorting_wo', 'afkorting_do', 'afkorting_vr', 'afkorting_za', 'afkorting_zo'] as const;
 
 const getStatusColor = (status: string) => {
   switch (status) {
@@ -45,12 +47,7 @@ export default function WerkbonDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
 
-  useEffect(() => {
-    loadWerkbon();
-    fetchInstellingen();
-  }, [id]);
-
-  const loadWerkbon = async () => {
+  const loadWerkbon = useCallback(async () => {
     if (!id) return;
     setIsLoading(true);
     try {
@@ -61,11 +58,30 @@ export default function WerkbonDetailScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [fetchWerkbon, id]);
+
+  useEffect(() => {
+    fetchInstellingen();
+  }, [fetchInstellingen]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadWerkbon();
+    }, [loadWerkbon])
+  );
 
   const calculateTotal = (regel: UrenRegel) => {
     return regel.maandag + regel.dinsdag + regel.woensdag + 
            regel.donderdag + regel.vrijdag + regel.zaterdag + regel.zondag;
+  };
+
+  const getDagValue = (regel: UrenRegel, dayIndex: number) => {
+    const afkortingKey = AFKORTING_KEYS[dayIndex];
+    const afkorting = regel[afkortingKey];
+    if (afkorting) return afkorting;
+
+    const uren = regel[DAGEN[dayIndex] as keyof UrenRegel] as number;
+    return uren || '-';
   };
 
   const generatePDF = async () => {
@@ -305,7 +321,12 @@ export default function WerkbonDetailScreen() {
 
     try {
       const { uri } = await Print.printToFileAsync({ html });
-      await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+      } else {
+        Alert.alert('PDF gereed', 'PDF is gemaakt, maar delen is op dit apparaat niet beschikbaar.');
+      }
     } catch (error) {
       Alert.alert('Fout', 'Kon PDF niet genereren');
     }
@@ -326,23 +347,25 @@ export default function WerkbonDetailScreen() {
 
     Alert.alert(
       'Verzenden',
-      'Wilt u deze werkbon per e-mail verzenden?',
+      `Wilt u deze werkbon als PDF verzenden naar ${werkbon.klant_naam} en info@smart-techbv.be?`,
       [
         { text: 'Annuleren', style: 'cancel' },
         {
-          text: 'Verzenden',
+          text: 'Versturen als PDF',
           onPress: async () => {
             setIsSending(true);
             try {
-              await verzendWerkbon(werkbon.id);
-              Alert.alert(
-                'Info',
-                'E-mail verzending is nog niet geïmplementeerd. De werkbon is gemarkeerd als verzonden. U kunt de PDF handmatig delen.',
-                [{ text: 'PDF Delen', onPress: generatePDF }, { text: 'OK' }]
-              );
+              const result = await verzendWerkbon(werkbon.id);
+              if (result.email_sent) {
+                const ontvangers = Array.isArray(result.recipients) ? result.recipients.join(', ') : '';
+                Alert.alert('Succes', `Werkbon als PDF verzonden.${ontvangers ? `\n\nOntvangers: ${ontvangers}` : ''}`);
+              } else {
+                Alert.alert('E-mail mislukt', result.email_error || 'PDF is gemaakt, maar de e-mail kon niet worden verzonden.');
+              }
               loadWerkbon();
             } catch (error: any) {
-              Alert.alert('Fout', error.message);
+              const message = error.response?.data?.detail || error.message;
+              Alert.alert('Fout', message);
             } finally {
               setIsSending(false);
             }
@@ -391,11 +414,11 @@ export default function WerkbonDetailScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity testID="werkbon-back-button" onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.title}>Werkbon</Text>
-        <TouchableOpacity onPress={handleDelete} style={styles.deleteButton}>
+        <TouchableOpacity testID="werkbon-delete-button" onPress={handleDelete} style={styles.deleteButton}>
           <Ionicons name="trash-outline" size={24} color="#dc3545" />
         </TouchableOpacity>
       </View>
@@ -454,7 +477,7 @@ export default function WerkbonDetailScreen() {
               {DAGEN.map((dag) => (
                 <View key={dag} style={styles.dayColumn}>
                   <Text style={styles.urenText}>
-                    {regel[dag as keyof UrenRegel] || '-'}
+                    {getDagValue(regel, DAGEN.indexOf(dag))}
                   </Text>
                 </View>
               ))}
@@ -488,7 +511,7 @@ export default function WerkbonDetailScreen() {
 
       <View style={styles.footer}>
         {werkbon.status === 'concept' && (
-          <TouchableOpacity style={styles.signButton} onPress={handleSign}>
+          <TouchableOpacity testID="werkbon-sign-button" style={styles.signButton} onPress={handleSign}>
             <Ionicons name="pencil" size={20} color="#fff" />
             <Text style={styles.buttonText}>Ondertekenen</Text>
           </TouchableOpacity>
@@ -496,6 +519,7 @@ export default function WerkbonDetailScreen() {
         
         {werkbon.status === 'ondertekend' && (
           <TouchableOpacity
+            testID="werkbon-send-pdf-button"
             style={[styles.sendButton, isSending && styles.buttonDisabled]}
             onPress={handleSend}
             disabled={isSending}
@@ -505,15 +529,15 @@ export default function WerkbonDetailScreen() {
             ) : (
               <>
                 <Ionicons name="send" size={20} color="#fff" />
-                <Text style={styles.buttonText}>Verzenden</Text>
+                <Text style={styles.buttonText}>Versturen als PDF</Text>
               </>
             )}
           </TouchableOpacity>
         )}
 
-        <TouchableOpacity style={styles.pdfButton} onPress={generatePDF}>
+        <TouchableOpacity testID="werkbon-preview-pdf-button" style={styles.pdfButton} onPress={generatePDF}>
           <Ionicons name="document" size={20} color="#F5A623" />
-          <Text style={styles.pdfButtonText}>PDF</Text>
+          <Text style={styles.pdfButtonText}>PDF voorbeeld</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

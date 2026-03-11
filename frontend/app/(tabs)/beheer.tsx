@@ -46,7 +46,7 @@ export default function BeheerScreen() {
   
   // Result modal for showing password
   const [resultModalVisible, setResultModalVisible] = useState(false);
-  const [resultData, setResultData] = useState<{naam: string; password: string; emailSent: boolean} | null>(null);
+  const [resultData, setResultData] = useState<{naam: string; password: string; emailSent: boolean; emailError?: string} | null>(null);
   // Settings
   const [bedrijfsnaam, setBedrijfsnaam] = useState('');
   const [bedrijfsEmail, setBedrijfsEmail] = useState('');
@@ -186,7 +186,8 @@ export default function BeheerScreen() {
           setResultData({
             naam: werknemerNaam,
             password: result.tempPassword,
-            emailSent: result.emailSent
+            emailSent: result.emailSent,
+            emailError: result.emailError,
           });
           setModalVisible(false);
           setResultModalVisible(true);
@@ -256,13 +257,21 @@ export default function BeheerScreen() {
     }
   };
 
+  const performDelete = async (type: 'team' | 'klant' | 'werf' | 'werknemer', id: string) => {
+    try {
+      if (type === 'team') await deleteTeam(id);
+      else if (type === 'klant') await deleteKlant(id);
+      else if (type === 'werf') await deleteWerf(id);
+      else if (type === 'werknemer') await deleteWerknemer(id);
+    } catch (error: any) {
+      Alert.alert('Fout', error.message || 'Verwijderen mislukt');
+    }
+  };
+
   const confirmDelete = (type: 'team' | 'klant' | 'werf' | 'werknemer', id: string, naam: string) => {
     if (Platform.OS === 'web') {
       if (confirm(`Weet u zeker dat u "${naam}" wilt verwijderen?`)) {
-        if (type === 'team') deleteTeam(id);
-        else if (type === 'klant') deleteKlant(id);
-        else if (type === 'werf') deleteWerf(id);
-        else if (type === 'werknemer') deleteWerknemer(id);
+        performDelete(type, id);
       }
     } else {
       Alert.alert(
@@ -273,12 +282,7 @@ export default function BeheerScreen() {
           {
             text: 'Verwijderen',
             style: 'destructive',
-            onPress: async () => {
-              if (type === 'team') await deleteTeam(id);
-              else if (type === 'klant') await deleteKlant(id);
-              else if (type === 'werf') await deleteWerf(id);
-              else if (type === 'werknemer') await deleteWerknemer(id);
-            },
+            onPress: async () => performDelete(type, id),
           },
         ]
       );
@@ -331,7 +335,7 @@ export default function BeheerScreen() {
           <View style={styles.tabContent}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Werknemers</Text>
-              <TouchableOpacity style={styles.addBtn} onPress={() => openModal('werknemer')}>
+              <TouchableOpacity testID="werknemer-add-button" style={styles.addBtn} onPress={() => openModal('werknemer')}>
                 <Ionicons name="add" size={20} color="#000" />
               </TouchableOpacity>
             </View>
@@ -360,12 +364,14 @@ export default function BeheerScreen() {
                   </TouchableOpacity>
                   <View style={styles.werknemerActions}>
                     <Switch
+                      testID={`werknemer-active-switch-${werknemer.id}`}
                       value={werknemer.actief}
                       onValueChange={() => toggleWerknemerActief(werknemer)}
                       trackColor={{ false: '#2d3a5f', true: '#F5A623' }}
                       thumbColor="#fff"
                     />
                     <TouchableOpacity 
+                      testID={`werknemer-delete-button-${werknemer.id}`}
                       style={styles.deleteBtn}
                       onPress={() => confirmDelete('werknemer', werknemer.id, werknemer.naam)}
                     >
@@ -592,7 +598,7 @@ export default function BeheerScreen() {
                 Deze e-mailadressen krijgen admin rechten bij registratie
               </Text>
             </View>
-            <TouchableOpacity style={styles.saveButton} onPress={handleSaveInstellingen}>
+            <TouchableOpacity testID="instellingen-save-button" style={styles.saveButton} onPress={handleSaveInstellingen}>
               <Text style={styles.saveButtonText}>Opslaan</Text>
             </TouchableOpacity>
           </View>
@@ -685,7 +691,7 @@ export default function BeheerScreen() {
               </View>
             </View>
             
-            <TouchableOpacity style={styles.saveButton} onPress={handleSavePdfSettings}>
+            <TouchableOpacity testID="pdf-settings-save-button" style={styles.saveButton} onPress={handleSavePdfSettings}>
               <Text style={styles.saveButtonText}>PDF Instellingen Opslaan</Text>
             </TouchableOpacity>
           </View>
@@ -753,6 +759,7 @@ export default function BeheerScreen() {
                   <View style={styles.formGroup}>
                     <Text style={styles.label}>Naam</Text>
                     <TextInput
+                      testID="werknemer-naam-input"
                       style={styles.textInput}
                       value={werknemerNaam}
                       onChangeText={setWerknemerNaam}
@@ -764,6 +771,7 @@ export default function BeheerScreen() {
                   <View style={styles.formGroup}>
                     <Text style={styles.label}>E-mail</Text>
                     <TextInput
+                      testID="werknemer-email-input"
                       style={[styles.textInput, editingItem && styles.inputDisabled]}
                       value={werknemerEmail}
                       onChangeText={setWerknemerEmail}
@@ -944,7 +952,7 @@ export default function BeheerScreen() {
               )}
             </ScrollView>
 
-            <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+            <TouchableOpacity testID="beheer-modal-save-button" style={styles.saveButton} onPress={handleSave}>
               <Text style={styles.saveButtonText}>Opslaan</Text>
             </TouchableOpacity>
           </View>
@@ -983,8 +991,14 @@ export default function BeheerScreen() {
                   : 'E-mail niet verzonden - deel wachtwoord handmatig'}
               </Text>
             </View>
+            {!resultData?.emailSent && !!resultData?.emailError && (
+              <Text testID="werknemer-email-error-text" style={styles.emailErrorText}>
+                {resultData.emailError}
+              </Text>
+            )}
             
             <TouchableOpacity 
+              testID="werknemer-result-ok-button"
               style={styles.resultButton} 
               onPress={() => {
                 setResultModalVisible(false);
@@ -1079,6 +1093,7 @@ const styles = StyleSheet.create({
   passwordValue: { color: '#F5A623', fontSize: 24, fontWeight: 'bold', letterSpacing: 2 },
   emailStatusBox: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 24 },
   emailStatusText: { color: '#6c757d', fontSize: 12, flex: 1 },
+  emailErrorText: { color: '#ffc107', fontSize: 12, textAlign: 'center', marginBottom: 16 },
   resultButton: { backgroundColor: '#F5A623', paddingVertical: 14, paddingHorizontal: 40, borderRadius: 12 },
   resultButtonText: { color: '#000', fontSize: 16, fontWeight: '600' },
 });

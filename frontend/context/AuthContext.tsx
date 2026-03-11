@@ -1,5 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
+
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 interface User {
   id: string;
@@ -14,6 +17,7 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   setUser: (user: User | null) => void;
+  register: (email: string, password: string, naam: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -45,8 +49,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  const register = async (email: string, password: string, naam: string) => {
+    const response = await axios.post(`${BACKEND_URL}/api/auth/register`, {
+      email: email.trim().toLowerCase(),
+      password,
+      naam: naam.trim(),
+    });
+    await AsyncStorage.setItem('user', JSON.stringify(response.data));
+    setUser(response.data);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, setUser, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, setUser, register, logout }}>
       {children}
     </AuthContext.Provider>
   );

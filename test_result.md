@@ -224,6 +224,30 @@ backend:
         agent: "testing"
         comment: "COMPREHENSIVE TEST COMPLETE: All company settings operations verified. GET /api/instellingen returns current settings (Smart-Tech BV), PUT /api/instellingen updates all fields including bedrijfsnaam, adres, logo_base64, pdf_voettekst. All settings management working perfectly."
 
+  - task: "Werknemer verwijderen"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "DELETE /api/auth/users/{user_id} tested with curl. Temporary worker created, deleted successfully, and confirmed absent from GET /api/auth/users."
+
+  - task: "Werkbon PDF + e-mail verzending"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 1
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Backend now generates a PDF attachment and attempts Resend delivery to company + klant. Curl verified PDF generation, totals, and status handling. Current blocking factor: Resend still rejects sending until smart-techbv.be domain is verified by the user."
+
 frontend:
   - task: "Login/Register Screens"
     implemented: true
@@ -309,21 +333,58 @@ frontend:
         agent: "main"
         comment: "Shows user info and logout button"
 
+  - task: "Werknemer verwijderen UI"
+    implemented: true
+    working: true
+    file: "/app/frontend/app/(tabs)/beheer.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Web preview screenshot flow verified: admin logged in, deleted a temporary worker from Beheer > Werknemers, and worker disappeared from the list."
+
+  - task: "Handtekening opslaan + terug naar werkbon"
+    implemented: true
+    working: true
+    file: "/app/frontend/app/handtekening/[id].tsx"
+    stuck_count: 1
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Handtekening screen now saves, redirects back to werkbon detail, and detail screen fetch uses a cache-busting parameter. Signed werkbon state verified in web preview with status Ondertekend and send-PDF button visible after reload."
+
+  - task: "Werkbon detail - Versturen als PDF knop"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/app/werkbon/[id].tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Button now calls backend PDF/email endpoint and handles success/failure messaging. UI click verified in preview, but successful external e-mail delivery is blocked until Resend domain verification is completed by the user."
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 1
+  test_sequence: 2
   run_ui: false
 
 test_plan:
   current_focus:
-    - "User Authentication (Register/Login)"
-    - "Team Members CRUD"
-    - "Klanten (Customers) CRUD"
-    - "Werven (Worksites) CRUD"
-    - "Werkbonnen (Timesheets) CRUD"
-  stuck_tasks: []
-  test_all: true
+    - "Werknemer verwijderen"
+    - "Werknemer verwijderen UI"
+    - "Handtekening opslaan + terug naar werkbon"
+    - "Werkbon PDF + e-mail verzending"
+    - "Werkbon detail - Versturen als PDF knop"
+  stuck_tasks:
+    - "Werkbon PDF + e-mail verzending"
+  test_all: false
   test_priority: "high_first"
 
 agent_communication:
@@ -440,3 +501,11 @@ agent_communication:
       - Error handling proper (401 for invalid credentials)
       
       BACKEND IS PRODUCTION READY - All review requirements satisfied!
+  - agent: "main"
+    message: |
+      Follow-up implementation completed for the latest user complaints:
+      - Worker delete endpoint + UI tested manually and with curl
+      - Signature screen now saves and returns to werkbon detail
+      - Detail screen fetch uses cache-busting so signed state refreshes correctly
+      - Werkbon send flow now generates a backend PDF and tries to email it as attachment to company + klant
+      - Current external blocker: Resend still refuses delivery until the smart-techbv.be domain is verified; please test graceful handling of this blocked state
