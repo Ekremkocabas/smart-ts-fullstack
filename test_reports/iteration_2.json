@@ -1,0 +1,52 @@
+{
+  "summary": "Backend regressie + mobiele Expo web UI getest voor worker onboarding, werkbon aanmaken, ondertekenen en PDF-send gedrag. Kernflows werken; 1 testbaarheid/regressiepunt gevonden in UI-selectors rond worker-info en duplicate send-button testID.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Werkbon detail footer",
+        "issue": "Na ondertekenen bestaan meerdere elementen met testID 'werkbon-send-pdf-button' (waarvan minstens één hidden), waardoor selector-gebaseerde checks flaky worden.",
+        "testID": "werkbon-send-pdf-button",
+        "priority": "medium"
+      },
+      {
+        "component": "Beheer worker lijst (testbaarheid)",
+        "issue": "Worker-rij mist een stabiele row-level testID; gericht klikken op info-mail voor net aangemaakte werknemer is daardoor fragiel in E2E tests.",
+        "testID": "werknemer-info-mail-button-*",
+        "priority": "medium"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_review_regression_jan2026.py",
+    "/app/backend/tests/test_worker_onboarding_and_pdf_flow_jan2026.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Houd resend-info flow zoals nu (reactiveert user + nieuw temp wachtwoord) en voeg stabiele testID toe per worker row om juiste info-mail knop deterministic te targeten.",
+    "Maak werkbon-send-pdf-button testID uniek/één zichtbaar element om flaky mobile web E2E te voorkomen."
+  ],
+  "critical_code_review_comments": [
+    "Resend-domain blokkade wordt correct graceful afgehandeld: endpoints geven geen 500 en status blijft coherent (ondertekend wanneer e-mail faalt).",
+    "In beheer-modal zijn sommige input testIDs semantisch verwisseld (bv. team/klant velden), wat regressietests minder betrouwbaar maakt."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_worker_onboarding_and_pdf_flow_jan2026.py",
+    "/app/test_reports/iteration_2.json"
+  ],
+  "success_rate": {
+    "backend": "100% (4/4 pytest cases passed)",
+    "frontend": "80% (4/5 gevraagde checks bevestigd; 1 check deels geblokkeerd door selector/testID-fragiliteit)"
+  },
+  "seed_data_creation": "UI en API testdata aangemaakt: TEST workers, klant/werf/werkbon records (prefix TEST/UI/ui_worker_flow).",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Gebruik worker ui_worker_flow_1773237943@example.com / Temp1234 voor snelle worker-login; verificatie van admin->specifieke worker resend modal vereist stabielere row selector.",
+  "rca_of_issue": "RCA: werkbon-send selector timeout komt door duplicate testID met hidden element in DOM na sign-flow, niet door functionele mislukking (screenshot toont Ondertekend + 'Versturen als PDF'). Daarnaast is worker-info button targeting fragiel omdat lijstitems geen unieke row testID hebben; daardoor kan E2E per ongeluk info-modal van andere werknemer openen."
+}
