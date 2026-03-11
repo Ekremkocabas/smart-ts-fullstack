@@ -190,7 +190,7 @@ export default function HandtekeningScreen() {
       });
       const detailRoute = `/werkbon/${id}?refresh=${Date.now()}`;
       if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        window.location.href = detailRoute;
+        window.location.replace(`${window.location.origin}${detailRoute}`);
         return;
       }
       router.replace(detailRoute);

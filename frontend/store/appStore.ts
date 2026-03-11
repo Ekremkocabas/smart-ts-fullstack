@@ -124,6 +124,7 @@ interface AppState {
   klanten: Klant[];
   werven: Werf[];
   werkbonnen: Werkbon[];
+  lastUpdatedWerkbon: Werkbon | null;
   werknemers: User[];
   instellingen: BedrijfsInstellingen | null;
   
@@ -183,6 +184,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   klanten: [],
   werven: [],
   werkbonnen: [],
+  lastUpdatedWerkbon: null,
   werknemers: [],
   instellingen: null,
   isLoading: false,
@@ -336,7 +338,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         `${BACKEND_URL}/api/werkbonnen?user_id=${userId}&user_naam=${encodeURIComponent(userName)}`,
         data
       );
-      set(state => ({ werkbonnen: [response.data, ...state.werkbonnen] }));
+      set(state => ({ werkbonnen: [response.data, ...state.werkbonnen], lastUpdatedWerkbon: response.data }));
       return response.data;
     } catch (error: any) {
       set({ error: error.response?.data?.detail || error.message });
@@ -348,7 +350,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const response = await axios.put(`${BACKEND_URL}/api/werkbonnen/${id}`, data);
       set(state => ({
-        werkbonnen: state.werkbonnen.map(w => w.id === id ? response.data : w)
+        werkbonnen: state.werkbonnen.some(w => w.id === id)
+          ? state.werkbonnen.map(w => w.id === id ? response.data : w)
+          : [response.data, ...state.werkbonnen],
+        lastUpdatedWerkbon: response.data,
       }));
       return response.data;
     } catch (error: any) {
@@ -378,7 +383,14 @@ export const useAppStore = create<AppState>((set, get) => ({
                 email_verzonden: !!response.data.email_sent,
               }
             : w
-        )
+        ),
+        lastUpdatedWerkbon: state.lastUpdatedWerkbon?.id === id
+          ? {
+              ...state.lastUpdatedWerkbon,
+              status: response.data.status || state.lastUpdatedWerkbon.status,
+              email_verzonden: !!response.data.email_sent,
+            }
+          : state.lastUpdatedWerkbon,
       }));
       return response.data;
     } catch (error: any) {

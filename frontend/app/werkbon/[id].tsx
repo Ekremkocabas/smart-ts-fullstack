@@ -41,11 +41,12 @@ const getStatusLabel = (status: string) => {
 export default function WerkbonDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { fetchWerkbon, verzendWerkbon, deleteWerkbon, instellingen, fetchInstellingen } = useAppStore();
+  const { fetchWerkbon, verzendWerkbon, deleteWerkbon, instellingen, fetchInstellingen, lastUpdatedWerkbon } = useAppStore();
   
   const [werkbon, setWerkbon] = useState<Werkbon | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const currentWerkbon = lastUpdatedWerkbon?.id === id ? lastUpdatedWerkbon : werkbon;
 
   const loadWerkbon = useCallback(async () => {
     if (!id) return;
@@ -70,6 +71,12 @@ export default function WerkbonDetailScreen() {
     }, [loadWerkbon])
   );
 
+  useEffect(() => {
+    if (lastUpdatedWerkbon?.id === id) {
+      setWerkbon(lastUpdatedWerkbon);
+    }
+  }, [id, lastUpdatedWerkbon]);
+
   const calculateTotal = (regel: UrenRegel) => {
     return regel.maandag + regel.dinsdag + regel.woensdag + 
            regel.donderdag + regel.vrijdag + regel.zaterdag + regel.zondag;
@@ -85,7 +92,8 @@ export default function WerkbonDetailScreen() {
   };
 
   const generatePDF = async () => {
-    if (!werkbon) return;
+    if (!currentWerkbon) return;
+    const werkbonData = currentWerkbon;
 
     // Helper to get afkorting for a day
     const getAfkorting = (regel: any, dag: string) => {
@@ -104,11 +112,11 @@ export default function WerkbonDetailScreen() {
     };
 
     // Calculate KM totals
-    const kmTotaal = werkbon.km_afstand ? 
-      (werkbon.km_afstand.maandag || 0) + (werkbon.km_afstand.dinsdag || 0) + 
-      (werkbon.km_afstand.woensdag || 0) + (werkbon.km_afstand.donderdag || 0) + 
-      (werkbon.km_afstand.vrijdag || 0) + (werkbon.km_afstand.zaterdag || 0) + 
-      (werkbon.km_afstand.zondag || 0) : 0;
+    const kmTotaal = werkbonData.km_afstand ? 
+      (werkbonData.km_afstand.maandag || 0) + (werkbonData.km_afstand.dinsdag || 0) + 
+      (werkbonData.km_afstand.woensdag || 0) + (werkbonData.km_afstand.donderdag || 0) + 
+      (werkbonData.km_afstand.vrijdag || 0) + (werkbonData.km_afstand.zaterdag || 0) + 
+      (werkbonData.km_afstand.zondag || 0) : 0;
 
     const html = `
       <!DOCTYPE html>
@@ -179,32 +187,32 @@ export default function WerkbonDetailScreen() {
             <h3>Werkbon Details</h3>
             <div class="info-row">
               <span class="info-label">Week:</span>
-              <span class="info-value"><strong>${werkbon.week_nummer}</strong> (${werkbon.jaar})</span>
+              <span class="info-value"><strong>${werkbonData.week_nummer}</strong> (${werkbonData.jaar})</span>
             </div>
             <div class="info-row">
               <span class="info-label">Periode:</span>
-              <span class="info-value">${werkbon.datum_maandag || ''} - ${werkbon.datum_zondag || ''}</span>
+              <span class="info-value">${werkbonData.datum_maandag || ''} - ${werkbonData.datum_zondag || ''}</span>
             </div>
             <div class="info-row">
               <span class="info-label">Status:</span>
               <span class="info-value">
-                <span class="status-badge status-${werkbon.status}">${getStatusLabel(werkbon.status)}</span>
+                <span class="status-badge status-${werkbonData.status}">${getStatusLabel(werkbonData.status)}</span>
               </span>
             </div>
             <div class="info-row">
               <span class="info-label">Ingevuld door:</span>
-              <span class="info-value">${werkbon.ingevuld_door_naam}</span>
+              <span class="info-value">${werkbonData.ingevuld_door_naam}</span>
             </div>
           </div>
           <div class="info-box">
             <h3>Klant & Locatie</h3>
             <div class="info-row">
               <span class="info-label">Klant:</span>
-              <span class="info-value"><strong>${werkbon.klant_naam}</strong></span>
+              <span class="info-value"><strong>${werkbonData.klant_naam}</strong></span>
             </div>
             <div class="info-row">
               <span class="info-label">Werf:</span>
-              <span class="info-value">${werkbon.werf_naam}</span>
+              <span class="info-value">${werkbonData.werf_naam}</span>
             </div>
           </div>
         </div>
@@ -214,18 +222,18 @@ export default function WerkbonDetailScreen() {
           <thead>
             <tr>
               <th class="name-cell" style="width: 150px;">Naam</th>
-              <th>Ma<br/><small>${werkbon.datum_maandag || ''}</small></th>
-              <th>Di<br/><small>${werkbon.datum_dinsdag || ''}</small></th>
-              <th>Wo<br/><small>${werkbon.datum_woensdag || ''}</small></th>
-              <th>Do<br/><small>${werkbon.datum_donderdag || ''}</small></th>
-              <th>Vr<br/><small>${werkbon.datum_vrijdag || ''}</small></th>
-              <th>Za<br/><small>${werkbon.datum_zaterdag || ''}</small></th>
-              <th>Zo<br/><small>${werkbon.datum_zondag || ''}</small></th>
+              <th>Ma<br/><small>${werkbonData.datum_maandag || ''}</small></th>
+              <th>Di<br/><small>${werkbonData.datum_dinsdag || ''}</small></th>
+              <th>Wo<br/><small>${werkbonData.datum_woensdag || ''}</small></th>
+              <th>Do<br/><small>${werkbonData.datum_donderdag || ''}</small></th>
+              <th>Vr<br/><small>${werkbonData.datum_vrijdag || ''}</small></th>
+              <th>Za<br/><small>${werkbonData.datum_zaterdag || ''}</small></th>
+              <th>Zo<br/><small>${werkbonData.datum_zondag || ''}</small></th>
               <th style="background: #1a1a2e;">Totaal</th>
             </tr>
           </thead>
           <tbody>
-            ${werkbon.uren.map(regel => `
+            ${werkbonData.uren.map(regel => `
               <tr>
                 <td class="name-cell">${regel.teamlid_naam}</td>
                 <td>${formatCell(regel, 'maandag')}</td>
@@ -240,13 +248,13 @@ export default function WerkbonDetailScreen() {
             `).join('')}
             <tr class="grand-total">
               <td class="name-cell"><strong>TOTAAL</strong></td>
-              <td>${werkbon.uren.reduce((sum, r) => sum + (r.maandag || 0), 0) || '-'}</td>
-              <td>${werkbon.uren.reduce((sum, r) => sum + (r.dinsdag || 0), 0) || '-'}</td>
-              <td>${werkbon.uren.reduce((sum, r) => sum + (r.woensdag || 0), 0) || '-'}</td>
-              <td>${werkbon.uren.reduce((sum, r) => sum + (r.donderdag || 0), 0) || '-'}</td>
-              <td>${werkbon.uren.reduce((sum, r) => sum + (r.vrijdag || 0), 0) || '-'}</td>
-              <td>${werkbon.uren.reduce((sum, r) => sum + (r.zaterdag || 0), 0) || '-'}</td>
-              <td>${werkbon.uren.reduce((sum, r) => sum + (r.zondag || 0), 0) || '-'}</td>
+              <td>${werkbonData.uren.reduce((sum, r) => sum + (r.maandag || 0), 0) || '-'}</td>
+              <td>${werkbonData.uren.reduce((sum, r) => sum + (r.dinsdag || 0), 0) || '-'}</td>
+              <td>${werkbonData.uren.reduce((sum, r) => sum + (r.woensdag || 0), 0) || '-'}</td>
+              <td>${werkbonData.uren.reduce((sum, r) => sum + (r.donderdag || 0), 0) || '-'}</td>
+              <td>${werkbonData.uren.reduce((sum, r) => sum + (r.vrijdag || 0), 0) || '-'}</td>
+              <td>${werkbonData.uren.reduce((sum, r) => sum + (r.zaterdag || 0), 0) || '-'}</td>
+              <td>${werkbonData.uren.reduce((sum, r) => sum + (r.zondag || 0), 0) || '-'}</td>
               <td><strong>${grandTotal}</strong></td>
             </tr>
           </tbody>
@@ -268,41 +276,41 @@ export default function WerkbonDetailScreen() {
                 <th>Ma</th><th>Di</th><th>Wo</th><th>Do</th><th>Vr</th><th>Za</th><th>Zo</th><th style="background: #1a1a2e;">Totaal</th>
               </tr>
               <tr>
-                <td>${werkbon.km_afstand?.maandag || '-'}</td>
-                <td>${werkbon.km_afstand?.dinsdag || '-'}</td>
-                <td>${werkbon.km_afstand?.woensdag || '-'}</td>
-                <td>${werkbon.km_afstand?.donderdag || '-'}</td>
-                <td>${werkbon.km_afstand?.vrijdag || '-'}</td>
-                <td>${werkbon.km_afstand?.zaterdag || '-'}</td>
-                <td>${werkbon.km_afstand?.zondag || '-'}</td>
+                <td>${werkbonData.km_afstand?.maandag || '-'}</td>
+                <td>${werkbonData.km_afstand?.dinsdag || '-'}</td>
+                <td>${werkbonData.km_afstand?.woensdag || '-'}</td>
+                <td>${werkbonData.km_afstand?.donderdag || '-'}</td>
+                <td>${werkbonData.km_afstand?.vrijdag || '-'}</td>
+                <td>${werkbonData.km_afstand?.zaterdag || '-'}</td>
+                <td>${werkbonData.km_afstand?.zondag || '-'}</td>
                 <td class="total-cell"><strong>${kmTotaal} km</strong></td>
               </tr>
             </table>
           </div>
         ` : ''}
 
-        ${werkbon.uitgevoerde_werken ? `
+        ${werkbonData.uitgevoerde_werken ? `
           <div class="description-section">
             <h3>Uitgevoerde Werken</h3>
-            <div class="description-box">${werkbon.uitgevoerde_werken}</div>
+            <div class="description-box">${werkbonData.uitgevoerde_werken}</div>
           </div>
         ` : ''}
 
-        ${werkbon.extra_materialen ? `
+        ${werkbonData.extra_materialen ? `
           <div class="description-section">
             <h3>Extra Materialen</h3>
-            <div class="description-box">${werkbon.extra_materialen}</div>
+            <div class="description-box">${werkbonData.extra_materialen}</div>
           </div>
         ` : ''}
 
-        ${werkbon.handtekening_data ? `
+        ${werkbonData.handtekening_data ? `
           <div class="signature-section">
             <h3>Handtekening Klant</h3>
             <div class="signature-box">
-              <img class="signature-img" src="${werkbon.handtekening_data}" alt="Handtekening" />
+              <img class="signature-img" src="${werkbonData.handtekening_data}" alt="Handtekening" />
               <div class="signature-info">
-                <div><strong>Naam:</strong> ${werkbon.handtekening_naam}</div>
-                <div><strong>Datum:</strong> ${werkbon.handtekening_datum ? new Date(werkbon.handtekening_datum).toLocaleDateString('nl-NL') : '-'}</div>
+                <div><strong>Naam:</strong> ${werkbonData.handtekening_naam}</div>
+                <div><strong>Datum:</strong> ${werkbonData.handtekening_datum ? new Date(werkbonData.handtekening_datum).toLocaleDateString('nl-NL') : '-'}</div>
               </div>
             </div>
           </div>
@@ -333,21 +341,21 @@ export default function WerkbonDetailScreen() {
   };
 
   const handleSign = () => {
-    if (!werkbon) return;
-    router.push(`/handtekening/${werkbon.id}`);
+    if (!currentWerkbon) return;
+    router.push(`/handtekening/${currentWerkbon.id}`);
   };
 
   const handleSend = async () => {
-    if (!werkbon) return;
+    if (!currentWerkbon) return;
     
-    if (werkbon.status !== 'ondertekend') {
+    if (currentWerkbon.status !== 'ondertekend') {
       Alert.alert('Let op', 'De werkbon moet eerst ondertekend worden');
       return;
     }
 
     Alert.alert(
       'Verzenden',
-      `Wilt u deze werkbon als PDF verzenden naar ${werkbon.klant_naam} en info@smart-techbv.be?`,
+      `Wilt u deze werkbon als PDF verzenden naar ${currentWerkbon.klant_naam} en info@smart-techbv.be?`,
       [
         { text: 'Annuleren', style: 'cancel' },
         {
@@ -355,7 +363,7 @@ export default function WerkbonDetailScreen() {
           onPress: async () => {
             setIsSending(true);
             try {
-              const result = await verzendWerkbon(werkbon.id);
+              const result = await verzendWerkbon(currentWerkbon.id);
               if (result.email_sent) {
                 const ontvangers = Array.isArray(result.recipients) ? result.recipients.join(', ') : '';
                 Alert.alert('Succes', `Werkbon als PDF verzonden.${ontvangers ? `\n\nOntvangers: ${ontvangers}` : ''}`);
@@ -376,7 +384,7 @@ export default function WerkbonDetailScreen() {
   };
 
   const handleDelete = () => {
-    if (!werkbon) return;
+    if (!currentWerkbon) return;
     
     Alert.alert(
       'Verwijderen',
@@ -389,6 +397,7 @@ export default function WerkbonDetailScreen() {
           onPress: async () => {
             try {
               await deleteWerkbon(werkbon.id);
+              
               router.back();
             } catch (error: any) {
               Alert.alert('Fout', error.message);
@@ -399,7 +408,7 @@ export default function WerkbonDetailScreen() {
     );
   };
 
-  if (isLoading || !werkbon) {
+  if (isLoading || !currentWerkbon) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
@@ -409,7 +418,7 @@ export default function WerkbonDetailScreen() {
     );
   }
 
-  const grandTotal = werkbon.uren.reduce((sum, regel) => sum + calculateTotal(regel), 0);
+  const grandTotal = currentWerkbon.uren.reduce((sum, regel) => sum + calculateTotal(regel), 0);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -430,23 +439,23 @@ export default function WerkbonDetailScreen() {
             <View style={styles.weekBadge}>
               <Text style={styles.weekText}>Week {werkbon.week_nummer}</Text>
             </View>
-            <View style={[styles.statusBadge, { backgroundColor: getStatusColor(werkbon.status) }]}>
-              <Text style={styles.statusText}>{getStatusLabel(werkbon.status)}</Text>
+            <View style={[styles.statusBadge, { backgroundColor: getStatusColor(currentWerkbon.status) }]}> 
+              <Text style={styles.statusText}>{getStatusLabel(currentWerkbon.status)}</Text>
             </View>
           </View>
           
           <View style={styles.infoDetails}>
             <View style={styles.infoItem}>
               <Text style={styles.infoLabel}>Klant</Text>
-              <Text style={styles.infoValue}>{werkbon.klant_naam}</Text>
+              <Text style={styles.infoValue}>{currentWerkbon.klant_naam}</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoLabel}>Werf</Text>
-              <Text style={styles.infoValue}>{werkbon.werf_naam}</Text>
+              <Text style={styles.infoValue}>{currentWerkbon.werf_naam}</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoLabel}>Ingevuld door</Text>
-              <Text style={styles.infoValue}>{werkbon.ingevuld_door_naam}</Text>
+              <Text style={styles.infoValue}>{currentWerkbon.ingevuld_door_naam}</Text>
             </View>
           </View>
         </View>
@@ -469,7 +478,7 @@ export default function WerkbonDetailScreen() {
             </View>
           </View>
 
-          {werkbon.uren.map((regel, index) => (
+          {currentWerkbon.uren.map((regel, index) => (
             <View key={index} style={styles.tableRow}>
               <View style={styles.nameColumn}>
                 <Text style={styles.nameText}>{regel.teamlid_naam}</Text>
@@ -494,14 +503,14 @@ export default function WerkbonDetailScreen() {
         </View>
 
         {/* Signature */}
-        {werkbon.handtekening_data && (
+        {currentWerkbon.handtekening_data && (
           <View style={styles.signatureCard}>
             <Text style={styles.sectionTitle}>Handtekening</Text>
             <View style={styles.signatureInfo}>
-              <Text style={styles.signatureLabel}>Naam: {werkbon.handtekening_naam}</Text>
-              {werkbon.handtekening_datum && (
+              <Text style={styles.signatureLabel}>Naam: {currentWerkbon.handtekening_naam}</Text>
+              {currentWerkbon.handtekening_datum && (
                 <Text style={styles.signatureLabel}>
-                  Datum: {new Date(werkbon.handtekening_datum).toLocaleDateString('nl-NL')}
+                  Datum: {new Date(currentWerkbon.handtekening_datum).toLocaleDateString('nl-NL')}
                 </Text>
               )}
             </View>
@@ -510,14 +519,14 @@ export default function WerkbonDetailScreen() {
       </ScrollView>
 
       <View style={styles.footer}>
-        {werkbon.status === 'concept' && (
+        {currentWerkbon.status === 'concept' && (
           <TouchableOpacity testID="werkbon-sign-button" style={styles.signButton} onPress={handleSign}>
             <Ionicons name="pencil" size={20} color="#fff" />
             <Text style={styles.buttonText}>Ondertekenen</Text>
           </TouchableOpacity>
         )}
         
-        {werkbon.status === 'ondertekend' && (
+        {currentWerkbon.status === 'ondertekend' && (
           <TouchableOpacity
             testID="werkbon-send-pdf-button"
             style={[styles.sendButton, isSending && styles.buttonDisabled]}
