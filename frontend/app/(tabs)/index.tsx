@@ -15,7 +15,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppStore, Werkbon } from '../../store/appStore';
 import { useAuth } from '../../context/AuthContext';
-import { showConfirm } from '../../utils/alerts';
+import { showAlert, showConfirm } from '../../utils/alerts';
 const getStatusColor = (status: string) => {
   switch (status) {
     case 'concept': return '#ffc107';
@@ -84,22 +84,14 @@ export default function WerkbonnenScreen() {
     return { count: thisWeek.length, uren: totalUren };
   }, [werkbonnen, currentWeek]);
 
-  const handleCopy = (item: Werkbon) => {
+  const handleCopy = async (item: Werkbon) => {
     if (!user) return;
-    showConfirm(
-      'Werkbon Kopiëren',
-      `Kopie van week ${item.week_nummer} voor ${item.klant_naam}?`,
-      async () => {
-        try {
-          const newWerkbon = await duplicateWerkbon(item.id, user.id, user.naam);
-          router.push(`/werkbon/bewerken/${newWerkbon.id}`);
-        } catch {
-          if (Platform.OS === 'web') window.alert('Kopie kon niet worden aangemaakt');
-        }
-      },
-      undefined,
-      'Kopiëren'
-    );
+    try {
+      const newWerkbon = await duplicateWerkbon(item.id, user.id, user.naam);
+      router.push(`/werkbon/bewerken/${newWerkbon.id}`);
+    } catch {
+      showAlert('Fout', 'Kopie kon niet worden aangemaakt');
+    }
   };
 
   const handleDelete = (item: Werkbon) => {

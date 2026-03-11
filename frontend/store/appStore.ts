@@ -81,6 +81,7 @@ export interface Werkbon {
   handtekening_data?: string;
   handtekening_naam: string;
   handtekening_datum?: string;
+  selfie_data?: string;
   ingevuld_door_id: string;
   ingevuld_door_naam: string;
   status: string;

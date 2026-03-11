@@ -193,6 +193,7 @@ class Werkbon(BaseModel):
     handtekening_data: Optional[str] = None
     handtekening_naam: str = ""
     handtekening_datum: Optional[datetime] = None
+    selfie_data: Optional[str] = None
     
     ingevuld_door_id: str
     ingevuld_door_naam: str
@@ -219,6 +220,7 @@ class WerkbonUpdate(BaseModel):
     extra_materialen: Optional[str] = None
     handtekening_data: Optional[str] = None
     handtekening_naam: Optional[str] = None
+    selfie_data: Optional[str] = None
     status: Optional[str] = None
 
 # Bedrijfsinstellingen (Company Settings)
@@ -1337,6 +1339,71 @@ async def verzend_werkbon(werkbon_id: str):
         "email_error": email_result.get("error"),
         "success": True
     }
+
+# ==================== RAPPORT ROUTES ====================
+
+@api_router.get("/rapporten/uren")
+async def get_uren_rapport(jaar: int, week: Optional[int] = None, maand: Optional[int] = None):
+    """Get hours report per worker for a given period (week or month)."""
+    import calendar
+    query: Dict = {"jaar": jaar}
+    if week is not None:
+        query["week_nummer"] = week
+    elif maand is not None:
+        weeks: set = set()
+        _, num_days = calendar.monthrange(jaar, maand)
+        for day in range(1, num_days + 1):
+            d = datetime(jaar, maand, day)
+            weeks.add(d.isocalendar()[1])
+        query["week_nummer"] = {"$in": list(weeks)}
+
+    werkbonnen = await db.werkbonnen.find(query, {"_id": 0}).to_list(1000)
+    rapport: Dict[str, dict] = {}
+
+    for wb in werkbonnen:
+        week_num = wb.get("week_nummer")
+        for uren_regel in wb.get("uren", []):
+            naam = (uren_regel.get("teamlid_naam") or "").strip()
+            if not naam:
+                continue
+            werf = wb.get("werf_naam", "")
+            dag_namen = ["maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag"]
+            dag_kort = ["ma", "di", "wo", "do", "vr", "za", "zo"]
+            day_values = {}
+            total = 0.0
+            for dag, kort in zip(dag_namen, dag_kort):
+                afk = uren_regel.get(f"afkorting_{kort}", "")
+                uren = uren_regel.get(dag, 0) or 0
+                day_values[dag] = afk if afk else (uren if uren > 0 else 0)
+                if not afk:
+                    total += uren
+
+            if naam not in rapport:
+                rapport[naam] = {"werknemer_naam": naam, "werven": {}, "totaal_uren": 0.0}
+            if werf not in rapport[naam]["werven"]:
+                rapport[naam]["werven"][werf] = {"uren": 0.0, "week_details": []}
+            rapport[naam]["werven"][werf]["uren"] += total
+            rapport[naam]["werven"][werf]["week_details"].append({
+                "week_nummer": week_num,
+                **{d: day_values[d] for d in dag_namen},
+                "totaal": total,
+            })
+            rapport[naam]["totaal_uren"] += total
+
+    result = [
+        {
+            "werknemer_naam": naam,
+            "werven": [
+                {"werf_naam": k, "uren": v["uren"], "week_details": v["week_details"]}
+                for k, v in sorted(d["werven"].items())
+            ],
+            "totaal_uren": d["totaal_uren"],
+        }
+        for naam, d in rapport.items()
+    ]
+    result.sort(key=lambda x: x["totaal_uren"], reverse=True)
+    return result
+
 
 # ==================== HEALTH CHECK ====================
 

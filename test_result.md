@@ -426,7 +426,7 @@ agent_communication:
       - Signature functionality (status changes to 'ondertekend')
       - Error handling scenarios
       
-      Backend testing is COMPLETE. All endpoints working correctly at https://smart-tech-demo.preview.emergentagent.com/api
+      Backend testing is COMPLETE. All endpoints working correctly at https://timesheet-verify.preview.emergentagent.com/api
   - agent: "testing"
     message: |
       ADMIN LOGIN TESTING COMPLETED SUCCESSFULLY!
@@ -503,22 +503,73 @@ agent_communication:
       BACKEND IS PRODUCTION READY - All review requirements satisfied!
   - agent: "main"
     message: |
-      NEW FEATURES IMPLEMENTED (2026-03-11):
+      NEW FEATURES IMPLEMENTED (2026-03-11) - FORKED SESSION:
       
       BACKEND CHANGES:
-      - Added btw_nummer (BTW number) field to Klant/KlantCreate models
-      - Updated send_werkbon_email with professional Dutch disclaimer text:
-        "Gelieve uw opmerkingen binnen 5 werkdagen door te sturen. Zonder tegenbericht wordt deze werkbon als goedgekeurd beschouwd."
-      - Updated PDF to show klant BTW nummer in info_right section
-      - Added POST /api/werkbonnen/{id}/dupliceer endpoint for copying werkbons
+      - Added selfie_data field to Werkbon and WerkbonUpdate models
+      - Added GET /api/rapporten/uren endpoint: aggregates worker hours per period (week/month)
       
       FRONTEND CHANGES:
-      - index.tsx (Werkbon List): Added delete buttons next to each werkbon card, weekly stats dashboard (uren & count), week filter chips
-      - [id].tsx (Werkbon Detail): Fixed send flow (navigates to list after success), added "Bewerken" button for concept werkbons, added "Kopiëren" button
-      - beheer.tsx: Added BTW nummer field to klant form
-      - NEW: /app/werkbon/bewerken/[id].tsx - Edit werkbon screen with pre-filled data
-      - appStore.ts: Added btw_nummer to Klant interface, added duplicateWerkbon action
+      - Fixed Kopieren button: removed showConfirm dialog, now directly copies and navigates to edit screen
+      - handtekening/[id].tsx: Added optional Selfie button (expo-image-picker) and disabled SMS button (Binnenkort beschikbaar)
+      - NEW: (tabs)/rapport.tsx - New Rapport tab showing per-worker hours, weekly/monthly selector, CSV export
+      - (tabs)/_layout.tsx: Added Rapport tab (admin only)
+      - appStore.ts: Added selfie_data to Werkbon interface
       
       NEEDS TESTING:
-      - All new features listed above
+      - Kopieren button (should now work directly without confirmation)
+      - Selfie button on handtekening screen
+      - SMS button shows as disabled
+      - Rapport tab with weekly/monthly filter
+      - CSV export from Rapport screen
       - Admin login: info@smart-techbv.be / smart123
+
+backend:
+  - task: "Uren Rapport Endpoint"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added GET /api/rapporten/uren with jaar, week (optional), maand (optional) params. Aggregates werkbonnen data by worker name and werf."
+
+frontend:
+  - task: "Kopieren Button Fix"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/app/(tabs)/index.tsx"
+    stuck_count: 1
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "main"
+        comment: "User reported kopieren button not working. Fixed by removing showConfirm dialog and making it a direct async call."
+
+  - task: "Selfie + SMS on Signature Screen"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/app/handtekening/[id].tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added optional Selfie button using expo-image-picker (front camera on native, file picker on web). Added disabled SMS button with 'Binnenkort' badge."
+
+  - task: "Rapport Tab - Per Worker Hours"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/app/(tabs)/rapport.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "New Rapport tab showing per-worker hours with week/month selector. CSV export functionality for both web and native."

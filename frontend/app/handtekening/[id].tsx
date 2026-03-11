@@ -9,11 +9,13 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import SignatureScreen from 'react-native-signature-canvas';
+import * as ImagePicker from 'expo-image-picker';
 import { useAppStore } from '../../store/appStore';
 import { showAlert } from '../../utils/alerts';
 
@@ -134,6 +136,8 @@ export default function HandtekeningScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [hasSignature, setHasSignature] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [selfieUri, setSelfieUri] = useState<string | null>(null);
+  const [selfieBase64, setSelfieBase64] = useState<string | null>(null);
 
   const signaturePadStyle = `
     .m-signature-pad {box-shadow: none; border: none; background: #16213e;}
@@ -146,6 +150,43 @@ export default function HandtekeningScreen() {
     signatureRef.current?.clearSignature();
     setHasSignature(false);
     setErrorMessage('');
+  };
+
+  const handleTakeSelfie = async () => {
+    try {
+      if (Platform.OS !== 'web') {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+          showAlert('Toestemming vereist', 'Camera toegang is nodig voor selfie');
+          return;
+        }
+        const result = await ImagePicker.launchCameraAsync({
+          cameraType: ImagePicker.CameraType.front,
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 0.4,
+          base64: true,
+        });
+        if (!result.canceled && result.assets?.[0]) {
+          setSelfieUri(result.assets[0].uri);
+          setSelfieBase64(`data:image/jpeg;base64,${result.assets[0].base64}`);
+        }
+      } else {
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'],
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 0.4,
+          base64: true,
+        });
+        if (!result.canceled && result.assets?.[0]) {
+          setSelfieUri(result.assets[0].uri);
+          setSelfieBase64(`data:image/jpeg;base64,${result.assets[0].base64}`);
+        }
+      }
+    } catch {
+      showAlert('Fout', 'Selfie kon niet worden gemaakt');
+    }
   };
 
   const handleSave = async () => {
@@ -187,6 +228,7 @@ export default function HandtekeningScreen() {
       await updateWerkbon(id, {
         handtekening_data: signature,
         handtekening_naam: naam.trim(),
+        selfie_data: selfieBase64 || undefined,
         status: 'ondertekend',
       });
       await new Promise((resolve) => setTimeout(resolve, 150));
@@ -230,6 +272,30 @@ export default function HandtekeningScreen() {
               placeholder="Uw volledige naam"
               placeholderTextColor="#6c757d"
             />
+          </View>
+
+          {/* Optional Security: Selfie + SMS */}
+          <View style={styles.securityRow}>
+            {/* Selfie Button */}
+            <TouchableOpacity style={styles.securityBtn} onPress={handleTakeSelfie}>
+              {selfieUri ? (
+                <Image source={{ uri: selfieUri }} style={styles.selfieThumbnail} />
+              ) : (
+                <Ionicons name="camera-outline" size={20} color="#F5A623" />
+              )}
+              <Text style={styles.securityBtnText}>
+                {selfieUri ? 'Selfie ✓' : 'Selfie'}
+              </Text>
+            </TouchableOpacity>
+
+            {/* SMS Button (disabled / coming soon) */}
+            <View style={[styles.securityBtn, styles.securityBtnDisabled]}>
+              <Ionicons name="chatbubble-outline" size={20} color="#555" />
+              <Text style={[styles.securityBtnText, styles.securityBtnTextDisabled]}>SMS</Text>
+              <View style={styles.comingSoonBadge}>
+                <Text style={styles.comingSoonText}>Binnenkort</Text>
+              </View>
+            </View>
           </View>
 
           {!!errorMessage && <Text testID="signature-error-text" style={styles.errorText}>{errorMessage}</Text>}
@@ -350,6 +416,57 @@ const styles = StyleSheet.create({
   clearText: {
     color: '#6c757d',
     fontSize: 14,
+  },
+  securityRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  securityBtn: {
+    flex: 1,
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#16213e',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#F5A62350',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    gap: 6,
+    position: 'relative',
+  },
+  securityBtnDisabled: {
+    borderColor: '#2d3a5f',
+    opacity: 0.55,
+  },
+  securityBtnText: {
+    color: '#F5A623',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  securityBtnTextDisabled: {
+    color: '#555',
+  },
+  selfieThumbnail: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: '#28a745',
+  },
+  comingSoonBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: '#2d3a5f',
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+  comingSoonText: {
+    color: '#6c757d',
+    fontSize: 9,
   },
   footer: {
     padding: 20,

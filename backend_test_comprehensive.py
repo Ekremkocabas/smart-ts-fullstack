@@ -11,7 +11,7 @@ import uuid
 import sys
 
 # Configuration - Using the correct backend URL from frontend .env
-BACKEND_URL = "https://smart-tech-demo.preview.emergentagent.com/api"
+BACKEND_URL = "https://timesheet-verify.preview.emergentagent.com/api"
 HEADERS = {"Content-Type": "application/json"}
 
 class TestResults:
