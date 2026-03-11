@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAppStore, User } from '../../store/appStore';
 import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'expo-router';
+import { showAlert } from '../../utils/alerts';
 
 type Tab = 'overzicht' | 'werknemers' | 'teams' | 'klanten' | 'werven' | 'instellingen' | 'pdf';
 
@@ -170,7 +171,7 @@ export default function BeheerScreen() {
     try {
       if (modalType === 'team') {
         if (!teamNaam.trim()) {
-          Alert.alert('Fout', 'Vul een teamnaam in');
+          showAlert('Fout', 'Vul een teamnaam in');
           return;
         }
         const leden = teamLeden.split('\n').map(l => l.trim()).filter(l => l);
@@ -181,7 +182,7 @@ export default function BeheerScreen() {
         }
       } else if (modalType === 'klant') {
         if (!klantNaam.trim() || !klantEmail.trim()) {
-          Alert.alert('Fout', 'Vul naam en e-mail in');
+          showAlert('Fout', 'Vul naam en e-mail in');
           return;
         }
         const klantData = {
@@ -200,7 +201,7 @@ export default function BeheerScreen() {
         }
       } else if (modalType === 'werf') {
         if (!werfNaam.trim() || !werfKlantId) {
-          Alert.alert('Fout', 'Vul werf naam in en selecteer een klant');
+          showAlert('Fout', 'Vul werf naam in en selecteer een klant');
           return;
         }
         const werfData = {
@@ -215,7 +216,7 @@ export default function BeheerScreen() {
         }
       } else if (modalType === 'werknemer') {
         if (!werknemerNaam.trim() || !werknemerEmail.trim()) {
-          Alert.alert('Fout', 'Vul naam en e-mail in');
+          showAlert('Fout', 'Vul naam en e-mail in');
           return;
         }
         if (editingItem) {
@@ -246,7 +247,7 @@ export default function BeheerScreen() {
       if (modalType === 'werf') fetchWerven();
       if (modalType === 'werknemer') fetchWerknemers();
     } catch (error: any) {
-      Alert.alert('Fout', error.message || 'Er is een fout opgetreden');
+      showAlert('Fout', error.message || 'Er is een fout opgetreden');
     }
   };
 
@@ -262,7 +263,7 @@ export default function BeheerScreen() {
       });
       setResultModalVisible(true);
     } catch (error: any) {
-      Alert.alert('Fout', error.message || 'Info mail versturen mislukt');
+      showAlert('Fout', error.message || 'Info mail versturen mislukt');
     }
   };
 
@@ -280,9 +281,9 @@ export default function BeheerScreen() {
         btw_nummer: btwNummer.trim() || undefined,
         admin_emails: emailList.length > 0 ? emailList : undefined,
       });
-      Alert.alert('Opgeslagen', 'Bedrijfsinstellingen zijn bijgewerkt');
+      showAlert('Opgeslagen', 'Bedrijfsinstellingen zijn bijgewerkt');
     } catch (error: any) {
-      Alert.alert('Fout', error.message);
+      showAlert('Fout', error.message);
     }
   };
 
@@ -292,9 +293,9 @@ export default function BeheerScreen() {
         pdf_voettekst: pdfVoettekst.trim(),
         logo_base64: logoBase64 || undefined,
       });
-      Alert.alert('Opgeslagen', 'PDF instellingen zijn bijgewerkt');
+      showAlert('Opgeslagen', 'PDF instellingen zijn bijgewerkt');
     } catch (error: any) {
-      Alert.alert('Fout', error.message);
+      showAlert('Fout', error.message);
     }
   };
 
@@ -313,7 +314,7 @@ export default function BeheerScreen() {
         setLogoBase64(`data:image/png;base64,${result.assets[0].base64}`);
       }
     } catch (error) {
-      Alert.alert('Fout', 'Kan afbeelding niet laden');
+      showAlert('Fout', 'Kan afbeelding niet laden');
     }
   };
 
@@ -324,7 +325,7 @@ export default function BeheerScreen() {
       else if (type === 'werf') await deleteWerf(id);
       else if (type === 'werknemer') await deleteWerknemer(id);
     } catch (error: any) {
-      Alert.alert('Fout', error.message || 'Verwijderen mislukt');
+      showAlert('Fout', error.message || 'Verwijderen mislukt');
     }
   };
 
@@ -353,7 +354,7 @@ export default function BeheerScreen() {
     try {
       await updateWerknemer(werknemer.id, { actief: !werknemer.actief });
     } catch (error: any) {
-      Alert.alert('Fout', error.message);
+      showAlert('Fout', error.message);
     }
   };
 

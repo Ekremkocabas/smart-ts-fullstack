@@ -15,6 +15,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import SignatureScreen from 'react-native-signature-canvas';
 import { useAppStore } from '../../store/appStore';
+import { showAlert } from '../../utils/alerts';
 
 // Web-compatible signature component
 const WebSignatureCanvas = ({ onEnd, onClear, signatureRef }: any) => {
@@ -150,13 +151,13 @@ export default function HandtekeningScreen() {
   const handleSave = async () => {
     if (!naam.trim()) {
       setErrorMessage('Vul uw naam in');
-      Alert.alert('Fout', 'Vul uw naam in');
+      showAlert('Fout', 'Vul uw naam in');
       return;
     }
 
     if (!hasSignature) {
       setErrorMessage('Plaats uw handtekening');
-      Alert.alert('Fout', 'Plaats uw handtekening');
+      showAlert('Fout', 'Plaats uw handtekening');
       return;
     }
 
@@ -195,7 +196,7 @@ export default function HandtekeningScreen() {
     } catch (error: any) {
       const message = error.message || 'Kon handtekening niet opslaan';
       setErrorMessage(message);
-      Alert.alert('Fout', message);
+      showAlert('Fout', message);
     } finally {
       setIsSaving(false);
     }

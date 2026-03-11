@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppStore, UrenRegel, KmRegel } from '../../../store/appStore';
+import { showAlert } from '../../../utils/alerts';
 
 const DAGEN = ['maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag', 'zondag'];
 const DAGEN_KORT = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'];
@@ -71,7 +72,7 @@ export default function BewerkenWerkbonScreen() {
         setExtraMaterialen(data.extra_materialen || '');
       }
     } catch (e) {
-      Alert.alert('Fout', 'Werkbon kon niet worden geladen');
+      showAlert('Fout', 'Werkbon kon niet worden geladen');
     } finally {
       setIsLoading(false);
     }
@@ -122,7 +123,7 @@ export default function BewerkenWerkbonScreen() {
   const handleSave = async () => {
     const validRegels = urenRegels.filter(r => r.teamlid_naam.trim());
     if (validRegels.length === 0) {
-      Alert.alert('Fout', 'Voeg minstens één teamlid toe');
+      showAlert('Fout', 'Voeg minstens één teamlid toe');
       return;
     }
     setIsSaving(true);
@@ -135,7 +136,7 @@ export default function BewerkenWerkbonScreen() {
       });
       router.replace(`/werkbon/${id}`);
     } catch (error: any) {
-      Alert.alert('Fout', error.message || 'Kon werkbon niet opslaan');
+      showAlert('Fout', error.message || 'Kon werkbon niet opslaan');
     } finally {
       setIsSaving(false);
     }

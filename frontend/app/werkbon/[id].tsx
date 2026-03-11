@@ -7,12 +7,14 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppStore, Werkbon, UrenRegel } from '../../store/appStore';
 import { useAuth } from '../../context/AuthContext';
+import { showAlert, showConfirm } from '../../utils/alerts';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
@@ -70,7 +72,7 @@ export default function WerkbonDetailScreen() {
       const data = await fetchWerkbon(id);
       setWerkbon(data);
     } catch (error) {
-      Alert.alert('Fout', 'Kon werkbon niet laden');
+      showAlert('Fout', 'Kon werkbon niet laden');
     } finally {
       setIsLoading(false);
     }
@@ -346,10 +348,10 @@ export default function WerkbonDetailScreen() {
       if (canShare) {
         await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
       } else {
-        Alert.alert('PDF gereed', 'PDF is gemaakt, maar delen is op dit apparaat niet beschikbaar.');
+        showAlert('PDF gereed', 'PDF is gemaakt, maar delen is op dit apparaat niet beschikbaar.');
       }
     } catch (error) {
-      Alert.alert('Fout', 'Kon PDF niet genereren');
+      showAlert('Fout', 'Kon PDF niet genereren');
     }
   };
 
@@ -365,86 +367,75 @@ export default function WerkbonDetailScreen() {
 
   const handleDuplicate = () => {
     if (!currentWerkbon || !user) return;
-    Alert.alert(
+    showConfirm(
       'Werkbon Kopiëren',
       `Maak een kopie voor de huidige week van: ${currentWerkbon.klant_naam} - ${currentWerkbon.werf_naam}?`,
-      [
-        { text: 'Annuleren', style: 'cancel' },
-        {
-          text: 'Kopiëren',
-          onPress: async () => {
-            try {
-              const newWerkbon = await duplicateWerkbon(currentWerkbon.id, user.id, user.naam);
-              router.replace(`/werkbon/${newWerkbon.id}`);
-            } catch (error: any) {
-              Alert.alert('Fout', error.message);
-            }
-          },
-        },
-      ]
+      async () => {
+        try {
+          const newWerkbon = await duplicateWerkbon(currentWerkbon.id, user.id, user.naam);
+          router.replace(`/werkbon/${newWerkbon.id}`);
+        } catch (error: any) {
+          showAlert('Fout', error.message);
+        }
+      },
+      undefined,
+      'Kopiëren'
     );
   };
 
   const handleSend = async () => {
     if (!currentWerkbon) return;
-    
+
     if (currentWerkbon.status !== 'ondertekend') {
-      Alert.alert('Let op', 'De werkbon moet eerst ondertekend worden');
+      showAlert('Let op', 'De werkbon moet eerst ondertekend worden');
       return;
     }
 
-    Alert.alert(
+    showConfirm(
       'Versturen',
-      `Wilt u deze werkbon als PDF versturen naar ${currentWerkbon.klant_naam}?`,
-      [
-        { text: 'Annuleren', style: 'cancel' },
-        {
-          text: 'Versturen als PDF',
-          onPress: async () => {
-            setIsSending(true);
-            try {
-              const result = await verzendWerkbon(currentWerkbon.id);
-              Alert.alert(
-                result.email_sent ? 'Verstuurd!' : 'PDF gemaakt',
-                result.email_sent
-                  ? `Werkbon verstuurd naar ${Array.isArray(result.recipients) ? result.recipients.join(', ') : 'ontvanger'}.`
-                  : (result.email_error || 'PDF is gemaakt maar e-mail kon niet worden verstuurd.'),
-                [{ text: 'OK', onPress: () => router.replace('/') }]
-              );
-            } catch (error: any) {
-              const message = error.response?.data?.detail || error.message;
-              Alert.alert('Fout', message);
-            } finally {
-              setIsSending(false);
-            }
-          },
-        },
-      ]
+      `Werkbon als PDF versturen naar ${currentWerkbon.klant_naam}?`,
+      async () => {
+        setIsSending(true);
+        try {
+          const result = await verzendWerkbon(currentWerkbon.id);
+          const successMsg = result.email_sent
+            ? `Werkbon verstuurd naar ${Array.isArray(result.recipients) ? result.recipients.join(', ') : 'ontvanger'}.`
+            : (result.email_error || 'PDF gemaakt maar e-mail kon niet worden verstuurd.');
+          const title = result.email_sent ? 'Verstuurd!' : 'PDF gemaakt';
+          if (Platform.OS === 'web') {
+            window.alert(`${title}\n\n${successMsg}`);
+            router.replace('/');
+          } else {
+            Alert.alert(title, successMsg, [{ text: 'OK', onPress: () => router.replace('/') }]);
+          }
+        } catch (error: any) {
+          const message = error.response?.data?.detail || error.message;
+          showAlert('Fout', message);
+        } finally {
+          setIsSending(false);
+        }
+      },
+      undefined,
+      'Versturen als PDF'
     );
   };
 
   const handleDelete = () => {
     if (!currentWerkbon) return;
-    
-    Alert.alert(
+    showConfirm(
       'Verwijderen',
       'Weet u zeker dat u deze werkbon wilt verwijderen?',
-      [
-        { text: 'Annuleren', style: 'cancel' },
-        {
-          text: 'Verwijderen',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteWerkbon(currentWerkbon.id);
-              
-              router.back();
-            } catch (error: any) {
-              Alert.alert('Fout', error.message);
-            }
-          },
-        },
-      ]
+      async () => {
+        try {
+          await deleteWerkbon(currentWerkbon.id);
+          router.back();
+        } catch (error: any) {
+          showAlert('Fout', error.message);
+        }
+      },
+      undefined,
+      'Verwijderen',
+      true
     );
   };
 

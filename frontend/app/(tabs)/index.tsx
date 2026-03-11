@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -7,14 +7,15 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
-  Alert,
   ScrollView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppStore, Werkbon } from '../../store/appStore';
 import { useAuth } from '../../context/AuthContext';
+import { showConfirm } from '../../utils/alerts';
 
 const getStatusColor = (status: string) => {
   switch (status) {
@@ -85,23 +86,21 @@ export default function WerkbonnenScreen() {
   }, [werkbonnen, currentWeek]);
 
   const handleDelete = (item: Werkbon) => {
-    Alert.alert(
+    showConfirm(
       'Werkbon verwijderen',
-      `Weet u zeker dat u de werkbon voor ${item.klant_naam} (week ${item.week_nummer}) wilt verwijderen?`,
-      [
-        { text: 'Annuleren', style: 'cancel' },
-        {
-          text: 'Verwijderen',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteWerkbon(item.id);
-            } catch {
-              Alert.alert('Fout', 'Werkbon kon niet worden verwijderd');
-            }
-          },
-        },
-      ]
+      `Wilt u de werkbon voor ${item.klant_naam} (week ${item.week_nummer}) verwijderen?`,
+      async () => {
+        try {
+          await deleteWerkbon(item.id);
+        } catch {
+          if (Platform.OS === 'web') {
+            window.alert('Werkbon kon niet worden verwijderd');
+          }
+        }
+      },
+      undefined,
+      'Verwijderen',
+      true
     );
   };
 

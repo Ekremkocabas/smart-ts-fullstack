@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { showAlert } from '../../utils/alerts';
 import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'expo-router';
 import axios from 'axios';
@@ -57,17 +58,17 @@ export default function ProfielScreen() {
 
   const handleChangePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
-      Alert.alert('Fout', 'Vul alle velden in');
+      showAlert('Fout', 'Vul alle velden in');
       return;
     }
     
     if (newPassword !== confirmPassword) {
-      Alert.alert('Fout', 'Nieuwe wachtwoorden komen niet overeen');
+      showAlert('Fout', 'Nieuwe wachtwoorden komen niet overeen');
       return;
     }
     
     if (newPassword.length < 6) {
-      Alert.alert('Fout', 'Nieuw wachtwoord moet minimaal 6 tekens bevatten');
+      showAlert('Fout', 'Nieuw wachtwoord moet minimaal 6 tekens bevatten');
       return;
     }
     
@@ -80,14 +81,14 @@ export default function ProfielScreen() {
         params: { user_id: user?.id }
       });
       
-      Alert.alert('Succes', 'Wachtwoord is succesvol gewijzigd');
+      showAlert('Succes', 'Wachtwoord is succesvol gewijzigd');
       setPasswordModalVisible(false);
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
     } catch (error: any) {
       const message = error.response?.data?.detail || 'Kon wachtwoord niet wijzigen';
-      Alert.alert('Fout', message);
+      showAlert('Fout', message);
     } finally {
       setIsLoading(false);
     }

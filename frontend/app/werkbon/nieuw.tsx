@@ -16,6 +16,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppStore, Klant, Werf, Team, UrenRegel, KmRegel, WeekDates } from '../../store/appStore';
 import { useAuth } from '../../context/AuthContext';
+import { showAlert } from '../../utils/alerts';
 
 const DAGEN = ['maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag', 'zondag'];
 const DAGEN_KORT = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'];
@@ -169,13 +170,13 @@ export default function NieuweWerkbonScreen() {
 
   const handleSave = async () => {
     if (!selectedKlant || !selectedWerf) {
-      Alert.alert('Fout', 'Selecteer een klant en werf');
+      showAlert('Fout', 'Selecteer een klant en werf');
       return;
     }
 
     const validRegels = urenRegels.filter(r => r.teamlid_naam.trim());
     if (validRegels.length === 0) {
-      Alert.alert('Fout', 'Voeg minstens één teamlid toe');
+      showAlert('Fout', 'Voeg minstens één teamlid toe');
       return;
     }
 
@@ -197,7 +198,7 @@ export default function NieuweWerkbonScreen() {
       );
       router.replace(`/werkbon/${werkbon.id}`);
     } catch (error: any) {
-      Alert.alert('Fout', error.message || 'Kon werkbon niet opslaan');
+      showAlert('Fout', error.message || 'Kon werkbon niet opslaan');
     } finally {
       setIsSaving(false);
     }
