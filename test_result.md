@@ -127,6 +127,9 @@ backend:
       - working: true
         agent: "testing"
         comment: "Comprehensive testing completed. Login with test@smart-techbv.be works correctly. Register endpoint creates users. Error handling (401 for invalid credentials) working properly. All authentication flows verified."
+      - working: true
+        agent: "testing"
+        comment: "ADMIN LOGIN VERIFICATION COMPLETE: Admin login with info@smart-techbv.be / smart123 working perfectly. Response contains all required fields (id, email, naam, rol, actief). User rol correctly set to 'admin'. Wrong password returns 401 as expected. Admin user already exists in system."
 
   - task: "Team Members CRUD"
     implemented: true
@@ -344,4 +347,22 @@ agent_communication:
       - Signature functionality (status changes to 'ondertekend')
       - Error handling scenarios
       
-      Backend testing is COMPLETE. All endpoints working correctly at https://verify-sheet.preview.emergentagent.com/api
+      Backend testing is COMPLETE. All endpoints working correctly at https://beheer-preview.preview.emergentagent.com/api
+  - agent: "testing"
+    message: |
+      ADMIN LOGIN TESTING COMPLETED SUCCESSFULLY!
+      
+      VERIFIED ADMIN LOGIN FUNCTIONALITY:
+      ✅ Admin Login Success: POST /api/auth/login with info@smart-techbv.be / smart123 returns 200 OK
+      ✅ Required Fields: Response contains all required fields (id, email, naam, rol, actief)
+      ✅ Admin Role Assignment: User rol is correctly set to "admin" 
+      ✅ Wrong Password Handling: Returns 401 Unauthorized for incorrect password
+      
+      ADMIN USER DATA VERIFIED:
+      - id: admin-001
+      - email: info@smart-techbv.be
+      - naam: Beheerder
+      - rol: admin
+      - actief: true
+      
+      ALL ADMIN LOGIN REQUIREMENTS MET. Authentication system working perfectly for frontend integration.

@@ -218,7 +218,7 @@ export default function BeheerScreen() {
         return (
           <View style={styles.tabContent}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Ekipen</Text>
+              <Text style={styles.sectionTitle}>Teams</Text>
               <TouchableOpacity style={styles.addBtn} onPress={() => openModal('team')}>
                 <Ionicons name="add" size={20} color="#000" />
               </TouchableOpacity>
@@ -397,7 +397,7 @@ export default function BeheerScreen() {
             onPress={() => setActiveTab(tab)}
           >
             <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
-              {tab === 'teams' ? 'Ekipen' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+              {tab === 'teams' ? 'Teams' : tab.charAt(0).toUpperCase() + tab.slice(1)}
             </Text>
           </TouchableOpacity>
         ))}

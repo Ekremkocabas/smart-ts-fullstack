@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '../../context/AuthContext';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -26,6 +27,7 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const router = useRouter();
+  const { setUser } = useAuth();
 
   const handleLogin = async () => {
     setErrorMessage('');
@@ -49,6 +51,7 @@ export default function LoginScreen() {
       
       const userData = response.data;
       await AsyncStorage.setItem('user', JSON.stringify(userData));
+      setUser(userData);  // Update context
       router.replace('/(tabs)');
     } catch (error: any) {
       console.error('Login error:', error);
