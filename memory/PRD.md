@@ -21,7 +21,7 @@ Digitale werkbon (timesheet) applicatie voor een bouwbedrijf. Werknemers kunnen 
 - **Database**: MongoDB
 - **PDF**: ReportLab
 - **Email**: Resend.com
-- **URL**: https://timesheet-verify.preview.emergentagent.com
+- **URL**: https://smart-ts-build.preview.emergentagent.com
 
 ## File Structure
 ```
@@ -63,4 +63,4 @@ See CHANGELOG.md for full history.
 ## Key Credentials / Config
 - Admin login: info@smart-techbv.be / smart123
 - Backend: port 8001
-- App URL: https://timesheet-verify.preview.emergentagent.com
+- App URL: https://smart-ts-build.preview.emergentagent.com
