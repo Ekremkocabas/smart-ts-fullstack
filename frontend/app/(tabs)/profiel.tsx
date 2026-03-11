@@ -5,6 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,21 +17,28 @@ export default function ProfielScreen() {
   const router = useRouter();
 
   const handleLogout = () => {
-    Alert.alert(
-      'Uitloggen',
-      'Weet u zeker dat u wilt uitloggen?',
-      [
-        { text: 'Annuleren', style: 'cancel' },
-        {
-          text: 'Uitloggen',
-          style: 'destructive',
-          onPress: async () => {
-            await logout();
-            router.replace('/(auth)/login');
+    // Web'de Alert.alert çalışmayabilir, doğrudan logout yapalım
+    if (Platform.OS === 'web') {
+      logout().then(() => {
+        router.replace('/(auth)/login');
+      });
+    } else {
+      Alert.alert(
+        'Uitloggen',
+        'Weet u zeker dat u wilt uitloggen?',
+        [
+          { text: 'Annuleren', style: 'cancel' },
+          {
+            text: 'Uitloggen',
+            style: 'destructive',
+            onPress: async () => {
+              await logout();
+              router.replace('/(auth)/login');
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    }
   };
 
   return (

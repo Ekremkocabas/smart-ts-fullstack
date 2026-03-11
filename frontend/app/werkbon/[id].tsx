@@ -71,104 +71,233 @@ export default function WerkbonDetailScreen() {
   const generatePDF = async () => {
     if (!werkbon) return;
 
+    // Helper to get afkorting for a day
+    const getAfkorting = (regel: any, dag: string) => {
+      const afkKey = `afkorting_${dag.substring(0, 2)}`;
+      return regel[afkKey] || '';
+    };
+
+    // Helper to format hours/afkorting cell
+    const formatCell = (regel: any, dag: string) => {
+      const afk = getAfkorting(regel, dag);
+      const uren = regel[dag] || 0;
+      if (afk) {
+        return `<span class="afkorting">${afk}</span>`;
+      }
+      return uren > 0 ? uren : '-';
+    };
+
+    // Calculate KM totals
+    const kmTotaal = werkbon.km_afstand ? 
+      (werkbon.km_afstand.maandag || 0) + (werkbon.km_afstand.dinsdag || 0) + 
+      (werkbon.km_afstand.woensdag || 0) + (werkbon.km_afstand.donderdag || 0) + 
+      (werkbon.km_afstand.vrijdag || 0) + (werkbon.km_afstand.zaterdag || 0) + 
+      (werkbon.km_afstand.zondag || 0) : 0;
+
     const html = `
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="utf-8">
         <style>
-          body { font-family: Arial, sans-serif; padding: 20px; }
-          h1 { color: #1a1a2e; margin-bottom: 5px; }
-          .header { margin-bottom: 20px; }
-          .info { margin-bottom: 20px; }
-          .info-row { display: flex; margin-bottom: 8px; }
-          .info-label { font-weight: bold; width: 120px; color: #666; }
+          body { font-family: Arial, sans-serif; padding: 20px; font-size: 12px; }
+          .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 2px solid #F5A623; padding-bottom: 15px; }
+          .logo-section { display: flex; align-items: center; gap: 15px; }
+          .logo { max-height: 60px; max-width: 150px; }
+          .company-name { font-size: 24px; font-weight: bold; color: #1a1a2e; }
+          .company-info { text-align: right; font-size: 11px; color: #666; line-height: 1.5; }
+          h1 { color: #1a1a2e; margin: 0 0 5px 0; font-size: 20px; }
+          .subtitle { color: #666; font-size: 14px; }
+          .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0; }
+          .info-box { background: #f8f9fa; padding: 15px; border-radius: 8px; }
+          .info-box h3 { margin: 0 0 10px 0; color: #1a1a2e; font-size: 14px; }
+          .info-row { display: flex; margin-bottom: 5px; }
+          .info-label { font-weight: bold; width: 100px; color: #666; }
           .info-value { color: #333; }
           table { width: 100%; border-collapse: collapse; margin-top: 20px; }
           th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
-          th { background-color: #F5A623; color: white; }
-          .name-cell { text-align: left; }
-          .total-row { background-color: #f0f0f0; font-weight: bold; }
-          .signature-section { margin-top: 40px; }
-          .signature-box { border: 1px solid #ddd; padding: 20px; margin-top: 10px; }
-          .signature-img { max-width: 200px; max-height: 100px; }
-          .footer { margin-top: 40px; font-size: 12px; color: #666; }
+          th { background-color: #F5A623; color: white; font-size: 11px; }
+          .name-cell { text-align: left; font-weight: 500; }
+          .total-cell { font-weight: bold; background-color: #fff3cd; }
+          .grand-total { background-color: #F5A623; color: white; font-weight: bold; }
+          .afkorting { background-color: #F5A623; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: bold; }
+          .km-section { margin-top: 20px; }
+          .km-table { background: #f8f9fa; }
+          .description-section { margin-top: 20px; }
+          .description-box { background: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 10px; min-height: 60px; }
+          .signature-section { margin-top: 30px; page-break-inside: avoid; }
+          .signature-box { border: 2px solid #ddd; padding: 20px; border-radius: 8px; background: #fafafa; }
+          .signature-img { max-width: 200px; max-height: 80px; }
+          .signature-info { margin-top: 10px; display: flex; gap: 30px; }
+          .footer { margin-top: 30px; padding-top: 15px; border-top: 1px solid #ddd; font-size: 10px; color: #666; }
+          .disclaimer { background: #fff3cd; padding: 10px; border-radius: 5px; margin-top: 15px; font-style: italic; }
+          .legend { margin-top: 10px; font-size: 10px; color: #666; }
+          .legend span { margin-right: 15px; }
+          .status-badge { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+          .status-concept { background: #ffc107; color: #000; }
+          .status-ondertekend { background: #28a745; color: #fff; }
+          .status-verzonden { background: #F5A623; color: #fff; }
         </style>
       </head>
       <body>
         <div class="header">
-          <h1>Werkbon / Timesheet</h1>
-          <p>${instellingen?.bedrijfsnaam || 'Smart-Tech BV'}</p>
+          <div class="logo-section">
+            ${instellingen?.logo_base64 ? `<img class="logo" src="${instellingen.logo_base64}" alt="Logo" />` : ''}
+            <div>
+              <div class="company-name">${instellingen?.bedrijfsnaam || 'Smart-Tech BV'}</div>
+              <div class="subtitle">Werkbon / Timesheet</div>
+            </div>
+          </div>
+          <div class="company-info">
+            ${instellingen?.adres ? `${instellingen.adres}<br/>` : ''}
+            ${instellingen?.postcode || ''} ${instellingen?.stad || ''}<br/>
+            ${instellingen?.telefoon ? `Tel: ${instellingen.telefoon}<br/>` : ''}
+            ${instellingen?.email || ''}<br/>
+            ${instellingen?.kvk_nummer ? `KvK: ${instellingen.kvk_nummer}<br/>` : ''}
+            ${instellingen?.btw_nummer ? `BTW: ${instellingen.btw_nummer}` : ''}
+          </div>
         </div>
         
-        <div class="info">
-          <div class="info-row">
-            <span class="info-label">Week:</span>
-            <span class="info-value">${werkbon.week_nummer} (${werkbon.jaar})</span>
+        <div class="info-grid">
+          <div class="info-box">
+            <h3>Werkbon Details</h3>
+            <div class="info-row">
+              <span class="info-label">Week:</span>
+              <span class="info-value"><strong>${werkbon.week_nummer}</strong> (${werkbon.jaar})</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Periode:</span>
+              <span class="info-value">${werkbon.datum_maandag || ''} - ${werkbon.datum_zondag || ''}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Status:</span>
+              <span class="info-value">
+                <span class="status-badge status-${werkbon.status}">${getStatusLabel(werkbon.status)}</span>
+              </span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Ingevuld door:</span>
+              <span class="info-value">${werkbon.ingevuld_door_naam}</span>
+            </div>
           </div>
-          <div class="info-row">
-            <span class="info-label">Klant:</span>
-            <span class="info-value">${werkbon.klant_naam}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">Werf:</span>
-            <span class="info-value">${werkbon.werf_naam}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">Ingevuld door:</span>
-            <span class="info-value">${werkbon.ingevuld_door_naam}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">Status:</span>
-            <span class="info-value">${getStatusLabel(werkbon.status)}</span>
+          <div class="info-box">
+            <h3>Klant & Locatie</h3>
+            <div class="info-row">
+              <span class="info-label">Klant:</span>
+              <span class="info-value"><strong>${werkbon.klant_naam}</strong></span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Werf:</span>
+              <span class="info-value">${werkbon.werf_naam}</span>
+            </div>
           </div>
         </div>
 
+        <h3>Gewerkte Uren</h3>
         <table>
           <thead>
             <tr>
-              <th class="name-cell">Naam</th>
-              <th>Ma</th>
-              <th>Di</th>
-              <th>Wo</th>
-              <th>Do</th>
-              <th>Vr</th>
-              <th>Za</th>
-              <th>Zo</th>
-              <th>Totaal</th>
+              <th class="name-cell" style="width: 150px;">Naam</th>
+              <th>Ma<br/><small>${werkbon.datum_maandag || ''}</small></th>
+              <th>Di<br/><small>${werkbon.datum_dinsdag || ''}</small></th>
+              <th>Wo<br/><small>${werkbon.datum_woensdag || ''}</small></th>
+              <th>Do<br/><small>${werkbon.datum_donderdag || ''}</small></th>
+              <th>Vr<br/><small>${werkbon.datum_vrijdag || ''}</small></th>
+              <th>Za<br/><small>${werkbon.datum_zaterdag || ''}</small></th>
+              <th>Zo<br/><small>${werkbon.datum_zondag || ''}</small></th>
+              <th style="background: #1a1a2e;">Totaal</th>
             </tr>
           </thead>
           <tbody>
             ${werkbon.uren.map(regel => `
               <tr>
                 <td class="name-cell">${regel.teamlid_naam}</td>
-                <td>${regel.maandag || '-'}</td>
-                <td>${regel.dinsdag || '-'}</td>
-                <td>${regel.woensdag || '-'}</td>
-                <td>${regel.donderdag || '-'}</td>
-                <td>${regel.vrijdag || '-'}</td>
-                <td>${regel.zaterdag || '-'}</td>
-                <td>${regel.zondag || '-'}</td>
-                <td><strong>${calculateTotal(regel)}</strong></td>
+                <td>${formatCell(regel, 'maandag')}</td>
+                <td>${formatCell(regel, 'dinsdag')}</td>
+                <td>${formatCell(regel, 'woensdag')}</td>
+                <td>${formatCell(regel, 'donderdag')}</td>
+                <td>${formatCell(regel, 'vrijdag')}</td>
+                <td>${formatCell(regel, 'zaterdag')}</td>
+                <td>${formatCell(regel, 'zondag')}</td>
+                <td class="total-cell">${calculateTotal(regel)}</td>
               </tr>
             `).join('')}
+            <tr class="grand-total">
+              <td class="name-cell"><strong>TOTAAL</strong></td>
+              <td>${werkbon.uren.reduce((sum, r) => sum + (r.maandag || 0), 0) || '-'}</td>
+              <td>${werkbon.uren.reduce((sum, r) => sum + (r.dinsdag || 0), 0) || '-'}</td>
+              <td>${werkbon.uren.reduce((sum, r) => sum + (r.woensdag || 0), 0) || '-'}</td>
+              <td>${werkbon.uren.reduce((sum, r) => sum + (r.donderdag || 0), 0) || '-'}</td>
+              <td>${werkbon.uren.reduce((sum, r) => sum + (r.vrijdag || 0), 0) || '-'}</td>
+              <td>${werkbon.uren.reduce((sum, r) => sum + (r.zaterdag || 0), 0) || '-'}</td>
+              <td>${werkbon.uren.reduce((sum, r) => sum + (r.zondag || 0), 0) || '-'}</td>
+              <td><strong>${grandTotal}</strong></td>
+            </tr>
           </tbody>
         </table>
+        
+        <div class="legend">
+          <strong>Afkortingen:</strong>
+          <span>Z = Ziek</span>
+          <span>V = Verlof</span>
+          <span>BV = Betaald Verlof</span>
+          <span>BF = Betaald Feestdag</span>
+        </div>
+
+        ${kmTotaal > 0 ? `
+          <div class="km-section">
+            <h3>KM Afstand</h3>
+            <table class="km-table">
+              <tr>
+                <th>Ma</th><th>Di</th><th>Wo</th><th>Do</th><th>Vr</th><th>Za</th><th>Zo</th><th style="background: #1a1a2e;">Totaal</th>
+              </tr>
+              <tr>
+                <td>${werkbon.km_afstand?.maandag || '-'}</td>
+                <td>${werkbon.km_afstand?.dinsdag || '-'}</td>
+                <td>${werkbon.km_afstand?.woensdag || '-'}</td>
+                <td>${werkbon.km_afstand?.donderdag || '-'}</td>
+                <td>${werkbon.km_afstand?.vrijdag || '-'}</td>
+                <td>${werkbon.km_afstand?.zaterdag || '-'}</td>
+                <td>${werkbon.km_afstand?.zondag || '-'}</td>
+                <td class="total-cell"><strong>${kmTotaal} km</strong></td>
+              </tr>
+            </table>
+          </div>
+        ` : ''}
+
+        ${werkbon.uitgevoerde_werken ? `
+          <div class="description-section">
+            <h3>Uitgevoerde Werken</h3>
+            <div class="description-box">${werkbon.uitgevoerde_werken}</div>
+          </div>
+        ` : ''}
+
+        ${werkbon.extra_materialen ? `
+          <div class="description-section">
+            <h3>Extra Materialen</h3>
+            <div class="description-box">${werkbon.extra_materialen}</div>
+          </div>
+        ` : ''}
 
         ${werkbon.handtekening_data ? `
           <div class="signature-section">
-            <h3>Handtekening</h3>
+            <h3>Handtekening Klant</h3>
             <div class="signature-box">
               <img class="signature-img" src="${werkbon.handtekening_data}" alt="Handtekening" />
-              <p><strong>Naam:</strong> ${werkbon.handtekening_naam}</p>
-              <p><strong>Datum:</strong> ${werkbon.handtekening_datum ? new Date(werkbon.handtekening_datum).toLocaleDateString('nl-NL') : '-'}</p>
+              <div class="signature-info">
+                <div><strong>Naam:</strong> ${werkbon.handtekening_naam}</div>
+                <div><strong>Datum:</strong> ${werkbon.handtekening_datum ? new Date(werkbon.handtekening_datum).toLocaleDateString('nl-NL') : '-'}</div>
+              </div>
             </div>
           </div>
         ` : ''}
 
         <div class="footer">
-          <p>Document gegenereerd op ${new Date().toLocaleDateString('nl-NL')} om ${new Date().toLocaleTimeString('nl-NL')}</p>
-          <p>${instellingen?.bedrijfsnaam || ''} | ${instellingen?.email || ''}</p>
+          ${instellingen?.pdf_voettekst ? `<div class="disclaimer">${instellingen.pdf_voettekst}</div>` : ''}
+          <p style="margin-top: 15px;">
+            Document gegenereerd op ${new Date().toLocaleDateString('nl-NL')} om ${new Date().toLocaleTimeString('nl-NL')} | 
+            ${instellingen?.bedrijfsnaam || 'Smart-Tech BV'}
+          </p>
         </div>
       </body>
       </html>

@@ -427,7 +427,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
       const { fetchWerknemers } = get();
       await fetchWerknemers();
-      return response.data;
+      // Return the user with temp password so it can be displayed
+      return { ...response.data, tempPassword };
     } catch (error: any) {
       set({ error: error.message });
       throw error;

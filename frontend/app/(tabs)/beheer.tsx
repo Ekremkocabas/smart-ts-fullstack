@@ -178,8 +178,16 @@ export default function BeheerScreen() {
             team_id: werknemerTeamId || undefined,
           });
         } else {
-          await addWerknemer(werknemerEmail.trim(), werknemerNaam.trim(), werknemerTeamId || undefined);
-          Alert.alert('Succes', `Werknemer ${werknemerNaam} is aangemaakt. Tijdelijk wachtwoord is gegenereerd.`);
+          const result = await addWerknemer(werknemerEmail.trim(), werknemerNaam.trim(), werknemerTeamId || undefined);
+          // Show temporary password to admin
+          Alert.alert(
+            'Werknemer Aangemaakt',
+            `${werknemerNaam} is toegevoegd.\n\nTijdelijk wachtwoord:\n${result.tempPassword}\n\nDeel dit wachtwoord met de werknemer zodat ze kunnen inloggen.`,
+            [{ text: 'OK' }]
+          );
+          setModalVisible(false);
+          if (modalType === 'werknemer') fetchWerknemers();
+          return;
         }
       }
       setModalVisible(false);
