@@ -580,17 +580,6 @@ export default function WerkbonDetailScreen() {
             )}
           </TouchableOpacity>
         )}
-
-        <View style={styles.footerRow}>
-          <TouchableOpacity testID="werkbon-copy-button" style={[styles.actionBtn, styles.copyBtn]} onPress={handleDuplicate}>
-            <Ionicons name="copy-outline" size={18} color="#F5A623" />
-            <Text style={[styles.actionBtnText, { color: '#F5A623' }]}>Kopiëren</Text>
-          </TouchableOpacity>
-          <TouchableOpacity testID="werkbon-preview-pdf-button" style={[styles.actionBtn, styles.pdfBtn]} onPress={generatePDF}>
-            <Ionicons name="document-outline" size={18} color="#aaa" />
-            <Text style={[styles.actionBtnText, { color: '#aaa' }]}>PDF Preview</Text>
-          </TouchableOpacity>
-        </View>
       </View>
     </SafeAreaView>
   );

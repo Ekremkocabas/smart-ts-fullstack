@@ -16,7 +16,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAppStore, Werkbon } from '../../store/appStore';
 import { useAuth } from '../../context/AuthContext';
 import { showConfirm } from '../../utils/alerts';
-
 const getStatusColor = (status: string) => {
   switch (status) {
     case 'concept': return '#ffc107';
@@ -51,7 +50,7 @@ const calcTotalUren = (werkbon: Werkbon) =>
 export default function WerkbonnenScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const { werkbonnen, fetchWerkbonnen, deleteWerkbon, isLoading } = useAppStore();
+  const { werkbonnen, fetchWerkbonnen, deleteWerkbon, duplicateWerkbon, isLoading } = useAppStore();
   const [refreshing, setRefreshing] = useState(false);
   const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
   const isAdmin = user?.rol === 'admin';
@@ -84,6 +83,24 @@ export default function WerkbonnenScreen() {
     const totalUren = thisWeek.reduce((sum, w) => sum + calcTotalUren(w), 0);
     return { count: thisWeek.length, uren: totalUren };
   }, [werkbonnen, currentWeek]);
+
+  const handleCopy = (item: Werkbon) => {
+    if (!user) return;
+    showConfirm(
+      'Werkbon Kopiëren',
+      `Kopie van week ${item.week_nummer} voor ${item.klant_naam}?`,
+      async () => {
+        try {
+          const newWerkbon = await duplicateWerkbon(item.id, user.id, user.naam);
+          router.push(`/werkbon/bewerken/${newWerkbon.id}`);
+        } catch {
+          if (Platform.OS === 'web') window.alert('Kopie kon niet worden aangemaakt');
+        }
+      },
+      undefined,
+      'Kopiëren'
+    );
+  };
 
   const handleDelete = (item: Werkbon) => {
     showConfirm(
@@ -141,11 +158,18 @@ export default function WerkbonnenScreen() {
           </View>
         </TouchableOpacity>
         <TouchableOpacity
+          testID="werkbon-copy-btn"
+          style={styles.copyBtn}
+          onPress={() => handleCopy(item)}
+        >
+          <Ionicons name="copy-outline" size={18} color="#F5A623" />
+        </TouchableOpacity>
+        <TouchableOpacity
           testID="werkbon-delete-btn"
           style={styles.deleteBtn}
           onPress={() => handleDelete(item)}
         >
-          <Ionicons name="trash-outline" size={20} color="#dc3545" />
+          <Ionicons name="trash-outline" size={18} color="#dc3545" />
         </TouchableOpacity>
       </View>
     );
@@ -345,6 +369,14 @@ const styles = StyleSheet.create({
   werkbonFooter: { flexDirection: 'row', marginTop: 10, gap: 14 },
   infoItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   infoText: { fontSize: 12, color: '#6c757d' },
+  copyBtn: {
+    width: 42, height: 42,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#16213e',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#F5A62340',
+  },
   deleteBtn: {
     width: 42, height: 42,
     alignItems: 'center', justifyContent: 'center',

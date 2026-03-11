@@ -490,6 +490,14 @@ def build_pdf_filename(werkbon: dict) -> str:
     return f"werkbon-week-{werkbon.get('week_nummer', 'x')}-{werkbon.get('jaar', 'x')}-{safe_werf}.pdf"
 
 
+def get_hours_pdf(regel: dict, dag: str) -> str:
+    """Return hours for PDF - afkortingen are internal only, show hours or blank"""
+    hours = float(regel.get(dag, 0) or 0)
+    if hours == 0:
+        return ""
+    return format_number(hours)
+
+
 def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: dict, total_uren: float, totaal_bedrag: float) -> tuple[bytes, str]:
     buffer = io.BytesIO()
     pdf = SimpleDocTemplate(
@@ -497,23 +505,25 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
         pagesize=landscape(A4),
         leftMargin=12 * mm,
         rightMargin=12 * mm,
-        topMargin=12 * mm,
-        bottomMargin=12 * mm,
+        topMargin=10 * mm,
+        bottomMargin=10 * mm,
     )
 
     styles = getSampleStyleSheet()
-    styles.add(ParagraphStyle(name="SectionTitle", parent=styles["Heading2"], fontSize=13, textColor=colors.HexColor("#1a1a2e"), spaceAfter=6))
-    styles.add(ParagraphStyle(name="BodySmall", parent=styles["BodyText"], fontSize=9, leading=12))
-    styles.add(ParagraphStyle(name="FooterText", parent=styles["BodyText"], fontSize=8, leading=10, textColor=colors.HexColor("#555555")))
+    styles.add(ParagraphStyle(name="SectionTitle", parent=styles["Heading2"], fontSize=11, textColor=colors.HexColor("#1a1a2e"), spaceAfter=4, spaceBefore=2))
+    styles.add(ParagraphStyle(name="BodySmall", parent=styles["BodyText"], fontSize=8.5, leading=11))
+    styles.add(ParagraphStyle(name="FooterText", parent=styles["BodyText"], fontSize=7.5, leading=10, textColor=colors.HexColor("#555555")))
+    styles.add(ParagraphStyle(name="WeekHeader", parent=styles["Title"], fontSize=22, textColor=colors.HexColor("#1a1a2e"), fontName="Helvetica-Bold", alignment=2))
 
     story = []
 
+    # ── HEADER: Logo | Company info | WEEK XX / JAAR ──
     logo_bytes = decode_base64_data(instellingen.get("logo_base64"))
     header_left = []
-    logo = make_safe_reportlab_image(logo_bytes, 38 * mm, 20 * mm)
+    logo = make_safe_reportlab_image(logo_bytes, 60 * mm, 30 * mm)
     if logo:
         header_left.append(logo)
-        header_left.append(Spacer(1, 4))
+        header_left.append(Spacer(1, 3))
     header_left.append(Paragraph(f"<b>{instellingen.get('bedrijfsnaam', 'Smart-Tech BV')}</b>", styles["Title"]))
     header_left.append(Paragraph("Werkbon / Urenstaat", styles["BodySmall"]))
 
@@ -526,26 +536,35 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
         f"BTW: {instellingen['btw_nummer']}" if instellingen.get("btw_nummer") else "",
     ]
     company_text = "<br/>".join(line for line in company_lines if line)
+
+    week_jaar = Paragraph(
+        f"<b>Week {werkbon.get('week_nummer', '-')}<br/>{werkbon.get('jaar', '-')}</b>",
+        styles["WeekHeader"]
+    )
+
     header_table = Table(
-        [[header_left, Paragraph(company_text or "-", styles["BodySmall"]) ]],
-        colWidths=[170 * mm, 85 * mm],
+        [[header_left, Paragraph(company_text or "-", styles["BodySmall"]), week_jaar]],
+        colWidths=[130 * mm, 90 * mm, 40 * mm],
     )
     header_table.setStyle(TableStyle([
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor("#F5A623")),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#F5A623")),
+        ("LINEAFTER", (0, 0), (0, -1), 0.5, colors.HexColor("#F5A623")),
+        ("LINEAFTER", (1, 0), (1, -1), 0.5, colors.HexColor("#F5A623")),
         ("LEFTPADDING", (0, 0), (-1, -1), 10),
         ("RIGHTPADDING", (0, 0), (-1, -1), 10),
         ("TOPPADDING", (0, 0), (-1, -1), 8),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ("BACKGROUND", (2, 0), (2, 0), colors.HexColor("#fff8ee")),
     ]))
     story.append(header_table)
-    story.append(Spacer(1, 10))
+    story.append(Spacer(1, 7))
 
+    # ── INFO SECTION ──
     info_left = [
-        ["Week", f"{werkbon.get('week_nummer', '-')}/{werkbon.get('jaar', '-') }"],
         ["Periode", f"{werkbon.get('datum_maandag', '-')} t/m {werkbon.get('datum_zondag', '-')}"],
-        ["Status", werkbon.get("status", "concept").capitalize()],
         ["Ingevuld door", werkbon.get("ingevuld_door_naam", "-")],
+        ["Status", werkbon.get("status", "concept").capitalize()],
     ]
     info_right = [
         ["Klant", werkbon.get("klant_naam", "-")],
@@ -555,11 +574,9 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     ]
     if klant.get("btw_nummer"):
         info_right.append(["BTW Nr.", klant.get("btw_nummer")])
-    if klant.get("prijsafspraak"):
-        info_right.append(["Prijsafspraak", klant.get("prijsafspraak")])
 
-    left_table = Table(info_left, colWidths=[30 * mm, 70 * mm])
-    right_table = Table(info_right, colWidths=[30 * mm, 125 * mm])
+    left_table = Table(info_left, colWidths=[32 * mm, 90 * mm])
+    right_table = Table(info_right, colWidths=[32 * mm, 100 * mm])
     for table in (left_table, right_table):
         table.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#f5f5f5")),
@@ -567,16 +584,17 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
             ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#dddddd")),
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
             ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
-            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("FONTSIZE", (0, 0), (-1, -1), 8.5),
             ("LEFTPADDING", (0, 0), (-1, -1), 6),
             ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-            ("TOPPADDING", (0, 0), (-1, -1), 5),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
         ]))
 
-    story.append(Table([[left_table, right_table]], colWidths=[105 * mm, 155 * mm], style=[("VALIGN", (0, 0), (-1, -1), "TOP")]))
-    story.append(Spacer(1, 10))
+    story.append(Table([[left_table, right_table]], colWidths=[125 * mm, 135 * mm], style=[("VALIGN", (0, 0), (-1, -1), "TOP")]))
+    story.append(Spacer(1, 7))
 
+    # ── UREN TABEL (geen afkortingen) ──
     story.append(Paragraph("Gewerkte uren", styles["SectionTitle"]))
     hours_header = [["Werknemer"] + [f"{label}\n{werkbon.get(date_key, '')}" for _, label, date_key, _ in DAY_COLUMNS] + ["Totaal"]]
     hours_rows = []
@@ -584,13 +602,16 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
         totaal = sum(float(regel.get(dag, 0) or 0) for dag, _, _, _ in DAY_COLUMNS)
         hours_rows.append(
             [regel.get("teamlid_naam", "-")]
-            + [get_hours_or_code(regel, dag, afkorting_key) for dag, _, _, afkorting_key in DAY_COLUMNS]
-            + [format_number(totaal)]
+            + [get_hours_pdf(regel, dag) for dag, _, _, _ in DAY_COLUMNS]
+            + [format_number(totaal) if totaal else ""]
         )
 
-    dag_totalen = [format_number(sum(float(regel.get(dag, 0) or 0) for regel in werkbon.get("uren", []))) for dag, _, _, _ in DAY_COLUMNS]
+    dag_totalen = [
+        format_number(s) if (s := sum(float(r.get(dag, 0) or 0) for r in werkbon.get("uren", []))) else ""
+        for dag, _, _, _ in DAY_COLUMNS
+    ]
     hours_rows.append(["TOTAAL"] + dag_totalen + [format_number(total_uren)])
-    hours_table = Table(hours_header + hours_rows, colWidths=[55 * mm] + [24 * mm] * 7 + [24 * mm])
+    hours_table = Table(hours_header + hours_rows, colWidths=[58 * mm] + [22 * mm] * 7 + [22 * mm])
     hours_table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
@@ -603,22 +624,21 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
         ("ALIGN", (1, 0), (-1, -1), "CENTER"),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("FONTSIZE", (0, 0), (-1, -1), 8),
-        ("LEFTPADDING", (0, 0), (-1, -1), 5),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING", (0, 0), (-1, -1), 4),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
     ]))
     story.append(hours_table)
-    story.append(Spacer(1, 6))
-    story.append(Paragraph("Afkortingen: Z = Ziek, V = Verlof, BV = Betaald Verlof, BF = Betaalde Feestdag", styles["FooterText"]))
 
+    # ── KM ──
     km_total = sum(float(werkbon.get("km_afstand", {}).get(dag, 0) or 0) for dag, _, _, _ in DAY_COLUMNS)
     if km_total > 0:
-        story.append(Spacer(1, 10))
-        story.append(Paragraph("KM-afstand", styles["SectionTitle"]))
+        story.append(Spacer(1, 6))
+        story.append(Paragraph("KM-afstand (heen & terug)", styles["SectionTitle"]))
         km_header = [[label for _, label, _, _ in DAY_COLUMNS] + ["Totaal"]]
         km_row = [[format_number(werkbon.get("km_afstand", {}).get(dag, 0)) for dag, _, _, _ in DAY_COLUMNS] + [format_number(km_total)]]
-        km_table = Table(km_header + km_row, colWidths=[24 * mm] * 8)
+        km_table = Table(km_header + km_row, colWidths=[22 * mm] * 7 + [22 * mm])
         km_table.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
@@ -627,68 +647,87 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
             ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#d9d9d9")),
             ("ALIGN", (0, 0), (-1, -1), "CENTER"),
             ("FONTSIZE", (0, 0), (-1, -1), 8),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
         ]))
         story.append(km_table)
 
-    if werkbon.get("uitgevoerde_werken"):
-        story.append(Spacer(1, 10))
-        story.append(Paragraph("Uitgevoerde werken", styles["SectionTitle"]))
-        story.append(Paragraph(werkbon.get("uitgevoerde_werken", "-").replace("\n", "<br/>"), styles["BodySmall"]))
+    # ── WERKEN & MATERIALEN (naast elkaar) ──
+    has_werken = bool(werkbon.get("uitgevoerde_werken"))
+    has_mat = bool(werkbon.get("extra_materialen"))
+    if has_werken or has_mat:
+        story.append(Spacer(1, 6))
+        left_cell = []
+        right_cell = []
+        if has_werken:
+            left_cell.append(Paragraph("<b>Uitgevoerde werken</b>", styles["BodySmall"]))
+            left_cell.append(Paragraph(werkbon.get("uitgevoerde_werken", "-").replace("\n", "<br/>"), styles["BodySmall"]))
+        if has_mat:
+            right_cell.append(Paragraph("<b>Extra materialen</b>", styles["BodySmall"]))
+            right_cell.append(Paragraph(werkbon.get("extra_materialen", "-").replace("\n", "<br/>"), styles["BodySmall"]))
+        desc_table = Table([[left_cell or [""], right_cell or [""]]], colWidths=[130 * mm, 130 * mm])
+        desc_table.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
+            ("LINEBEFORE", (1, 0), (1, 0), 0.5, colors.HexColor("#cccccc")),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ]))
+        story.append(desc_table)
 
-    if werkbon.get("extra_materialen"):
-        story.append(Spacer(1, 10))
-        story.append(Paragraph("Extra materialen", styles["SectionTitle"]))
-        story.append(Paragraph(werkbon.get("extra_materialen", "-").replace("\n", "<br/>"), styles["BodySmall"]))
-
-    story.append(Spacer(1, 10))
-    story.append(Paragraph("Samenvatting", styles["SectionTitle"]))
-    summary_rows = [["Totaal uren", format_number(total_uren)], ["Uurtarief", f"€ {klant.get('uurtarief', 0):.2f}"]]
+    # ── SAMENVATTING + HANDTEKENING (naast elkaar) ──
+    story.append(Spacer(1, 7))
+    summary_rows = [
+        ["Totaal uren", format_number(total_uren)],
+        ["Uurtarief", f"€ {klant.get('uurtarief', 0):.2f}"],
+    ]
     if klant.get("prijsafspraak"):
         summary_rows.append(["Prijsafspraak", klant.get("prijsafspraak")])
     summary_rows.append(["Totaalbedrag", f"€ {totaal_bedrag:.2f}"])
-    summary_table = Table(summary_rows, colWidths=[45 * mm, 55 * mm])
+
+    summary_table = Table(summary_rows, colWidths=[40 * mm, 55 * mm])
     summary_table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#f5f5f5")),
-        ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
+        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#fff3cd")),
+        ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor("#F5A623")),
         ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#dddddd")),
         ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
         ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
     ]))
-    story.append(summary_table)
 
+    # Signature cell
+    sig_content = []
     if werkbon.get("handtekening_data"):
-        story.append(Spacer(1, 10))
-        story.append(Paragraph("Handtekening klant", styles["SectionTitle"]))
-        signature_rows = [[Paragraph(f"<b>Naam ondertekenaar:</b> {werkbon.get('handtekening_naam', '-')}", styles["BodySmall"])]]
+        sig_content.append(Paragraph("<b>Handtekening klant</b>", styles["BodySmall"]))
+        if werkbon.get("handtekening_naam"):
+            sig_content.append(Paragraph(f"Naam: {werkbon.get('handtekening_naam')}", styles["BodySmall"]))
         if werkbon.get("handtekening_datum"):
             datum = werkbon.get("handtekening_datum")
-            if isinstance(datum, datetime):
-                datum_text = datum.strftime("%d-%m-%Y %H:%M")
-            else:
-                datum_text = str(datum)
-            signature_rows.append([Paragraph(f"<b>Datum:</b> {datum_text}", styles["BodySmall"])])
+            datum_text = datum.strftime("%d-%m-%Y %H:%M") if isinstance(datum, datetime) else str(datum)[:16]
+            sig_content.append(Paragraph(f"Datum: {datum_text}", styles["BodySmall"]))
+        sig_bytes = decode_base64_data(werkbon.get("handtekening_data"))
+        sig_img = make_safe_reportlab_image(sig_bytes, 60 * mm, 24 * mm)
+        if sig_img:
+            sig_content.append(Spacer(1, 3))
+            sig_content.append(sig_img)
+    else:
+        sig_content.append(Paragraph("Nog niet ondertekend", styles["BodySmall"]))
 
-        signature_bytes = decode_base64_data(werkbon.get("handtekening_data"))
-        signature_image = make_safe_reportlab_image(signature_bytes, 55 * mm, 22 * mm)
-        if signature_image:
-            signature_rows.append([signature_image])
+    bottom_table = Table([[summary_table, sig_content or [""]]], colWidths=[100 * mm, 160 * mm])
+    bottom_table.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]))
+    story.append(bottom_table)
 
-        signature_table = Table(signature_rows, colWidths=[90 * mm])
-        signature_table.setStyle(TableStyle([
-            ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor("#cccccc")),
-            ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#fafafa")),
-            ("LEFTPADDING", (0, 0), (-1, -1), 8),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-            ("TOPPADDING", (0, 0), (-1, -1), 8),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-        ]))
-        story.append(signature_table)
-
-    story.append(Spacer(1, 12))
+    story.append(Spacer(1, 8))
     footer_text = instellingen.get("pdf_voettekst") or "Factuur wordt als goedgekeurd beschouwd indien geen klacht wordt ingediend binnen 1 week."
     story.append(Paragraph(footer_text.replace("\n", "<br/>"), styles["FooterText"]))
-    story.append(Spacer(1, 4))
-    story.append(Paragraph(f"Gegenereerd op {datetime.now(timezone.utc).astimezone().strftime('%d-%m-%Y %H:%M')}.", styles["FooterText"]))
 
     pdf.build(story)
     pdf_bytes = buffer.getvalue()
