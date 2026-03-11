@@ -4,15 +4,22 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
+import asyncio
 from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict
 import uuid
 from datetime import datetime, timedelta
 import hashlib
+import resend
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
+
+# Resend configuration
+resend.api_key = os.environ.get('RESEND_API_KEY', '')
+SENDER_EMAIL = os.environ.get('SENDER_EMAIL', 'onboarding@resend.dev')
+COMPANY_EMAIL = "info@smart-techbv.be"  # All werkbon notifications go here
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
@@ -527,11 +534,108 @@ async def update_instellingen(update_data: BedrijfsInstellingenUpdate):
     updated = await db.instellingen.find_one({"id": "company_settings"})
     return BedrijfsInstellingen(**updated)
 
-# ==================== EMAIL PLACEHOLDER ====================
+# ==================== EMAIL SERVICE ====================
+
+async def send_werkbon_email(werkbon: dict, klant: dict, instellingen: dict, total_uren: float, totaal_bedrag: float):
+    """Send werkbon notification email to company"""
+    
+    if not resend.api_key:
+        logging.warning("RESEND_API_KEY not configured, skipping email")
+        return {"success": False, "error": "Email not configured"}
+    
+    week = werkbon.get("week_nummer", "?")
+    year = werkbon.get("jaar", "?")
+    werf_naam = werkbon.get("werf_naam", "Onbekend")
+    klant_naam = werkbon.get("klant_naam", "Onbekend")
+    ondertekend_door = werkbon.get("handtekening_naam", "Onbekend")
+    
+    # Build HTML email
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+            .header {{ background: #F5A623; color: white; padding: 20px; text-align: center; }}
+            .content {{ padding: 20px; }}
+            .info-box {{ background: #f8f9fa; border-left: 4px solid #F5A623; padding: 15px; margin: 15px 0; }}
+            .highlight {{ color: #F5A623; font-weight: bold; }}
+            table {{ width: 100%; border-collapse: collapse; margin: 15px 0; }}
+            th, td {{ border: 1px solid #ddd; padding: 10px; text-align: left; }}
+            th {{ background: #F5A623; color: white; }}
+            .total-row {{ background: #fff3cd; font-weight: bold; }}
+            .footer {{ background: #f8f9fa; padding: 15px; font-size: 12px; color: #666; margin-top: 20px; }}
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>Werkbon Getekend</h1>
+            <p>Week {week} - {year}</p>
+        </div>
+        
+        <div class="content">
+            <p>Beste,</p>
+            
+            <p>Hierbij de werkbon van <span class="highlight">week {week}</span> voor werf <span class="highlight">{werf_naam}</span>.</p>
+            
+            <div class="info-box">
+                <strong>Details:</strong><br/>
+                <strong>Klant:</strong> {klant_naam}<br/>
+                <strong>Werf:</strong> {werf_naam}<br/>
+                <strong>Periode:</strong> Week {week}, {year}<br/>
+                <strong>Ondertekend door:</strong> {ondertekend_door}
+            </div>
+            
+            <table>
+                <tr>
+                    <th>Omschrijving</th>
+                    <th>Waarde</th>
+                </tr>
+                <tr>
+                    <td>Totaal gewerkte uren</td>
+                    <td><strong>{total_uren} uur</strong></td>
+                </tr>
+                <tr>
+                    <td>Uurtarief</td>
+                    <td>€{klant.get('uurtarief', 0):.2f}</td>
+                </tr>
+                <tr class="total-row">
+                    <td>Totaal bedrag</td>
+                    <td>€{totaal_bedrag:.2f}</td>
+                </tr>
+            </table>
+            
+            <p>De werkbon is ondertekend door <strong>{ondertekend_door}</strong> namens de klant.</p>
+            
+            <div class="footer">
+                <p><strong>Disclaimer:</strong> {instellingen.get('pdf_voettekst', 'Factuur wordt als goedgekeurd beschouwd indien geen klacht wordt ingediend binnen 1 week.')}</p>
+                <p>Dit is een automatisch gegenereerd bericht van {instellingen.get('bedrijfsnaam', 'Smart-Tech BV')}.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    try:
+        params = {
+            "from": SENDER_EMAIL,
+            "to": [COMPANY_EMAIL],
+            "subject": f"Werkbon Getekend - Week {week} - {werf_naam}",
+            "html": html_content
+        }
+        
+        # Run sync SDK in thread to keep FastAPI non-blocking
+        result = await asyncio.to_thread(resend.Emails.send, params)
+        logging.info(f"Email sent successfully: {result}")
+        return {"success": True, "email_id": result.get("id")}
+    except Exception as e:
+        logging.error(f"Failed to send email: {str(e)}")
+        return {"success": False, "error": str(e)}
 
 @api_router.post("/werkbonnen/{werkbon_id}/verzenden")
 async def verzend_werkbon(werkbon_id: str):
-    """Placeholder for email sending - includes cost calculation"""
+    """Send werkbon notification email with cost calculation"""
     werkbon = await db.werkbonnen.find_one({"id": werkbon_id})
     if not werkbon:
         raise HTTPException(status_code=404, detail="Werkbon niet gevonden")
@@ -543,6 +647,11 @@ async def verzend_werkbon(werkbon_id: str):
     klant = await db.klanten.find_one({"id": werkbon["klant_id"]})
     uurtarief = klant.get("uurtarief", 0) if klant else 0
     
+    # Get company settings
+    instellingen = await db.instellingen.find_one({"id": "company_settings"})
+    if not instellingen:
+        instellingen = {}
+    
     # Calculate total hours
     total_uren = 0
     for regel in werkbon.get("uren", []):
@@ -552,23 +661,27 @@ async def verzend_werkbon(werkbon_id: str):
     
     totaal_bedrag = total_uren * uurtarief
     
-    # TODO: Implement actual email sending
-    # Email to customer should include:
-    # - Total hours worked
-    # - Hourly rate
-    # - Total amount
-    # - Message: "Binnen 1 week klachten melden, anders wordt dit als goedgekeurd beschouwd"
+    # Send email
+    email_result = await send_werkbon_email(werkbon, klant or {}, instellingen, total_uren, totaal_bedrag)
     
+    # Update werkbon status
     await db.werkbonnen.update_one(
         {"id": werkbon_id},
-        {"$set": {"status": "verzonden", "email_verzonden": True, "updated_at": datetime.utcnow()}}
+        {"$set": {
+            "status": "verzonden", 
+            "email_verzonden": email_result.get("success", False),
+            "email_error": email_result.get("error"),
+            "updated_at": datetime.utcnow()
+        }}
     )
     
     return {
-        "message": "E-mail verzending is nog niet geïmplementeerd.",
+        "message": "Werkbon verzonden" if email_result.get("success") else "Werkbon status bijgewerkt (email niet verzonden)",
         "totaal_uren": total_uren,
         "uurtarief": uurtarief,
         "totaal_bedrag": totaal_bedrag,
+        "email_sent": email_result.get("success", False),
+        "email_error": email_result.get("error"),
         "success": True
     }
 
