@@ -389,6 +389,7 @@ export default function BeheerScreen() {
               return (
                 <View 
                   key={werknemer.id} 
+                  testID={`werknemer-row-${werknemer.id}`}
                   style={[styles.listItem, !werknemer.actief && styles.listItemInactive]}
                 >
                   <TouchableOpacity 

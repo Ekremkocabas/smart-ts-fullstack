@@ -189,15 +189,9 @@ export default function HandtekeningScreen() {
         status: 'ondertekend',
       });
       await new Promise((resolve) => setTimeout(resolve, 150));
-      router.replace({
-        pathname: '/werkbon/[id]',
-        params: {
-          id,
-          justSigned: '1',
-          signer: naam.trim(),
-          signedAt: new Date().toISOString(),
-        },
-      });
+      const signerParam = encodeURIComponent(naam.trim());
+      const signedAtParam = encodeURIComponent(new Date().toISOString());
+      router.replace(`/werkbon/${id}?justSigned=1&signer=${signerParam}&signedAt=${signedAtParam}`);
     } catch (error: any) {
       const message = error.message || 'Kon handtekening niet opslaan';
       setErrorMessage(message);
