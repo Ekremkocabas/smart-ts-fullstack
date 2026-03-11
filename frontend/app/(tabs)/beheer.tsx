@@ -44,6 +44,9 @@ export default function BeheerScreen() {
   const [werknemerEmail, setWerknemerEmail] = useState('');
   const [werknemerTeamId, setWerknemerTeamId] = useState('');
   
+  // Result modal for showing password
+  const [resultModalVisible, setResultModalVisible] = useState(false);
+  const [resultData, setResultData] = useState<{naam: string; password: string; emailSent: boolean} | null>(null);
   // Settings
   const [bedrijfsnaam, setBedrijfsnaam] = useState('');
   const [bedrijfsEmail, setBedrijfsEmail] = useState('');
@@ -179,18 +182,15 @@ export default function BeheerScreen() {
           });
         } else {
           const result = await addWerknemer(werknemerEmail.trim(), werknemerNaam.trim(), werknemerTeamId || undefined);
-          // Show temporary password and email status
-          const emailStatus = result.emailSent 
-            ? 'Een welkom e-mail is verzonden naar de werknemer met inloggegevens en instructies.' 
-            : 'Let op: E-mail kon niet worden verzonden. Deel het wachtwoord handmatig.';
-          
-          Alert.alert(
-            'Werknemer Aangemaakt',
-            `${werknemerNaam} is toegevoegd.\n\nTijdelijk wachtwoord:\n${result.tempPassword}\n\n${emailStatus}`,
-            [{ text: 'OK' }]
-          );
+          // Show result modal with password
+          setResultData({
+            naam: werknemerNaam,
+            password: result.tempPassword,
+            emailSent: result.emailSent
+          });
           setModalVisible(false);
-          if (modalType === 'werknemer') fetchWerknemers();
+          setResultModalVisible(true);
+          fetchWerknemers();
           return;
         }
       }
@@ -933,6 +933,52 @@ export default function BeheerScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Result Modal for showing password */}
+      <Modal
+        visible={resultModalVisible}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setResultModalVisible(false)}
+      >
+        <View style={styles.resultModalContainer}>
+          <View style={styles.resultModalContent}>
+            <View style={styles.resultIcon}>
+              <Ionicons name="checkmark-circle" size={48} color="#28a745" />
+            </View>
+            <Text style={styles.resultTitle}>Werknemer Aangemaakt</Text>
+            <Text style={styles.resultSubtitle}>{resultData?.naam} is toegevoegd</Text>
+            
+            <View style={styles.passwordBox}>
+              <Text style={styles.passwordLabel}>Tijdelijk wachtwoord:</Text>
+              <Text style={styles.passwordValue}>{resultData?.password}</Text>
+            </View>
+            
+            <View style={styles.emailStatusBox}>
+              <Ionicons 
+                name={resultData?.emailSent ? "mail" : "mail-unread"} 
+                size={20} 
+                color={resultData?.emailSent ? "#28a745" : "#ffc107"} 
+              />
+              <Text style={styles.emailStatusText}>
+                {resultData?.emailSent 
+                  ? 'Welkom e-mail is verzonden' 
+                  : 'E-mail niet verzonden - deel wachtwoord handmatig'}
+              </Text>
+            </View>
+            
+            <TouchableOpacity 
+              style={styles.resultButton} 
+              onPress={() => {
+                setResultModalVisible(false);
+                setResultData(null);
+              }}
+            >
+              <Text style={styles.resultButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1003,4 +1049,17 @@ const styles = StyleSheet.create({
   pdfFeatureList: { gap: 10, marginTop: 8 },
   pdfFeatureItem: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   pdfFeatureText: { color: '#a0a0a0', fontSize: 14 },
+  // Result modal styles
+  resultModalContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.7)' },
+  resultModalContent: { backgroundColor: '#1a1a2e', borderRadius: 20, padding: 30, width: '85%', alignItems: 'center' },
+  resultIcon: { marginBottom: 16 },
+  resultTitle: { fontSize: 22, fontWeight: 'bold', color: '#fff', marginBottom: 8 },
+  resultSubtitle: { fontSize: 14, color: '#6c757d', marginBottom: 24 },
+  passwordBox: { backgroundColor: '#16213e', borderRadius: 12, padding: 20, width: '100%', alignItems: 'center', marginBottom: 16 },
+  passwordLabel: { color: '#6c757d', fontSize: 12, marginBottom: 8 },
+  passwordValue: { color: '#F5A623', fontSize: 24, fontWeight: 'bold', letterSpacing: 2 },
+  emailStatusBox: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 24 },
+  emailStatusText: { color: '#6c757d', fontSize: 12, flex: 1 },
+  resultButton: { backgroundColor: '#F5A623', paddingVertical: 14, paddingHorizontal: 40, borderRadius: 12 },
+  resultButtonText: { color: '#000', fontSize: 16, fontWeight: '600' },
 });
