@@ -317,10 +317,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(220, 53, 69, 0.1)',
+    backgroundColor: 'rgba(220, 53, 69, 0.2)',
     borderRadius: 12,
     padding: 16,
-    marginTop: 'auto',
+    marginTop: 32,
   },
   logoutText: {
     color: '#dc3545',
