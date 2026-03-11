@@ -10,21 +10,22 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useAppStore, Team, Klant, Werf } from '../../store/appStore';
+import { useAppStore, User } from '../../store/appStore';
 import { useAuth } from '../../context/AuthContext';
 
-type Tab = 'teams' | 'klanten' | 'werven' | 'instellingen' | 'pdf';
+type Tab = 'werknemers' | 'teams' | 'klanten' | 'werven' | 'instellingen' | 'pdf';
 
 export default function BeheerScreen() {
   const { user, isLoading: authLoading } = useAuth();
   const isAdmin = user?.rol === 'admin';
   
-  const [activeTab, setActiveTab] = useState<Tab>('teams');
+  const [activeTab, setActiveTab] = useState<Tab>('werknemers');
   const [modalVisible, setModalVisible] = useState(false);
-  const [modalType, setModalType] = useState<'team' | 'klant' | 'werf'>('team');
+  const [modalType, setModalType] = useState<'team' | 'klant' | 'werf' | 'werknemer'>('team');
   const [editingItem, setEditingItem] = useState<any>(null);
   
   // Form states
@@ -37,6 +38,11 @@ export default function BeheerScreen() {
   const [werfNaam, setWerfNaam] = useState('');
   const [werfKlantId, setWerfKlantId] = useState('');
   const [werfAdres, setWerfAdres] = useState('');
+  
+  // Werknemer form states
+  const [werknemerNaam, setWerknemerNaam] = useState('');
+  const [werknemerEmail, setWerknemerEmail] = useState('');
+  const [werknemerTeamId, setWerknemerTeamId] = useState('');
   
   // Settings
   const [bedrijfsnaam, setBedrijfsnaam] = useState('');
@@ -54,11 +60,12 @@ export default function BeheerScreen() {
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
   
   const {
-    teams, klanten, werven, instellingen,
-    fetchTeams, fetchKlanten, fetchWerven, fetchInstellingen,
+    teams, klanten, werven, werknemers, instellingen,
+    fetchTeams, fetchKlanten, fetchWerven, fetchInstellingen, fetchWerknemers,
     addTeam, updateTeam, deleteTeam,
     addKlant, updateKlant, deleteKlant,
     addWerf, deleteWerf,
+    addWerknemer, updateWerknemer,
     updateInstellingen,
   } = useAppStore();
 
@@ -67,6 +74,7 @@ export default function BeheerScreen() {
     fetchKlanten();
     fetchWerven();
     fetchInstellingen();
+    fetchWerknemers();
   }, []);
 
   useEffect(() => {
@@ -85,7 +93,7 @@ export default function BeheerScreen() {
     }
   }, [instellingen]);
 
-  const openModal = (type: 'team' | 'klant' | 'werf', item?: any) => {
+  const openModal = (type: 'team' | 'klant' | 'werf' | 'werknemer', item?: any) => {
     setModalType(type);
     setEditingItem(item || null);
     
@@ -98,6 +106,10 @@ export default function BeheerScreen() {
         setKlantEmail(item.email);
         setKlantTelefoon(item.telefoon || '');
         setKlantUurtarief(item.uurtarief?.toString() || '0');
+      } else if (type === 'werknemer') {
+        setWerknemerNaam(item.naam);
+        setWerknemerEmail(item.email);
+        setWerknemerTeamId(item.team_id || '');
       }
     } else {
       setTeamNaam('');
@@ -109,6 +121,9 @@ export default function BeheerScreen() {
       setWerfNaam('');
       setWerfKlantId('');
       setWerfAdres('');
+      setWerknemerNaam('');
+      setWerknemerEmail('');
+      setWerknemerTeamId('');
     }
     setModalVisible(true);
   };
@@ -152,14 +167,29 @@ export default function BeheerScreen() {
           klant_id: werfKlantId,
           adres: werfAdres.trim() || undefined,
         });
+      } else if (modalType === 'werknemer') {
+        if (!werknemerNaam.trim() || !werknemerEmail.trim()) {
+          Alert.alert('Fout', 'Vul naam en e-mail in');
+          return;
+        }
+        if (editingItem) {
+          await updateWerknemer(editingItem.id, {
+            naam: werknemerNaam.trim(),
+            team_id: werknemerTeamId || undefined,
+          });
+        } else {
+          await addWerknemer(werknemerEmail.trim(), werknemerNaam.trim(), werknemerTeamId || undefined);
+          Alert.alert('Succes', `Werknemer ${werknemerNaam} is aangemaakt. Tijdelijk wachtwoord is gegenereerd.`);
+        }
       }
       setModalVisible(false);
       // Refresh data
       if (modalType === 'team') fetchTeams();
       if (modalType === 'klant') fetchKlanten();
       if (modalType === 'werf') fetchWerven();
+      if (modalType === 'werknemer') fetchWerknemers();
     } catch (error: any) {
-      Alert.alert('Fout', error.message);
+      Alert.alert('Fout', error.message || 'Er is een fout opgetreden');
     }
   };
 
@@ -233,6 +263,14 @@ export default function BeheerScreen() {
     );
   };
 
+  const toggleWerknemerActief = async (werknemer: User) => {
+    try {
+      await updateWerknemer(werknemer.id, { actief: !werknemer.actief });
+    } catch (error: any) {
+      Alert.alert('Fout', error.message);
+    }
+  };
+
   // Only show for admin
   if (authLoading) {
     return (
@@ -266,6 +304,54 @@ export default function BeheerScreen() {
 
   const renderTabContent = () => {
     switch (activeTab) {
+      case 'werknemers':
+        return (
+          <View style={styles.tabContent}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Werknemers</Text>
+              <TouchableOpacity style={styles.addBtn} onPress={() => openModal('werknemer')}>
+                <Ionicons name="add" size={20} color="#000" />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.infoText}>
+              Voeg werknemers toe door hun e-mailadres in te voeren. Ze kunnen dan inloggen met een tijdelijk wachtwoord.
+            </Text>
+            {werknemers.filter(w => w.rol !== 'admin').map((werknemer) => {
+              const team = teams.find(t => t.id === werknemer.team_id);
+              return (
+                <TouchableOpacity 
+                  key={werknemer.id} 
+                  style={[styles.listItem, !werknemer.actief && styles.listItemInactive]}
+                  onPress={() => openModal('werknemer', werknemer)}
+                >
+                  <View style={styles.listItemLeft}>
+                    <Ionicons name="person" size={20} color={werknemer.actief ? "#F5A623" : "#6c757d"} />
+                    <View>
+                      <Text style={[styles.listItemText, !werknemer.actief && styles.textInactive]}>
+                        {werknemer.naam}
+                      </Text>
+                      <Text style={styles.listItemSubtext}>{werknemer.email}</Text>
+                      {team && <Text style={styles.teamBadge}>{team.naam}</Text>}
+                    </View>
+                  </View>
+                  <View style={styles.switchContainer}>
+                    <Text style={styles.switchLabel}>{werknemer.actief ? 'Actief' : 'Inactief'}</Text>
+                    <Switch
+                      value={werknemer.actief}
+                      onValueChange={() => toggleWerknemerActief(werknemer)}
+                      trackColor={{ false: '#2d3a5f', true: '#F5A623' }}
+                      thumbColor="#fff"
+                    />
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+            {werknemers.filter(w => w.rol !== 'admin').length === 0 && (
+              <Text style={styles.emptyText}>Nog geen werknemers toegevoegd</Text>
+            )}
+          </View>
+        );
+        
       case 'teams':
         return (
           <View style={styles.tabContent}>
@@ -326,7 +412,7 @@ export default function BeheerScreen() {
                     <Text style={styles.listItemText}>{klant.naam}</Text>
                     <Text style={styles.listItemSubtext}>{klant.email}</Text>
                     {klant.uurtarief > 0 && (
-                      <Text style={styles.uurtariefText}>€{klant.uurtarief}/uur</Text>
+                      <Text style={styles.uurtariefText}>{klant.uurtarief}/uur</Text>
                     )}
                   </View>
                 </View>
@@ -488,7 +574,7 @@ export default function BeheerScreen() {
           <View style={styles.tabContent}>
             <Text style={styles.sectionTitle}>PDF Instellingen</Text>
             <Text style={styles.infoText}>
-              Configureer hoe uw werkbonnen er uitzien wanneer ze worden geëxporteerd als PDF.
+              Configureer hoe uw werkbonnen er uitzien wanneer ze worden geexporteerd als PDF.
             </Text>
             
             <View style={styles.formGroup}>
@@ -553,7 +639,7 @@ export default function BeheerScreen() {
                 </View>
                 <View style={styles.pdfFeatureItem}>
                   <Ionicons name="checkmark-circle" size={18} color="#28a745" />
-                  <Text style={styles.pdfFeatureText}>Urenregistratie per medewerker</Text>
+                  <Text style={styles.pdfFeatureText}>Urenregistratie + afkortingen (Z, V, BV, BF)</Text>
                 </View>
                 <View style={styles.pdfFeatureItem}>
                   <Ionicons name="checkmark-circle" size={18} color="#28a745" />
@@ -561,15 +647,11 @@ export default function BeheerScreen() {
                 </View>
                 <View style={styles.pdfFeatureItem}>
                   <Ionicons name="checkmark-circle" size={18} color="#28a745" />
-                  <Text style={styles.pdfFeatureText}>Uitgevoerde werken beschrijving</Text>
-                </View>
-                <View style={styles.pdfFeatureItem}>
-                  <Ionicons name="checkmark-circle" size={18} color="#28a745" />
                   <Text style={styles.pdfFeatureText}>Handtekening klant</Text>
                 </View>
                 <View style={styles.pdfFeatureItem}>
                   <Ionicons name="checkmark-circle" size={18} color="#28a745" />
-                  <Text style={styles.pdfFeatureText}>Totaalbedrag (uren × uurtarief)</Text>
+                  <Text style={styles.pdfFeatureText}>Totaalbedrag (alleen in e-mail)</Text>
                 </View>
               </View>
             </View>
@@ -591,21 +673,23 @@ export default function BeheerScreen() {
         </View>
       </View>
 
-      <View style={styles.tabs}>
-        {(['teams', 'klanten', 'werven', 'instellingen', 'pdf'] as Tab[]).map((tab) => (
-          <TouchableOpacity
-            key={tab}
-            style={[styles.tab, activeTab === tab && styles.activeTab]}
-            onPress={() => setActiveTab(tab)}
-          >
-            <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
-              {tab === 'teams' ? 'Teams' : 
-               tab === 'pdf' ? 'PDF' : 
-               tab.charAt(0).toUpperCase() + tab.slice(1)}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroll}>
+        <View style={styles.tabs}>
+          {(['werknemers', 'teams', 'klanten', 'werven', 'instellingen', 'pdf'] as Tab[]).map((tab) => (
+            <TouchableOpacity
+              key={tab}
+              style={[styles.tab, activeTab === tab && styles.activeTab]}
+              onPress={() => setActiveTab(tab)}
+            >
+              <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
+                {tab === 'werknemers' ? 'Werknemers' :
+                 tab === 'pdf' ? 'PDF' : 
+                 tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </ScrollView>
 
       <ScrollView style={styles.content}>
         {renderTabContent()}
@@ -626,7 +710,8 @@ export default function BeheerScreen() {
               <Text style={styles.modalTitle}>
                 {editingItem ? 'Bewerken' : 'Nieuw'}{' '}
                 {modalType === 'team' ? 'Team' :
-                 modalType === 'klant' ? 'Klant' : 'Werf'}
+                 modalType === 'klant' ? 'Klant' : 
+                 modalType === 'werknemer' ? 'Werknemer' : 'Werf'}
               </Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
                 <Ionicons name="close" size={24} color="#fff" />
@@ -634,6 +719,67 @@ export default function BeheerScreen() {
             </View>
 
             <ScrollView>
+              {modalType === 'werknemer' && (
+                <>
+                  <View style={styles.formGroup}>
+                    <Text style={styles.label}>Naam</Text>
+                    <TextInput
+                      style={styles.textInput}
+                      value={werknemerNaam}
+                      onChangeText={setWerknemerNaam}
+                      placeholder="Volledige naam"
+                      placeholderTextColor="#6c757d"
+                      autoFocus
+                    />
+                  </View>
+                  <View style={styles.formGroup}>
+                    <Text style={styles.label}>E-mail</Text>
+                    <TextInput
+                      style={[styles.textInput, editingItem && styles.inputDisabled]}
+                      value={werknemerEmail}
+                      onChangeText={setWerknemerEmail}
+                      placeholder="email@bedrijf.nl"
+                      placeholderTextColor="#6c757d"
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      editable={!editingItem}
+                    />
+                    {editingItem && (
+                      <Text style={styles.helpText}>E-mail kan niet worden gewijzigd</Text>
+                    )}
+                  </View>
+                  <View style={styles.formGroup}>
+                    <Text style={styles.label}>Team (optioneel)</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                      <View style={styles.klantSelector}>
+                        <TouchableOpacity
+                          style={[styles.klantOption, !werknemerTeamId && styles.klantOptionActive]}
+                          onPress={() => setWerknemerTeamId('')}
+                        >
+                          <Text style={[styles.klantOptionText, !werknemerTeamId && styles.klantOptionTextActive]}>
+                            Geen team
+                          </Text>
+                        </TouchableOpacity>
+                        {teams.map((team) => (
+                          <TouchableOpacity
+                            key={team.id}
+                            style={[styles.klantOption, werknemerTeamId === team.id && styles.klantOptionActive]}
+                            onPress={() => setWerknemerTeamId(team.id)}
+                          >
+                            <Text style={[styles.klantOptionText, werknemerTeamId === team.id && styles.klantOptionTextActive]}>
+                              {team.naam}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </ScrollView>
+                    <Text style={styles.helpText}>
+                      Teamleden verschijnen automatisch op werkbonnen
+                    </Text>
+                  </View>
+                </>
+              )}
+              
               {modalType === 'team' && (
                 <>
                   <View style={styles.formGroup}>
@@ -648,12 +794,12 @@ export default function BeheerScreen() {
                     />
                   </View>
                   <View style={styles.formGroup}>
-                    <Text style={styles.label}>Team Leden (één per regel)</Text>
+                    <Text style={styles.label}>Team Leden (een per regel)</Text>
                     <TextInput
                       style={[styles.textInput, styles.textArea]}
                       value={teamLeden}
                       onChangeText={setTeamLeden}
-                      placeholder="Jan de Vries&#10;Piet Jansen&#10;Klaas Bakker"
+                      placeholder={"Jan de Vries\nPiet Jansen\nKlaas Bakker"}
                       placeholderTextColor="#6c757d"
                       multiline
                       numberOfLines={5}
@@ -702,7 +848,7 @@ export default function BeheerScreen() {
                     />
                   </View>
                   <View style={styles.formGroup}>
-                    <Text style={styles.label}>Uurtarief (€)</Text>
+                    <Text style={styles.label}>Uurtarief</Text>
                     <TextInput
                       style={styles.textInput}
                       value={klantUurtarief}
@@ -712,7 +858,7 @@ export default function BeheerScreen() {
                       keyboardType="numeric"
                     />
                     <Text style={styles.helpText}>
-                      Dit tarief wordt gebruikt voor de factuurberekening
+                      Dit tarief wordt alleen in de e-mail getoond, niet aan werknemers
                     </Text>
                   </View>
                 </>
@@ -788,8 +934,9 @@ const styles = StyleSheet.create({
   noAccessContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   noAccessText: { fontSize: 20, fontWeight: '600', color: '#fff', marginTop: 16 },
   noAccessSubtext: { fontSize: 14, color: '#6c757d', marginTop: 8, textAlign: 'center' },
-  tabs: { flexDirection: 'row', paddingHorizontal: 16, marginBottom: 8, flexWrap: 'wrap', gap: 8 },
-  tab: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, backgroundColor: '#16213e' },
+  tabsScroll: { maxHeight: 50 },
+  tabs: { flexDirection: 'row', paddingHorizontal: 16, gap: 8 },
+  tab: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, backgroundColor: '#16213e' },
   activeTab: { backgroundColor: '#F5A623' },
   tabText: { color: '#6c757d', fontSize: 13, fontWeight: '500' },
   activeTabText: { color: '#000' },
@@ -800,16 +947,22 @@ const styles = StyleSheet.create({
   infoText: { color: '#6c757d', fontSize: 13, marginBottom: 16, lineHeight: 20 },
   addBtn: { backgroundColor: '#F5A623', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   listItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#16213e', padding: 16, borderRadius: 12, marginBottom: 8 },
+  listItemInactive: { opacity: 0.6 },
   listItemLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
   listItemText: { color: '#fff', fontSize: 16, fontWeight: '500' },
+  textInactive: { color: '#6c757d' },
   listItemSubtext: { color: '#6c757d', fontSize: 12, marginTop: 2 },
+  teamBadge: { color: '#F5A623', fontSize: 11, marginTop: 4, backgroundColor: 'rgba(245, 166, 35, 0.1)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, overflow: 'hidden' },
   uurtariefText: { color: '#F5A623', fontSize: 12, fontWeight: '600', marginTop: 2 },
   emptyText: { color: '#6c757d', textAlign: 'center', marginTop: 24 },
+  switchContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  switchLabel: { color: '#6c757d', fontSize: 12 },
   formGroup: { marginBottom: 16 },
   rowGroup: { flexDirection: 'row', gap: 12, marginBottom: 16 },
   halfInput: { flex: 1 },
   label: { color: '#a0a0a0', fontSize: 14, marginBottom: 8 },
   textInput: { backgroundColor: '#16213e', borderRadius: 12, padding: 16, color: '#fff', fontSize: 16, borderWidth: 1, borderColor: '#2d3a5f' },
+  inputDisabled: { opacity: 0.5 },
   textArea: { minHeight: 120, textAlignVertical: 'top' },
   helpText: { color: '#6c757d', fontSize: 12, marginTop: 4 },
   saveButton: { backgroundColor: '#F5A623', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 8 },

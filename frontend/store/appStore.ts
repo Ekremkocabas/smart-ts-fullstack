@@ -118,6 +118,7 @@ interface AppState {
   klanten: Klant[];
   werven: Werf[];
   werkbonnen: Werkbon[];
+  werknemers: User[];
   instellingen: BedrijfsInstellingen | null;
   
   // Loading states
@@ -152,7 +153,21 @@ interface AppState {
   fetchInstellingen: () => Promise<void>;
   updateInstellingen: (data: Partial<BedrijfsInstellingen>) => Promise<void>;
   
+  // Werknemer actions
+  fetchWerknemers: () => Promise<void>;
+  addWerknemer: (email: string, naam: string, teamId?: string) => Promise<User>;
+  updateWerknemer: (id: string, data: { naam?: string; team_id?: string; actief?: boolean }) => Promise<void>;
+  
   clearError: () => void;
+}
+
+export interface User {
+  id: string;
+  email: string;
+  naam: string;
+  rol: string;
+  team_id?: string;
+  actief: boolean;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -161,6 +176,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   klanten: [],
   werven: [],
   werkbonnen: [],
+  werknemers: [],
   instellingen: null,
   isLoading: false,
   error: null,
@@ -382,6 +398,50 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ instellingen: response.data });
     } catch (error: any) {
       set({ error: error.message });
+    }
+  },
+  
+  // Werknemer actions
+  fetchWerknemers: async () => {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/auth/users`);
+      set({ werknemers: response.data });
+    } catch (error: any) {
+      set({ error: error.message });
+    }
+  },
+  
+  addWerknemer: async (email: string, naam: string, teamId?: string) => {
+    try {
+      // Generate random password - user will need to reset
+      const tempPassword = Math.random().toString(36).slice(-8);
+      const response = await axios.post(`${BACKEND_URL}/api/auth/register`, {
+        email,
+        naam,
+        password: tempPassword,
+        rol: 'werknemer'
+      });
+      // Update team_id if provided
+      if (teamId) {
+        await axios.put(`${BACKEND_URL}/api/auth/users/${response.data.id}`, { team_id: teamId });
+      }
+      const { fetchWerknemers } = get();
+      await fetchWerknemers();
+      return response.data;
+    } catch (error: any) {
+      set({ error: error.message });
+      throw error;
+    }
+  },
+  
+  updateWerknemer: async (id: string, data: { naam?: string; team_id?: string; actief?: boolean }) => {
+    try {
+      await axios.put(`${BACKEND_URL}/api/auth/users/${id}`, data);
+      const { fetchWerknemers } = get();
+      await fetchWerknemers();
+    } catch (error: any) {
+      set({ error: error.message });
+      throw error;
     }
   },
   

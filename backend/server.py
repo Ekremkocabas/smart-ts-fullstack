@@ -60,6 +60,7 @@ class UserUpdate(BaseModel):
     naam: Optional[str] = None
     rol: Optional[str] = None
     team_id: Optional[str] = None
+    actief: Optional[bool] = None
 
 # Team Model (Ekip)
 class Team(BaseModel):
