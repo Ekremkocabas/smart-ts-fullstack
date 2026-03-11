@@ -952,8 +952,13 @@ async def delete_werf(werf_id: str):
 # ==================== WERKBON ROUTES ====================
 
 @api_router.get("/werkbonnen", response_model=List[Werkbon])
-async def get_werkbonnen():
-    werkbonnen = await db.werkbonnen.find().sort("created_at", -1).to_list(1000)
+async def get_werkbonnen(user_id: str):
+    user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
+
+    query = {} if user.get("rol") == "admin" else {"ingevuld_door_id": user_id}
+    werkbonnen = await db.werkbonnen.find(query).sort("created_at", -1).to_list(1000)
     return [Werkbon(**wb) for wb in werkbonnen]
 
 @api_router.get("/werkbonnen/user/{user_id}", response_model=List[Werkbon])

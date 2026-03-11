@@ -328,12 +328,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   fetchWerkbonnen: async (options) => {
     set({ isLoading: true, error: null });
     try {
-      const isAdmin = !!options?.isAdmin;
       const userId = options?.userId;
-      const endpoint = !isAdmin && userId
-        ? `${BACKEND_URL}/api/werkbonnen/user/${userId}`
-        : `${BACKEND_URL}/api/werkbonnen`;
-      const response = await axios.get(endpoint);
+      if (!userId) {
+        throw new Error('Gebruiker niet gevonden voor werkbon overzicht');
+      }
+
+      const response = await axios.get(`${BACKEND_URL}/api/werkbonnen`, {
+        params: { user_id: userId },
+      });
       set({ werkbonnen: response.data, isLoading: false });
     } catch (error: any) {
       set({ error: error.response?.data?.detail || error.message, isLoading: false });

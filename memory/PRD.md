@@ -20,6 +20,7 @@ Mobiele werkbon app voor een bouwbedrijf waarmee beheerders werknemers kunnen be
 - Gebruikers kunnen hun eigen wachtwoord wijzigen via Profiel
 
 ### Beheerder / Beheer-panel
+- Werkbon Overzicht toegevoegd in Beheer met alle werkbonnen van alle accounts
 - Werknemers aanmaken met tijdelijk wachtwoord
 - Tijdelijk wachtwoord zichtbaar in modal na aanmaak
 - Werknemers activeren/deactiveren
@@ -40,6 +41,8 @@ Mobiele werkbon app voor een bouwbedrijf waarmee beheerders werknemers kunnen be
 ### Werkbon-flow
 - Werknemer kan werkbon aanmaken
 - Klant + werf selectie werkt
+- Werknemer ziet alleen eigen werkbonnen in de hoofd Werkbonnen lijst
+- Admin ziet alle werkbonnen via Beheer > Overzicht
 - Werkbon detail toont uren en afkortingen (Z, V, BV, BF)
 - Handtekening opslaan werkt
 - Na ondertekenen gaat gebruiker terug naar detail en ziet direct `Versturen als PDF`
@@ -50,6 +53,8 @@ Mobiele werkbon app voor een bouwbedrijf waarmee beheerders werknemers kunnen be
 - PDF bevat bedrijfsinfo, klant/werf info, uren, afkortingen, handtekening en samenvatting
 - Prijsafspraak van klant wordt meegenomen in PDF/e-mail indien ingevuld
 - PDF mailflow probeert te verzenden naar bedrijfsmail + klantmail
+- Welcome/info mail gebruikt nu branding `Smart-Tech BV` zonder ongewenste suffix `Test`
+- Welcome/info mail bevat uitgebreide formele instructies voor het volledige werkbonproces
 - Bij niet-geverifieerd Resend domein faalt dit netjes zonder 500-crash
 
 ## Belangrijke huidige beperking

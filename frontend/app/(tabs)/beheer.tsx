@@ -80,13 +80,14 @@ export default function BeheerScreen() {
   } = useAppStore();
 
   useEffect(() => {
+    if (!user?.id) return;
     fetchTeams();
     fetchKlanten();
     fetchWerven();
-    fetchWerkbonnen({ isAdmin: true });
+    fetchWerkbonnen({ userId: user.id, isAdmin: true });
     fetchInstellingen();
     fetchWerknemers();
-  }, []);
+  }, [user?.id]);
 
   const calculateWerkbonHours = (uren: any[] = []) => {
     return uren.reduce((sum, regel) => {
@@ -393,7 +394,7 @@ export default function BeheerScreen() {
               <TouchableOpacity
                 testID="beheer-overview-refresh-button"
                 style={styles.addBtn}
-                onPress={() => fetchWerkbonnen({ isAdmin: true })}
+                onPress={() => user?.id && fetchWerkbonnen({ userId: user.id, isAdmin: true })}
               >
                 <Ionicons name="refresh" size={18} color="#000" />
               </TouchableOpacity>
