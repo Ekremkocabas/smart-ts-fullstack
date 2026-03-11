@@ -753,11 +753,37 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
             datum = werkbon.get("handtekening_datum")
             datum_text = datum.strftime("%d-%m-%Y %H:%M") if isinstance(datum, datetime) else str(datum)[:16]
             sig_content.append(Paragraph(f"Datum: {datum_text}", styles["BodySmall"]))
+        sig_content.append(Spacer(1, 3))
         sig_bytes = decode_base64_data(werkbon.get("handtekening_data"))
-        sig_img = make_safe_reportlab_image(sig_bytes, 60 * mm, 24 * mm)
+        sig_img = make_safe_reportlab_image(sig_bytes, 70 * mm, 26 * mm)
+        
+        # Check for selfie
+        selfie_col: list = []
+        if werkbon.get("selfie_data"):
+            selfie_bytes = decode_base64_data(werkbon.get("selfie_data"))
+            selfie_img = make_safe_reportlab_image(selfie_bytes, 24 * mm, 24 * mm)
+            if selfie_img:
+                selfie_col = [
+                    Paragraph("<b>Foto</b>", styles["BodySmall"]),
+                    Spacer(1, 2),
+                    selfie_img,
+                ]
+
         if sig_img:
-            sig_content.append(Spacer(1, 3))
-            sig_content.append(sig_img)
+            if selfie_col:
+                # Side-by-side: signature | selfie photo
+                inner_sig_table = Table(
+                    [[sig_img, selfie_col]],
+                    colWidths=[80 * mm, 30 * mm],
+                )
+                inner_sig_table.setStyle(TableStyle([
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("LINEAFTER", (0, 0), (0, -1), 0.5, colors.HexColor("#2d3a5f")),
+                    ("LEFTPADDING", (1, 0), (1, -1), 6),
+                ]))
+                sig_content.append(inner_sig_table)
+            else:
+                sig_content.append(sig_img)
     else:
         sig_content.append(Paragraph("Nog niet ondertekend", styles["BodySmall"]))
 
