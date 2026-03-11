@@ -179,10 +179,14 @@ export default function BeheerScreen() {
           });
         } else {
           const result = await addWerknemer(werknemerEmail.trim(), werknemerNaam.trim(), werknemerTeamId || undefined);
-          // Show temporary password to admin
+          // Show temporary password and email status
+          const emailStatus = result.emailSent 
+            ? 'Een welkom e-mail is verzonden naar de werknemer met inloggegevens en instructies.' 
+            : 'Let op: E-mail kon niet worden verzonden. Deel het wachtwoord handmatig.';
+          
           Alert.alert(
             'Werknemer Aangemaakt',
-            `${werknemerNaam} is toegevoegd.\n\nTijdelijk wachtwoord:\n${result.tempPassword}\n\nDeel dit wachtwoord met de werknemer zodat ze kunnen inloggen.`,
+            `${werknemerNaam} is toegevoegd.\n\nTijdelijk wachtwoord:\n${result.tempPassword}\n\n${emailStatus}`,
             [{ text: 'OK' }]
           );
           setModalVisible(false);

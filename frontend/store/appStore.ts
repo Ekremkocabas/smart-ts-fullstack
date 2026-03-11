@@ -413,22 +413,27 @@ export const useAppStore = create<AppState>((set, get) => ({
   
   addWerknemer: async (email: string, naam: string, teamId?: string) => {
     try {
-      // Generate random password - user will need to reset
+      // Generate random password
       const tempPassword = Math.random().toString(36).slice(-8);
-      const response = await axios.post(`${BACKEND_URL}/api/auth/register`, {
-        email,
-        naam,
-        password: tempPassword,
-        rol: 'werknemer'
+      
+      // Use the new endpoint that sends welcome email
+      const response = await axios.post(`${BACKEND_URL}/api/auth/register-worker`, null, {
+        params: {
+          email,
+          naam,
+          password: tempPassword,
+          team_id: teamId || undefined
+        }
       });
-      // Update team_id if provided
-      if (teamId) {
-        await axios.put(`${BACKEND_URL}/api/auth/users/${response.data.id}`, { team_id: teamId });
-      }
+      
       const { fetchWerknemers } = get();
       await fetchWerknemers();
-      // Return the user with temp password so it can be displayed
-      return { ...response.data, tempPassword };
+      
+      return { 
+        ...response.data.user, 
+        tempPassword: response.data.temp_password,
+        emailSent: response.data.email_sent
+      };
     } catch (error: any) {
       set({ error: error.message });
       throw error;

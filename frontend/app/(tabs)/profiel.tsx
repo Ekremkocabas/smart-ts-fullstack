@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,18 +6,32 @@ import {
   TouchableOpacity,
   Alert,
   Platform,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'expo-router';
+import axios from 'axios';
+
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 export default function ProfielScreen() {
   const { user, logout } = useAuth();
   const router = useRouter();
+  
+  const [passwordModalVisible, setPasswordModalVisible] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
 
   const handleLogout = () => {
-    // Web'de Alert.alert çalışmayabilir, doğrudan logout yapalım
     if (Platform.OS === 'web') {
       logout().then(() => {
         router.replace('/(auth)/login');
@@ -38,6 +52,44 @@ export default function ProfielScreen() {
           },
         ]
       );
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      Alert.alert('Fout', 'Vul alle velden in');
+      return;
+    }
+    
+    if (newPassword !== confirmPassword) {
+      Alert.alert('Fout', 'Nieuwe wachtwoorden komen niet overeen');
+      return;
+    }
+    
+    if (newPassword.length < 6) {
+      Alert.alert('Fout', 'Nieuw wachtwoord moet minimaal 6 tekens bevatten');
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      await axios.post(`${BACKEND_URL}/api/auth/change-password`, {
+        current_password: currentPassword,
+        new_password: newPassword,
+      }, {
+        params: { user_id: user?.id }
+      });
+      
+      Alert.alert('Succes', 'Wachtwoord is succesvol gewijzigd');
+      setPasswordModalVisible(false);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (error: any) {
+      const message = error.response?.data?.detail || 'Kon wachtwoord niet wijzigen';
+      Alert.alert('Fout', message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -75,11 +127,110 @@ export default function ProfielScreen() {
           </View>
         </View>
 
+        <TouchableOpacity 
+          style={styles.actionButton} 
+          onPress={() => setPasswordModalVisible(true)}
+        >
+          <Ionicons name="key-outline" size={24} color="#F5A623" />
+          <Text style={styles.actionButtonText}>Wachtwoord wijzigen</Text>
+          <Ionicons name="chevron-forward" size={20} color="#6c757d" />
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Ionicons name="log-out-outline" size={24} color="#dc3545" />
           <Text style={styles.logoutText}>Uitloggen</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Password Change Modal */}
+      <Modal
+        visible={passwordModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setPasswordModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalContainer}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Wachtwoord Wijzigen</Text>
+              <TouchableOpacity onPress={() => setPasswordModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#fff" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Huidig wachtwoord</Text>
+              <View style={styles.inputContainer}>
+                <TextInput
+                  style={styles.input}
+                  value={currentPassword}
+                  onChangeText={setCurrentPassword}
+                  placeholder="Voer huidig wachtwoord in"
+                  placeholderTextColor="#6c757d"
+                  secureTextEntry={!showCurrentPassword}
+                />
+                <TouchableOpacity onPress={() => setShowCurrentPassword(!showCurrentPassword)}>
+                  <Ionicons 
+                    name={showCurrentPassword ? "eye-off" : "eye"} 
+                    size={20} 
+                    color="#6c757d" 
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Nieuw wachtwoord</Text>
+              <View style={styles.inputContainer}>
+                <TextInput
+                  style={styles.input}
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  placeholder="Minimaal 6 tekens"
+                  placeholderTextColor="#6c757d"
+                  secureTextEntry={!showNewPassword}
+                />
+                <TouchableOpacity onPress={() => setShowNewPassword(!showNewPassword)}>
+                  <Ionicons 
+                    name={showNewPassword ? "eye-off" : "eye"} 
+                    size={20} 
+                    color="#6c757d" 
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Bevestig nieuw wachtwoord</Text>
+              <View style={styles.inputContainer}>
+                <TextInput
+                  style={styles.input}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  placeholder="Herhaal nieuw wachtwoord"
+                  placeholderTextColor="#6c757d"
+                  secureTextEntry={!showNewPassword}
+                />
+              </View>
+            </View>
+
+            <TouchableOpacity 
+              style={[styles.saveButton, isLoading && styles.saveButtonDisabled]} 
+              onPress={handleChangePassword}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#000" />
+              ) : (
+                <Text style={styles.saveButtonText}>Wachtwoord Wijzigen</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -119,25 +270,25 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '600',
     color: '#fff',
+    marginBottom: 4,
   },
   userEmail: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#6c757d',
-    marginTop: 4,
   },
   infoSection: {
     backgroundColor: '#16213e',
     borderRadius: 16,
     padding: 16,
-    gap: 16,
+    marginBottom: 24,
   },
   infoItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    paddingVertical: 12,
   },
   infoContent: {
-    flex: 1,
+    marginLeft: 16,
   },
   infoLabel: {
     fontSize: 12,
@@ -148,18 +299,94 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '500',
   },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#16213e',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  actionButtonText: {
+    flex: 1,
+    color: '#fff',
+    fontSize: 16,
+    marginLeft: 12,
+  },
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#16213e',
-    padding: 16,
+    backgroundColor: 'rgba(220, 53, 69, 0.1)',
     borderRadius: 12,
+    padding: 16,
     marginTop: 'auto',
   },
   logoutText: {
     color: '#dc3545',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  // Modal styles
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalContent: {
+    backgroundColor: '#1a1a2e',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  formGroup: {
+    marginBottom: 16,
+  },
+  label: {
+    color: '#a0a0a0',
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#16213e',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: '#2d3a5f',
+  },
+  input: {
+    flex: 1,
+    color: '#fff',
+    fontSize: 16,
+    paddingVertical: 16,
+  },
+  saveButton: {
+    backgroundColor: '#F5A623',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  saveButtonDisabled: {
+    opacity: 0.6,
+  },
+  saveButtonText: {
+    color: '#000',
     fontSize: 16,
     fontWeight: '600',
   },

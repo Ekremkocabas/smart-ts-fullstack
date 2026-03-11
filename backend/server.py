@@ -272,6 +272,148 @@ async def is_admin(email: str) -> bool:
 
 # ==================== AUTH ROUTES ====================
 
+async def send_welcome_email(user_email: str, user_naam: str, temp_password: str, instellingen: dict):
+    """Send welcome email to new worker with step-by-step instructions"""
+    
+    if not resend.api_key:
+        logging.warning("RESEND_API_KEY not configured, skipping welcome email")
+        return {"success": False, "error": "Email not configured"}
+    
+    bedrijfsnaam = instellingen.get('bedrijfsnaam', 'Smart-Tech BV')
+    
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; }}
+            .header {{ background: #1a1a2e; color: white; padding: 30px; text-align: center; }}
+            .header h1 {{ color: #F5A623; margin: 0; }}
+            .content {{ padding: 30px; }}
+            .credentials {{ background: #f8f9fa; border-left: 4px solid #F5A623; padding: 20px; margin: 20px 0; }}
+            .credentials strong {{ color: #F5A623; }}
+            .steps {{ background: #fff3cd; padding: 20px; border-radius: 8px; margin: 20px 0; }}
+            .steps h3 {{ color: #856404; margin-top: 0; }}
+            .step {{ display: flex; margin: 15px 0; }}
+            .step-number {{ background: #F5A623; color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 15px; flex-shrink: 0; }}
+            .step-text {{ flex: 1; }}
+            .important {{ background: #dc3545; color: white; padding: 15px; border-radius: 8px; margin: 20px 0; }}
+            .footer {{ background: #f8f9fa; padding: 20px; text-align: center; font-size: 12px; color: #666; }}
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>{bedrijfsnaam}</h1>
+            <p>Werkbon Systeem</p>
+        </div>
+        
+        <div class="content">
+            <h2>Welkom {user_naam}!</h2>
+            
+            <p>Er is een account voor u aangemaakt in het werkbon systeem van {bedrijfsnaam}.</p>
+            
+            <div class="credentials">
+                <h3>Uw Inloggegevens</h3>
+                <p><strong>E-mail:</strong> {user_email}</p>
+                <p><strong>Tijdelijk wachtwoord:</strong> {temp_password}</p>
+            </div>
+            
+            <div class="steps">
+                <h3>Stappenplan - Zo gebruikt u het systeem</h3>
+                
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-text">
+                        <strong>Inloggen</strong><br/>
+                        Open de werkbon app en log in met bovenstaande gegevens.
+                    </div>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-text">
+                        <strong>Wachtwoord wijzigen (optioneel)</strong><br/>
+                        Ga naar Profiel om uw wachtwoord te wijzigen indien gewenst.
+                    </div>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-text">
+                        <strong>Nieuwe Werkbon</strong><br/>
+                        Tik op de + knop om een nieuwe werkbon aan te maken.
+                    </div>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <div class="step-text">
+                        <strong>Week & Klant kiezen</strong><br/>
+                        Selecteer de juiste week, klant en werf.
+                    </div>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">5</div>
+                    <div class="step-text">
+                        <strong>Uren invullen</strong><br/>
+                        Vul per dag de gewerkte uren in. Gebruik afkortingen: Z (ziek), V (verlof), BV (betaald verlof), BF (betaald feestdag).
+                    </div>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">6</div>
+                    <div class="step-text">
+                        <strong>KM en beschrijving</strong><br/>
+                        Voeg eventuele kilometers en een beschrijving van de uitgevoerde werken toe.
+                    </div>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">7</div>
+                    <div class="step-text">
+                        <strong>Opslaan & Ondertekenen</strong><br/>
+                        Sla de werkbon op en laat deze ondertekenen door de klant.
+                    </div>
+                </div>
+            </div>
+            
+            <div class="important">
+                <strong>Belangrijk:</strong> Bewaar dit wachtwoord veilig. U kunt het later wijzigen via uw profiel.
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>Dit is een automatisch gegenereerd bericht van {bedrijfsnaam}.</p>
+            <p>Bij vragen kunt u contact opnemen met uw beheerder.</p>
+        </div>
+    </body>
+    </html>
+    """
+    
+    try:
+        params = {
+            "from": SENDER_EMAIL,
+            "to": [user_email],
+            "subject": f"Welkom bij {bedrijfsnaam} - Uw werkbon account",
+            "html": html_content
+        }
+        
+        result = await asyncio.to_thread(resend.Emails.send, params)
+        logging.info(f"Welcome email sent to {user_email}: {result}")
+        return {"success": True, "email_id": result.get("id")}
+    except Exception as e:
+        logging.error(f"Failed to send welcome email: {str(e)}")
+        return {"success": False, "error": str(e)}
+
+class UserCreateWithEmail(BaseModel):
+    email: str
+    password: str
+    naam: str
+    rol: str = "werknemer"
+    send_email: bool = False  # Whether to send welcome email
+
 @api_router.post("/auth/register", response_model=UserResponse)
 async def register_user(user_data: UserCreate):
     existing = await db.users.find_one({"email": user_data.email})
@@ -289,6 +431,37 @@ async def register_user(user_data: UserCreate):
     )
     await db.users.insert_one(user.dict())
     return UserResponse(**user.dict())
+
+@api_router.post("/auth/register-worker")
+async def register_worker_with_email(email: str, naam: str, password: str, team_id: Optional[str] = None):
+    """Register a new worker and optionally send welcome email"""
+    existing = await db.users.find_one({"email": email})
+    if existing:
+        raise HTTPException(status_code=400, detail="E-mailadres is al geregistreerd")
+    
+    user = User(
+        email=email,
+        password_hash=hash_password(password),
+        naam=naam,
+        rol="werknemer",
+        team_id=team_id
+    )
+    await db.users.insert_one(user.dict())
+    
+    # Get company settings for email
+    instellingen = await db.instellingen.find_one({"id": "company_settings"})
+    if not instellingen:
+        instellingen = {}
+    
+    # Send welcome email
+    email_result = await send_welcome_email(email, naam, password, instellingen)
+    
+    return {
+        "user": UserResponse(**user.dict()),
+        "email_sent": email_result.get("success", False),
+        "email_error": email_result.get("error"),
+        "temp_password": password
+    }
 
 @api_router.post("/auth/login", response_model=UserResponse)
 async def login_user(login_data: UserLogin):
@@ -327,6 +500,27 @@ async def update_user(user_id: str, update_data: UserUpdate):
     
     updated = await db.users.find_one({"id": user_id})
     return UserResponse(**updated)
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
+
+@api_router.post("/auth/change-password")
+async def change_password(user_id: str, password_data: PasswordChange):
+    """Change user password"""
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
+    
+    # Verify current password
+    if not verify_password(password_data.current_password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Huidig wachtwoord is onjuist")
+    
+    # Update password
+    new_hash = hash_password(password_data.new_password)
+    await db.users.update_one({"id": user_id}, {"$set": {"password_hash": new_hash}})
+    
+    return {"message": "Wachtwoord succesvol gewijzigd"}
 
 # ==================== TEAM ROUTES ====================
 
