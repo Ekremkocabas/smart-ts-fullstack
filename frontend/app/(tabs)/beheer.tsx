@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAppStore, Team, Klant, Werf } from '../../store/appStore';
 import { useAuth } from '../../context/AuthContext';
 
-type Tab = 'teams' | 'klanten' | 'werven' | 'instellingen';
+type Tab = 'teams' | 'klanten' | 'werven' | 'instellingen' | 'pdf';
 
 export default function BeheerScreen() {
   const { user, isLoading: authLoading } = useAuth();
@@ -42,7 +42,16 @@ export default function BeheerScreen() {
   const [bedrijfsnaam, setBedrijfsnaam] = useState('');
   const [bedrijfsEmail, setBedrijfsEmail] = useState('');
   const [bedrijfsTelefoon, setBedrijfsTelefoon] = useState('');
+  const [bedrijfsAdres, setBedrijfsAdres] = useState('');
+  const [bedrijfsPostcode, setBedrijfsPostcode] = useState('');
+  const [bedrijfsStad, setBedrijfsStad] = useState('');
+  const [kvkNummer, setKvkNummer] = useState('');
+  const [btwNummer, setBtwNummer] = useState('');
   const [adminEmails, setAdminEmails] = useState('');
+  
+  // PDF Settings
+  const [pdfVoettekst, setPdfVoettekst] = useState('');
+  const [logoBase64, setLogoBase64] = useState<string | null>(null);
   
   const {
     teams, klanten, werven, instellingen,
@@ -65,7 +74,14 @@ export default function BeheerScreen() {
       setBedrijfsnaam(instellingen.bedrijfsnaam || '');
       setBedrijfsEmail(instellingen.email || '');
       setBedrijfsTelefoon(instellingen.telefoon || '');
+      setBedrijfsAdres(instellingen.adres || '');
+      setBedrijfsPostcode(instellingen.postcode || '');
+      setBedrijfsStad(instellingen.stad || '');
+      setKvkNummer(instellingen.kvk_nummer || '');
+      setBtwNummer(instellingen.btw_nummer || '');
       setAdminEmails(instellingen.admin_emails?.join(', ') || '');
+      setPdfVoettekst(instellingen.pdf_voettekst || 'Factuur wordt als goedgekeurd beschouwd indien geen klacht wordt ingediend binnen 1 week.');
+      setLogoBase64(instellingen.logo_base64 || null);
     }
   }, [instellingen]);
 
@@ -154,11 +170,47 @@ export default function BeheerScreen() {
         bedrijfsnaam: bedrijfsnaam.trim(),
         email: bedrijfsEmail.trim(),
         telefoon: bedrijfsTelefoon.trim() || undefined,
+        adres: bedrijfsAdres.trim() || undefined,
+        postcode: bedrijfsPostcode.trim() || undefined,
+        stad: bedrijfsStad.trim() || undefined,
+        kvk_nummer: kvkNummer.trim() || undefined,
+        btw_nummer: btwNummer.trim() || undefined,
         admin_emails: emailList.length > 0 ? emailList : undefined,
       });
       Alert.alert('Opgeslagen', 'Bedrijfsinstellingen zijn bijgewerkt');
     } catch (error: any) {
       Alert.alert('Fout', error.message);
+    }
+  };
+
+  const handleSavePdfSettings = async () => {
+    try {
+      await updateInstellingen({
+        pdf_voettekst: pdfVoettekst.trim(),
+        logo_base64: logoBase64 || undefined,
+      });
+      Alert.alert('Opgeslagen', 'PDF instellingen zijn bijgewerkt');
+    } catch (error: any) {
+      Alert.alert('Fout', error.message);
+    }
+  };
+
+  const pickLogo = async () => {
+    try {
+      const ImagePicker = await import('expo-image-picker');
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [4, 2],
+        quality: 0.5,
+        base64: true,
+      });
+      
+      if (!result.canceled && result.assets[0].base64) {
+        setLogoBase64(`data:image/png;base64,${result.assets[0].base64}`);
+      }
+    } catch (error) {
+      Alert.alert('Fout', 'Kan afbeelding niet laden');
     }
   };
 
@@ -359,6 +411,59 @@ export default function BeheerScreen() {
               />
             </View>
             <View style={styles.formGroup}>
+              <Text style={styles.label}>Adres</Text>
+              <TextInput
+                style={styles.textInput}
+                value={bedrijfsAdres}
+                onChangeText={setBedrijfsAdres}
+                placeholder="Straatnaam 123"
+                placeholderTextColor="#6c757d"
+              />
+            </View>
+            <View style={styles.rowGroup}>
+              <View style={styles.halfInput}>
+                <Text style={styles.label}>Postcode</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={bedrijfsPostcode}
+                  onChangeText={setBedrijfsPostcode}
+                  placeholder="1234 AB"
+                  placeholderTextColor="#6c757d"
+                />
+              </View>
+              <View style={styles.halfInput}>
+                <Text style={styles.label}>Stad</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={bedrijfsStad}
+                  onChangeText={setBedrijfsStad}
+                  placeholder="Amsterdam"
+                  placeholderTextColor="#6c757d"
+                />
+              </View>
+            </View>
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>KvK Nummer</Text>
+              <TextInput
+                style={styles.textInput}
+                value={kvkNummer}
+                onChangeText={setKvkNummer}
+                placeholder="12345678"
+                placeholderTextColor="#6c757d"
+              />
+            </View>
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>BTW Nummer</Text>
+              <TextInput
+                style={styles.textInput}
+                value={btwNummer}
+                onChangeText={setBtwNummer}
+                placeholder="NL123456789B01"
+                placeholderTextColor="#6c757d"
+                autoCapitalize="characters"
+              />
+            </View>
+            <View style={styles.formGroup}>
               <Text style={styles.label}>Admin E-mails (komma gescheiden)</Text>
               <TextInput
                 style={styles.textInput}
@@ -377,6 +482,103 @@ export default function BeheerScreen() {
             </TouchableOpacity>
           </View>
         );
+      
+      case 'pdf':
+        return (
+          <View style={styles.tabContent}>
+            <Text style={styles.sectionTitle}>PDF Instellingen</Text>
+            <Text style={styles.infoText}>
+              Configureer hoe uw werkbonnen er uitzien wanneer ze worden geëxporteerd als PDF.
+            </Text>
+            
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Bedrijfslogo</Text>
+              <TouchableOpacity style={styles.logoUploadBtn} onPress={pickLogo}>
+                {logoBase64 ? (
+                  <View style={styles.logoPreviewContainer}>
+                    <View style={styles.logoPreview}>
+                      <Text style={styles.logoPreviewText}>Logo geladen</Text>
+                      <Ionicons name="checkmark-circle" size={24} color="#28a745" />
+                    </View>
+                    <Text style={styles.changeLogoText}>Tik om te wijzigen</Text>
+                  </View>
+                ) : (
+                  <View style={styles.logoUploadContent}>
+                    <Ionicons name="image-outline" size={32} color="#F5A623" />
+                    <Text style={styles.logoUploadText}>Logo uploaden</Text>
+                    <Text style={styles.logoUploadSubtext}>PNG of JPG, max 1MB</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+              {logoBase64 && (
+                <TouchableOpacity 
+                  style={styles.removeLogo} 
+                  onPress={() => setLogoBase64(null)}
+                >
+                  <Text style={styles.removeLogoText}>Logo verwijderen</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>PDF Voettekst / Disclaimer</Text>
+              <TextInput
+                style={[styles.textInput, styles.textArea]}
+                value={pdfVoettekst}
+                onChangeText={setPdfVoettekst}
+                placeholder="Tekst die onderaan elke PDF verschijnt..."
+                placeholderTextColor="#6c757d"
+                multiline
+                numberOfLines={4}
+              />
+              <Text style={styles.helpText}>
+                Deze tekst verschijnt onderaan elke werkbon PDF
+              </Text>
+            </View>
+            
+            <View style={styles.pdfPreviewSection}>
+              <Text style={styles.label}>PDF Bevat:</Text>
+              <View style={styles.pdfFeatureList}>
+                <View style={styles.pdfFeatureItem}>
+                  <Ionicons name="checkmark-circle" size={18} color="#28a745" />
+                  <Text style={styles.pdfFeatureText}>Bedrijfslogo (indien ingesteld)</Text>
+                </View>
+                <View style={styles.pdfFeatureItem}>
+                  <Ionicons name="checkmark-circle" size={18} color="#28a745" />
+                  <Text style={styles.pdfFeatureText}>Bedrijfsgegevens (adres, KvK, BTW)</Text>
+                </View>
+                <View style={styles.pdfFeatureItem}>
+                  <Ionicons name="checkmark-circle" size={18} color="#28a745" />
+                  <Text style={styles.pdfFeatureText}>Klant- en werfgegevens</Text>
+                </View>
+                <View style={styles.pdfFeatureItem}>
+                  <Ionicons name="checkmark-circle" size={18} color="#28a745" />
+                  <Text style={styles.pdfFeatureText}>Urenregistratie per medewerker</Text>
+                </View>
+                <View style={styles.pdfFeatureItem}>
+                  <Ionicons name="checkmark-circle" size={18} color="#28a745" />
+                  <Text style={styles.pdfFeatureText}>KM afstand per dag</Text>
+                </View>
+                <View style={styles.pdfFeatureItem}>
+                  <Ionicons name="checkmark-circle" size={18} color="#28a745" />
+                  <Text style={styles.pdfFeatureText}>Uitgevoerde werken beschrijving</Text>
+                </View>
+                <View style={styles.pdfFeatureItem}>
+                  <Ionicons name="checkmark-circle" size={18} color="#28a745" />
+                  <Text style={styles.pdfFeatureText}>Handtekening klant</Text>
+                </View>
+                <View style={styles.pdfFeatureItem}>
+                  <Ionicons name="checkmark-circle" size={18} color="#28a745" />
+                  <Text style={styles.pdfFeatureText}>Totaalbedrag (uren × uurtarief)</Text>
+                </View>
+              </View>
+            </View>
+            
+            <TouchableOpacity style={styles.saveButton} onPress={handleSavePdfSettings}>
+              <Text style={styles.saveButtonText}>PDF Instellingen Opslaan</Text>
+            </TouchableOpacity>
+          </View>
+        );
     }
   };
 
@@ -390,14 +592,16 @@ export default function BeheerScreen() {
       </View>
 
       <View style={styles.tabs}>
-        {(['teams', 'klanten', 'werven', 'instellingen'] as Tab[]).map((tab) => (
+        {(['teams', 'klanten', 'werven', 'instellingen', 'pdf'] as Tab[]).map((tab) => (
           <TouchableOpacity
             key={tab}
             style={[styles.tab, activeTab === tab && styles.activeTab]}
             onPress={() => setActiveTab(tab)}
           >
             <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
-              {tab === 'teams' ? 'Teams' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+              {tab === 'teams' ? 'Teams' : 
+               tab === 'pdf' ? 'PDF' : 
+               tab.charAt(0).toUpperCase() + tab.slice(1)}
             </Text>
           </TouchableOpacity>
         ))}
@@ -602,6 +806,8 @@ const styles = StyleSheet.create({
   uurtariefText: { color: '#F5A623', fontSize: 12, fontWeight: '600', marginTop: 2 },
   emptyText: { color: '#6c757d', textAlign: 'center', marginTop: 24 },
   formGroup: { marginBottom: 16 },
+  rowGroup: { flexDirection: 'row', gap: 12, marginBottom: 16 },
+  halfInput: { flex: 1 },
   label: { color: '#a0a0a0', fontSize: 14, marginBottom: 8 },
   textInput: { backgroundColor: '#16213e', borderRadius: 12, padding: 16, color: '#fff', fontSize: 16, borderWidth: 1, borderColor: '#2d3a5f' },
   textArea: { minHeight: 120, textAlignVertical: 'top' },
@@ -617,4 +823,19 @@ const styles = StyleSheet.create({
   klantOptionActive: { backgroundColor: '#F5A623', borderColor: '#F5A623' },
   klantOptionText: { color: '#6c757d', fontSize: 14 },
   klantOptionTextActive: { color: '#000' },
+  // PDF Settings styles
+  logoUploadBtn: { backgroundColor: '#16213e', borderRadius: 12, padding: 20, borderWidth: 2, borderStyle: 'dashed', borderColor: '#2d3a5f', alignItems: 'center' },
+  logoUploadContent: { alignItems: 'center', gap: 8 },
+  logoUploadText: { color: '#F5A623', fontSize: 16, fontWeight: '600' },
+  logoUploadSubtext: { color: '#6c757d', fontSize: 12 },
+  logoPreviewContainer: { alignItems: 'center', gap: 8 },
+  logoPreview: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  logoPreviewText: { color: '#fff', fontSize: 16 },
+  changeLogoText: { color: '#6c757d', fontSize: 12 },
+  removeLogo: { marginTop: 8, alignItems: 'center' },
+  removeLogoText: { color: '#dc3545', fontSize: 14 },
+  pdfPreviewSection: { backgroundColor: '#16213e', borderRadius: 12, padding: 16, marginTop: 16 },
+  pdfFeatureList: { gap: 10, marginTop: 8 },
+  pdfFeatureItem: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  pdfFeatureText: { color: '#a0a0a0', fontSize: 14 },
 });

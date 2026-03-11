@@ -201,8 +201,13 @@ class BedrijfsInstellingen(BaseModel):
     admin_emails: List[str] = ["info@smart-techbv.be"]  # Admin email addresses
     telefoon: Optional[str] = None
     adres: Optional[str] = None
+    postcode: Optional[str] = None
+    stad: Optional[str] = None
     kvk_nummer: Optional[str] = None
     btw_nummer: Optional[str] = None
+    # PDF Settings
+    logo_base64: Optional[str] = None  # Company logo for PDF
+    pdf_voettekst: str = "Factuur wordt als goedgekeurd beschouwd indien geen klacht wordt ingediend binnen 1 week."
 
 class BedrijfsInstellingenUpdate(BaseModel):
     bedrijfsnaam: Optional[str] = None
@@ -210,8 +215,12 @@ class BedrijfsInstellingenUpdate(BaseModel):
     admin_emails: Optional[List[str]] = None
     telefoon: Optional[str] = None
     adres: Optional[str] = None
+    postcode: Optional[str] = None
+    stad: Optional[str] = None
     kvk_nummer: Optional[str] = None
     btw_nummer: Optional[str] = None
+    logo_base64: Optional[str] = None
+    pdf_voettekst: Optional[str] = None
 
 # ==================== HELPER FUNCTIONS ====================
 

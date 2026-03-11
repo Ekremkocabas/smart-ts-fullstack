@@ -94,8 +94,12 @@ export interface BedrijfsInstellingen {
   admin_emails: string[];
   telefoon?: string;
   adres?: string;
+  postcode?: string;
+  stad?: string;
   kvk_nummer?: string;
   btw_nummer?: string;
+  logo_base64?: string;
+  pdf_voettekst?: string;
 }
 
 export interface WeekDates {
