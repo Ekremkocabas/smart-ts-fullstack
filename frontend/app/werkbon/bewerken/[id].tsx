@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Modal,
+  FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -43,11 +44,21 @@ const createEmptyUrenRegel = (naam = ''): UrenRegel => ({
 export default function BewerkenWerkbonScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { fetchWerkbon, updateWerkbon, lastUpdatedWerkbon } = useAppStore();
+  const { fetchWerkbon, updateWerkbon, lastUpdatedWerkbon, klanten, werven, fetchKlanten, fetchWerven } = useAppStore();
 
   const [werkbon, setWerkbon] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Week/klant/werf state
+  const [weekNummer, setWeekNummer] = useState(1);
+  const [jaar, setJaar] = useState(new Date().getFullYear());
+  const [selectedKlantId, setSelectedKlantId] = useState('');
+  const [selectedKlantNaam, setSelectedKlantNaam] = useState('');
+  const [selectedWerfId, setSelectedWerfId] = useState('');
+  const [selectedWerfNaam, setSelectedWerfNaam] = useState('');
+  const [showKlantPicker, setShowKlantPicker] = useState(false);
+  const [showWerfPicker, setShowWerfPicker] = useState(false);
 
   const [urenRegels, setUrenRegels] = useState<UrenRegel[]>([]);
   const [kmAfstand, setKmAfstand] = useState<KmRegel>(createEmptyKmRegel());
@@ -55,7 +66,11 @@ export default function BewerkenWerkbonScreen() {
   const [extraMaterialen, setExtraMaterialen] = useState('');
   const [showAfkortingPicker, setShowAfkortingPicker] = useState<{ index: number; dag: string } | null>(null);
 
+  const filteredWerven = werven.filter(w => w.klant_id === selectedKlantId);
+
   useEffect(() => {
+    fetchKlanten();
+    fetchWerven();
     loadWerkbon();
   }, [id]);
 
@@ -66,6 +81,12 @@ export default function BewerkenWerkbonScreen() {
       const data = w || lastUpdatedWerkbon;
       if (data) {
         setWerkbon(data);
+        setWeekNummer(data.week_nummer || 1);
+        setJaar(data.jaar || new Date().getFullYear());
+        setSelectedKlantId(data.klant_id || '');
+        setSelectedKlantNaam(data.klant_naam || '');
+        setSelectedWerfId(data.werf_id || '');
+        setSelectedWerfNaam(data.werf_naam || '');
         setUrenRegels(data.uren && data.uren.length > 0 ? data.uren : [createEmptyUrenRegel()]);
         setKmAfstand(data.km_afstand || createEmptyKmRegel());
         setUitgevoerdeWerken(data.uitgevoerde_werken || '');
@@ -129,6 +150,12 @@ export default function BewerkenWerkbonScreen() {
     setIsSaving(true);
     try {
       await updateWerkbon(id, {
+        week_nummer: weekNummer,
+        jaar: jaar,
+        klant_id: selectedKlantId || undefined,
+        klant_naam: selectedKlantNaam || undefined,
+        werf_id: selectedWerfId || undefined,
+        werf_naam: selectedWerfNaam || undefined,
         uren: validRegels,
         km_afstand: kmAfstand,
         uitgevoerde_werken: uitgevoerdeWerken,
@@ -175,20 +202,119 @@ export default function BewerkenWerkbonScreen() {
         </View>
 
         <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 100 }}>
-          {/* Fixed Info Card */}
+          {/* Editable Info: Week / Klant / Werf */}
           <View style={styles.infoCard}>
+            {/* Week Selector */}
             <View style={styles.infoRow}>
-              <View style={styles.weekBadge}>
-                <Text style={styles.weekText}>Week {werkbon.week_nummer} / {werkbon.jaar}</Text>
-              </View>
-              <View style={styles.statusBadge}>
-                <Ionicons name="lock-closed-outline" size={12} color="#aaa" />
-                <Text style={styles.statusText}>Niet bewerkbaar</Text>
+              <Text style={styles.infoLabel}>Week nr.</Text>
+              <View style={styles.weekSelectorRow}>
+                <TouchableOpacity
+                  style={styles.weekArrow}
+                  onPress={() => setWeekNummer(w => Math.max(1, w - 1))}
+                >
+                  <Ionicons name="chevron-back" size={18} color="#F5A623" />
+                </TouchableOpacity>
+                <Text style={styles.weekValue}>{weekNummer}</Text>
+                <TouchableOpacity
+                  style={styles.weekArrow}
+                  onPress={() => setWeekNummer(w => Math.min(52, w + 1))}
+                >
+                  <Ionicons name="chevron-forward" size={18} color="#F5A623" />
+                </TouchableOpacity>
+                <Text style={styles.jaarText}>/ {jaar}</Text>
+                <TouchableOpacity onPress={() => setJaar(y => y - 1)}>
+                  <Ionicons name="remove-circle-outline" size={18} color="#aaa" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setJaar(y => y + 1)}>
+                  <Ionicons name="add-circle-outline" size={18} color="#aaa" />
+                </TouchableOpacity>
               </View>
             </View>
-            <Text style={styles.klantText}>{werkbon.klant_naam}</Text>
-            <Text style={styles.werfText}>{werkbon.werf_naam}</Text>
+            {/* Klant Picker */}
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Klant</Text>
+              <TouchableOpacity style={styles.pickerBtn} onPress={() => setShowKlantPicker(true)}>
+                <Text style={styles.pickerBtnText}>{selectedKlantNaam || 'Selecteer klant'}</Text>
+                <Ionicons name="chevron-down" size={16} color="#F5A623" />
+              </TouchableOpacity>
+            </View>
+            {/* Werf Picker */}
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Werf</Text>
+              <TouchableOpacity
+                style={[styles.pickerBtn, !selectedKlantId && { opacity: 0.5 }]}
+                onPress={() => selectedKlantId && setShowWerfPicker(true)}
+              >
+                <Text style={styles.pickerBtnText}>{selectedWerfNaam || 'Selecteer werf'}</Text>
+                <Ionicons name="chevron-down" size={16} color="#F5A623" />
+              </TouchableOpacity>
+            </View>
           </View>
+
+          {/* Klant Picker Modal */}
+          <Modal visible={showKlantPicker} transparent animationType="slide">
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContainer}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Selecteer Klant</Text>
+                  <TouchableOpacity onPress={() => setShowKlantPicker(false)}>
+                    <Ionicons name="close" size={22} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+                <FlatList
+                  data={klanten}
+                  keyExtractor={(item) => item.id}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={[styles.modalItem, item.id === selectedKlantId && styles.modalItemActive]}
+                      onPress={() => {
+                        setSelectedKlantId(item.id);
+                        setSelectedKlantNaam(item.naam);
+                        setSelectedWerfId('');
+                        setSelectedWerfNaam('');
+                        setShowKlantPicker(false);
+                      }}
+                    >
+                      <Text style={styles.modalItemText}>{item.naam}</Text>
+                    </TouchableOpacity>
+                  )}
+                />
+              </View>
+            </View>
+          </Modal>
+
+          {/* Werf Picker Modal */}
+          <Modal visible={showWerfPicker} transparent animationType="slide">
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContainer}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Selecteer Werf</Text>
+                  <TouchableOpacity onPress={() => setShowWerfPicker(false)}>
+                    <Ionicons name="close" size={22} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+                <FlatList
+                  data={filteredWerven}
+                  keyExtractor={(item) => item.id}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={[styles.modalItem, item.id === selectedWerfId && styles.modalItemActive]}
+                      onPress={() => {
+                        setSelectedWerfId(item.id);
+                        setSelectedWerfNaam(item.naam);
+                        setShowWerfPicker(false);
+                      }}
+                    >
+                      <Text style={styles.modalItemText}>{item.naam}</Text>
+                    </TouchableOpacity>
+                  )}
+                  ListEmptyComponent={
+                    <Text style={styles.emptyText}>Geen werven voor deze klant</Text>
+                  }
+                />
+              </View>
+            </View>
+          </Modal>
 
           {/* Uren Table */}
           <View style={styles.section}>
@@ -527,4 +653,49 @@ const styles = StyleSheet.create({
   pickerTitle: { color: '#F5A623', fontSize: 14, fontWeight: '700', marginBottom: 12 },
   pickerOption: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#2d3a5f' },
   pickerOptionText: { color: '#fff', fontSize: 14 },
+  // New styles for week/klant/werf selectors
+  infoLabel: { color: '#aaa', fontSize: 12, width: 60 },
+  weekSelectorRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
+  weekArrow: { padding: 4 },
+  weekValue: { color: '#fff', fontSize: 18, fontWeight: 'bold', minWidth: 30, textAlign: 'center' },
+  jaarText: { color: '#aaa', fontSize: 14, marginLeft: 4, marginRight: 8 },
+  pickerBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#0f1729',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#2d3a5f',
+  },
+  pickerBtnText: { color: '#fff', fontSize: 14, flex: 1 },
+  modalContainer: {
+    backgroundColor: '#1a1a2e',
+    borderRadius: 12,
+    width: '85%',
+    maxHeight: '70%',
+    borderWidth: 1,
+    borderColor: '#2d3a5f',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2d3a5f',
+  },
+  modalTitle: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  modalItem: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2d3a5f',
+  },
+  modalItemActive: { backgroundColor: '#16213e' },
+  modalItemText: { color: '#fff', fontSize: 15 },
+  emptyText: { color: '#aaa', textAlign: 'center', padding: 20 },
 });

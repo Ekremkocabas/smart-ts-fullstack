@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Response
+from fastapi import FastAPI, APIRouter, HTTPException, Response, Query
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -214,6 +214,12 @@ class WerkbonCreate(BaseModel):
     extra_materialen: str = ""
 
 class WerkbonUpdate(BaseModel):
+    week_nummer: Optional[int] = None
+    jaar: Optional[int] = None
+    klant_id: Optional[str] = None
+    klant_naam: Optional[str] = None
+    werf_id: Optional[str] = None
+    werf_naam: Optional[str] = None
     uren: Optional[List[UrenRegel]] = None
     km_afstand: Optional[KmRegel] = None
     uitgevoerde_werken: Optional[str] = None
@@ -238,6 +244,10 @@ class BedrijfsInstellingen(BaseModel):
     # PDF Settings
     logo_base64: Optional[str] = None  # Company logo for PDF
     pdf_voettekst: str = "Factuur wordt als goedgekeurd beschouwd indien geen klacht wordt ingediend binnen 1 week."
+    # Feature toggles
+    selfie_activeren: bool = False
+    sms_verificatie_activeren: bool = False
+    automatisch_naar_klant: bool = False  # Auto-include client email in werkbon email
 
 class BedrijfsInstellingenUpdate(BaseModel):
     bedrijfsnaam: Optional[str] = None
@@ -251,6 +261,9 @@ class BedrijfsInstellingenUpdate(BaseModel):
     btw_nummer: Optional[str] = None
     logo_base64: Optional[str] = None
     pdf_voettekst: Optional[str] = None
+    selfie_activeren: Optional[bool] = None
+    sms_verificatie_activeren: Optional[bool] = None
+    automatisch_naar_klant: Optional[bool] = None
 
 # ==================== HELPER FUNCTIONS ====================
 
@@ -343,6 +356,15 @@ async def send_welcome_email(user_email: str, user_naam: str, temp_password: str
                 <h3>Inloggegevens voor {user_naam}</h3>
                 <p><strong>E-mail:</strong> {user_email}</p>
                 <p><strong>Tijdelijk wachtwoord:</strong> {temp_password}</p>
+            </div>
+            
+            <div style="background: #1a1a2e; border-radius: 8px; padding: 20px; margin: 20px 0; text-align: center;">
+                <p style="color: #F5A623; font-weight: bold; margin: 0 0 10px 0;">📱 Smart-TS App</p>
+                <p style="color: #aaa; margin: 0 0 15px 0;">Open de link hieronder op je telefoon en voeg toe aan het beginscherm</p>
+                <a href="https://timesheet-verify.preview.emergentagent.com" style="background: #F5A623; color: #1a1a2e; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; display: inline-block;">
+                    🔗 Open Smart-TS App
+                </a>
+                <p style="color: #666; font-size: 11px; margin: 10px 0 0 0;">Tip: In je browser → "Toevoegen aan beginscherm" voor een app-pictogram</p>
             </div>
             
             <div class="steps">
@@ -519,16 +541,39 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
 
     story = []
 
-    # ── HEADER: Logo | Company info | WEEK XX / JAAR ──
-    logo_bytes = decode_base64_data(instellingen.get("logo_base64"))
-    header_left = []
-    logo = make_safe_reportlab_image(logo_bytes, 60 * mm, 30 * mm)
-    if logo:
-        header_left.append(logo)
-        header_left.append(Spacer(1, 3))
-    header_left.append(Paragraph(f"<b>{instellingen.get('bedrijfsnaam', 'Smart-Tech BV')}</b>", styles["Title"]))
-    header_left.append(Paragraph("Werkbon / Urenstaat", styles["BodySmall"]))
+    # ── TIMESHEET TITLE BAR ──
+    timesheet_table = Table(
+        [[Paragraph("TIMESHEET", ParagraphStyle(
+            "TSTitle", fontName="Helvetica-Bold", fontSize=15,
+            textColor=colors.white, alignment=1, spaceAfter=0, spaceBefore=0,
+        ))]],
+        colWidths=[271 * mm],
+    )
+    timesheet_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#1a1a2e")),
+        ("BOX", (0, 0), (-1, -1), 2, colors.HexColor("#F5A623")),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    story.append(timesheet_table)
+    story.append(Spacer(1, 4))
 
+    # ── MAIN HEADER: [Logo + Week/Jaar | Smart-Tech BV + Company Info] ──
+    logo_bytes = decode_base64_data(instellingen.get("logo_base64"))
+    # Slightly shorter logo (25mm wide x 20mm tall)
+    logo = make_safe_reportlab_image(logo_bytes, 25 * mm, 20 * mm)
+    left_cell: list = []
+    if logo:
+        left_cell.append(logo)
+        left_cell.append(Spacer(1, 3))
+    week_style = ParagraphStyle("WeekLeft", fontName="Helvetica-Bold", fontSize=14, textColor=colors.HexColor("#1a1a2e"))
+    left_cell.append(Paragraph(f"<b>Week {werkbon.get('week_nummer', '-')}</b>", week_style))
+    left_cell.append(Paragraph(f"<b>{werkbon.get('jaar', '-')}</b>", week_style))
+
+    bedrijfsnaam_pdf = instellingen.get("bedrijfsnaam", "Smart-Tech BV")
+    company_name_style = ParagraphStyle("CompNameBold", fontName="Helvetica-Bold", fontSize=10,
+                                        textColor=colors.HexColor("#1a1a2e"), spaceAfter=3)
+    company_detail_style = ParagraphStyle("CompDetailSmall", fontSize=8, leading=10, textColor=colors.HexColor("#333333"))
     company_lines = [
         instellingen.get("adres") or "",
         " ".join(filter(None, [instellingen.get("postcode"), instellingen.get("stad")])).strip(),
@@ -537,30 +582,25 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
         f"KvK: {instellingen['kvk_nummer']}" if instellingen.get("kvk_nummer") else "",
         f"BTW: {instellingen['btw_nummer']}" if instellingen.get("btw_nummer") else "",
     ]
-    company_text = "<br/>".join(line for line in company_lines if line)
+    company_detail_text = "<br/>".join(line for line in company_lines if line)
+    right_cell: list = [
+        Paragraph(f"<b>{bedrijfsnaam_pdf}</b>", company_name_style),
+        Paragraph(company_detail_text or "-", company_detail_style),
+    ]
 
-    week_jaar = Paragraph(
-        f"<b>Week {werkbon.get('week_nummer', '-')}<br/>{werkbon.get('jaar', '-')}</b>",
-        styles["WeekHeader"]
-    )
-
-    header_table = Table(
-        [[header_left, Paragraph(company_text or "-", styles["BodySmall"]), week_jaar]],
-        colWidths=[130 * mm, 90 * mm, 40 * mm],
-    )
+    header_table = Table([[left_cell, right_cell]], colWidths=[80 * mm, 191 * mm])
     header_table.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#F5A623")),
         ("LINEAFTER", (0, 0), (0, -1), 0.5, colors.HexColor("#F5A623")),
-        ("LINEAFTER", (1, 0), (1, -1), 0.5, colors.HexColor("#F5A623")),
-        ("LEFTPADDING", (0, 0), (-1, -1), 10),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
-        ("TOPPADDING", (0, 0), (-1, -1), 8),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-        ("BACKGROUND", (2, 0), (2, 0), colors.HexColor("#fff8ee")),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("BACKGROUND", (0, 0), (0, 0), colors.HexColor("#fff8ee")),
     ]))
     story.append(header_table)
-    story.append(Spacer(1, 7))
+    story.append(Spacer(1, 5))
 
     # ── INFO SECTION ──
     info_left = [
@@ -1060,6 +1100,29 @@ async def update_werkbon(werkbon_id: str, update_data: WerkbonUpdate):
     update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
     update_dict["updated_at"] = datetime.utcnow()
     
+    # Resolve klant name if klant_id was provided
+    if update_data.klant_id and not update_data.klant_naam:
+        klant = await db.klanten.find_one({"id": update_data.klant_id})
+        if klant:
+            update_dict["klant_naam"] = klant["naam"]
+    
+    # Resolve werf name if werf_id was provided
+    if update_data.werf_id and not update_data.werf_naam:
+        werf = await db.werven.find_one({"id": update_data.werf_id})
+        if werf:
+            update_dict["werf_naam"] = werf["naam"]
+    
+    # Recalculate week dates if week/year changed
+    existing = await db.werkbonnen.find_one({"id": werkbon_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Werkbon niet gevonden")
+    
+    new_week = update_data.week_nummer or existing.get("week_nummer")
+    new_jaar = update_data.jaar or existing.get("jaar")
+    if update_data.week_nummer or update_data.jaar:
+        week_dates = get_week_dates(new_jaar, new_week)
+        update_dict.update(week_dates)
+    
     if update_data.handtekening_data:
         update_dict["handtekening_datum"] = datetime.utcnow()
         update_dict["status"] = "ondertekend"
@@ -1150,8 +1213,9 @@ async def send_werkbon_email(
     totaal_bedrag: float,
     pdf_bytes: bytes,
     pdf_filename: str,
+    klant_email: Optional[str] = None,  # Optional manual client email
 ):
-    """Send werkbon PDF email to company and customer."""
+    """Send werkbon PDF email. By default only to company. If klant_email provided, also to that address."""
     
     if not resend.api_key:
         logging.warning("RESEND_API_KEY not configured, skipping email")
@@ -1164,7 +1228,12 @@ async def send_werkbon_email(
     ondertekend_door = werkbon.get("handtekening_naam", "Onbekend")
     bedrijfsnaam = get_email_brand_name(instellingen)
     company_recipient = get_company_recipient(instellingen)
-    recipients = get_unique_recipients(company_recipient, klant.get("email"))
+    
+    # Default: only company email. Add client email only when explicitly provided.
+    if klant_email and klant_email.strip():
+        recipients = get_unique_recipients(company_recipient, klant_email.strip())
+    else:
+        recipients = [company_recipient] if company_recipient else []
 
     if not recipients:
         return {"success": False, "error": "Geen ontvangers geconfigureerd", "recipients": []}
@@ -1275,8 +1344,8 @@ async def send_werkbon_email(
         return {"success": False, "error": str(e), "recipients": recipients}
 
 @api_router.post("/werkbonnen/{werkbon_id}/verzenden")
-async def verzend_werkbon(werkbon_id: str):
-    """Generate signed werkbon PDF and email it to company + customer."""
+async def verzend_werkbon(werkbon_id: str, klant_email: Optional[str] = Query(None)):
+    """Generate signed werkbon PDF and email it. By default only to company. Provide klant_email to also send to client."""
     werkbon = await db.werkbonnen.find_one({"id": werkbon_id}, {"_id": 0})
     if not werkbon:
         raise HTTPException(status_code=404, detail="Werkbon niet gevonden")
@@ -1303,7 +1372,7 @@ async def verzend_werkbon(werkbon_id: str):
         logging.exception("PDF generation failed for werkbon %s", werkbon_id)
         raise HTTPException(status_code=500, detail=f"PDF genereren mislukt: {str(exc)}")
     
-    # Send email
+    # Send email - klant_email is optional (only if user explicitly provided it)
     email_result = await send_werkbon_email(
         werkbon,
         klant or {},
@@ -1312,6 +1381,7 @@ async def verzend_werkbon(werkbon_id: str):
         totaal_bedrag,
         pdf_bytes,
         pdf_filename,
+        klant_email=klant_email,
     )
     nieuwe_status = "verzonden" if email_result.get("success") else werkbon.get("status", "ondertekend")
     

@@ -573,3 +573,69 @@ frontend:
       - working: "NA"
         agent: "main"
         comment: "New Rapport tab showing per-worker hours with week/month selector. CSV export functionality for both web and native."
+
+  - task: "Email Versturen Naar Klant (Checkbox + Manual Email)"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/app/werkbon/[id].tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added 'Ook versturen naar klant' checkbox + email input. Default: only company email. If checked and email entered: sends to both. Backend updated with klant_email query param."
+
+  - task: "Bewerken Screen Full Editability"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/app/werkbon/bewerken/[id].tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added week nr selector (+/- buttons), klant dropdown (Modal picker), werf dropdown (filtered by klant). All fields now editable including week, klant, werf."
+
+  - task: "Beheer Instellingen Toggles (Selfie/SMS/Email)"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/app/(tabs)/beheer.tsx"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Added App Instellingen section with toggles: Selfie bij handtekening, SMS verificatie (disabled), Automatisch naar klant sturen."
+
+  - task: "PDF Layout Redesign (TIMESHEET header + week nr on left)"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Redesigned PDF header: TIMESHEET dark heading at top, Logo+Week nr in left column, Company name (bold) + details in right column. New logo from MongoDB."
+
+  - task: "App Name Smart-TS"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/app.json"
+    stuck_count: 0
+    priority: "low"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Changed app name from 'frontend' to 'Smart-TS' in app.json."
+
+IMPORTANT NOTE FOR TESTING AGENT:
+- DO NOT delete, soft-delete, or modify any existing werkbonnen or werf/klant data
+- DO NOT run cleanup scripts that modify real user data
+- Only create new test data if needed
+- Admin login: info@smart-techbv.be / smart123

@@ -8,6 +8,7 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -54,6 +55,8 @@ export default function WerkbonDetailScreen() {
   const [werkbon, setWerkbon] = useState<Werkbon | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const [verstuurNaarKlant, setVerstuurNaarKlant] = useState(false);
+  const [klantEmail, setKlantEmail] = useState('');
   const baseWerkbon = lastUpdatedWerkbon?.id === id ? lastUpdatedWerkbon : werkbon;
   const currentWerkbon = justSigned === '1' && baseWerkbon && baseWerkbon.status === 'concept'
     ? {
@@ -391,33 +394,25 @@ export default function WerkbonDetailScreen() {
       return;
     }
 
-    showConfirm(
-      'Versturen',
-      `Werkbon als PDF versturen naar ${currentWerkbon.klant_naam}?`,
-      async () => {
-        setIsSending(true);
-        try {
-          const result = await verzendWerkbon(currentWerkbon.id);
-          const successMsg = result.email_sent
-            ? `Werkbon verstuurd naar ${Array.isArray(result.recipients) ? result.recipients.join(', ') : 'ontvanger'}.`
-            : (result.email_error || 'PDF gemaakt maar e-mail kon niet worden verstuurd.');
-          const title = result.email_sent ? 'Verstuurd!' : 'PDF gemaakt';
-          if (Platform.OS === 'web') {
-            window.alert(`${title}\n\n${successMsg}`);
-            router.replace('/');
-          } else {
-            Alert.alert(title, successMsg, [{ text: 'OK', onPress: () => router.replace('/') }]);
-          }
-        } catch (error: any) {
-          const message = error.response?.data?.detail || error.message;
-          showAlert('Fout', message);
-        } finally {
-          setIsSending(false);
-        }
-      },
-      undefined,
-      'Versturen als PDF'
-    );
+    setIsSending(true);
+    try {
+      const emailToSend = verstuurNaarKlant && klantEmail.trim() ? klantEmail.trim() : undefined;
+      const result = await verzendWerkbon(currentWerkbon.id, emailToSend);
+      const successMsg = result.email_sent
+        ? `Werkbon verstuurd! ${emailToSend ? `(ook naar: ${emailToSend})` : ''}`
+        : (result.email_error || 'PDF gemaakt maar e-mail kon niet worden verstuurd.');
+      if (Platform.OS === 'web') {
+        window.alert(`Verstuurd!\n\n${successMsg}`);
+        router.replace('/');
+      } else {
+        Alert.alert('Verstuurd!', successMsg, [{ text: 'OK', onPress: () => router.replace('/') }]);
+      }
+    } catch (error: any) {
+      const message = error.response?.data?.detail || error.message;
+      showAlert('Fout', message);
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const handleDelete = () => {
@@ -564,21 +559,44 @@ export default function WerkbonDetailScreen() {
         )}
         
         {currentWerkbon.status === 'ondertekend' && (
-          <TouchableOpacity
-            testID="werkbon-send-pdf-button"
-            style={[styles.sendButton, isSending && styles.buttonDisabled]}
-            onPress={handleSend}
-            disabled={isSending}
-          >
-            {isSending ? (
-              <ActivityIndicator color="#fff" size="small" />
-            ) : (
-              <>
-                <Ionicons name="send" size={20} color="#fff" />
-                <Text style={styles.buttonText}>Versturen als PDF</Text>
-              </>
+          <View style={styles.sendContainer}>
+            {/* Versturen naar klant toggle */}
+            <TouchableOpacity
+              style={styles.klantEmailToggle}
+              onPress={() => setVerstuurNaarKlant(v => !v)}
+            >
+              <View style={[styles.checkbox, verstuurNaarKlant && styles.checkboxChecked]}>
+                {verstuurNaarKlant && <Ionicons name="checkmark" size={14} color="#fff" />}
+              </View>
+              <Text style={styles.klantEmailLabel}>Ook versturen naar klant</Text>
+            </TouchableOpacity>
+            {verstuurNaarKlant && (
+              <TextInput
+                style={styles.klantEmailInput}
+                value={klantEmail}
+                onChangeText={setKlantEmail}
+                placeholder="E-mailadres klant"
+                placeholderTextColor="#6c757d"
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
             )}
-          </TouchableOpacity>
+            <TouchableOpacity
+              testID="werkbon-send-pdf-button"
+              style={[styles.sendButton, isSending && styles.buttonDisabled]}
+              onPress={handleSend}
+              disabled={isSending}
+            >
+              {isSending ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <>
+                  <Ionicons name="send" size={20} color="#fff" />
+                  <Text style={styles.buttonText}>Versturen</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
         )}
       </View>
     </SafeAreaView>
@@ -802,6 +820,40 @@ const styles = StyleSheet.create({
     backgroundColor: '#16213e',
     borderWidth: 1,
     borderColor: '#444',
+  },
+  sendContainer: {
+    gap: 8,
+  },
+  klantEmailToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 8,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: '#F5A623',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: '#F5A623',
+  },
+  klantEmailLabel: {
+    color: '#ccc',
+    fontSize: 14,
+  },
+  klantEmailInput: {
+    backgroundColor: '#16213e',
+    borderWidth: 1,
+    borderColor: '#F5A623',
+    borderRadius: 8,
+    padding: 10,
+    color: '#fff',
+    fontSize: 14,
   },
   sendButton: {
     flexDirection: 'row',

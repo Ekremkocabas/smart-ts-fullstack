@@ -103,6 +103,9 @@ export interface BedrijfsInstellingen {
   btw_nummer?: string;
   logo_base64?: string;
   pdf_voettekst?: string;
+  selfie_activeren?: boolean;
+  sms_verificatie_activeren?: boolean;
+  automatisch_naar_klant?: boolean;
 }
 
 export interface AddWerknemerResult extends User {
@@ -157,7 +160,7 @@ interface AppState {
   createWerkbon: (data: any, userId: string, userName: string) => Promise<Werkbon>;
   updateWerkbon: (id: string, data: any) => Promise<Werkbon>;
   deleteWerkbon: (id: string) => Promise<void>;
-  verzendWerkbon: (id: string) => Promise<any>;
+  verzendWerkbon: (id: string, klantEmail?: string) => Promise<any>;
   duplicateWerkbon: (id: string, userId: string, userName: string) => Promise<Werkbon>;
   
   fetchWeekDates: (year: number, week: number) => Promise<WeekDates>;
@@ -396,9 +399,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
   
-  verzendWerkbon: async (id: string) => {
+  verzendWerkbon: async (id: string, klantEmail?: string) => {
     try {
-      const response = await axios.post(`${BACKEND_URL}/api/werkbonnen/${id}/verzenden`);
+      const params: any = {};
+      if (klantEmail && klantEmail.trim()) params.klant_email = klantEmail.trim();
+      const response = await axios.post(`${BACKEND_URL}/api/werkbonnen/${id}/verzenden`, null, { params });
       set(state => ({
         werkbonnen: state.werkbonnen.map(w => 
           w.id === id

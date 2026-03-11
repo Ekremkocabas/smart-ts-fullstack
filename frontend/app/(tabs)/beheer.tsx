@@ -68,6 +68,10 @@ export default function BeheerScreen() {
   // PDF Settings
   const [pdfVoettekst, setPdfVoettekst] = useState('');
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
+  // Feature Toggles
+  const [selfieActiveren, setSelfieActiveren] = useState(false);
+  const [smsVerificatieActiveren, setSmsVerificatieActiveren] = useState(false);
+  const [automatischNaarKlant, setAutomatischNaarKlant] = useState(false);
   const [overviewSearch, setOverviewSearch] = useState('');
   const [overviewStatus, setOverviewStatus] = useState<'alles' | 'concept' | 'ondertekend' | 'verzonden'>('alles');
   
@@ -119,6 +123,9 @@ export default function BeheerScreen() {
       setAdminEmails(instellingen.admin_emails?.join(', ') || '');
       setPdfVoettekst(instellingen.pdf_voettekst || 'Factuur wordt als goedgekeurd beschouwd indien geen klacht wordt ingediend binnen 1 week.');
       setLogoBase64(instellingen.logo_base64 || null);
+      setSelfieActiveren(instellingen.selfie_activeren || false);
+      setSmsVerificatieActiveren(instellingen.sms_verificatie_activeren || false);
+      setAutomatischNaarKlant(instellingen.automatisch_naar_klant || false);
     }
   }, [instellingen]);
 
@@ -292,8 +299,11 @@ export default function BeheerScreen() {
       await updateInstellingen({
         pdf_voettekst: pdfVoettekst.trim(),
         logo_base64: logoBase64 || undefined,
+        selfie_activeren: selfieActiveren,
+        sms_verificatie_activeren: smsVerificatieActiveren,
+        automatisch_naar_klant: automatischNaarKlant,
       });
-      showAlert('Opgeslagen', 'PDF instellingen zijn bijgewerkt');
+      showAlert('Opgeslagen', 'PDF/App instellingen zijn bijgewerkt');
     } catch (error: any) {
       showAlert('Fout', error.message);
     }
@@ -881,8 +891,67 @@ export default function BeheerScreen() {
             <TouchableOpacity testID="pdf-settings-save-button" style={styles.saveButton} onPress={handleSavePdfSettings}>
               <Text style={styles.saveButtonText}>PDF Instellingen Opslaan</Text>
             </TouchableOpacity>
+
+            {/* App Feature Toggles */}
+            <Text style={[styles.sectionTitle, { marginTop: 24 }]}>App Instellingen</Text>
+            <Text style={styles.helpText}>Schakel functies in of uit voor de app</Text>
+
+            <View style={styles.toggleRow}>
+              <View style={styles.toggleInfo}>
+                <Ionicons name="camera" size={18} color="#F5A623" style={{ marginRight: 8 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.toggleLabel}>Selfie bij handtekening</Text>
+                  <Text style={styles.toggleSubLabel}>Optionele selfie op het handtekeningscherm</Text>
+                </View>
+              </View>
+              <Switch
+                value={selfieActiveren}
+                onValueChange={setSelfieActiveren}
+                trackColor={{ false: '#2d3a5f', true: '#F5A62380' }}
+                thumbColor={selfieActiveren ? '#F5A623' : '#555'}
+              />
+            </View>
+
+            <View style={styles.toggleRow}>
+              <View style={styles.toggleInfo}>
+                <Ionicons name="chatbubble" size={18} color="#6c757d" style={{ marginRight: 8 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.toggleLabel}>SMS verificatie</Text>
+                  <Text style={styles.toggleSubLabel}>SMS code bevestiging (binnenkort beschikbaar)</Text>
+                </View>
+              </View>
+              <Switch
+                value={smsVerificatieActiveren}
+                onValueChange={setSmsVerificatieActiveren}
+                trackColor={{ false: '#2d3a5f', true: '#F5A62380' }}
+                thumbColor={smsVerificatieActiveren ? '#F5A623' : '#555'}
+                disabled={true}
+              />
+            </View>
+
+            <View style={styles.toggleRow}>
+              <View style={styles.toggleInfo}>
+                <Ionicons name="mail" size={18} color="#F5A623" style={{ marginRight: 8 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.toggleLabel}>Automatisch naar klant sturen</Text>
+                  <Text style={styles.toggleSubLabel}>Werkbon e-mail standaard ook naar klant</Text>
+                </View>
+              </View>
+              <Switch
+                value={automatischNaarKlant}
+                onValueChange={setAutomatischNaarKlant}
+                trackColor={{ false: '#2d3a5f', true: '#F5A62380' }}
+                thumbColor={automatischNaarKlant ? '#F5A623' : '#555'}
+              />
+            </View>
+
+            <TouchableOpacity style={[styles.saveButton, { marginTop: 16 }]} onPress={handleSavePdfSettings}>
+              <Text style={styles.saveButtonText}>App Instellingen Opslaan</Text>
+            </TouchableOpacity>
           </View>
         );
+      default:
+        return null;
     }
   };
 
@@ -1328,6 +1397,17 @@ const styles = StyleSheet.create({
   pdfFeatureList: { gap: 10, marginTop: 8 },
   pdfFeatureItem: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   pdfFeatureText: { color: '#a0a0a0', fontSize: 14 },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2d3a5f',
+  },
+  toggleInfo: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 12 },
+  toggleLabel: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  toggleSubLabel: { color: '#6c757d', fontSize: 12, marginTop: 2 },
   // Result modal styles
   resultModalContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.7)' },
   resultModalContent: { backgroundColor: '#1a1a2e', borderRadius: 20, padding: 30, width: '85%', alignItems: 'center' },

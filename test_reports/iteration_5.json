@@ -1,0 +1,40 @@
+{
+  "summary": "Full feature test of Smart-TS batch: Login, Rapport tab, Uren rapport, Kopieren flow, Bewerken screen pickers, Ook versturen naar klant checkbox, Beheer PDF/App Instellingen toggles, Signature screen Selfie/SMS buttons. All 16 backend tests passed (100%). All 16 frontend feature checks passed.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {
+        "component": "handtekening/[id].tsx - Selfie button",
+        "issue": "Selfie button is ALWAYS visible on the signature screen, regardless of `selfie_activeren` toggle in Beheer > PDF > App Instellingen. The toggle has no effect on the UI display of the Selfie button. If the intent was to conditionally show the selfie button based on the toggle setting, this is a missing integration."
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_rapport_features_jan2026.py",
+    "/app/test_reports/pytest/pytest_rapport_jan2026.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: If `selfie_activeren` toggle should control whether Selfie button appears on the handtekening screen, add conditional rendering: `{instellingen?.selfie_activeren && <TouchableOpacity ... Selfie button>}`. Currently the button is always shown.",
+    "MINOR: rapport.tsx uses `process.env.EXPO_PUBLIC_BACKEND_URL` (line 18) instead of `Constants.expoConfig?.extra?.EXPO_BACKEND_URL` or `EXPO_BACKEND_URL`. Works fine as EXPO_PUBLIC_BACKEND_URL is set in .env, but inconsistent with how other screens reference backend URL."
+  ],
+  "critical_code_review_comments": [
+    "rapport.tsx line 18: `const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL` — should use EXPO_BACKEND_URL pattern from the playbook for consistency, but works correctly.",
+    "handtekening/[id].tsx: Selfie button visibility is not gated by `instellingen.selfie_activeren`. The button always renders regardless of the toggle setting in Beheer > PDF > App Instellingen."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100% (16/16 pytest tests passed - all rapport/dupliceer tests)",
+    "frontend": "100% (16/16 feature checks passed)"
+  },
+  "seed_data_creation": "Backend tests created and cleaned up temporary TEST_RapportKlant, TEST_RapportWerf, TEST_RapportWorker werkbon data. Also test werkbonnen were duplicated during UI tests (Kopieren) — these are extra concept werkbonnen from copying.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All 16 features verified. Admin login: info@smart-techbv.be / smart123. Bottom nav: Werkbonnen, Beheer, Rapport, Profiel. Rapport tab shows 'Uren Rapport' with Week/Maand toggle, period navigation, and per-worker data. Kopieren button on list navigates directly to Bewerken (no dialog). Bewerken shows week nr selector with < > arrows, Klant modal picker, Werf modal picker (filtered by klant). Ondertekend werkbon detail has 'Ook versturen naar klant' checkbox that reveals email input when checked. Beheer > PDF tab has 'App Instellingen' section below PDF features with Selfie/SMS/Automatisch toggles. Signature screen shows Selfie (orange, camera icon) + SMS (grey, disabled, Binnenkort badge) buttons. Some duplicate concept werkbonnen may exist from UI tests.",
+  "rca_of_issue": null
+}
