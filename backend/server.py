@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi import FastAPI, APIRouter, HTTPException, Response
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -14,6 +14,8 @@ import uuid
 from datetime import datetime, timedelta, timezone
 import hashlib
 import resend
+import requests
+from PIL import Image as PILImage
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -76,6 +78,13 @@ class UserUpdate(BaseModel):
     team_id: Optional[str] = None
     actief: Optional[bool] = None
 
+
+class ResendInfoMailResponse(BaseModel):
+    user: UserResponse
+    email_sent: bool
+    email_error: Optional[str] = None
+    temp_password: str
+
 # Team Model (Ekip)
 class Team(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -100,6 +109,7 @@ class Klant(BaseModel):
     telefoon: Optional[str] = None
     adres: Optional[str] = None
     uurtarief: float = 0  # Hourly rate
+    prijsafspraak: Optional[str] = None
     actief: bool = True
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -109,6 +119,7 @@ class KlantCreate(BaseModel):
     telefoon: Optional[str] = None
     adres: Optional[str] = None
     uurtarief: float = 0
+    prijsafspraak: Optional[str] = None
 
 # Werf (Worksite) Model
 class Werf(BaseModel):
@@ -244,6 +255,10 @@ def hash_password(password: str) -> str:
 
 def verify_password(password: str, hashed: str) -> bool:
     return hash_password(password) == hashed
+
+
+def generate_temp_password(length: int = 10) -> str:
+    return uuid.uuid4().hex[:length]
 
 def get_week_dates(year: int, week: int) -> dict:
     """Calculate dates for each day of the given week"""
@@ -433,6 +448,23 @@ def decode_base64_data(data_uri: Optional[str]) -> Optional[bytes]:
         return None
 
 
+def make_safe_reportlab_image(image_bytes: Optional[bytes], width: float, height: float) -> Optional[Image]:
+    if not image_bytes:
+        return None
+
+    try:
+        source = io.BytesIO(image_bytes)
+        with PILImage.open(source) as pil_image:
+            pil_image.load()
+            normalized = io.BytesIO()
+            pil_image.save(normalized, format="PNG")
+        normalized.seek(0)
+        return Image(normalized, width=width, height=height)
+    except Exception as exc:
+        logging.warning("Invalid image skipped in PDF: %s", exc)
+        return None
+
+
 def get_hours_or_code(regel: dict, dag: str, afkorting_key: str) -> str:
     afkorting = (regel.get(afkorting_key) or "").strip()
     if afkorting:
@@ -466,8 +498,8 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
 
     logo_bytes = decode_base64_data(instellingen.get("logo_base64"))
     header_left = []
-    if logo_bytes:
-        logo = Image(io.BytesIO(logo_bytes), width=38 * mm, height=20 * mm)
+    logo = make_safe_reportlab_image(logo_bytes, 38 * mm, 20 * mm)
+    if logo:
         header_left.append(logo)
         header_left.append(Spacer(1, 4))
     header_left.append(Paragraph(f"<b>{instellingen.get('bedrijfsnaam', 'Smart-Tech BV')}</b>", styles["Title"]))
@@ -509,6 +541,8 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
         ["Adres werf", werf.get("adres") or "-"],
         ["Klant e-mail", klant.get("email") or "-"],
     ]
+    if klant.get("prijsafspraak"):
+        info_right.append(["Prijsafspraak", klant.get("prijsafspraak")])
 
     left_table = Table(info_left, colWidths=[30 * mm, 70 * mm])
     right_table = Table(info_right, colWidths=[30 * mm, 125 * mm])
@@ -594,10 +628,11 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
 
     story.append(Spacer(1, 10))
     story.append(Paragraph("Samenvatting", styles["SectionTitle"]))
-    summary_table = Table(
-        [["Totaal uren", format_number(total_uren)], ["Uurtarief", f"€ {klant.get('uurtarief', 0):.2f}"], ["Totaalbedrag", f"€ {totaal_bedrag:.2f}"]],
-        colWidths=[45 * mm, 35 * mm],
-    )
+    summary_rows = [["Totaal uren", format_number(total_uren)], ["Uurtarief", f"€ {klant.get('uurtarief', 0):.2f}"]]
+    if klant.get("prijsafspraak"):
+        summary_rows.append(["Prijsafspraak", klant.get("prijsafspraak")])
+    summary_rows.append(["Totaalbedrag", f"€ {totaal_bedrag:.2f}"])
+    summary_table = Table(summary_rows, colWidths=[45 * mm, 55 * mm])
     summary_table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#f5f5f5")),
         ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
@@ -620,8 +655,9 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
             signature_rows.append([Paragraph(f"<b>Datum:</b> {datum_text}", styles["BodySmall"])])
 
         signature_bytes = decode_base64_data(werkbon.get("handtekening_data"))
-        if signature_bytes:
-            signature_rows.append([Image(io.BytesIO(signature_bytes), width=55 * mm, height=22 * mm)])
+        signature_image = make_safe_reportlab_image(signature_bytes, 55 * mm, 22 * mm)
+        if signature_image:
+            signature_rows.append([signature_image])
 
         signature_table = Table(signature_rows, colWidths=[90 * mm])
         signature_table.setStyle(TableStyle([
@@ -700,6 +736,33 @@ async def register_worker_with_email(email: str, naam: str, password: str, team_
         "email_error": email_result.get("error"),
         "temp_password": password
     }
+
+
+@api_router.post("/auth/users/{user_id}/resend-info", response_model=ResendInfoMailResponse)
+async def resend_worker_info_email(user_id: str):
+    user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
+
+    if user.get("rol") == "admin":
+        raise HTTPException(status_code=400, detail="Voor beheerders is deze actie niet beschikbaar")
+
+    temp_password = generate_temp_password()
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": {"password_hash": hash_password(temp_password), "actief": True}},
+    )
+
+    instellingen = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0}) or {}
+    email_result = await send_welcome_email(user["email"], user["naam"], temp_password, instellingen)
+    updated_user = await db.users.find_one({"id": user_id}, {"_id": 0})
+
+    return ResendInfoMailResponse(
+        user=UserResponse(**updated_user),
+        email_sent=email_result.get("success", False),
+        email_error=email_result.get("error"),
+        temp_password=temp_password,
+    )
 
 @api_router.post("/auth/login", response_model=UserResponse)
 async def login_user(login_data: UserLogin):
@@ -889,7 +952,10 @@ async def get_werkbonnen_by_user(user_id: str):
     return [Werkbon(**wb) for wb in werkbonnen]
 
 @api_router.get("/werkbonnen/{werkbon_id}", response_model=Werkbon)
-async def get_werkbon(werkbon_id: str):
+async def get_werkbon(werkbon_id: str, response: Response):
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
     werkbon = await db.werkbonnen.find_one({"id": werkbon_id})
     if not werkbon:
         raise HTTPException(status_code=404, detail="Werkbon niet gevonden")
@@ -1046,7 +1112,8 @@ async def send_werkbon_email(
                 <strong>Klant:</strong> {klant_naam}<br/>
                 <strong>Werf:</strong> {werf_naam}<br/>
                 <strong>Periode:</strong> Week {week}, {year}<br/>
-                <strong>Ondertekend door:</strong> {ondertekend_door}
+                <strong>Ondertekend door:</strong> {ondertekend_door}<br/>
+                {f"<strong>Prijsafspraak:</strong> {klant.get('prijsafspraak')}<br/>" if klant.get('prijsafspraak') else ''}
             </div>
             
             <table>

@@ -2,8 +2,12 @@ import React from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Platform } from 'react-native';
+import { useAuth } from '../../context/AuthContext';
 
 export default function TabsLayout() {
+  const { user } = useAuth();
+  const isAdmin = user?.rol === 'admin';
+
   return (
     <Tabs
       screenOptions={{
@@ -36,6 +40,7 @@ export default function TabsLayout() {
         name="beheer"
         options={{
           title: 'Beheer',
+          href: isAdmin ? undefined : null,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="settings" size={size} color={color} />
           ),

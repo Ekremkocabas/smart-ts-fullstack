@@ -18,6 +18,7 @@ export interface Klant {
   telefoon?: string;
   adres?: string;
   uurtarief: number;
+  prijsafspraak?: string;
   actief: boolean;
 }
 
@@ -146,6 +147,7 @@ interface AppState {
   fetchWerven: () => Promise<void>;
   fetchWervenByKlant: (klantId: string) => Promise<Werf[]>;
   addWerf: (data: Omit<Werf, 'id' | 'actief'>) => Promise<void>;
+  updateWerf: (id: string, data: Omit<Werf, 'id' | 'actief'>) => Promise<void>;
   deleteWerf: (id: string) => Promise<void>;
   
   fetchWerkbonnen: () => Promise<void>;
@@ -164,6 +166,7 @@ interface AppState {
   fetchWerknemers: () => Promise<void>;
   addWerknemer: (email: string, naam: string, teamId?: string) => Promise<AddWerknemerResult>;
   updateWerknemer: (id: string, data: { naam?: string; team_id?: string; actief?: boolean }) => Promise<void>;
+  resendWerknemerInfo: (id: string) => Promise<AddWerknemerResult>;
   deleteWerknemer: (id: string) => Promise<void>;
   
   clearError: () => void;
@@ -297,6 +300,18 @@ export const useAppStore = create<AppState>((set, get) => ({
       set(state => ({ werven: [...state.werven, response.data] }));
     } catch (error: any) {
       set({ error: error.response?.data?.detail || error.message });
+    }
+  },
+
+  updateWerf: async (id, data) => {
+    try {
+      const response = await axios.put(`${BACKEND_URL}/api/werven/${id}`, data);
+      set(state => ({
+        werven: state.werven.map(w => w.id === id ? response.data : w),
+      }));
+    } catch (error: any) {
+      set({ error: error.response?.data?.detail || error.message });
+      throw error;
     }
   },
   
@@ -473,6 +488,23 @@ export const useAppStore = create<AppState>((set, get) => ({
       await axios.put(`${BACKEND_URL}/api/auth/users/${id}`, data);
       const { fetchWerknemers } = get();
       await fetchWerknemers();
+    } catch (error: any) {
+      set({ error: error.response?.data?.detail || error.message });
+      throw error;
+    }
+  },
+
+  resendWerknemerInfo: async (id: string) => {
+    try {
+      const response = await axios.post(`${BACKEND_URL}/api/auth/users/${id}/resend-info`);
+      const { fetchWerknemers } = get();
+      await fetchWerknemers();
+      return {
+        ...response.data.user,
+        tempPassword: response.data.temp_password,
+        emailSent: response.data.email_sent,
+        emailError: response.data.email_error,
+      };
     } catch (error: any) {
       set({ error: error.response?.data?.detail || error.message });
       throw error;

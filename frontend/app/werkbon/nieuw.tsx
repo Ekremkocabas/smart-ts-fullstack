@@ -226,7 +226,7 @@ export default function NieuweWerkbonScreen() {
         style={{ flex: 1 }}
       >
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <TouchableOpacity testID="werkbon-create-back-button" onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.title}>Nieuwe Werkbon</Text>
@@ -239,6 +239,7 @@ export default function NieuweWerkbonScreen() {
             <Text style={styles.sectionTitle}>Week</Text>
             <View style={styles.weekSelector}>
               <TouchableOpacity
+                testID="week-decrement-button"
                 style={styles.weekButton}
                 onPress={() => setWeekNummer(Math.max(1, weekNummer - 1))}
               >
@@ -249,6 +250,7 @@ export default function NieuweWerkbonScreen() {
                 <Text style={styles.weekYear}>{jaar}</Text>
               </View>
               <TouchableOpacity
+                testID="week-increment-button"
                 style={styles.weekButton}
                 onPress={() => setWeekNummer(Math.min(52, weekNummer + 1))}
               >
@@ -275,6 +277,7 @@ export default function NieuweWerkbonScreen() {
               <View style={styles.optionList}>
                 {klanten.map((klant) => (
                   <TouchableOpacity
+                    testID={`klant-select-button-${klant.id}`}
                     key={klant.id}
                     style={[styles.optionButton, selectedKlant?.id === klant.id && styles.optionButtonActive]}
                     onPress={() => handleKlantSelect(klant)}
@@ -299,6 +302,7 @@ export default function NieuweWerkbonScreen() {
                 <View style={styles.optionList}>
                   {klantWerven.map((werf) => (
                     <TouchableOpacity
+                      testID={`werf-select-button-${werf.id}`}
                       key={werf.id}
                       style={[styles.optionButton, selectedWerf?.id === werf.id && styles.optionButtonActive]}
                       onPress={() => setSelectedWerf(werf)}
@@ -320,7 +324,7 @@ export default function NieuweWerkbonScreen() {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Effectief Gewerkte Uren</Text>
-              <TouchableOpacity style={styles.addButton} onPress={addTeamlid}>
+              <TouchableOpacity testID="teamlid-add-button" style={styles.addButton} onPress={addTeamlid}>
                 <Ionicons name="add" size={18} color="#000" />
                 <Text style={styles.addButtonText}>Toevoegen</Text>
               </TouchableOpacity>
@@ -348,13 +352,14 @@ export default function NieuweWerkbonScreen() {
                   <View key={index} style={styles.tableRow}>
                     <View style={styles.nameColumnWide}>
                       <TextInput
+                        testID={`teamlid-name-input-${index}`}
                         style={styles.nameInput}
                         value={regel.teamlid_naam}
                         onChangeText={(text) => updateTeamlidNaam(index, text)}
                         placeholder="Naam"
                         placeholderTextColor="#6c757d"
                       />
-                      <TouchableOpacity style={styles.removeButton} onPress={() => removeTeamlid(index)}>
+                      <TouchableOpacity testID={`teamlid-remove-button-${index}`} style={styles.removeButton} onPress={() => removeTeamlid(index)}>
                         <Ionicons name="close-circle" size={18} color="#dc3545" />
                       </TouchableOpacity>
                     </View>
@@ -512,6 +517,7 @@ export default function NieuweWerkbonScreen() {
 
         <View style={styles.footer}>
           <TouchableOpacity
+            testID="werkbon-create-save-button"
             style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
             onPress={handleSave}
             disabled={isSaving}

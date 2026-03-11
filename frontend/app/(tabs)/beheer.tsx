@@ -34,7 +34,9 @@ export default function BeheerScreen() {
   const [klantNaam, setKlantNaam] = useState('');
   const [klantEmail, setKlantEmail] = useState('');
   const [klantTelefoon, setKlantTelefoon] = useState('');
+  const [klantAdres, setKlantAdres] = useState('');
   const [klantUurtarief, setKlantUurtarief] = useState('');
+  const [klantPrijsafspraak, setKlantPrijsafspraak] = useState('');
   const [werfNaam, setWerfNaam] = useState('');
   const [werfKlantId, setWerfKlantId] = useState('');
   const [werfAdres, setWerfAdres] = useState('');
@@ -46,6 +48,7 @@ export default function BeheerScreen() {
   
   // Result modal for showing password
   const [resultModalVisible, setResultModalVisible] = useState(false);
+  const [resultTitle, setResultTitle] = useState('Werknemer Aangemaakt');
   const [resultData, setResultData] = useState<{naam: string; password: string; emailSent: boolean; emailError?: string} | null>(null);
   // Settings
   const [bedrijfsnaam, setBedrijfsnaam] = useState('');
@@ -67,8 +70,8 @@ export default function BeheerScreen() {
     fetchTeams, fetchKlanten, fetchWerven, fetchInstellingen, fetchWerknemers,
     addTeam, updateTeam, deleteTeam,
     addKlant, updateKlant, deleteKlant,
-    addWerf, deleteWerf,
-    addWerknemer, updateWerknemer, deleteWerknemer,
+    addWerf, updateWerf, deleteWerf,
+    addWerknemer, updateWerknemer, resendWerknemerInfo, deleteWerknemer,
     updateInstellingen,
   } = useAppStore();
 
@@ -108,7 +111,13 @@ export default function BeheerScreen() {
         setKlantNaam(item.naam);
         setKlantEmail(item.email);
         setKlantTelefoon(item.telefoon || '');
+        setKlantAdres(item.adres || '');
         setKlantUurtarief(item.uurtarief?.toString() || '0');
+        setKlantPrijsafspraak(item.prijsafspraak || '');
+      } else if (type === 'werf') {
+        setWerfNaam(item.naam);
+        setWerfKlantId(item.klant_id || '');
+        setWerfAdres(item.adres || '');
       } else if (type === 'werknemer') {
         setWerknemerNaam(item.naam);
         setWerknemerEmail(item.email);
@@ -120,7 +129,9 @@ export default function BeheerScreen() {
       setKlantNaam('');
       setKlantEmail('');
       setKlantTelefoon('');
+      setKlantAdres('');
       setKlantUurtarief('0');
+      setKlantPrijsafspraak('');
       setWerfNaam('');
       setWerfKlantId('');
       setWerfAdres('');
@@ -153,7 +164,9 @@ export default function BeheerScreen() {
           naam: klantNaam.trim(),
           email: klantEmail.trim(),
           telefoon: klantTelefoon.trim() || undefined,
+          adres: klantAdres.trim() || undefined,
           uurtarief: parseFloat(klantUurtarief) || 0,
+          prijsafspraak: klantPrijsafspraak.trim() || undefined,
         };
         if (editingItem) {
           await updateKlant(editingItem.id, klantData);
@@ -165,11 +178,16 @@ export default function BeheerScreen() {
           Alert.alert('Fout', 'Vul werf naam in en selecteer een klant');
           return;
         }
-        await addWerf({
+        const werfData = {
           naam: werfNaam.trim(),
           klant_id: werfKlantId,
           adres: werfAdres.trim() || undefined,
-        });
+        };
+        if (editingItem) {
+          await updateWerf(editingItem.id, werfData);
+        } else {
+          await addWerf(werfData);
+        }
       } else if (modalType === 'werknemer') {
         if (!werknemerNaam.trim() || !werknemerEmail.trim()) {
           Alert.alert('Fout', 'Vul naam en e-mail in');
@@ -183,6 +201,7 @@ export default function BeheerScreen() {
         } else {
           const result = await addWerknemer(werknemerEmail.trim(), werknemerNaam.trim(), werknemerTeamId || undefined);
           // Show result modal with password
+          setResultTitle('Werknemer Aangemaakt');
           setResultData({
             naam: werknemerNaam,
             password: result.tempPassword,
@@ -203,6 +222,22 @@ export default function BeheerScreen() {
       if (modalType === 'werknemer') fetchWerknemers();
     } catch (error: any) {
       Alert.alert('Fout', error.message || 'Er is een fout opgetreden');
+    }
+  };
+
+  const handleResendInfoMail = async (werknemer: User) => {
+    try {
+      const result = await resendWerknemerInfo(werknemer.id);
+      setResultTitle('Info Mail Verstuurd');
+      setResultData({
+        naam: werknemer.naam,
+        password: result.tempPassword,
+        emailSent: result.emailSent,
+        emailError: result.emailError,
+      });
+      setResultModalVisible(true);
+    } catch (error: any) {
+      Alert.alert('Fout', error.message || 'Info mail versturen mislukt');
     }
   };
 
@@ -342,6 +377,13 @@ export default function BeheerScreen() {
             <Text style={styles.infoText}>
               Voeg werknemers toe door hun e-mailadres in te voeren. Ze kunnen dan inloggen met een tijdelijk wachtwoord.
             </Text>
+            <View style={styles.noticeCard}>
+              <Ionicons name="mail-open-outline" size={18} color="#F5A623" />
+              <Text style={styles.noticeText}>
+                Bij elke nieuwe werknemer proberen we automatisch een info mail te sturen. Met de knop{' '}
+                <Text style={styles.noticeBold}>Info mail</Text> kunt u later opnieuw een nieuw tijdelijk wachtwoord sturen.
+              </Text>
+            </View>
             {werknemers.filter(w => w.rol !== 'admin').map((werknemer) => {
               const team = teams.find(t => t.id === werknemer.team_id);
               return (
@@ -370,6 +412,13 @@ export default function BeheerScreen() {
                       trackColor={{ false: '#2d3a5f', true: '#F5A623' }}
                       thumbColor="#fff"
                     />
+                    <TouchableOpacity
+                      testID={`werknemer-info-mail-button-${werknemer.id}`}
+                      style={styles.mailBtn}
+                      onPress={() => handleResendInfoMail(werknemer)}
+                    >
+                      <Ionicons name="mail-outline" size={18} color="#F5A623" />
+                    </TouchableOpacity>
                     <TouchableOpacity 
                       testID={`werknemer-delete-button-${werknemer.id}`}
                       style={styles.deleteBtn}
@@ -446,8 +495,12 @@ export default function BeheerScreen() {
                   <View>
                     <Text style={styles.listItemText}>{klant.naam}</Text>
                     <Text style={styles.listItemSubtext}>{klant.email}</Text>
+                    {!!klant.adres && <Text style={styles.listItemSubtext}>{klant.adres}</Text>}
                     {klant.uurtarief > 0 && (
                       <Text style={styles.uurtariefText}>{klant.uurtarief}/uur</Text>
+                    )}
+                    {!!klant.prijsafspraak && (
+                      <Text style={styles.teamBadge}>{klant.prijsafspraak}</Text>
                     )}
                   </View>
                 </View>
@@ -474,18 +527,19 @@ export default function BeheerScreen() {
             {werven.map((werf) => {
               const klant = klanten.find(k => k.id === werf.klant_id);
               return (
-                <View key={werf.id} style={styles.listItem}>
+                <TouchableOpacity key={werf.id} style={styles.listItem} onPress={() => openModal('werf', werf)}>
                   <View style={styles.listItemLeft}>
                     <Ionicons name="construct" size={20} color="#F5A623" />
                     <View>
                       <Text style={styles.listItemText}>{werf.naam}</Text>
                       <Text style={styles.listItemSubtext}>{klant?.naam || 'Onbekende klant'}</Text>
+                      {!!werf.adres && <Text style={styles.listItemSubtext}>{werf.adres}</Text>}
                     </View>
                   </View>
                   <TouchableOpacity onPress={() => confirmDelete('werf', werf.id, werf.naam)}>
                     <Ionicons name="trash-outline" size={20} color="#dc3545" />
                   </TouchableOpacity>
-                </View>
+                </TouchableOpacity>
               );
             })}
             {werven.length === 0 && (
@@ -822,6 +876,7 @@ export default function BeheerScreen() {
                   <View style={styles.formGroup}>
                     <Text style={styles.label}>Team Naam</Text>
                     <TextInput
+                      testID="klant-naam-input"
                       style={styles.textInput}
                       value={teamNaam}
                       onChangeText={setTeamNaam}
@@ -853,6 +908,7 @@ export default function BeheerScreen() {
                   <View style={styles.formGroup}>
                     <Text style={styles.label}>Naam</Text>
                     <TextInput
+                      testID="klant-email-input"
                       style={styles.textInput}
                       value={klantNaam}
                       onChangeText={setKlantNaam}
@@ -885,6 +941,16 @@ export default function BeheerScreen() {
                     />
                   </View>
                   <View style={styles.formGroup}>
+                    <Text style={styles.label}>Adres</Text>
+                    <TextInput
+                      style={styles.textInput}
+                      value={klantAdres}
+                      onChangeText={setKlantAdres}
+                      placeholder="Straat + stad"
+                      placeholderTextColor="#6c757d"
+                    />
+                  </View>
+                  <View style={styles.formGroup}>
                     <Text style={styles.label}>Uurtarief</Text>
                     <TextInput
                       style={styles.textInput}
@@ -897,6 +963,17 @@ export default function BeheerScreen() {
                     <Text style={styles.helpText}>
                       Dit tarief wordt alleen in de e-mail getoond, niet aan werknemers
                     </Text>
+                  </View>
+                  <View style={styles.formGroup}>
+                    <Text style={styles.label}>Prijsafspraak / Notitie</Text>
+                    <TextInput
+                      style={[styles.textInput, styles.textAreaSmall]}
+                      value={klantPrijsafspraak}
+                      onChangeText={setKlantPrijsafspraak}
+                      placeholder="Bijv. 55€/uur of vaste prijsafspraak"
+                      placeholderTextColor="#6c757d"
+                      multiline
+                    />
                   </View>
                 </>
               )}
@@ -971,8 +1048,12 @@ export default function BeheerScreen() {
             <View style={styles.resultIcon}>
               <Ionicons name="checkmark-circle" size={48} color="#28a745" />
             </View>
-            <Text style={styles.resultTitle}>Werknemer Aangemaakt</Text>
-            <Text style={styles.resultSubtitle}>{resultData?.naam} is toegevoegd</Text>
+            <Text style={styles.resultTitle}>{resultTitle}</Text>
+            <Text style={styles.resultSubtitle}>
+              {resultTitle === 'Info Mail Verstuurd'
+                ? `Nieuwe inloggegevens voor ${resultData?.naam}`
+                : `${resultData?.naam} is toegevoegd`}
+            </Text>
             
             <View style={styles.passwordBox}>
               <Text style={styles.passwordLabel}>Tijdelijk wachtwoord:</Text>
@@ -987,7 +1068,7 @@ export default function BeheerScreen() {
               />
               <Text style={styles.emailStatusText}>
                 {resultData?.emailSent 
-                  ? 'Welkom e-mail is verzonden' 
+                  ? 'Info mail is verzonden' 
                   : 'E-mail niet verzonden - deel wachtwoord handmatig'}
               </Text>
             </View>
@@ -1034,6 +1115,9 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   sectionTitle: { fontSize: 20, fontWeight: '600', color: '#fff', marginBottom: 12 },
   infoText: { color: '#6c757d', fontSize: 13, marginBottom: 16, lineHeight: 20 },
+  noticeCard: { flexDirection: 'row', gap: 10, backgroundColor: '#16213e', borderRadius: 12, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: '#2d3a5f' },
+  noticeText: { color: '#a0a0a0', fontSize: 12, flex: 1, lineHeight: 18 },
+  noticeBold: { color: '#F5A623', fontWeight: '600' },
   addBtn: { backgroundColor: '#F5A623', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   listItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#16213e', padding: 16, borderRadius: 12, marginBottom: 8 },
   listItemInactive: { opacity: 0.6 },
@@ -1047,6 +1131,7 @@ const styles = StyleSheet.create({
   switchContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   switchLabel: { color: '#6c757d', fontSize: 12 },
   werknemerActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  mailBtn: { padding: 8 },
   deleteBtn: { padding: 8 },
   formGroup: { marginBottom: 16 },
   rowGroup: { flexDirection: 'row', gap: 12, marginBottom: 16 },
@@ -1055,6 +1140,7 @@ const styles = StyleSheet.create({
   textInput: { backgroundColor: '#16213e', borderRadius: 12, padding: 16, color: '#fff', fontSize: 16, borderWidth: 1, borderColor: '#2d3a5f' },
   inputDisabled: { opacity: 0.5 },
   textArea: { minHeight: 120, textAlignVertical: 'top' },
+  textAreaSmall: { minHeight: 80, textAlignVertical: 'top' },
   helpText: { color: '#6c757d', fontSize: 12, marginTop: 4 },
   saveButton: { backgroundColor: '#F5A623', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 8 },
   saveButtonText: { color: '#000', fontSize: 16, fontWeight: '600' },

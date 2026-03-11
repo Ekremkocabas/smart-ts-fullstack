@@ -11,7 +11,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
 import { useAppStore, Werkbon, UrenRegel } from '../../store/appStore';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
@@ -39,14 +38,28 @@ const getStatusLabel = (status: string) => {
 };
 
 export default function WerkbonDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, justSigned, signer, signedAt } = useLocalSearchParams<{
+    id: string;
+    justSigned?: string;
+    signer?: string;
+    signedAt?: string;
+  }>();
   const router = useRouter();
   const { fetchWerkbon, verzendWerkbon, deleteWerkbon, instellingen, fetchInstellingen, lastUpdatedWerkbon } = useAppStore();
   
   const [werkbon, setWerkbon] = useState<Werkbon | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
-  const currentWerkbon = lastUpdatedWerkbon?.id === id ? lastUpdatedWerkbon : werkbon;
+  const baseWerkbon = lastUpdatedWerkbon?.id === id ? lastUpdatedWerkbon : werkbon;
+  const currentWerkbon = justSigned === '1' && baseWerkbon && baseWerkbon.status === 'concept'
+    ? {
+        ...baseWerkbon,
+        status: 'ondertekend',
+        handtekening_naam: typeof signer === 'string' ? signer : baseWerkbon.handtekening_naam,
+        handtekening_datum: typeof signedAt === 'string' ? signedAt : baseWerkbon.handtekening_datum,
+        handtekening_data: baseWerkbon.handtekening_data || 'pending',
+      }
+    : baseWerkbon;
 
   const loadWerkbon = useCallback(async () => {
     if (!id) return;
@@ -65,11 +78,9 @@ export default function WerkbonDetailScreen() {
     fetchInstellingen();
   }, [fetchInstellingen]);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadWerkbon();
-    }, [loadWerkbon])
-  );
+  useEffect(() => {
+    loadWerkbon();
+  }, [loadWerkbon, justSigned]);
 
   useEffect(() => {
     if (lastUpdatedWerkbon?.id === id) {
@@ -396,7 +407,7 @@ export default function WerkbonDetailScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await deleteWerkbon(werkbon.id);
+              await deleteWerkbon(currentWerkbon.id);
               
               router.back();
             } catch (error: any) {
@@ -437,7 +448,7 @@ export default function WerkbonDetailScreen() {
         <View style={styles.infoCard}>
           <View style={styles.infoRow}>
             <View style={styles.weekBadge}>
-              <Text style={styles.weekText}>Week {werkbon.week_nummer}</Text>
+              <Text style={styles.weekText}>Week {currentWerkbon.week_nummer}</Text>
             </View>
             <View style={[styles.statusBadge, { backgroundColor: getStatusColor(currentWerkbon.status) }]}> 
               <Text style={styles.statusText}>{getStatusLabel(currentWerkbon.status)}</Text>

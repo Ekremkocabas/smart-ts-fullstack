@@ -64,6 +64,7 @@ export default function WerkbonnenScreen() {
 
     return (
       <TouchableOpacity
+        testID="werkbon-card"
         style={styles.werkbonCard}
         onPress={() => router.push(`/werkbon/${item.id}`)}
       >
@@ -96,6 +97,7 @@ export default function WerkbonnenScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Werkbonnen</Text>
         <TouchableOpacity
+          testID="werkbon-add-button"
           style={styles.addButton}
           onPress={() => router.push('/werkbon/nieuw')}
         >
@@ -113,6 +115,7 @@ export default function WerkbonnenScreen() {
           <Text style={styles.emptyText}>Nog geen werkbonnen</Text>
           <Text style={styles.emptySubtext}>Maak een nieuwe werkbon aan</Text>
           <TouchableOpacity
+            testID="empty-state-werkbon-add-button"
             style={styles.emptyButton}
             onPress={() => router.push('/werkbon/nieuw')}
           >

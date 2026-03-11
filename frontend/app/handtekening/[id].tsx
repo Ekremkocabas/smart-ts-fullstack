@@ -188,12 +188,16 @@ export default function HandtekeningScreen() {
         handtekening_naam: naam.trim(),
         status: 'ondertekend',
       });
-      const detailRoute = `/werkbon/${id}?refresh=${Date.now()}`;
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        window.location.replace(`${window.location.origin}${detailRoute}`);
-        return;
-      }
-      router.replace(detailRoute);
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      router.replace({
+        pathname: '/werkbon/[id]',
+        params: {
+          id,
+          justSigned: '1',
+          signer: naam.trim(),
+          signedAt: new Date().toISOString(),
+        },
+      });
     } catch (error: any) {
       const message = error.message || 'Kon handtekening niet opslaan';
       setErrorMessage(message);
