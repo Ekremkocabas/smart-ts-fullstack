@@ -1,77 +1,46 @@
-# Werkbon App PRD
+# Smart-Tech BV Werkbon App - PRD
 
-## Probleemstelling
-Mobiele werkbon app voor een bouwbedrijf waarmee beheerders werknemers kunnen beheren en waarmee werknemers kunnen inloggen, werkbonnen invullen, laten ondertekenen en als PDF per mail versturen.
+## Original Problem Statement
+Bouw een mobiele werkbon-app voor Smart-Tech BV (constructiebedrijf). Werknemers kunnen digitale werkbonnen invullen, ondertekenen en als PDF versturen naar klanten.
 
-## Architectuur
-- Frontend: Expo / React Native / expo-router / Zustand
-- Backend: FastAPI
-- Database: MongoDB
-- E-mail: Resend
-- PDF: ReportLab
+## User Personas
+- **Admin** (info@smart-techbv.be): Beheert werknemers, klanten, werven en ziet alle werkbonnen
+- **Werknemer**: Maakt werkbonnen, vult uren in, ondertekent en verstuurt als PDF
 
-## Geïmplementeerd
+## Core Requirements
+1. Inloggen met bedrijfse-mail
+2. Teamleden / werknemers beheer
+3. Klanten & werven beheer (inclusief BTW nummer)
+4. Werkbon aanmaken met weekoverzicht en uren per teamlid
+5. Digitale handtekening van klant
+6. PDF generatie en e-mail verzending
+7. Admin overzicht van alle werkbonnen + CSV export
 
-### Auth & Rollen
-- Admin login werkt voor `info@smart-techbv.be`
-- Werknemers kunnen inloggen met e-mail + wachtwoord
-- Inactieve werknemers worden correct geblokkeerd bij login
-- Werknemers zien geen Beheer-tab meer
-- Gebruikers kunnen hun eigen wachtwoord wijzigen via Profiel
+## Architecture
+- **Frontend**: Expo (React Native), TypeScript, expo-router
+- **Backend**: FastAPI (Python), port 8001
+- **Database**: MongoDB
+- **Email**: Resend.com (API key in backend .env)
+- **PDF**: ReportLab (Python)
+- **State**: Zustand store
 
-### Beheerder / Beheer-panel
-- Werkbon Overzicht toegevoegd in Beheer met alle werkbonnen van alle accounts
-- Werknemers aanmaken met tijdelijk wachtwoord
-- Tijdelijk wachtwoord zichtbaar in modal na aanmaak
-- Werknemers activeren/deactiveren
-- Werknemers verwijderen
-- `Info mail` knop per werknemer: genereert nieuw tijdelijk wachtwoord, zet werknemer actief en probeert opnieuw de welkom/info mail te sturen
-- Teams beheren
-- Klanten beheren inclusief:
-  - naam
-  - e-mail
-  - telefoon
-  - adres
-  - uurtarief
-  - prijsafspraak / notitie
-- Werven beheren inclusief bewerken
-- Bedrijfsinstellingen beheren
-- PDF-instellingen beheren
+## Key File Structure
+```
+/app/backend/server.py         - All FastAPI endpoints, PDF generation, email
+/app/frontend/
+  app/
+    (tabs)/
+      index.tsx                - Werkbon list with stats, week filter, delete buttons
+      beheer.tsx               - Admin panel (workers, clients, settings)
+    werkbon/
+      [id].tsx                 - Werkbon detail (Bewerken/Ondertekenen/Versturen/Kopiëren)
+      nieuw.tsx                - Create new werkbon
+      bewerken/[id].tsx        - Edit existing werkbon
+    handtekening/[id].tsx      - Digital signature screen
+  store/appStore.ts            - Zustand state management
+  context/AuthContext.tsx      - Auth context
+```
 
-### Werkbon-flow
-- Werknemer kan werkbon aanmaken
-- Klant + werf selectie werkt
-- Werknemer ziet alleen eigen werkbonnen in de hoofd Werkbonnen lijst
-- Admin ziet alle werkbonnen via Beheer > Overzicht
-- Werkbon detail toont uren en afkortingen (Z, V, BV, BF)
-- Handtekening opslaan werkt
-- Na ondertekenen gaat gebruiker terug naar detail en ziet direct `Versturen als PDF`
-- `Versturen als PDF` roept backend aan
-
-### PDF & Mail
-- Backend genereert professionele PDF
-- PDF bevat bedrijfsinfo, klant/werf info, uren, afkortingen, handtekening en samenvatting
-- Prijsafspraak van klant wordt meegenomen in PDF/e-mail indien ingevuld
-- PDF mailflow probeert te verzenden naar bedrijfsmail + klantmail
-- Welcome/info mail gebruikt nu branding `Smart-Tech BV` zonder ongewenste suffix `Test`
-- Welcome/info mail bevat uitgebreide formele instructies voor het volledige werkbonproces
-- Bij niet-geverifieerd Resend domein faalt dit netjes zonder 500-crash
-
-## Belangrijke huidige beperking
-- Directe mails naar werknemers/klanten via Resend werken pas volledig nadat domein `smart-techbv.be` in Resend is geverifieerd en `info@smart-techbv.be` als afzender daarop actief is.
-
-## Backlog
-
-### P0
-- Resend domeinverificatie afronden en live maillevering opnieuw valideren
-- UI end-to-end nog één keer nalopen op echte mobiele device via Expo Go
-
-### P1
-- Meer beheer-optimalisaties voor facturatievoorbereiding:
-  - extra export-ready metadata voor factuur/boekhoud-koppeling
-  - betere klantafspraken/prijsregels per project
-- Werkbon detail uitbreiden met nog duidelijkere mailstatus
-
-### P2
-- AI/factuurassistent koppeling voorbereiden
-- Externe factuursoftware integratie
+## Admin Credentials
+- Email: info@smart-techbv.be
+- Password: smart123
