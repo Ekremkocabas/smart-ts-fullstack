@@ -110,6 +110,7 @@ class Klant(BaseModel):
     adres: Optional[str] = None
     uurtarief: float = 0  # Hourly rate
     prijsafspraak: Optional[str] = None
+    btw_nummer: Optional[str] = None
     actief: bool = True
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -120,6 +121,7 @@ class KlantCreate(BaseModel):
     adres: Optional[str] = None
     uurtarief: float = 0
     prijsafspraak: Optional[str] = None
+    btw_nummer: Optional[str] = None
 
 # Werf (Worksite) Model
 class Werf(BaseModel):
@@ -551,6 +553,8 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
         ["Adres werf", werf.get("adres") or "-"],
         ["Klant e-mail", klant.get("email") or "-"],
     ]
+    if klant.get("btw_nummer"):
+        info_right.append(["BTW Nr.", klant.get("btw_nummer")])
     if klant.get("prijsafspraak"):
         info_right.append(["Prijsafspraak", klant.get("prijsafspraak")])
 
@@ -1039,6 +1043,38 @@ async def delete_werkbon(werkbon_id: str):
         raise HTTPException(status_code=404, detail="Werkbon niet gevonden")
     return {"message": "Werkbon verwijderd"}
 
+@api_router.post("/werkbonnen/{werkbon_id}/dupliceer", response_model=Werkbon)
+async def dupliceer_werkbon(werkbon_id: str, user_id: str, user_naam: str):
+    """Create a copy of an existing werkbon with current week number"""
+    original = await db.werkbonnen.find_one({"id": werkbon_id}, {"_id": 0})
+    if not original:
+        raise HTTPException(status_code=404, detail="Werkbon niet gevonden")
+
+    now = datetime.utcnow()
+    iso = now.isocalendar()
+    current_week = iso[1]
+    current_year = iso[0]
+    week_dates = get_week_dates(current_year, current_week)
+
+    new_werkbon = Werkbon(
+        week_nummer=current_week,
+        jaar=current_year,
+        klant_id=original["klant_id"],
+        klant_naam=original["klant_naam"],
+        werf_id=original["werf_id"],
+        werf_naam=original["werf_naam"],
+        uren=original.get("uren", []),
+        km_afstand=original.get("km_afstand", KmRegel().dict()),
+        uitgevoerde_werken="",
+        extra_materialen="",
+        ingevuld_door_id=user_id,
+        ingevuld_door_naam=user_naam,
+        status="concept",
+        **week_dates,
+    )
+    await db.werkbonnen.insert_one(new_werkbon.dict())
+    return new_werkbon
+
 # ==================== BEDRIJFSINSTELLINGEN ROUTES ====================
 
 @api_router.get("/instellingen", response_model=BedrijfsInstellingen)
@@ -1092,6 +1128,9 @@ async def send_werkbon_email(
     if not recipients:
         return {"success": False, "error": "Geen ontvangers geconfigureerd", "recipients": []}
     
+    klant_btw = klant.get("btw_nummer", "")
+    klant_btw_row = f"<tr><td>BTW Nr. Klant</td><td>{klant_btw}</td></tr>" if klant_btw else ""
+    
     # Build HTML email
     html_content = f"""
     <!DOCTYPE html>
@@ -1099,37 +1138,40 @@ async def send_werkbon_email(
     <head>
         <meta charset="utf-8">
         <style>
-            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-            .header {{ background: #F5A623; color: white; padding: 20px; text-align: center; }}
-            .content {{ padding: 20px; }}
-            .info-box {{ background: #f8f9fa; border-left: 4px solid #F5A623; padding: 15px; margin: 15px 0; }}
+            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 650px; margin: 0 auto; }}
+            .header {{ background: #1a1a2e; color: white; padding: 28px; text-align: center; border-bottom: 4px solid #F5A623; }}
+            .header h1 {{ color: #F5A623; margin: 0 0 6px 0; font-size: 22px; }}
+            .header p {{ color: #aaa; margin: 0; font-size: 14px; }}
+            .content {{ padding: 28px; }}
+            .info-box {{ background: #f8f9fa; border-left: 4px solid #F5A623; padding: 16px; margin: 20px 0; border-radius: 4px; }}
+            .info-box strong {{ color: #1a1a2e; }}
             .highlight {{ color: #F5A623; font-weight: bold; }}
-            table {{ width: 100%; border-collapse: collapse; margin: 15px 0; }}
-            th, td {{ border: 1px solid #ddd; padding: 10px; text-align: left; }}
-            th {{ background: #F5A623; color: white; }}
+            table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
+            th, td {{ border: 1px solid #ddd; padding: 10px 14px; text-align: left; font-size: 14px; }}
+            th {{ background: #1a1a2e; color: #F5A623; font-weight: 600; }}
             .total-row {{ background: #fff3cd; font-weight: bold; }}
-            .footer {{ background: #f8f9fa; padding: 15px; font-size: 12px; color: #666; margin-top: 20px; }}
-            .note {{ background: #eef6ff; border-left: 4px solid #1a73e8; padding: 15px; margin: 15px 0; }}
+            .disclaimer {{ background: #eef6ff; border-left: 4px solid #1a73e8; padding: 14px 18px; margin: 24px 0; border-radius: 4px; font-size: 13px; color: #333; }}
+            .footer {{ background: #f0f0f0; padding: 16px 20px; font-size: 12px; color: #777; margin-top: 24px; border-top: 1px solid #ddd; text-align: center; }}
         </style>
     </head>
     <body>
         <div class="header">
-            <h1>Werkbon Getekend</h1>
-            <p>Week {week} - {year}</p>
+            <h1>{bedrijfsnaam}</h1>
+            <p>Werkbon — Week {week} / {year}</p>
         </div>
         
         <div class="content">
-            <p>Beste,</p>
+            <p>Beste {klant_naam},</p>
             
-            <p>Hierbij de werkbon van <span class="highlight">week {week}</span> voor werf <span class="highlight">{werf_naam}</span>.</p>
+            <p>Hierbij vindt u de ondertekende werkbon van <span class="highlight">week {week}</span> voor werf <span class="highlight">{werf_naam}</span>. De werkbon is als PDF bijgevoegd.</p>
             
             <div class="info-box">
-                <strong>Details:</strong><br/>
                 <strong>Klant:</strong> {klant_naam}<br/>
                 <strong>Werf:</strong> {werf_naam}<br/>
                 <strong>Periode:</strong> Week {week}, {year}<br/>
                 <strong>Ondertekend door:</strong> {ondertekend_door}<br/>
                 {f"<strong>Prijsafspraak:</strong> {klant.get('prijsafspraak')}<br/>" if klant.get('prijsafspraak') else ''}
+                {f"<strong>BTW Nr.:</strong> {klant_btw}<br/>" if klant_btw else ''}
             </div>
             
             <table>
@@ -1145,22 +1187,24 @@ async def send_werkbon_email(
                     <td>Uurtarief</td>
                     <td>€{klant.get('uurtarief', 0):.2f}</td>
                 </tr>
+                {klant_btw_row}
                 <tr class="total-row">
                     <td>Totaal bedrag</td>
                     <td>€{totaal_bedrag:.2f}</td>
                 </tr>
             </table>
 
-            <div class="note">
-                De ondertekende werkbon is als PDF bij deze e-mail toegevoegd.
+            <div class="disclaimer">
+                <strong>Belangrijk:</strong> Gelieve uw opmerkingen binnen 5 werkdagen door te sturen naar <a href="mailto:{get_company_recipient(instellingen)}">{get_company_recipient(instellingen)}</a>.<br/>
+                Zonder tegenbericht wordt deze werkbon als goedgekeurd beschouwd.
             </div>
             
-            <p>De werkbon is ondertekend door <strong>{ondertekend_door}</strong> namens de klant.</p>
-            
-            <div class="footer">
-                <p><strong>Disclaimer:</strong> {instellingen.get('pdf_voettekst', 'Factuur wordt als goedgekeurd beschouwd indien geen klacht wordt ingediend binnen 1 week.')}</p>
-                <p>Dit is een automatisch gegenereerd bericht van {bedrijfsnaam}.</p>
-            </div>
+            <p>Met vriendelijke groeten,<br/><strong>{bedrijfsnaam}</strong></p>
+        </div>
+        
+        <div class="footer">
+            <p>{instellingen.get('pdf_voettekst', 'Factuur wordt als goedgekeurd beschouwd indien geen klacht wordt ingediend binnen 1 week.')}</p>
+            <p style="margin-top:8px;">Dit is een automatisch gegenereerd bericht van {bedrijfsnaam}.</p>
         </div>
     </body>
     </html>

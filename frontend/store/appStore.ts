@@ -19,6 +19,7 @@ export interface Klant {
   adres?: string;
   uurtarief: number;
   prijsafspraak?: string;
+  btw_nummer?: string;
   actief: boolean;
 }
 
@@ -156,6 +157,7 @@ interface AppState {
   updateWerkbon: (id: string, data: any) => Promise<Werkbon>;
   deleteWerkbon: (id: string) => Promise<void>;
   verzendWerkbon: (id: string) => Promise<any>;
+  duplicateWerkbon: (id: string, userId: string, userName: string) => Promise<Werkbon>;
   
   fetchWeekDates: (year: number, week: number) => Promise<WeekDates>;
   
@@ -414,6 +416,21 @@ export const useAppStore = create<AppState>((set, get) => ({
             }
           : state.lastUpdatedWerkbon,
       }));
+      return response.data;
+    } catch (error: any) {
+      set({ error: error.response?.data?.detail || error.message });
+      throw error;
+    }
+  },
+
+  duplicateWerkbon: async (id: string, userId: string, userName: string) => {
+    try {
+      const response = await axios.post(
+        `${BACKEND_URL}/api/werkbonnen/${id}/dupliceer`,
+        null,
+        { params: { user_id: userId, user_naam: userName } }
+      );
+      set(state => ({ werkbonnen: [response.data, ...state.werkbonnen], lastUpdatedWerkbon: response.data }));
       return response.data;
     } catch (error: any) {
       set({ error: error.response?.data?.detail || error.message });

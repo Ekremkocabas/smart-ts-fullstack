@@ -426,7 +426,7 @@ agent_communication:
       - Signature functionality (status changes to 'ondertekend')
       - Error handling scenarios
       
-      Backend testing is COMPLETE. All endpoints working correctly at https://work-pulse-16.preview.emergentagent.com/api
+      Backend testing is COMPLETE. All endpoints working correctly at https://smart-tech-demo.preview.emergentagent.com/api
   - agent: "testing"
     message: |
       ADMIN LOGIN TESTING COMPLETED SUCCESSFULLY!
@@ -503,9 +503,22 @@ agent_communication:
       BACKEND IS PRODUCTION READY - All review requirements satisfied!
   - agent: "main"
     message: |
-      Follow-up implementation completed for the latest user complaints:
-      - Worker delete endpoint + UI tested manually and with curl
-      - Signature screen now saves and returns to werkbon detail
-      - Detail screen fetch uses cache-busting so signed state refreshes correctly
-      - Werkbon send flow now generates a backend PDF and tries to email it as attachment to company + klant
-      - Current external blocker: Resend still refuses delivery until the smart-techbv.be domain is verified; please test graceful handling of this blocked state
+      NEW FEATURES IMPLEMENTED (2026-03-11):
+      
+      BACKEND CHANGES:
+      - Added btw_nummer (BTW number) field to Klant/KlantCreate models
+      - Updated send_werkbon_email with professional Dutch disclaimer text:
+        "Gelieve uw opmerkingen binnen 5 werkdagen door te sturen. Zonder tegenbericht wordt deze werkbon als goedgekeurd beschouwd."
+      - Updated PDF to show klant BTW nummer in info_right section
+      - Added POST /api/werkbonnen/{id}/dupliceer endpoint for copying werkbons
+      
+      FRONTEND CHANGES:
+      - index.tsx (Werkbon List): Added delete buttons next to each werkbon card, weekly stats dashboard (uren & count), week filter chips
+      - [id].tsx (Werkbon Detail): Fixed send flow (navigates to list after success), added "Bewerken" button for concept werkbons, added "Kopiëren" button
+      - beheer.tsx: Added BTW nummer field to klant form
+      - NEW: /app/werkbon/bewerken/[id].tsx - Edit werkbon screen with pre-filled data
+      - appStore.ts: Added btw_nummer to Klant interface, added duplicateWerkbon action
+      
+      NEEDS TESTING:
+      - All new features listed above
+      - Admin login: info@smart-techbv.be / smart123

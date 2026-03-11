@@ -39,6 +39,7 @@ export default function BeheerScreen() {
   const [klantAdres, setKlantAdres] = useState('');
   const [klantUurtarief, setKlantUurtarief] = useState('');
   const [klantPrijsafspraak, setKlantPrijsafspraak] = useState('');
+  const [klantBtwNummer, setKlantBtwNummer] = useState('');
   const [werfNaam, setWerfNaam] = useState('');
   const [werfKlantId, setWerfKlantId] = useState('');
   const [werfAdres, setWerfAdres] = useState('');
@@ -135,6 +136,7 @@ export default function BeheerScreen() {
         setKlantAdres(item.adres || '');
         setKlantUurtarief(item.uurtarief?.toString() || '0');
         setKlantPrijsafspraak(item.prijsafspraak || '');
+        setKlantBtwNummer(item.btw_nummer || '');
       } else if (type === 'werf') {
         setWerfNaam(item.naam);
         setWerfKlantId(item.klant_id || '');
@@ -153,6 +155,7 @@ export default function BeheerScreen() {
       setKlantAdres('');
       setKlantUurtarief('0');
       setKlantPrijsafspraak('');
+      setKlantBtwNummer('');
       setWerfNaam('');
       setWerfKlantId('');
       setWerfAdres('');
@@ -188,6 +191,7 @@ export default function BeheerScreen() {
           adres: klantAdres.trim() || undefined,
           uurtarief: parseFloat(klantUurtarief) || 0,
           prijsafspraak: klantPrijsafspraak.trim() || undefined,
+          btw_nummer: klantBtwNummer.trim() || undefined,
         };
         if (editingItem) {
           await updateKlant(editingItem.id, klantData);
@@ -1103,6 +1107,17 @@ export default function BeheerScreen() {
                       placeholder="Bijv. 55€/uur of vaste prijsafspraak"
                       placeholderTextColor="#6c757d"
                       multiline
+                    />
+                  </View>
+                  <View style={styles.formGroup}>
+                    <Text style={styles.label}>BTW Nummer (optioneel)</Text>
+                    <TextInput
+                      style={styles.textInput}
+                      value={klantBtwNummer}
+                      onChangeText={setKlantBtwNummer}
+                      placeholder="Bijv. BE0123456789"
+                      placeholderTextColor="#6c757d"
+                      autoCapitalize="characters"
                     />
                   </View>
                 </>

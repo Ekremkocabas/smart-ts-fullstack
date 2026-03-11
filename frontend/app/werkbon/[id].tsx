@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppStore, Werkbon, UrenRegel } from '../../store/appStore';
+import { useAuth } from '../../context/AuthContext';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
@@ -45,7 +46,8 @@ export default function WerkbonDetailScreen() {
     signedAt?: string;
   }>();
   const router = useRouter();
-  const { fetchWerkbon, verzendWerkbon, deleteWerkbon, instellingen, fetchInstellingen, lastUpdatedWerkbon } = useAppStore();
+  const { user } = useAuth();
+  const { fetchWerkbon, verzendWerkbon, deleteWerkbon, duplicateWerkbon, instellingen, fetchInstellingen, lastUpdatedWerkbon } = useAppStore();
   
   const [werkbon, setWerkbon] = useState<Werkbon | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -356,6 +358,33 @@ export default function WerkbonDetailScreen() {
     router.push(`/handtekening/${currentWerkbon.id}`);
   };
 
+  const handleEdit = () => {
+    if (!currentWerkbon) return;
+    router.push(`/werkbon/bewerken/${currentWerkbon.id}`);
+  };
+
+  const handleDuplicate = () => {
+    if (!currentWerkbon || !user) return;
+    Alert.alert(
+      'Werkbon Kopiëren',
+      `Maak een kopie voor de huidige week van: ${currentWerkbon.klant_naam} - ${currentWerkbon.werf_naam}?`,
+      [
+        { text: 'Annuleren', style: 'cancel' },
+        {
+          text: 'Kopiëren',
+          onPress: async () => {
+            try {
+              const newWerkbon = await duplicateWerkbon(currentWerkbon.id, user.id, user.naam);
+              router.replace(`/werkbon/${newWerkbon.id}`);
+            } catch (error: any) {
+              Alert.alert('Fout', error.message);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleSend = async () => {
     if (!currentWerkbon) return;
     
@@ -365,8 +394,8 @@ export default function WerkbonDetailScreen() {
     }
 
     Alert.alert(
-      'Verzenden',
-      `Wilt u deze werkbon als PDF verzenden naar ${currentWerkbon.klant_naam} en info@smart-techbv.be?`,
+      'Versturen',
+      `Wilt u deze werkbon als PDF versturen naar ${currentWerkbon.klant_naam}?`,
       [
         { text: 'Annuleren', style: 'cancel' },
         {
@@ -375,13 +404,13 @@ export default function WerkbonDetailScreen() {
             setIsSending(true);
             try {
               const result = await verzendWerkbon(currentWerkbon.id);
-              if (result.email_sent) {
-                const ontvangers = Array.isArray(result.recipients) ? result.recipients.join(', ') : '';
-                Alert.alert('Succes', `Werkbon als PDF verzonden.${ontvangers ? `\n\nOntvangers: ${ontvangers}` : ''}`);
-              } else {
-                Alert.alert('E-mail mislukt', result.email_error || 'PDF is gemaakt, maar de e-mail kon niet worden verzonden.');
-              }
-              loadWerkbon();
+              Alert.alert(
+                result.email_sent ? 'Verstuurd!' : 'PDF gemaakt',
+                result.email_sent
+                  ? `Werkbon verstuurd naar ${Array.isArray(result.recipients) ? result.recipients.join(', ') : 'ontvanger'}.`
+                  : (result.email_error || 'PDF is gemaakt maar e-mail kon niet worden verstuurd.'),
+                [{ text: 'OK', onPress: () => router.replace('/') }]
+              );
             } catch (error: any) {
               const message = error.response?.data?.detail || error.message;
               Alert.alert('Fout', message);
@@ -531,10 +560,16 @@ export default function WerkbonDetailScreen() {
 
       <View style={styles.footer}>
         {currentWerkbon.status === 'concept' && (
-          <TouchableOpacity testID="werkbon-sign-button" style={styles.signButton} onPress={handleSign}>
-            <Ionicons name="pencil" size={20} color="#fff" />
-            <Text style={styles.buttonText}>Ondertekenen</Text>
-          </TouchableOpacity>
+          <View style={styles.footerRow}>
+            <TouchableOpacity testID="werkbon-edit-button" style={[styles.actionBtn, styles.editBtn]} onPress={handleEdit}>
+              <Ionicons name="create-outline" size={18} color="#fff" />
+              <Text style={styles.actionBtnText}>Bewerken</Text>
+            </TouchableOpacity>
+            <TouchableOpacity testID="werkbon-sign-button" style={[styles.actionBtn, styles.signButton]} onPress={handleSign}>
+              <Ionicons name="pencil" size={18} color="#fff" />
+              <Text style={styles.actionBtnText}>Ondertekenen</Text>
+            </TouchableOpacity>
+          </View>
         )}
         
         {currentWerkbon.status === 'ondertekend' && (
@@ -555,10 +590,16 @@ export default function WerkbonDetailScreen() {
           </TouchableOpacity>
         )}
 
-        <TouchableOpacity testID="werkbon-preview-pdf-button" style={styles.pdfButton} onPress={generatePDF}>
-          <Ionicons name="document" size={20} color="#F5A623" />
-          <Text style={styles.pdfButtonText}>PDF voorbeeld</Text>
-        </TouchableOpacity>
+        <View style={styles.footerRow}>
+          <TouchableOpacity testID="werkbon-copy-button" style={[styles.actionBtn, styles.copyBtn]} onPress={handleDuplicate}>
+            <Ionicons name="copy-outline" size={18} color="#F5A623" />
+            <Text style={[styles.actionBtnText, { color: '#F5A623' }]}>Kopiëren</Text>
+          </TouchableOpacity>
+          <TouchableOpacity testID="werkbon-preview-pdf-button" style={[styles.actionBtn, styles.pdfBtn]} onPress={generatePDF}>
+            <Ionicons name="document-outline" size={18} color="#aaa" />
+            <Text style={[styles.actionBtnText, { color: '#aaa' }]}>PDF Preview</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -740,30 +781,55 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   footer: {
-    flexDirection: 'row',
-    padding: 16,
-    gap: 12,
+    padding: 12,
+    gap: 8,
     borderTopWidth: 1,
     borderTopColor: '#2d3a5f',
   },
-  signButton: {
+  footerRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  actionBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+  },
+  actionBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  editBtn: {
+    backgroundColor: '#2d3a5f',
+    borderWidth: 1,
+    borderColor: '#4a5a8a',
+  },
+  signButton: {
     backgroundColor: '#28a745',
-    padding: 16,
-    borderRadius: 12,
+  },
+  copyBtn: {
+    backgroundColor: '#16213e',
+    borderWidth: 1,
+    borderColor: '#F5A623',
+  },
+  pdfBtn: {
+    backgroundColor: '#16213e',
+    borderWidth: 1,
+    borderColor: '#444',
   },
   sendButton: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
     backgroundColor: '#F5A623',
-    padding: 16,
+    padding: 14,
     borderRadius: 12,
   },
   buttonDisabled: {
@@ -771,23 +837,6 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  pdfButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#16213e',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#F5A623',
-  },
-  pdfButtonText: {
-    color: '#F5A623',
     fontSize: 16,
     fontWeight: '600',
   },
