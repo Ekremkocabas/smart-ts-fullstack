@@ -301,7 +301,7 @@ async def send_welcome_email(user_email: str, user_naam: str, temp_password: str
         logging.warning("RESEND_API_KEY not configured, skipping welcome email")
         return {"success": False, "error": "Email not configured"}
     
-    bedrijfsnaam = instellingen.get('bedrijfsnaam', 'Smart-Tech BV')
+    bedrijfsnaam = get_email_brand_name(instellingen)
     
     sender_email = os.environ.get("SENDER_EMAIL") or instellingen.get("email") or COMPANY_EMAIL
     sender = sender_email if "<" in sender_email else f"{bedrijfsnaam} <{sender_email}>"
@@ -318,11 +318,9 @@ async def send_welcome_email(user_email: str, user_naam: str, temp_password: str
             .content {{ padding: 30px; }}
             .credentials {{ background: #f8f9fa; border-left: 4px solid #F5A623; padding: 20px; margin: 20px 0; }}
             .credentials strong {{ color: #F5A623; }}
-            .forward-box {{ background: #e3f2fd; border: 2px solid #2196f3; padding: 20px; border-radius: 8px; margin: 20px 0; }}
-            .forward-box h3 {{ color: #1565c0; margin-top: 0; }}
             .steps {{ background: #fff3cd; padding: 20px; border-radius: 8px; margin: 20px 0; }}
             .steps h3 {{ color: #856404; margin-top: 0; }}
-            .step {{ margin: 10px 0; padding-left: 20px; }}
+            .step {{ margin: 12px 0; padding-left: 20px; }}
             .footer {{ background: #f8f9fa; padding: 20px; text-align: center; font-size: 12px; color: #666; }}
         </style>
     </head>
@@ -345,10 +343,14 @@ async def send_welcome_email(user_email: str, user_naam: str, temp_password: str
             
             <div class="steps">
                 <h3>Instructies voor de werknemer:</h3>
-                <div class="step">1. Open de werkbon app</div>
-                <div class="step">2. Log in met bovenstaande gegevens</div>
-                <div class="step">3. Wachtwoord wijzigen via Profiel (optioneel)</div>
-                <div class="step">4. Werkbonnen aanmaken en invullen</div>
+                <div class="step">1. Open de Werkbon app en log in met bovenstaande e-mailadres en tijdelijk wachtwoord.</div>
+                <div class="step">2. Ga naar <strong>Werkbonnen</strong> en klik op <strong>+</strong> om een nieuwe werkbon aan te maken.</div>
+                <div class="step">3. Controleer eerst het <strong>weeknummer</strong>. Selecteer daarna de juiste <strong>klant</strong> en <strong>werf</strong>.</div>
+                <div class="step">4. Vul per dag de <strong>effectief gewerkte uren</strong> in. Gebruik indien nodig de afkortingen Z, V, BV of BF.</div>
+                <div class="step">5. Voeg een <strong>korte beschrijving van de uitgevoerde werken</strong> toe en noteer ook eventuele <strong>extra gebruikte materialen</strong>.</div>
+                <div class="step">6. Vul de dagelijkse <strong>KM-afstand</strong> in voor het woon-werkverkeer of de gereden verplaatsingen indien van toepassing.</div>
+                <div class="step">7. Ga daarna naar <strong>Ondertekenen</strong> en laat de verantwoordelijke werfleider of contactpersoon op de werf de werkbon ondertekenen en zijn/haar naam invullen.</div>
+                <div class="step">8. Controleer alles nog één keer en klik vervolgens op <strong>Versturen als PDF</strong> om de werkbon te verzenden.</div>
             </div>
         </div>
         
@@ -387,9 +389,17 @@ DAY_COLUMNS = [
 
 
 def get_sender_email(instellingen: dict) -> str:
-    bedrijfsnaam = instellingen.get("bedrijfsnaam", "Smart-Tech BV")
+    bedrijfsnaam = get_email_brand_name(instellingen)
     sender_email = os.environ.get("SENDER_EMAIL") or instellingen.get("email") or COMPANY_EMAIL
     return sender_email if "<" in sender_email else f"{bedrijfsnaam} <{sender_email}>"
+
+
+def get_email_brand_name(instellingen: dict) -> str:
+    bedrijfsnaam = (instellingen.get("bedrijfsnaam") or "Smart-Tech BV").strip()
+    lowered = bedrijfsnaam.lower()
+    if lowered.endswith(" test"):
+        return bedrijfsnaam[:-5].strip()
+    return bedrijfsnaam
 
 
 def get_company_recipient(instellingen: dict) -> str:
@@ -1070,6 +1080,7 @@ async def send_werkbon_email(
     werf_naam = werkbon.get("werf_naam", "Onbekend")
     klant_naam = werkbon.get("klant_naam", "Onbekend")
     ondertekend_door = werkbon.get("handtekening_naam", "Onbekend")
+    bedrijfsnaam = get_email_brand_name(instellingen)
     company_recipient = get_company_recipient(instellingen)
     recipients = get_unique_recipients(company_recipient, klant.get("email"))
 
@@ -1143,7 +1154,7 @@ async def send_werkbon_email(
             
             <div class="footer">
                 <p><strong>Disclaimer:</strong> {instellingen.get('pdf_voettekst', 'Factuur wordt als goedgekeurd beschouwd indien geen klacht wordt ingediend binnen 1 week.')}</p>
-                <p>Dit is een automatisch gegenereerd bericht van {instellingen.get('bedrijfsnaam', 'Smart-Tech BV')}.</p>
+                <p>Dit is een automatisch gegenereerd bericht van {bedrijfsnaam}.</p>
             </div>
         </div>
     </body>

@@ -45,14 +45,17 @@ export default function WerkbonnenScreen() {
   const { user } = useAuth();
   const { werkbonnen, fetchWerkbonnen, isLoading } = useAppStore();
   const [refreshing, setRefreshing] = useState(false);
+  const isAdmin = user?.rol === 'admin';
 
   useEffect(() => {
-    fetchWerkbonnen();
-  }, []);
+    if (user?.id) {
+      fetchWerkbonnen({ userId: user.id, isAdmin });
+    }
+  }, [fetchWerkbonnen, isAdmin, user?.id]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchWerkbonnen();
+    await fetchWerkbonnen({ userId: user?.id, isAdmin });
     setRefreshing(false);
   };
 
@@ -95,7 +98,12 @@ export default function WerkbonnenScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title}>Werkbonnen</Text>
+        <View>
+          <Text style={styles.title}>Werkbonnen</Text>
+          <Text style={styles.subtitle}>
+            {isAdmin ? 'Overzicht van alle werkbonnen' : 'Uw eigen werkbonnen'}
+          </Text>
+        </View>
         <TouchableOpacity
           testID="werkbon-add-button"
           style={styles.addButton}
@@ -157,6 +165,11 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     color: '#fff',
+  },
+  subtitle: {
+    fontSize: 12,
+    color: '#6c757d',
+    marginTop: 4,
   },
   addButton: {
     backgroundColor: '#F5A623',

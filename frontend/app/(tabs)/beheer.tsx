@@ -16,14 +16,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppStore, User } from '../../store/appStore';
 import { useAuth } from '../../context/AuthContext';
+import { useRouter } from 'expo-router';
 
-type Tab = 'werknemers' | 'teams' | 'klanten' | 'werven' | 'instellingen' | 'pdf';
+type Tab = 'overzicht' | 'werknemers' | 'teams' | 'klanten' | 'werven' | 'instellingen' | 'pdf';
 
 export default function BeheerScreen() {
   const { user, isLoading: authLoading } = useAuth();
+  const router = useRouter();
   const isAdmin = user?.rol === 'admin';
   
-  const [activeTab, setActiveTab] = useState<Tab>('werknemers');
+  const [activeTab, setActiveTab] = useState<Tab>('overzicht');
   const [modalVisible, setModalVisible] = useState(false);
   const [modalType, setModalType] = useState<'team' | 'klant' | 'werf' | 'werknemer'>('team');
   const [editingItem, setEditingItem] = useState<any>(null);
@@ -64,10 +66,12 @@ export default function BeheerScreen() {
   // PDF Settings
   const [pdfVoettekst, setPdfVoettekst] = useState('');
   const [logoBase64, setLogoBase64] = useState<string | null>(null);
+  const [overviewSearch, setOverviewSearch] = useState('');
+  const [overviewStatus, setOverviewStatus] = useState<'alles' | 'concept' | 'ondertekend' | 'verzonden'>('alles');
   
   const {
-    teams, klanten, werven, werknemers, instellingen,
-    fetchTeams, fetchKlanten, fetchWerven, fetchInstellingen, fetchWerknemers,
+    teams, klanten, werven, werknemers, werkbonnen, instellingen,
+    fetchTeams, fetchKlanten, fetchWerven, fetchWerkbonnen, fetchInstellingen, fetchWerknemers,
     addTeam, updateTeam, deleteTeam,
     addKlant, updateKlant, deleteKlant,
     addWerf, updateWerf, deleteWerf,
@@ -79,9 +83,25 @@ export default function BeheerScreen() {
     fetchTeams();
     fetchKlanten();
     fetchWerven();
+    fetchWerkbonnen({ isAdmin: true });
     fetchInstellingen();
     fetchWerknemers();
   }, []);
+
+  const calculateWerkbonHours = (uren: any[] = []) => {
+    return uren.reduce((sum, regel) => {
+      return sum + (regel.maandag || 0) + (regel.dinsdag || 0) + (regel.woensdag || 0) + (regel.donderdag || 0) + (regel.vrijdag || 0) + (regel.zaterdag || 0) + (regel.zondag || 0);
+    }, 0);
+  };
+
+  const filteredWerkbonnen = werkbonnen.filter((werkbon) => {
+    const search = overviewSearch.trim().toLowerCase();
+    const matchesStatus = overviewStatus === 'alles' || werkbon.status === overviewStatus;
+    if (!search) return matchesStatus;
+
+    const searchable = [werkbon.klant_naam, werkbon.werf_naam, werkbon.ingevuld_door_naam, werkbon.week_nummer?.toString()].join(' ').toLowerCase();
+    return matchesStatus && searchable.includes(search);
+  });
 
   useEffect(() => {
     if (instellingen) {
@@ -365,6 +385,112 @@ export default function BeheerScreen() {
 
   const renderTabContent = () => {
     switch (activeTab) {
+      case 'overzicht':
+        return (
+          <View style={styles.tabContent}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Werkbon Overzicht</Text>
+              <TouchableOpacity
+                testID="beheer-overview-refresh-button"
+                style={styles.addBtn}
+                onPress={() => fetchWerkbonnen({ isAdmin: true })}
+              >
+                <Ionicons name="refresh" size={18} color="#000" />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.infoText}>
+              Hier ziet u alle werkbonnen van alle accounts. U kunt de status volgen en direct doorklikken naar de details.
+            </Text>
+
+            <View style={styles.overviewStatsRow}>
+              <View style={styles.overviewStatCard}>
+                <Text style={styles.overviewStatLabel}>Totaal</Text>
+                <Text style={styles.overviewStatValue}>{werkbonnen.length}</Text>
+              </View>
+              <View style={styles.overviewStatCard}>
+                <Text style={styles.overviewStatLabel}>Concept</Text>
+                <Text style={styles.overviewStatValue}>{werkbonnen.filter(w => w.status === 'concept').length}</Text>
+              </View>
+              <View style={styles.overviewStatCard}>
+                <Text style={styles.overviewStatLabel}>Ondertekend</Text>
+                <Text style={styles.overviewStatValue}>{werkbonnen.filter(w => w.status === 'ondertekend').length}</Text>
+              </View>
+              <View style={styles.overviewStatCard}>
+                <Text style={styles.overviewStatLabel}>Verzonden</Text>
+                <Text style={styles.overviewStatValue}>{werkbonnen.filter(w => w.status === 'verzonden').length}</Text>
+              </View>
+            </View>
+
+            <TextInput
+              testID="beheer-overview-search-input"
+              style={styles.textInput}
+              value={overviewSearch}
+              onChangeText={setOverviewSearch}
+              placeholder="Zoek op werknemer, klant, werf of week"
+              placeholderTextColor="#6c757d"
+            />
+
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statusFilterScroll}>
+              <View style={styles.klantSelector}>
+                {[
+                  { key: 'alles', label: 'Alles' },
+                  { key: 'concept', label: 'Concept' },
+                  { key: 'ondertekend', label: 'Ondertekend' },
+                  { key: 'verzonden', label: 'Verzonden' },
+                ].map((statusOption) => (
+                  <TouchableOpacity
+                    key={statusOption.key}
+                    testID={`beheer-overview-filter-${statusOption.key}`}
+                    style={[styles.klantOption, overviewStatus === statusOption.key && styles.klantOptionActive]}
+                    onPress={() => setOverviewStatus(statusOption.key as typeof overviewStatus)}
+                  >
+                    <Text style={[styles.klantOptionText, overviewStatus === statusOption.key && styles.klantOptionTextActive]}>
+                      {statusOption.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+
+            {filteredWerkbonnen.map((werkbon) => (
+              <TouchableOpacity
+                key={werkbon.id}
+                testID={`beheer-werkbon-row-${werkbon.id}`}
+                style={styles.overviewCard}
+                onPress={() => router.push(`/werkbon/${werkbon.id}`)}
+              >
+                <View style={styles.overviewCardHeader}>
+                  <View style={styles.weekMiniBadge}>
+                    <Text style={styles.weekMiniBadgeText}>Week {werkbon.week_nummer}</Text>
+                  </View>
+                  <View style={[
+                    styles.overviewStatusBadge,
+                    werkbon.status === 'concept'
+                      ? styles.statusConcept
+                      : werkbon.status === 'ondertekend'
+                        ? styles.statusOndertekend
+                        : styles.statusVerzonden
+                  ]}>
+                    <Text style={styles.overviewStatusText}>{werkbon.status}</Text>
+                  </View>
+                </View>
+
+                <Text style={styles.listItemText}>{werkbon.klant_naam}</Text>
+                <Text style={styles.listItemSubtext}>{werkbon.werf_naam}</Text>
+                <Text style={styles.listItemSubtext}>Ingevuld door: {werkbon.ingevuld_door_naam}</Text>
+                <Text style={styles.listItemSubtext}>Totaal uren: {calculateWerkbonHours(werkbon.uren)}</Text>
+                <Text style={styles.listItemSubtext}>
+                  Mailstatus: {werkbon.email_verzonden ? 'PDF verzonden' : 'Nog niet verzonden'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+
+            {filteredWerkbonnen.length === 0 && (
+              <Text style={styles.emptyText}>Geen werkbonnen gevonden voor deze filter.</Text>
+            )}
+          </View>
+        );
+
       case 'werknemers':
         return (
           <View style={styles.tabContent}>
@@ -765,14 +891,16 @@ export default function BeheerScreen() {
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroll}>
         <View style={styles.tabs}>
-          {(['werknemers', 'teams', 'klanten', 'werven', 'instellingen', 'pdf'] as Tab[]).map((tab) => (
+          {(['overzicht', 'werknemers', 'teams', 'klanten', 'werven', 'instellingen', 'pdf'] as Tab[]).map((tab) => (
             <TouchableOpacity
               key={tab}
+              testID={`beheer-tab-${tab}`}
               style={[styles.tab, activeTab === tab && styles.activeTab]}
               onPress={() => setActiveTab(tab)}
             >
               <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
-                {tab === 'werknemers' ? 'Werknemers' :
+                {tab === 'overzicht' ? 'Overzicht' :
+                 tab === 'werknemers' ? 'Werknemers' :
                  tab === 'pdf' ? 'PDF' : 
                  tab.charAt(0).toUpperCase() + tab.slice(1)}
               </Text>
@@ -1119,6 +1247,20 @@ const styles = StyleSheet.create({
   noticeCard: { flexDirection: 'row', gap: 10, backgroundColor: '#16213e', borderRadius: 12, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: '#2d3a5f' },
   noticeText: { color: '#a0a0a0', fontSize: 12, flex: 1, lineHeight: 18 },
   noticeBold: { color: '#F5A623', fontWeight: '600' },
+  overviewStatsRow: { flexDirection: 'row', gap: 10, marginBottom: 16, flexWrap: 'wrap' },
+  overviewStatCard: { backgroundColor: '#16213e', borderRadius: 12, padding: 14, minWidth: 100, borderWidth: 1, borderColor: '#2d3a5f' },
+  overviewStatLabel: { color: '#6c757d', fontSize: 12, marginBottom: 6 },
+  overviewStatValue: { color: '#fff', fontSize: 22, fontWeight: '700' },
+  statusFilterScroll: { marginBottom: 16 },
+  overviewCard: { backgroundColor: '#16213e', borderRadius: 12, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: '#2d3a5f' },
+  overviewCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  weekMiniBadge: { backgroundColor: '#2d3a5f', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
+  weekMiniBadgeText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+  overviewStatusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
+  overviewStatusText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  statusConcept: { backgroundColor: '#ffc107' },
+  statusOndertekend: { backgroundColor: '#28a745' },
+  statusVerzonden: { backgroundColor: '#F5A623' },
   addBtn: { backgroundColor: '#F5A623', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   listItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#16213e', padding: 16, borderRadius: 12, marginBottom: 8 },
   listItemInactive: { opacity: 0.6 },

@@ -150,7 +150,7 @@ interface AppState {
   updateWerf: (id: string, data: Omit<Werf, 'id' | 'actief'>) => Promise<void>;
   deleteWerf: (id: string) => Promise<void>;
   
-  fetchWerkbonnen: () => Promise<void>;
+  fetchWerkbonnen: (options?: { userId?: string; isAdmin?: boolean }) => Promise<void>;
   fetchWerkbon: (id: string) => Promise<Werkbon>;
   createWerkbon: (data: any, userId: string, userName: string) => Promise<Werkbon>;
   updateWerkbon: (id: string, data: any) => Promise<Werkbon>;
@@ -325,10 +325,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   
   // Werkbon actions
-  fetchWerkbonnen: async () => {
+  fetchWerkbonnen: async (options) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await axios.get(`${BACKEND_URL}/api/werkbonnen`);
+      const isAdmin = !!options?.isAdmin;
+      const userId = options?.userId;
+      const endpoint = !isAdmin && userId
+        ? `${BACKEND_URL}/api/werkbonnen/user/${userId}`
+        : `${BACKEND_URL}/api/werkbonnen`;
+      const response = await axios.get(endpoint);
       set({ werkbonnen: response.data, isLoading: false });
     } catch (error: any) {
       set({ error: error.response?.data?.detail || error.message, isLoading: false });
