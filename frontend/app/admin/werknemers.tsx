@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useAppStore } from '../../store/appStore';
+import { useAuth } from '../../context/AuthContext';
 import Constants from 'expo-constants';
 import * as Clipboard from 'expo-clipboard';
 
@@ -30,7 +30,7 @@ interface Werknemer {
 }
 
 export default function WerknemersAdmin() {
-  const { user } = useAppStore();
+  const { user } = useAuth();
   const [werknemers, setWerknemers] = useState<Werknemer[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -39,7 +39,7 @@ export default function WerknemersAdmin() {
   const [formData, setFormData] = useState({ naam: '', email: '', role: 'werknemer' });
 
   if (Platform.OS !== 'web') return null;
-  if (user?.role !== 'beheerder') {
+  if (user?.rol !== 'beheerder' && user?.rol !== 'admin') {
     return (
       <View style={styles.container}>
         <View style={styles.noAccess}>

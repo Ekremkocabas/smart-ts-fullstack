@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useAppStore } from '../../store/appStore';
+import { useAuth } from '../../context/AuthContext';
 import Constants from 'expo-constants';
 
 const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_BACKEND_URL || '';
@@ -29,7 +29,7 @@ interface Werkbon {
 }
 
 export default function WerkbonnenAdmin() {
-  const { user } = useAppStore();
+  const { user } = useAuth();
   const [werkbonnen, setWerkbonnen] = useState<Werkbon[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -39,7 +39,7 @@ export default function WerkbonnenAdmin() {
   const currentWeek = Math.ceil((new Date().getTime() - new Date(new Date().getFullYear(), 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000));
 
   if (Platform.OS !== 'web') return null;
-  if (user?.role !== 'beheerder') {
+  if (user?.rol !== 'beheerder' && user?.rol !== 'admin') {
     return (
       <View style={styles.container}>
         <View style={styles.noAccess}>

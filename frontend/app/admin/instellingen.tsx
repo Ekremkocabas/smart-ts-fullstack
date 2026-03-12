@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useAppStore } from '../../store/appStore';
+import { useAuth } from '../../context/AuthContext';
 import Constants from 'expo-constants';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -43,13 +43,13 @@ const defaultInstellingen: Instellingen = {
 };
 
 export default function InstellingenAdmin() {
-  const { user } = useAppStore();
+  const { user } = useAuth();
   const [instellingen, setInstellingen] = useState<Instellingen>(defaultInstellingen);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   if (Platform.OS !== 'web') return null;
-  if (user?.role !== 'beheerder') {
+  if (user?.rol !== 'beheerder' && user?.rol !== 'admin') {
     return (
       <View style={styles.container}>
         <View style={styles.noAccess}>

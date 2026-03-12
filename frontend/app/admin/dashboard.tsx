@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useAppStore } from '../../store/appStore';
+import { useAuth } from '../../context/AuthContext';
 import Constants from 'expo-constants';
 
 const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_BACKEND_URL || '';
@@ -24,7 +24,7 @@ interface DashboardStats {
 }
 
 export default function AdminDashboard() {
-  const { user } = useAppStore();
+  const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -34,7 +34,7 @@ export default function AdminDashboard() {
   }
 
   // Check if user is admin
-  if (user?.role !== 'beheerder') {
+  if (user?.rol !== 'beheerder' && user?.rol !== 'admin') {
     return (
       <View style={styles.container}>
         <View style={styles.noAccess}>

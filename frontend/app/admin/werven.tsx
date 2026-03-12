@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useAppStore } from '../../store/appStore';
+import { useAuth } from '../../context/AuthContext';
 import Constants from 'expo-constants';
 
 const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_BACKEND_URL || '';
@@ -33,7 +33,7 @@ interface Klant {
 }
 
 export default function WervenAdmin() {
-  const { user } = useAppStore();
+  const { user } = useAuth();
   const [werven, setWerven] = useState<Werf[]>([]);
   const [klanten, setKlanten] = useState<Klant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,7 +44,7 @@ export default function WervenAdmin() {
   const [saving, setSaving] = useState(false);
 
   if (Platform.OS !== 'web') return null;
-  if (user?.role !== 'beheerder') {
+  if (user?.rol !== 'beheerder' && user?.rol !== 'admin') {
     return (
       <View style={styles.container}>
         <View style={styles.noAccess}>

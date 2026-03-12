@@ -12,13 +12,14 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useAppStore } from '../../store/appStore';
+import { useAuth } from '../../context/AuthContext';
 import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_BACKEND_URL || (typeof window !== 'undefined' ? window.location.origin : '');
 
 export default function AdminLogin() {
-  const { setUser } = useAppStore();
+  const { setUser } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -61,13 +62,17 @@ export default function AdminLogin() {
         return;
       }
 
-      // Set user in store
-      setUser({
+      // Set user in store and AsyncStorage
+      const userData = {
         id: data.id,
         naam: data.naam,
         email: data.email,
-        role: data.rol === 'admin' ? 'beheerder' : data.rol,
-      });
+        rol: data.rol === 'admin' ? 'beheerder' : data.rol,
+        actief: data.actief,
+      };
+      
+      await AsyncStorage.setItem('user', JSON.stringify(userData));
+      setUser(userData);
 
       // Navigate to dashboard
       router.replace('/admin/dashboard');
