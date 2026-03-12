@@ -84,7 +84,7 @@ export default function LoginScreen() {
               resizeMode="contain"
             />
             <Text style={styles.title}>Werkbon</Text>
-            <Text style={styles.subtitle}>Inloggen met bedrijf mail</Text>
+            <Text style={styles.subtitle}>Welkom terug</Text>
           </View>
 
           {errorMessage ? (

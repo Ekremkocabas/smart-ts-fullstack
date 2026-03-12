@@ -15,6 +15,7 @@ export default function AdminLayout() {
         contentStyle: { backgroundColor: '#F5F6FA' },
       }}
     >
+      <Stack.Screen name="login" />
       <Stack.Screen name="dashboard" />
       <Stack.Screen name="werknemers" />
       <Stack.Screen name="teams" />
