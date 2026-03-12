@@ -511,7 +511,7 @@ export default function BewerkenWerkbonScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#1a1a2e' },
+  container: { flex: 1, backgroundColor: '#F5F6FA' },
   loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   header: {
     flexDirection: 'row',
@@ -519,17 +519,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E8E9ED',
   },
   backButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 20, fontWeight: '600', color: '#fff' },
+  title: { fontSize: 20, fontWeight: '600', color: '#1A1A2E' },
   content: { flex: 1 },
   infoCard: {
-    backgroundColor: '#16213e',
+    backgroundColor: '#FFFFFF',
     margin: 16,
     borderRadius: 12,
     padding: 14,
     borderLeftWidth: 3,
     borderLeftColor: '#F5A623',
+    borderWidth: 1,
+    borderColor: '#E8E9ED',
   },
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   weekBadge: { backgroundColor: '#2d3a5f', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },

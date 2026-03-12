@@ -159,7 +159,7 @@ export default function ProfielScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Wachtwoord Wijzigen</Text>
               <TouchableOpacity onPress={() => setPasswordModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#fff" />
+                <Ionicons name="close" size={24} color="#1A1A2E" />
               </TouchableOpacity>
             </View>
 
@@ -244,16 +244,19 @@ export default function ProfielScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#F5F6FA',
   },
   header: {
     paddingHorizontal: 20,
     paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E8E9ED',
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#fff',
+    color: '#1A1A2E',
   },
   content: {
     flex: 1,
@@ -267,15 +270,22 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#16213e',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E8E9ED',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   userName: {
     fontSize: 24,
     fontWeight: '600',
-    color: '#fff',
+    color: '#1A1A2E',
     marginBottom: 4,
   },
   userEmail: {
@@ -283,10 +293,12 @@ const styles = StyleSheet.create({
     color: '#6c757d',
   },
   infoSection: {
-    backgroundColor: '#16213e',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
     marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#E8E9ED',
   },
   infoItem: {
     flexDirection: 'row',
@@ -302,20 +314,22 @@ const styles = StyleSheet.create({
   },
   infoValue: {
     fontSize: 16,
-    color: '#fff',
+    color: '#1A1A2E',
     fontWeight: '500',
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#16213e',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E8E9ED',
   },
   actionButtonText: {
     flex: 1,
-    color: '#fff',
+    color: '#1A1A2E',
     fontSize: 16,
     marginLeft: 12,
   },
@@ -323,10 +337,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(220, 53, 69, 0.2)',
+    backgroundColor: 'rgba(220, 53, 69, 0.1)',
     borderRadius: 12,
     padding: 16,
     marginTop: 32,
+    borderWidth: 1,
+    borderColor: 'rgba(220, 53, 69, 0.3)',
   },
   logoutText: {
     color: '#dc3545',
@@ -341,7 +357,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
   modalContent: {
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
@@ -356,28 +372,28 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#fff',
+    color: '#1A1A2E',
   },
   formGroup: {
     marginBottom: 16,
   },
   label: {
-    color: '#a0a0a0',
+    color: '#6c757d',
     fontSize: 14,
     marginBottom: 8,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#16213e',
+    backgroundColor: '#F5F6FA',
     borderRadius: 12,
     paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: '#2d3a5f',
+    borderColor: '#E8E9ED',
   },
   input: {
     flex: 1,
-    color: '#fff',
+    color: '#1A1A2E',
     fontSize: 16,
     paddingVertical: 16,
   },

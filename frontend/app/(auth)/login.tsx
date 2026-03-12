@@ -165,7 +165,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#F5F6FA',
   },
   keyboardView: {
     flex: 1,
@@ -187,12 +187,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#fff',
+    color: '#1A1A2E',
     marginTop: 16,
   },
   subtitle: {
     fontSize: 16,
-    color: '#a0a0a0',
+    color: '#6c757d',
     marginTop: 8,
   },
   errorContainer: {
@@ -215,19 +215,24 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#16213e',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 56,
     borderWidth: 1,
-    borderColor: '#2d3a5f',
+    borderColor: '#E8E9ED',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   inputIcon: {
     marginRight: 12,
   },
   input: {
     flex: 1,
-    color: '#fff',
+    color: '#1A1A2E',
     fontSize: 16,
   },
   button: {

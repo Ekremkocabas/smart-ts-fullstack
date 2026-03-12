@@ -8,11 +8,11 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <StatusBar style="light" />
+        <StatusBar style="dark" />
         <Stack
           screenOptions={{
             headerShown: false,
-            contentStyle: { backgroundColor: '#1a1a2e' },
+            contentStyle: { backgroundColor: '#F5F6FA' },
           }}
         >
           <Stack.Screen name="index" />

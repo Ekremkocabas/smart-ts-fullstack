@@ -484,6 +484,50 @@ def decode_base64_data(data_uri: Optional[str]) -> Optional[bytes]:
         return None
 
 
+def correct_image_orientation(pil_image):
+    """Correct image orientation based on EXIF data."""
+    try:
+        from PIL import ExifTags
+        
+        # Get EXIF data
+        exif = pil_image.getexif()
+        if not exif:
+            return pil_image
+        
+        # Find the orientation tag
+        orientation_tag = None
+        for tag, name in ExifTags.TAGS.items():
+            if name == 'Orientation':
+                orientation_tag = tag
+                break
+        
+        if orientation_tag is None or orientation_tag not in exif:
+            return pil_image
+        
+        orientation = exif[orientation_tag]
+        
+        # Apply rotation based on EXIF orientation
+        if orientation == 2:
+            pil_image = pil_image.transpose(PILImage.FLIP_LEFT_RIGHT)
+        elif orientation == 3:
+            pil_image = pil_image.rotate(180, expand=True)
+        elif orientation == 4:
+            pil_image = pil_image.transpose(PILImage.FLIP_TOP_BOTTOM)
+        elif orientation == 5:
+            pil_image = pil_image.transpose(PILImage.FLIP_LEFT_RIGHT).rotate(90, expand=True)
+        elif orientation == 6:
+            pil_image = pil_image.rotate(-90, expand=True)
+        elif orientation == 7:
+            pil_image = pil_image.transpose(PILImage.FLIP_LEFT_RIGHT).rotate(-90, expand=True)
+        elif orientation == 8:
+            pil_image = pil_image.rotate(90, expand=True)
+        
+        return pil_image
+    except Exception as exc:
+        logging.warning("Could not correct image orientation: %s", exc)
+        return pil_image
+
+
 def make_safe_reportlab_image(image_bytes: Optional[bytes], width: float, height: float) -> Optional[Image]:
     if not image_bytes:
         return None
@@ -492,7 +536,12 @@ def make_safe_reportlab_image(image_bytes: Optional[bytes], width: float, height
         source = io.BytesIO(image_bytes)
         with PILImage.open(source) as pil_image:
             pil_image.load()
+            # Apply EXIF orientation correction
+            pil_image = correct_image_orientation(pil_image)
             normalized = io.BytesIO()
+            # Convert to RGB if necessary (for RGBA images)
+            if pil_image.mode in ('RGBA', 'LA', 'P'):
+                pil_image = pil_image.convert('RGB')
             pil_image.save(normalized, format="PNG")
         normalized.seek(0)
         return Image(normalized, width=width, height=height)
@@ -527,17 +576,17 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     pdf = SimpleDocTemplate(
         buffer,
         pagesize=landscape(A4),
-        leftMargin=12 * mm,
-        rightMargin=12 * mm,
-        topMargin=10 * mm,
-        bottomMargin=10 * mm,
+        leftMargin=8 * mm,
+        rightMargin=8 * mm,
+        topMargin=6 * mm,
+        bottomMargin=6 * mm,
     )
 
     styles = getSampleStyleSheet()
-    styles.add(ParagraphStyle(name="SectionTitle", parent=styles["Heading2"], fontSize=11, textColor=colors.HexColor("#1a1a2e"), spaceAfter=4, spaceBefore=2))
-    styles.add(ParagraphStyle(name="BodySmall", parent=styles["BodyText"], fontSize=8.5, leading=11))
-    styles.add(ParagraphStyle(name="FooterText", parent=styles["BodyText"], fontSize=7.5, leading=10, textColor=colors.HexColor("#555555")))
-    styles.add(ParagraphStyle(name="WeekHeader", parent=styles["Title"], fontSize=22, textColor=colors.HexColor("#1a1a2e"), fontName="Helvetica-Bold", alignment=2))
+    styles.add(ParagraphStyle(name="SectionTitle", parent=styles["Heading2"], fontSize=10, textColor=colors.HexColor("#1a1a2e"), spaceAfter=2, spaceBefore=1))
+    styles.add(ParagraphStyle(name="BodySmall", parent=styles["BodyText"], fontSize=8, leading=10))
+    styles.add(ParagraphStyle(name="FooterText", parent=styles["BodyText"], fontSize=7, leading=9, textColor=colors.HexColor("#555555")))
+    styles.add(ParagraphStyle(name="WeekHeader", parent=styles["Title"], fontSize=20, textColor=colors.HexColor("#1a1a2e"), fontName="Helvetica-Bold", alignment=2))
 
     story = []
 
@@ -552,11 +601,11 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     timesheet_table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#1a1a2e")),
         ("BOX", (0, 0), (-1, -1), 2, colors.HexColor("#F5A623")),
-        ("TOPPADDING", (0, 0), (-1, -1), 5),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
     ]))
     story.append(timesheet_table)
-    story.append(Spacer(1, 4))
+    story.append(Spacer(1, 3))
 
     # ── MAIN HEADER: [Logo + Week/Jaar | Smart-Tech BV + Company Info] ──
     logo_bytes = decode_base64_data(instellingen.get("logo_base64"))
@@ -600,7 +649,7 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
         ("BACKGROUND", (0, 0), (0, 0), colors.HexColor("#fff8ee")),
     ]))
     story.append(header_table)
-    story.append(Spacer(1, 5))
+    story.append(Spacer(1, 3))
 
     # ── INFO SECTION ──
     info_left = [
@@ -634,7 +683,7 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
         ]))
 
     story.append(Table([[left_table, right_table]], colWidths=[125 * mm, 135 * mm], style=[("VALIGN", (0, 0), (-1, -1), "TOP")]))
-    story.append(Spacer(1, 7))
+    story.append(Spacer(1, 4))
 
     # ── UREN TABEL (geen afkortingen) ──
     story.append(Paragraph("Gewerkte uren", styles["SectionTitle"]))
@@ -720,7 +769,7 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
         story.append(desc_table)
 
     # ── SAMENVATTING + HANDTEKENING (naast elkaar) ──
-    story.append(Spacer(1, 7))
+    story.append(Spacer(1, 4))
     summary_rows = [
         ["Totaal uren", format_number(total_uren)],
         ["Uurtarief", f"€ {klant.get('uurtarief', 0):.2f}"],
@@ -1501,6 +1550,113 @@ async def get_uren_rapport(jaar: int, week: Optional[int] = None, maand: Optiona
     return result
 
 
+@api_router.get("/rapporten/csv-export")
+async def get_csv_export(jaar: int, week: Optional[int] = None, maand: Optional[int] = None):
+    """
+    Export werkbonnen data as clean CSV format.
+    Columns: Datum, Werknemer, Team, Klant, Werf, Werkbon Type, Uren, Status, Handtekening, Opmerkingen
+    """
+    import calendar
+    from fastapi.responses import Response
+    import csv
+    from io import StringIO
+    
+    query: Dict = {"jaar": jaar}
+    if week is not None:
+        query["week_nummer"] = week
+    elif maand is not None:
+        weeks: set = set()
+        _, num_days = calendar.monthrange(jaar, maand)
+        for day in range(1, num_days + 1):
+            d = datetime(jaar, maand, day)
+            weeks.add(d.isocalendar()[1])
+        query["week_nummer"] = {"$in": list(weeks)}
+    
+    werkbonnen = await db.werkbonnen.find(query, {"_id": 0}).to_list(1000)
+    
+    # Get team information for workers
+    teams = await db.teams.find({}, {"_id": 0}).to_list(100)
+    team_lookup = {}
+    for team in teams:
+        for lid in team.get("leden", []):
+            team_lookup[lid.get("werknemer_id")] = team.get("naam", "")
+    
+    # Build CSV data
+    output = StringIO()
+    writer = csv.writer(output, delimiter=';', quoting=csv.QUOTE_MINIMAL)
+    
+    # Header row
+    writer.writerow([
+        "Datum", "Week", "Werknemer", "Team", "Klant", "Werf", 
+        "Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo", "Totaal Uren",
+        "Status", "Handtekening", "Opmerkingen"
+    ])
+    
+    # Data rows
+    for wb in werkbonnen:
+        week_num = wb.get("week_nummer", "")
+        klant = wb.get("klant_naam", "")
+        werf = wb.get("werf_naam", "")
+        status = wb.get("status", "concept").capitalize()
+        has_signature = "Ja" if wb.get("handtekening_data") else "Nee"
+        datum_maandag = wb.get("datum_maandag", "")
+        opmerkingen = (wb.get("uitgevoerde_werken", "") or "")[:100]  # Truncate to 100 chars
+        
+        for uren_regel in wb.get("uren", []):
+            werknemer_id = uren_regel.get("teamlid_id", "")
+            werknemer_naam = uren_regel.get("teamlid_naam", "")
+            team_naam = team_lookup.get(werknemer_id, "")
+            
+            dag_namen = ["maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag"]
+            dag_kort = ["ma", "di", "wo", "do", "vr", "za", "zo"]
+            day_values = []
+            total = 0.0
+            
+            for dag, kort in zip(dag_namen, dag_kort):
+                afk = uren_regel.get(f"afkorting_{kort}", "")
+                uren = uren_regel.get(dag, 0) or 0
+                if afk:
+                    day_values.append(afk)
+                elif uren > 0:
+                    day_values.append(str(uren))
+                    total += uren
+                else:
+                    day_values.append("")
+            
+            writer.writerow([
+                datum_maandag,
+                f"Week {week_num}",
+                werknemer_naam,
+                team_naam,
+                klant,
+                werf,
+                *day_values,
+                str(total) if total > 0 else "",
+                status,
+                has_signature,
+                opmerkingen.replace('\n', ' ')
+            ])
+    
+    csv_content = output.getvalue()
+    
+    # Return as downloadable CSV file
+    filename = f"werkbonnen_export_{jaar}"
+    if week:
+        filename += f"_week{week}"
+    elif maand:
+        filename += f"_maand{maand}"
+    filename += ".csv"
+    
+    return Response(
+        content=csv_content,
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}"
+        }
+    )
+
+
+
 # ==================== HEALTH CHECK ====================
 
 @api_router.get("/")
@@ -1532,3 +1688,19 @@ logger = logging.getLogger(__name__)
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
+
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# HEALTH CHECK ENDPOINT (for Railway/Docker deployment)
+# ══════════════════════════════════════════════════════════════════════════════
+
+@app.get("/api/health")
+async def health_check():
+    """Health check endpoint for deployment platforms."""
+    try:
+        # Test database connection
+        await db.command("ping")
+        return {"status": "healthy", "database": "connected"}
+    except Exception as e:
+        return {"status": "unhealthy", "database": "disconnected", "error": str(e)}

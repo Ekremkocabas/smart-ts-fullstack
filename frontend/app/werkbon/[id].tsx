@@ -606,7 +606,7 @@ export default function WerkbonDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#F5F6FA',
   },
   loadingContainer: {
     flex: 1,
@@ -619,6 +619,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E8E9ED',
   },
   backButton: {
     width: 44,
@@ -629,7 +632,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#fff',
+    color: '#1A1A2E',
   },
   deleteButton: {
     width: 44,
@@ -642,10 +645,17 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   infoCard: {
-    backgroundColor: '#16213e',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E8E9ED',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   infoRow: {
     flexDirection: 'row',
@@ -654,13 +664,15 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   weekBadge: {
-    backgroundColor: '#2d3a5f',
+    backgroundColor: '#F5F6FA',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E8E9ED',
   },
   weekText: {
-    color: '#fff',
+    color: '#1A1A2E',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -686,38 +698,45 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   infoValue: {
-    color: '#fff',
+    color: '#1A1A2E',
     fontSize: 14,
     fontWeight: '500',
   },
   tableContainer: {
-    backgroundColor: '#16213e',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E8E9ED',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#fff',
+    color: '#1A1A2E',
     marginBottom: 12,
   },
   tableHeader: {
     flexDirection: 'row',
-    backgroundColor: '#2d3a5f',
+    backgroundColor: '#F5F6FA',
     borderRadius: 8,
     padding: 8,
     marginBottom: 8,
   },
   headerText: {
-    color: '#a0a0a0',
+    color: '#6c757d',
     fontSize: 11,
     fontWeight: '600',
     textAlign: 'center',
   },
   tableRow: {
     flexDirection: 'row',
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#FAFBFC',
     borderRadius: 8,
     padding: 8,
     marginBottom: 4,
@@ -735,11 +754,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   nameText: {
-    color: '#fff',
+    color: '#1A1A2E',
     fontSize: 12,
   },
   urenText: {
-    color: '#a0a0a0',
+    color: '#6c757d',
     fontSize: 12,
   },
   totalText: {
@@ -752,11 +771,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#2d3a5f',
+    borderTopColor: '#E8E9ED',
     marginTop: 8,
   },
   grandTotalLabel: {
-    color: '#fff',
+    color: '#1A1A2E',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -766,23 +785,26 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   signatureCard: {
-    backgroundColor: '#16213e',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E8E9ED',
   },
   signatureInfo: {
     gap: 4,
   },
   signatureLabel: {
-    color: '#a0a0a0',
+    color: '#6c757d',
     fontSize: 14,
   },
   footer: {
     padding: 12,
     gap: 8,
     borderTopWidth: 1,
-    borderTopColor: '#2d3a5f',
+    borderTopColor: '#E8E9ED',
+    backgroundColor: '#FFFFFF',
   },
   footerRow: {
     flexDirection: 'row',
@@ -804,22 +826,22 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   editBtn: {
-    backgroundColor: '#2d3a5f',
+    backgroundColor: '#6c757d',
     borderWidth: 1,
-    borderColor: '#4a5a8a',
+    borderColor: '#6c757d',
   },
   signButton: {
     backgroundColor: '#28a745',
   },
   copyBtn: {
-    backgroundColor: '#16213e',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#F5A623',
   },
   pdfBtn: {
-    backgroundColor: '#16213e',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#444',
+    borderColor: '#E8E9ED',
   },
   sendContainer: {
     gap: 8,
@@ -843,16 +865,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5A623',
   },
   klantEmailLabel: {
-    color: '#ccc',
+    color: '#1A1A2E',
     fontSize: 14,
   },
   klantEmailInput: {
-    backgroundColor: '#16213e',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#F5A623',
     borderRadius: 8,
     padding: 10,
-    color: '#fff',
+    color: '#1A1A2E',
     fontSize: 14,
   },
   sendButton: {
