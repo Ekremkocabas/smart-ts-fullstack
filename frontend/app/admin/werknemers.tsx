@@ -17,13 +17,13 @@ import { useAuth } from '../../context/AuthContext';
 import Constants from 'expo-constants';
 import * as Clipboard from 'expo-clipboard';
 
-const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_BACKEND_URL || '';
+const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_BACKEND_URL || (typeof window !== 'undefined' ? window.location.origin : '');
 
 interface Werknemer {
   id: string;
   naam: string;
   email: string;
-  role: string;
+  rol: string;
   actief: boolean;
   tijdelijk_wachtwoord?: string;
   team_id?: string;
@@ -54,7 +54,7 @@ export default function WerknemersAdmin() {
 
   const fetchWerknemers = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/werknemers`);
+      const res = await fetch(`${API_URL}/api/auth/users`);
       const data = await res.json();
       setWerknemers(data);
     } catch (error) {
@@ -77,7 +77,7 @@ export default function WerknemersAdmin() {
 
   const toggleActief = async (w: Werknemer) => {
     try {
-      await fetch(`${API_URL}/api/werknemers/${w.id}`, {
+      await fetch(`${API_URL}/api/auth/users/${w.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...w, actief: !w.actief }),
@@ -91,7 +91,7 @@ export default function WerknemersAdmin() {
   const deleteWerknemer = async (id: string) => {
     if (!confirm('Weet u zeker dat u deze werknemer wilt verwijderen?')) return;
     try {
-      await fetch(`${API_URL}/api/werknemers/${id}`, { method: 'DELETE' });
+      await fetch(`${API_URL}/api/auth/users/${id}`, { method: 'DELETE' });
       fetchWerknemers();
     } catch (error) {
       console.error('Error:', error);
@@ -143,8 +143,8 @@ export default function WerknemersAdmin() {
                   <Text style={styles.cardName}>{w.naam}</Text>
                   <Text style={styles.cardEmail}>{w.email}</Text>
                   <View style={styles.badges}>
-                    <View style={[styles.roleBadge, w.role === 'beheerder' && styles.adminBadge]}>
-                      <Text style={styles.roleText}>{w.role}</Text>
+                    <View style={[styles.roleBadge, w.rol === 'beheerder' && styles.adminBadge]}>
+                      <Text style={styles.roleText}>{w.rol}</Text>
                     </View>
                     {!w.actief && <View style={styles.inactiveBadge}><Text style={styles.inactiveText}>Inactief</Text></View>}
                   </View>

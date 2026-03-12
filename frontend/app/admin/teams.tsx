@@ -15,7 +15,7 @@ import { router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import Constants from 'expo-constants';
 
-const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_BACKEND_URL || '';
+const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_BACKEND_URL || (typeof window !== 'undefined' ? window.location.origin : '');
 
 interface TeamLid {
   werknemer_id: string;
@@ -64,7 +64,7 @@ export default function TeamsAdmin() {
     try {
       const [teamsRes, werknemersRes] = await Promise.all([
         fetch(`${API_URL}/api/teams`),
-        fetch(`${API_URL}/api/werknemers`),
+        fetch(`${API_URL}/api/auth/users`),
       ]);
       setTeams(await teamsRes.json());
       setWerknemers(await werknemersRes.json());
@@ -200,7 +200,7 @@ export default function TeamsAdmin() {
             <TextInput style={styles.input} value={formData.naam} onChangeText={(v) => setFormData({ ...formData, naam: v })} placeholder="Team A" placeholderTextColor="#6c757d" />
             <Text style={styles.label}>Teamleden</Text>
             <ScrollView style={styles.werknemersList}>
-              {werknemers.filter(w => w.role === 'werknemer').map((w) => {
+              {werknemers.filter(w => w.rol === 'werknemer').map((w) => {
                 const lid = formData.leden.find(l => l.werknemer_id === w.id);
                 return (
                   <View key={w.id} style={styles.werknemerRow}>

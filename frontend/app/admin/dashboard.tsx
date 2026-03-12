@@ -13,7 +13,7 @@ import { router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import Constants from 'expo-constants';
 
-const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_BACKEND_URL || '';
+const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_BACKEND_URL || (typeof window !== 'undefined' ? window.location.origin : '');
 
 interface DashboardStats {
   totaalWerknemers: number;
@@ -60,7 +60,7 @@ export default function AdminDashboard() {
       const currentWeek = Math.ceil((days + startOfYear.getDay() + 1) / 7);
 
       const [werknemersRes, wervenRes, werkbonnenRes] = await Promise.all([
-        fetch(`${API_URL}/api/werknemers`),
+        fetch(`${API_URL}/api/auth/users`),
         fetch(`${API_URL}/api/werven`),
         fetch(`${API_URL}/api/werkbonnen`),
       ]);
