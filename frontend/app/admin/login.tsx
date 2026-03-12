@@ -40,10 +40,10 @@ export default function AdminLogin() {
     setError('');
 
     try {
-      const response = await fetch(`${API_URL}/api/login`, {
+      const response = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), wachtwoord: password }),
+        body: JSON.stringify({ email: email.trim(), password: password }),
       });
 
       const data = await response.json();
@@ -53,7 +53,7 @@ export default function AdminLogin() {
         return;
       }
 
-      if (data.role !== 'beheerder') {
+      if (data.rol !== 'beheerder' && data.rol !== 'admin') {
         setError('Alleen beheerders hebben toegang tot dit portaal');
         return;
       }
@@ -63,7 +63,7 @@ export default function AdminLogin() {
         id: data.id,
         naam: data.naam,
         email: data.email,
-        role: data.role,
+        role: data.rol === 'admin' ? 'beheerder' : data.rol,
       });
 
       // Navigate to dashboard
