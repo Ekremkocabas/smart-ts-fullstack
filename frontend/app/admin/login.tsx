@@ -15,7 +15,7 @@ import { router } from 'expo-router';
 import { useAppStore } from '../../store/appStore';
 import Constants from 'expo-constants';
 
-const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_BACKEND_URL || '';
+const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_BACKEND_URL || (typeof window !== 'undefined' ? window.location.origin : '');
 
 export default function AdminLogin() {
   const { setUser } = useAppStore();
@@ -40,13 +40,16 @@ export default function AdminLogin() {
     setError('');
 
     try {
+      console.log('Attempting login to:', `${API_URL}/api/auth/login`);
       const response = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim(), password: password }),
       });
 
+      console.log('Response status:', response.status);
       const data = await response.json();
+      console.log('Response data:', data);
 
       if (!response.ok) {
         setError(data.detail || 'Ongeldige inloggegevens');
@@ -68,8 +71,9 @@ export default function AdminLogin() {
 
       // Navigate to dashboard
       router.replace('/admin/dashboard');
-    } catch (err) {
-      setError('Verbindingsfout. Probeer opnieuw.');
+    } catch (err: any) {
+      console.error('Login error:', err);
+      setError(`Verbindingsfout: ${err.message || 'Probeer opnieuw.'}`);
     } finally {
       setLoading(false);
     }
