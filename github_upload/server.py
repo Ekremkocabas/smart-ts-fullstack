@@ -1,5 +1,4 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Response, Query
-from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -1668,18 +1667,6 @@ async def root():
 async def health_check():
     return {"status": "healthy", "database": "connected"}
 
-# Temporary download endpoint for GitHub upload
-@api_router.get("/download-backend-zip")
-async def download_backend_zip():
-    zip_path = "/tmp/smart-ts-backend.zip"
-    if os.path.exists(zip_path):
-        return FileResponse(
-            path=zip_path,
-            filename="smart-ts-backend.zip",
-            media_type="application/zip"
-        )
-    raise HTTPException(status_code=404, detail="ZIP file not found")
-
 # Include the router in the main app
 app.include_router(api_router)
 
@@ -1717,5 +1704,3 @@ async def health_check():
         return {"status": "healthy", "database": "connected"}
     except Exception as e:
         return {"status": "unhealthy", "database": "disconnected", "error": str(e)}
-
-# (removed)
