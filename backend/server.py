@@ -56,6 +56,7 @@ class User(BaseModel):
     actief: bool = True
     werkbon_types: List[str] = Field(default_factory=lambda: ["uren"])
     mag_wachtwoord_wijzigen: bool = False
+    push_token: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 class UserCreate(BaseModel):
@@ -1382,6 +1383,38 @@ async def delete_user(user_id: str):
         raise HTTPException(status_code=400, detail="Admin gebruikers kunnen niet worden verwijderd")
     
     result = await db.users.delete_one({"id": user_id})
+
+@api_router.post("/auth/users/{user_id}/push-token")
+async def save_push_token(user_id: str, data: dict):
+    """Save push notification token for a user"""
+    push_token = data.get("push_token")
+    if not push_token:
+        raise HTTPException(status_code=400, detail="Push token is vereist")
+    await db.users.update_one({"id": user_id}, {"$set": {"push_token": push_token}})
+    return {"message": "Push token opgeslagen"}
+
+async def send_push_notifications(user_ids: list, title: str, body: str, data: dict = None):
+    """Send push notifications to users via Expo Push Service"""
+    import httpx
+    try:
+        tokens = []
+        async for user in db.users.find({"id": {"$in": user_ids}, "push_token": {"$ne": None}}, {"push_token": 1}):
+            if user.get("push_token"):
+                tokens.append(user["push_token"])
+        
+        if not tokens:
+            return
+        
+        messages = [{"to": t, "sound": "default", "title": title, "body": body, "data": data or {}} for t in tokens]
+        
+        async with httpx.AsyncClient() as client:
+            await client.post(
+                "https://exp.host/--/api/v2/push/send",
+                json=messages,
+                headers={"Content-Type": "application/json"}
+            )
+    except Exception as e:
+        logging.error(f"Push notification error: {e}")
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
     
@@ -2304,6 +2337,19 @@ async def create_planning(data: PlanningItemCreate):
     result = item.dict()
     if waarschuwingen:
         result["waarschuwingen"] = waarschuwingen
+    
+    # Send push notifications to assigned workers
+    if data.werknemer_ids:
+        try:
+            await send_push_notifications(
+                data.werknemer_ids,
+                "Nieuwe planning",
+                f"U bent ingepland bij {klant['naam']} - {werf['naam']} op {data.dag}",
+                {"type": "planning", "planning_id": item.id}
+            )
+        except Exception as e:
+            logging.error(f"Push notification failed: {e}")
+    
     return result
 
 @api_router.put("/planning/{planning_id}")

@@ -54,6 +54,15 @@ export default function LoginScreen() {
       const userData = response.data;
       await AsyncStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);  // Update context
+      
+      // Register push notifications on mobile
+      if (Platform.OS !== 'web' && userData.id) {
+        try {
+          const { registerForPushNotifications } = require('../../utils/notifications');
+          registerForPushNotifications(userData.id);
+        } catch (e) { console.log('Push setup skipped:', e); }
+      }
+      
       router.replace('/(tabs)');
     } catch (error: any) {
       console.error('Login error:', error);

@@ -1,11 +1,13 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Platform, View, Text } from 'react-native';
+import { Platform } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function TabsLayout() {
   const { user } = useAuth();
+  const { theme } = useTheme();
   const isAdmin = user?.rol === 'admin' || user?.rol === 'beheerder';
 
   return (
@@ -20,7 +22,7 @@ export default function TabsLayout() {
           paddingBottom: Platform.OS === 'ios' ? 28 : 24,
           paddingTop: 8,
         },
-        tabBarActiveTintColor: '#F5A623',
+        tabBarActiveTintColor: theme.primaryColor,
         tabBarInactiveTintColor: '#6c757d',
         tabBarLabelStyle: {
           fontSize: 11,
