@@ -24,31 +24,16 @@ interface DashboardStats {
 }
 
 export default function AdminDashboard() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Only render on web
-  if (Platform.OS !== 'web') {
-    return null;
-  }
-
-  // Check if user is admin
-  if (user?.rol !== 'beheerder' && user?.rol !== 'admin') {
-    return (
-      <View style={styles.container}>
-        <View style={styles.noAccess}>
-          <Ionicons name="lock-closed" size={64} color="#dc3545" />
-          <Text style={styles.noAccessText}>Geen toegang</Text>
-          <Text style={styles.noAccessSub}>Dit portaal is alleen voor beheerders</Text>
-        </View>
-      </View>
-    );
-  }
-
+  // ALL HOOKS MUST BE BEFORE ANY CONDITIONAL RETURNS
   useEffect(() => {
-    fetchStats();
-  }, []);
+    if (Platform.OS === 'web' && (user?.rol === 'beheerder' || user?.rol === 'admin')) {
+      fetchStats();
+    }
+  }, [user]);
 
   const fetchStats = async () => {
     try {
@@ -62,18 +47,23 @@ export default function AdminDashboard() {
       const [werknemersRes, wervenRes, werkbonnenRes] = await Promise.all([
         fetch(`${API_URL}/api/auth/users`),
         fetch(`${API_URL}/api/werven`),
-        fetch(`${API_URL}/api/werkbonnen`),
+        fetch(`${API_URL}/api/werkbonnen?user_id=admin-001&is_admin=true`),
       ]);
 
       const werknemers = await werknemersRes.json();
       const werven = await wervenRes.json();
       const werkbonnen = await werkbonnenRes.json();
 
-      const werkbonnenDezeWeek = werkbonnen.filter(
+      // Handle case where response is error or empty
+      const wervenList = Array.isArray(werven) ? werven : [];
+      const werknemersList = Array.isArray(werknemers) ? werknemers : [];
+      const werkbonnenList = Array.isArray(werkbonnen) ? werkbonnen : [];
+
+      const werkbonnenDezeWeek = werkbonnenList.filter(
         (wb: any) => wb.week_nummer === currentWeek && wb.jaar === now.getFullYear()
       );
 
-      const werkbonnenWachtend = werkbonnen.filter(
+      const werkbonnenWachtend = werkbonnenList.filter(
         (wb: any) => wb.status === 'concept'
       );
 
@@ -86,8 +76,8 @@ export default function AdminDashboard() {
       }, 0);
 
       setStats({
-        totaalWerknemers: werknemers.filter((w: any) => w.actief).length,
-        totaalWerven: werven.filter((w: any) => w.actief).length,
+        totaalWerknemers: werknemersList.filter((w: any) => w.actief).length,
+        totaalWerven: wervenList.filter((w: any) => w.actief !== false).length,
         werkbonnenDezeWeek: werkbonnenDezeWeek.length,
         werkbonnenWachtend: werkbonnenWachtend.length,
         totaalUrenDezeWeek: totaalUren,
@@ -98,6 +88,26 @@ export default function AdminDashboard() {
       setLoading(false);
     }
   };
+
+  const handleLogout = async () => {
+    await logout();
+    router.replace('/admin/login');
+  };
+
+  // CONDITIONAL RETURNS AFTER ALL HOOKS
+  if (Platform.OS !== 'web') return null;
+
+  if (user?.rol !== 'beheerder' && user?.rol !== 'admin') {
+    return (
+      <View style={styles.container}>
+        <View style={styles.noAccess}>
+          <Ionicons name="lock-closed" size={64} color="#dc3545" />
+          <Text style={styles.noAccessText}>Geen toegang</Text>
+          <Text style={styles.noAccessSub}>Dit portaal is alleen voor beheerders</Text>
+        </View>
+      </View>
+    );
+  }
 
   const menuItems = [
     { icon: 'people', label: 'Werknemers', route: '/admin/werknemers', color: '#3498db' },
@@ -116,8 +126,8 @@ export default function AdminDashboard() {
           <Text style={styles.title}>Admin Dashboard</Text>
           <Text style={styles.subtitle}>Smart-Tech BV Beheerportaal</Text>
         </View>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#1A1A2E" />
+        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+          <Ionicons name="log-out-outline" size={24} color="#dc3545" />
         </TouchableOpacity>
       </View>
 
@@ -202,11 +212,11 @@ const styles = StyleSheet.create({
     color: '#6c757d',
     marginTop: 4,
   },
-  backBtn: {
+  logoutBtn: {
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: '#F5F6FA',
+    backgroundColor: '#dc354510',
     alignItems: 'center',
     justifyContent: 'center',
   },

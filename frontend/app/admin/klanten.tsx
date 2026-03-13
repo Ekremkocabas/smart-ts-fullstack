@@ -37,25 +37,19 @@ export default function KlantenAdmin() {
   const [formData, setFormData] = useState({ naam: '', email: '', telefoon: '', adres: '', contactpersoon: '' });
   const [saving, setSaving] = useState(false);
 
-  if (Platform.OS !== 'web') return null;
-  if (user?.rol !== 'beheerder' && user?.rol !== 'admin') {
-    return (
-      <View style={styles.container}>
-        <View style={styles.noAccess}>
-          <Ionicons name="lock-closed" size={64} color="#dc3545" />
-          <Text style={styles.noAccessText}>Geen toegang</Text>
-        </View>
-      </View>
-    );
-  }
-
-  useEffect(() => { fetchKlanten(); }, []);
+  // ALL HOOKS MUST BE BEFORE ANY CONDITIONAL RETURNS
+  useEffect(() => { 
+    if (Platform.OS === 'web' && (user?.rol === 'beheerder' || user?.rol === 'admin')) {
+      fetchKlanten(); 
+    }
+  }, [user]);
 
   const fetchKlanten = async () => {
     try {
+      setLoading(true);
       const res = await fetch(`${API_URL}/api/klanten`);
       const data = await res.json();
-      setKlanten(data);
+      setKlanten(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error:', error);
     } finally {
@@ -77,6 +71,7 @@ export default function KlantenAdmin() {
 
   const saveKlant = async () => {
     if (!formData.naam.trim()) { alert('Naam is verplicht'); return; }
+    if (!formData.email.trim()) { alert('Email is verplicht'); return; }
     setSaving(true);
     try {
       if (editingKlant) {
@@ -89,7 +84,7 @@ export default function KlantenAdmin() {
         await fetch(`${API_URL}/api/klanten`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...formData, actief: true }),
+          body: JSON.stringify({ naam: formData.naam, email: formData.email, telefoon: formData.telefoon, adres: formData.adres }),
         });
       }
       setShowModal(false);
@@ -110,6 +105,20 @@ export default function KlantenAdmin() {
       console.error('Error:', error);
     }
   };
+
+  // CONDITIONAL RETURNS AFTER ALL HOOKS
+  if (Platform.OS !== 'web') return null;
+  
+  if (user?.rol !== 'beheerder' && user?.rol !== 'admin') {
+    return (
+      <View style={styles.container}>
+        <View style={styles.noAccess}>
+          <Ionicons name="lock-closed" size={64} color="#dc3545" />
+          <Text style={styles.noAccessText}>Geen toegang</Text>
+        </View>
+      </View>
+    );
+  }
 
   const filtered = klanten.filter(k =>
     k.naam?.toLowerCase().includes(search.toLowerCase()) ||
@@ -179,7 +188,7 @@ export default function KlantenAdmin() {
             <ScrollView>
               <Text style={styles.label}>Naam *</Text>
               <TextInput style={styles.input} value={formData.naam} onChangeText={(v) => setFormData({ ...formData, naam: v })} placeholder="Bedrijfsnaam" placeholderTextColor="#6c757d" />
-              <Text style={styles.label}>E-mail</Text>
+              <Text style={styles.label}>E-mail *</Text>
               <TextInput style={styles.input} value={formData.email} onChangeText={(v) => setFormData({ ...formData, email: v })} placeholder="email@voorbeeld.be" placeholderTextColor="#6c757d" keyboardType="email-address" />
               <Text style={styles.label}>Telefoon</Text>
               <TextInput style={styles.input} value={formData.telefoon} onChangeText={(v) => setFormData({ ...formData, telefoon: v })} placeholder="+32 ..." placeholderTextColor="#6c757d" keyboardType="phone-pad" />

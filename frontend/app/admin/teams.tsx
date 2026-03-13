@@ -17,23 +17,17 @@ import Constants from 'expo-constants';
 
 const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_BACKEND_URL || (typeof window !== 'undefined' ? window.location.origin : '');
 
-interface TeamLid {
-  werknemer_id: string;
-  naam: string;
-  is_ploegbaas?: boolean;
-}
-
 interface Team {
   id: string;
   naam: string;
-  leden: TeamLid[];
+  leden: string[];
   actief: boolean;
 }
 
 interface Werknemer {
   id: string;
   naam: string;
-  role: string;
+  rol: string;
 }
 
 export default function TeamsAdmin() {
@@ -43,31 +37,27 @@ export default function TeamsAdmin() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
-  const [formData, setFormData] = useState({ naam: '', leden: [] as TeamLid[] });
+  const [formData, setFormData] = useState({ naam: '', leden: [] as string[] });
   const [saving, setSaving] = useState(false);
 
-  if (Platform.OS !== 'web') return null;
-  if (user?.rol !== 'beheerder' && user?.rol !== 'admin') {
-    return (
-      <View style={styles.container}>
-        <View style={styles.noAccess}>
-          <Ionicons name="lock-closed" size={64} color="#dc3545" />
-          <Text style={styles.noAccessText}>Geen toegang</Text>
-        </View>
-      </View>
-    );
-  }
-
-  useEffect(() => { fetchData(); }, []);
+  // ALL HOOKS MUST BE BEFORE ANY CONDITIONAL RETURNS
+  useEffect(() => { 
+    if (Platform.OS === 'web' && (user?.rol === 'beheerder' || user?.rol === 'admin')) {
+      fetchData(); 
+    }
+  }, [user]);
 
   const fetchData = async () => {
     try {
+      setLoading(true);
       const [teamsRes, werknemersRes] = await Promise.all([
         fetch(`${API_URL}/api/teams`),
         fetch(`${API_URL}/api/auth/users`),
       ]);
-      setTeams(await teamsRes.json());
-      setWerknemers(await werknemersRes.json());
+      const teamsData = await teamsRes.json();
+      const werknemersData = await werknemersRes.json();
+      setTeams(Array.isArray(teamsData) ? teamsData : []);
+      setWerknemers(Array.isArray(werknemersData) ? werknemersData : []);
     } catch (error) {
       console.error('Error:', error);
     } finally {
@@ -87,45 +77,48 @@ export default function TeamsAdmin() {
     setShowModal(true);
   };
 
-  const toggleLid = (w: Werknemer) => {
-    const exists = formData.leden.find(l => l.werknemer_id === w.id);
-    if (exists) {
-      setFormData({ ...formData, leden: formData.leden.filter(l => l.werknemer_id !== w.id) });
+  const toggleLid = (naam: string) => {
+    if (formData.leden.includes(naam)) {
+      setFormData({ ...formData, leden: formData.leden.filter(l => l !== naam) });
     } else {
-      setFormData({ ...formData, leden: [...formData.leden, { werknemer_id: w.id, naam: w.naam, is_ploegbaas: false }] });
+      setFormData({ ...formData, leden: [...formData.leden, naam] });
     }
-  };
-
-  const togglePloegbaas = (lid: TeamLid) => {
-    setFormData({
-      ...formData,
-      leden: formData.leden.map(l =>
-        l.werknemer_id === lid.werknemer_id ? { ...l, is_ploegbaas: !l.is_ploegbaas } : l
-      ),
-    });
   };
 
   const saveTeam = async () => {
     if (!formData.naam.trim()) { alert('Naam is verplicht'); return; }
     setSaving(true);
     try {
+      const body = {
+        naam: formData.naam,
+        leden: formData.leden,
+      };
+      
       if (editingTeam) {
         await fetch(`${API_URL}/api/teams/${editingTeam.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...editingTeam, ...formData }),
+          body: JSON.stringify(body),
         });
       } else {
-        await fetch(`${API_URL}/api/teams`, {
+        const res = await fetch(`${API_URL}/api/teams`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...formData, actief: true }),
+          body: JSON.stringify(body),
         });
+        if (!res.ok) {
+          const err = await res.json();
+          console.error('Error response:', err);
+          alert('Fout bij aanmaken: ' + JSON.stringify(err));
+          setSaving(false);
+          return;
+        }
       }
       setShowModal(false);
       fetchData();
     } catch (error) {
       console.error('Error:', error);
+      alert('Fout bij opslaan');
     } finally {
       setSaving(false);
     }
@@ -140,6 +133,20 @@ export default function TeamsAdmin() {
       console.error('Error:', error);
     }
   };
+
+  // CONDITIONAL RETURNS AFTER ALL HOOKS
+  if (Platform.OS !== 'web') return null;
+  
+  if (user?.rol !== 'beheerder' && user?.rol !== 'admin') {
+    return (
+      <View style={styles.container}>
+        <View style={styles.noAccess}>
+          <Ionicons name="lock-closed" size={64} color="#dc3545" />
+          <Text style={styles.noAccessText}>Geen toegang</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -160,30 +167,37 @@ export default function TeamsAdmin() {
         <ActivityIndicator size="large" color="#F5A623" style={{ marginTop: 40 }} />
       ) : (
         <ScrollView style={styles.list}>
-          {teams.map((t) => (
-            <TouchableOpacity key={t.id} style={styles.card} onPress={() => openEditModal(t)}>
-              <View style={styles.cardHeader}>
-                <View style={[styles.avatar, { backgroundColor: '#9b59b620' }]}>
-                  <Ionicons name="people" size={24} color="#9b59b6" />
-                </View>
-                <View style={styles.cardInfo}>
-                  <Text style={styles.cardName}>{t.naam}</Text>
-                  <Text style={styles.cardSub}>{t.leden?.length || 0} leden</Text>
-                </View>
-                <TouchableOpacity onPress={() => deleteTeam(t.id)} style={styles.deleteBtn}>
-                  <Ionicons name="trash-outline" size={22} color="#dc3545" />
-                </TouchableOpacity>
-              </View>
-              <View style={styles.ledenList}>
-                {t.leden?.map((l) => (
-                  <View key={l.werknemer_id} style={styles.lidChip}>
-                    <Text style={styles.lidText}>{l.naam}</Text>
-                    {l.is_ploegbaas && <Ionicons name="star" size={12} color="#F5A623" />}
+          {teams.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="people-outline" size={64} color="#E8E9ED" />
+              <Text style={styles.emptyText}>Geen teams gevonden</Text>
+              <Text style={styles.emptySubtext}>Klik op + om een team toe te voegen</Text>
+            </View>
+          ) : (
+            teams.map((t) => (
+              <TouchableOpacity key={t.id} style={styles.card} onPress={() => openEditModal(t)}>
+                <View style={styles.cardHeader}>
+                  <View style={[styles.avatar, { backgroundColor: '#9b59b620' }]}>
+                    <Ionicons name="people" size={24} color="#9b59b6" />
                   </View>
-                ))}
-              </View>
-            </TouchableOpacity>
-          ))}
+                  <View style={styles.cardInfo}>
+                    <Text style={styles.cardName}>{t.naam}</Text>
+                    <Text style={styles.cardSub}>{t.leden?.length || 0} leden</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => deleteTeam(t.id)} style={styles.deleteBtn}>
+                    <Ionicons name="trash-outline" size={22} color="#dc3545" />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.ledenList}>
+                  {t.leden?.map((l, idx) => (
+                    <View key={idx} style={styles.lidChip}>
+                      <Text style={styles.lidText}>{l}</Text>
+                    </View>
+                  ))}
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
         </ScrollView>
       )}
 
@@ -198,25 +212,23 @@ export default function TeamsAdmin() {
             </View>
             <Text style={styles.label}>Teamnaam *</Text>
             <TextInput style={styles.input} value={formData.naam} onChangeText={(v) => setFormData({ ...formData, naam: v })} placeholder="Team A" placeholderTextColor="#6c757d" />
-            <Text style={styles.label}>Teamleden</Text>
+            <Text style={styles.label}>Teamleden ({formData.leden.length} geselecteerd)</Text>
             <ScrollView style={styles.werknemersList}>
-              {werknemers.filter(w => w.rol === 'werknemer').map((w) => {
-                const lid = formData.leden.find(l => l.werknemer_id === w.id);
+              {werknemers.filter(w => w.rol === 'werknemer' || w.rol === 'ploegbaas').map((w) => {
+                const isSelected = formData.leden.includes(w.naam);
                 return (
-                  <View key={w.id} style={styles.werknemerRow}>
-                    <TouchableOpacity style={styles.checkbox} onPress={() => toggleLid(w)}>
-                      {lid && <Ionicons name="checkmark" size={18} color="#fff" />}
-                    </TouchableOpacity>
+                  <TouchableOpacity key={w.id} style={styles.werknemerRow} onPress={() => toggleLid(w.naam)}>
+                    <View style={[styles.checkbox, isSelected && styles.checkboxActive]}>
+                      {isSelected && <Ionicons name="checkmark" size={18} color="#fff" />}
+                    </View>
                     <Text style={styles.werknemerNaam}>{w.naam}</Text>
-                    {lid && (
-                      <TouchableOpacity style={[styles.ploegbaasBtn, lid.is_ploegbaas && styles.ploegbaasBtnActive]} onPress={() => togglePloegbaas(lid)}>
-                        <Ionicons name="star" size={14} color={lid.is_ploegbaas ? '#F5A623' : '#ccc'} />
-                        <Text style={[styles.ploegbaasText, lid.is_ploegbaas && styles.ploegbaasTextActive]}>Ploegbaas</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
+                    <Text style={styles.werknemerRol}>{w.rol}</Text>
+                  </TouchableOpacity>
                 );
               })}
+              {werknemers.filter(w => w.rol === 'werknemer' || w.rol === 'ploegbaas').length === 0 && (
+                <Text style={styles.noWerknemers}>Geen werknemers beschikbaar</Text>
+              )}
             </ScrollView>
             <TouchableOpacity style={styles.saveBtn} onPress={saveTeam} disabled={saving}>
               {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Opslaan</Text>}
@@ -237,6 +249,9 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 13, color: '#6c757d' },
   addBtn: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#9b59b6', alignItems: 'center', justifyContent: 'center' },
   list: { flex: 1, padding: 16 },
+  emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
+  emptyText: { fontSize: 18, fontWeight: '600', color: '#1A1A2E', marginTop: 16 },
+  emptySubtext: { fontSize: 14, color: '#6c757d', marginTop: 4 },
   card: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#E8E9ED' },
   cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   avatar: { width: 50, height: 50, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
@@ -255,14 +270,13 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 20, fontWeight: '600', color: '#1A1A2E' },
   label: { fontSize: 14, color: '#6c757d', marginBottom: 6, marginTop: 12 },
   input: { backgroundColor: '#F5F6FA', borderRadius: 10, padding: 14, fontSize: 16, color: '#1A1A2E', borderWidth: 1, borderColor: '#E8E9ED' },
-  werknemersList: { maxHeight: 250, marginTop: 8 },
-  werknemerRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#E8E9ED' },
-  checkbox: { width: 28, height: 28, borderRadius: 6, backgroundColor: '#9b59b6', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  werknemersList: { maxHeight: 250, marginTop: 8, borderWidth: 1, borderColor: '#E8E9ED', borderRadius: 10 },
+  werknemerRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#E8E9ED' },
+  checkbox: { width: 28, height: 28, borderRadius: 6, backgroundColor: '#E8E9ED', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  checkboxActive: { backgroundColor: '#9b59b6' },
   werknemerNaam: { flex: 1, fontSize: 15, color: '#1A1A2E' },
-  ploegbaasBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, backgroundColor: '#F5F6FA' },
-  ploegbaasBtnActive: { backgroundColor: '#F5A62320' },
-  ploegbaasText: { fontSize: 12, color: '#6c757d' },
-  ploegbaasTextActive: { color: '#F5A623' },
+  werknemerRol: { fontSize: 12, color: '#6c757d', backgroundColor: '#F5F6FA', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 },
+  noWerknemers: { textAlign: 'center', color: '#6c757d', padding: 20 },
   saveBtn: { backgroundColor: '#9b59b6', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 20 },
   saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });

@@ -43,28 +43,24 @@ export default function WervenAdmin() {
   const [formData, setFormData] = useState({ naam: '', adres: '', klant_id: '', werfleider: '' });
   const [saving, setSaving] = useState(false);
 
-  if (Platform.OS !== 'web') return null;
-  if (user?.rol !== 'beheerder' && user?.rol !== 'admin') {
-    return (
-      <View style={styles.container}>
-        <View style={styles.noAccess}>
-          <Ionicons name="lock-closed" size={64} color="#dc3545" />
-          <Text style={styles.noAccessText}>Geen toegang</Text>
-        </View>
-      </View>
-    );
-  }
-
-  useEffect(() => { fetchData(); }, []);
+  // ALL HOOKS MUST BE BEFORE ANY CONDITIONAL RETURNS
+  useEffect(() => { 
+    if (Platform.OS === 'web' && (user?.rol === 'beheerder' || user?.rol === 'admin')) {
+      fetchData(); 
+    }
+  }, [user]);
 
   const fetchData = async () => {
     try {
+      setLoading(true);
       const [wervenRes, klantenRes] = await Promise.all([
         fetch(`${API_URL}/api/werven`),
         fetch(`${API_URL}/api/klanten`),
       ]);
-      setWerven(await wervenRes.json());
-      setKlanten(await klantenRes.json());
+      const wervenData = await wervenRes.json();
+      const klantenData = await klantenRes.json();
+      setWerven(Array.isArray(wervenData) ? wervenData : []);
+      setKlanten(Array.isArray(klantenData) ? klantenData : []);
     } catch (error) {
       console.error('Error:', error);
     } finally {
@@ -86,6 +82,7 @@ export default function WervenAdmin() {
 
   const saveWerf = async () => {
     if (!formData.naam.trim()) { alert('Naam is verplicht'); return; }
+    if (!formData.klant_id) { alert('Selecteer een klant'); return; }
     setSaving(true);
     const klant = klanten.find(k => k.id === formData.klant_id);
     try {
@@ -99,7 +96,7 @@ export default function WervenAdmin() {
         await fetch(`${API_URL}/api/werven`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...formData, klant_naam: klant?.naam, actief: true }),
+          body: JSON.stringify({ naam: formData.naam, klant_id: formData.klant_id, adres: formData.adres }),
         });
       }
       setShowModal(false);
@@ -120,6 +117,20 @@ export default function WervenAdmin() {
       console.error('Error:', error);
     }
   };
+
+  // CONDITIONAL RETURNS AFTER ALL HOOKS
+  if (Platform.OS !== 'web') return null;
+  
+  if (user?.rol !== 'beheerder' && user?.rol !== 'admin') {
+    return (
+      <View style={styles.container}>
+        <View style={styles.noAccess}>
+          <Ionicons name="lock-closed" size={64} color="#dc3545" />
+          <Text style={styles.noAccessText}>Geen toegang</Text>
+        </View>
+      </View>
+    );
+  }
 
   const filtered = werven.filter(w =>
     w.naam?.toLowerCase().includes(search.toLowerCase()) ||
@@ -189,7 +200,7 @@ export default function WervenAdmin() {
             <ScrollView>
               <Text style={styles.label}>Naam *</Text>
               <TextInput style={styles.input} value={formData.naam} onChangeText={(v) => setFormData({ ...formData, naam: v })} placeholder="Werfnaam" placeholderTextColor="#6c757d" />
-              <Text style={styles.label}>Klant</Text>
+              <Text style={styles.label}>Klant *</Text>
               <ScrollView horizontal style={styles.klantScroll}>
                 {klanten.map((k) => (
                   <TouchableOpacity key={k.id} style={[styles.klantChip, formData.klant_id === k.id && styles.klantChipActive]} onPress={() => setFormData({ ...formData, klant_id: k.id })}>

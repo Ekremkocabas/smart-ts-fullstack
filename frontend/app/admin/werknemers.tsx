@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   TextInput,
   Modal,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -36,31 +35,84 @@ export default function WerknemersAdmin() {
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingWerknemer, setEditingWerknemer] = useState<Werknemer | null>(null);
-  const [formData, setFormData] = useState({ naam: '', email: '', role: 'werknemer' });
+  const [formData, setFormData] = useState({ naam: '', email: '', rol: 'werknemer', password: '' });
+  const [saving, setSaving] = useState(false);
 
-  if (Platform.OS !== 'web') return null;
-  if (user?.rol !== 'beheerder' && user?.rol !== 'admin') {
-    return (
-      <View style={styles.container}>
-        <View style={styles.noAccess}>
-          <Ionicons name="lock-closed" size={64} color="#dc3545" />
-          <Text style={styles.noAccessText}>Geen toegang</Text>
-        </View>
-      </View>
-    );
-  }
-
-  useEffect(() => { fetchWerknemers(); }, []);
+  // ALL HOOKS MUST BE BEFORE ANY CONDITIONAL RETURNS
+  useEffect(() => { 
+    if (Platform.OS === 'web' && (user?.rol === 'beheerder' || user?.rol === 'admin')) {
+      fetchWerknemers(); 
+    }
+  }, [user]);
 
   const fetchWerknemers = async () => {
     try {
+      setLoading(true);
       const res = await fetch(`${API_URL}/api/auth/users`);
       const data = await res.json();
-      setWerknemers(data);
+      setWerknemers(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openAddModal = () => {
+    setEditingWerknemer(null);
+    setFormData({ naam: '', email: '', rol: 'werknemer', password: '' });
+    setShowModal(true);
+  };
+
+  const openEditModal = (w: Werknemer) => {
+    setEditingWerknemer(w);
+    setFormData({ naam: w.naam, email: w.email, rol: w.rol, password: '' });
+    setShowModal(true);
+  };
+
+  const saveWerknemer = async () => {
+    if (!formData.naam.trim() || !formData.email.trim()) {
+      alert('Naam en email zijn verplicht');
+      return;
+    }
+    setSaving(true);
+    try {
+      if (editingWerknemer) {
+        await fetch(`${API_URL}/api/auth/users/${editingWerknemer.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            naam: formData.naam,
+            email: formData.email,
+            rol: formData.rol,
+            actief: editingWerknemer.actief,
+          }),
+        });
+      } else {
+        const res = await fetch(`${API_URL}/api/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            naam: formData.naam,
+            email: formData.email,
+            password: formData.password || 'temp123',
+            rol: formData.rol,
+          }),
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert(err.detail || 'Fout bij aanmaken');
+          setSaving(false);
+          return;
+        }
+      }
+      setShowModal(false);
+      fetchWerknemers();
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Fout bij opslaan');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -98,6 +150,20 @@ export default function WerknemersAdmin() {
     }
   };
 
+  // CONDITIONAL RETURNS AFTER ALL HOOKS
+  if (Platform.OS !== 'web') return null;
+  
+  if (user?.rol !== 'beheerder' && user?.rol !== 'admin') {
+    return (
+      <View style={styles.container}>
+        <View style={styles.noAccess}>
+          <Ionicons name="lock-closed" size={64} color="#dc3545" />
+          <Text style={styles.noAccessText}>Geen toegang</Text>
+        </View>
+      </View>
+    );
+  }
+
   const filtered = werknemers.filter(w =>
     w.naam?.toLowerCase().includes(search.toLowerCase()) ||
     w.email?.toLowerCase().includes(search.toLowerCase())
@@ -113,7 +179,7 @@ export default function WerknemersAdmin() {
           <Text style={styles.title}>Werknemers</Text>
           <Text style={styles.subtitle}>{werknemers.length} totaal</Text>
         </View>
-        <TouchableOpacity style={styles.addBtn} onPress={() => { setEditingWerknemer(null); setFormData({ naam: '', email: '', role: 'werknemer' }); setShowModal(true); }}>
+        <TouchableOpacity style={styles.addBtn} onPress={openAddModal}>
           <Ionicons name="add" size={24} color="#fff" />
         </TouchableOpacity>
       </View>
@@ -143,7 +209,7 @@ export default function WerknemersAdmin() {
                   <Text style={styles.cardName}>{w.naam}</Text>
                   <Text style={styles.cardEmail}>{w.email}</Text>
                   <View style={styles.badges}>
-                    <View style={[styles.roleBadge, w.rol === 'beheerder' && styles.adminBadge]}>
+                    <View style={[styles.roleBadge, (w.rol === 'beheerder' || w.rol === 'admin') && styles.adminBadge]}>
                       <Text style={styles.roleText}>{w.rol}</Text>
                     </View>
                     {!w.actief && <View style={styles.inactiveBadge}><Text style={styles.inactiveText}>Inactief</Text></View>}
@@ -172,6 +238,9 @@ export default function WerknemersAdmin() {
               </View>
 
               <View style={styles.cardActions}>
+                <TouchableOpacity style={styles.actionBtn} onPress={() => openEditModal(w)}>
+                  <Ionicons name="create-outline" size={22} color="#3498db" />
+                </TouchableOpacity>
                 <TouchableOpacity style={styles.actionBtn} onPress={() => toggleActief(w)}>
                   <Ionicons name={w.actief ? 'pause-circle' : 'play-circle'} size={22} color={w.actief ? '#ffc107' : '#28a745'} />
                 </TouchableOpacity>
@@ -183,6 +252,46 @@ export default function WerknemersAdmin() {
           ))}
         </ScrollView>
       )}
+
+      <Modal visible={showModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{editingWerknemer ? 'Werknemer bewerken' : 'Nieuwe werknemer'}</Text>
+              <TouchableOpacity onPress={() => setShowModal(false)}>
+                <Ionicons name="close" size={24} color="#1A1A2E" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView>
+              <Text style={styles.label}>Naam *</Text>
+              <TextInput style={styles.input} value={formData.naam} onChangeText={(v) => setFormData({ ...formData, naam: v })} placeholder="Volledige naam" placeholderTextColor="#6c757d" />
+              <Text style={styles.label}>E-mail *</Text>
+              <TextInput style={styles.input} value={formData.email} onChangeText={(v) => setFormData({ ...formData, email: v })} placeholder="email@voorbeeld.be" placeholderTextColor="#6c757d" keyboardType="email-address" autoCapitalize="none" />
+              {!editingWerknemer && (
+                <>
+                  <Text style={styles.label}>Wachtwoord</Text>
+                  <TextInput style={styles.input} value={formData.password} onChangeText={(v) => setFormData({ ...formData, password: v })} placeholder="Tijdelijk wachtwoord" placeholderTextColor="#6c757d" />
+                </>
+              )}
+              <Text style={styles.label}>Rol</Text>
+              <View style={styles.rolSelector}>
+                <TouchableOpacity style={[styles.rolOption, formData.rol === 'werknemer' && styles.rolOptionActive]} onPress={() => setFormData({ ...formData, rol: 'werknemer' })}>
+                  <Text style={[styles.rolOptionText, formData.rol === 'werknemer' && styles.rolOptionTextActive]}>Werknemer</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.rolOption, formData.rol === 'ploegbaas' && styles.rolOptionActive]} onPress={() => setFormData({ ...formData, rol: 'ploegbaas' })}>
+                  <Text style={[styles.rolOptionText, formData.rol === 'ploegbaas' && styles.rolOptionTextActive]}>Ploegbaas</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.rolOption, formData.rol === 'beheerder' && styles.rolOptionActive]} onPress={() => setFormData({ ...formData, rol: 'beheerder' })}>
+                  <Text style={[styles.rolOptionText, formData.rol === 'beheerder' && styles.rolOptionTextActive]}>Beheerder</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+            <TouchableOpacity style={styles.saveBtn} onPress={saveWerknemer} disabled={saving}>
+              {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Opslaan</Text>}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -222,4 +331,17 @@ const styles = StyleSheet.create({
   actionBtn: { padding: 8 },
   noAccess: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   noAccessText: { fontSize: 20, color: '#1A1A2E', marginTop: 16 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalContent: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 24, width: '100%', maxWidth: 500, maxHeight: '90%' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  modalTitle: { fontSize: 20, fontWeight: '600', color: '#1A1A2E' },
+  label: { fontSize: 14, color: '#6c757d', marginBottom: 6, marginTop: 12 },
+  input: { backgroundColor: '#F5F6FA', borderRadius: 10, padding: 14, fontSize: 16, color: '#1A1A2E', borderWidth: 1, borderColor: '#E8E9ED' },
+  rolSelector: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  rolOption: { flex: 1, paddingVertical: 12, borderRadius: 8, backgroundColor: '#F5F6FA', alignItems: 'center', borderWidth: 1, borderColor: '#E8E9ED' },
+  rolOptionActive: { backgroundColor: '#F5A623', borderColor: '#F5A623' },
+  rolOptionText: { fontSize: 14, color: '#6c757d', fontWeight: '500' },
+  rolOptionTextActive: { color: '#fff' },
+  saveBtn: { backgroundColor: '#F5A623', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 20 },
+  saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });

@@ -36,27 +36,19 @@ export default function WerkbonnenAdmin() {
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
   const [filterWeek, setFilterWeek] = useState<number | null>(null);
 
-  const currentWeek = Math.ceil((new Date().getTime() - new Date(new Date().getFullYear(), 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000));
-
-  if (Platform.OS !== 'web') return null;
-  if (user?.rol !== 'beheerder' && user?.rol !== 'admin') {
-    return (
-      <View style={styles.container}>
-        <View style={styles.noAccess}>
-          <Ionicons name="lock-closed" size={64} color="#dc3545" />
-          <Text style={styles.noAccessText}>Geen toegang</Text>
-        </View>
-      </View>
-    );
-  }
-
-  useEffect(() => { fetchWerkbonnen(); }, []);
+  // ALL HOOKS MUST BE BEFORE ANY CONDITIONAL RETURNS
+  useEffect(() => { 
+    if (Platform.OS === 'web' && (user?.rol === 'beheerder' || user?.rol === 'admin')) {
+      fetchWerkbonnen(); 
+    }
+  }, [user]);
 
   const fetchWerkbonnen = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/werkbonnen`);
+      setLoading(true);
+      const res = await fetch(`${API_URL}/api/werkbonnen?user_id=admin-001&is_admin=true`);
       const data = await res.json();
-      setWerkbonnen(data.sort((a: Werkbon, b: Werkbon) => b.week_nummer - a.week_nummer));
+      setWerkbonnen(Array.isArray(data) ? data.sort((a: Werkbon, b: Werkbon) => b.week_nummer - a.week_nummer) : []);
     } catch (error) {
       console.error('Error:', error);
     } finally {
@@ -102,6 +94,20 @@ export default function WerkbonnenAdmin() {
       return acc + (u.maandag || 0) + (u.dinsdag || 0) + (u.woensdag || 0) + (u.donderdag || 0) + (u.vrijdag || 0) + (u.zaterdag || 0) + (u.zondag || 0);
     }, 0) || 0;
   };
+
+  // CONDITIONAL RETURNS AFTER ALL HOOKS
+  if (Platform.OS !== 'web') return null;
+  
+  if (user?.rol !== 'beheerder' && user?.rol !== 'admin') {
+    return (
+      <View style={styles.container}>
+        <View style={styles.noAccess}>
+          <Ionicons name="lock-closed" size={64} color="#dc3545" />
+          <Text style={styles.noAccessText}>Geen toegang</Text>
+        </View>
+      </View>
+    );
+  }
 
   let filtered = werkbonnen;
   if (search) {

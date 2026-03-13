@@ -426,7 +426,7 @@ agent_communication:
       - Signature functionality (status changes to 'ondertekend')
       - Error handling scenarios
       
-      Backend testing is COMPLETE. All endpoints working correctly at https://smart-ts-build.preview.emergentagent.com/api
+      Backend testing is COMPLETE. All endpoints working correctly at https://web-portal-debug.preview.emergentagent.com/api
   - agent: "testing"
     message: |
       ADMIN LOGIN TESTING COMPLETED SUCCESSFULLY!

@@ -48,22 +48,16 @@ export default function InstellingenAdmin() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  if (Platform.OS !== 'web') return null;
-  if (user?.rol !== 'beheerder' && user?.rol !== 'admin') {
-    return (
-      <View style={styles.container}>
-        <View style={styles.noAccess}>
-          <Ionicons name="lock-closed" size={64} color="#dc3545" />
-          <Text style={styles.noAccessText}>Geen toegang</Text>
-        </View>
-      </View>
-    );
-  }
-
-  useEffect(() => { fetchInstellingen(); }, []);
+  // ALL HOOKS MUST BE BEFORE ANY CONDITIONAL RETURNS
+  useEffect(() => { 
+    if (Platform.OS === 'web' && (user?.rol === 'beheerder' || user?.rol === 'admin')) {
+      fetchInstellingen(); 
+    }
+  }, [user]);
 
   const fetchInstellingen = async () => {
     try {
+      setLoading(true);
       const res = await fetch(`${API_URL}/api/instellingen`);
       const data = await res.json();
       if (data && data.bedrijfsnaam) {
@@ -105,6 +99,20 @@ export default function InstellingenAdmin() {
       setSaving(false);
     }
   };
+
+  // CONDITIONAL RETURNS AFTER ALL HOOKS
+  if (Platform.OS !== 'web') return null;
+  
+  if (user?.rol !== 'beheerder' && user?.rol !== 'admin') {
+    return (
+      <View style={styles.container}>
+        <View style={styles.noAccess}>
+          <Ionicons name="lock-closed" size={64} color="#dc3545" />
+          <Text style={styles.noAccessText}>Geen toegang</Text>
+        </View>
+      </View>
+    );
+  }
 
   if (loading) {
     return (
