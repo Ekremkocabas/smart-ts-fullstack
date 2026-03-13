@@ -33,6 +33,7 @@ interface Bericht {
 interface Werknemer {
   id: string;
   naam: string;
+  email: string;
   rol: string;
   actief: boolean;
 }
@@ -52,6 +53,8 @@ export default function BerichtenAdmin() {
     onderwerp: '',
     inhoud: '',
     vastgepind: false,
+    ook_email: false,
+    ook_sms: false,
   });
 
   const fetchData = useCallback(async () => {
@@ -80,7 +83,7 @@ export default function BerichtenAdmin() {
   };
 
   const openNewMessage = () => {
-    setForm({ naar_ids: [], is_broadcast: false, onderwerp: '', inhoud: '', vastgepind: false });
+    setForm({ naar_ids: [], is_broadcast: false, onderwerp: '', inhoud: '', vastgepind: false, ook_email: false, ook_sms: false });
     setSelectedBericht(null);
     setShowModal(true);
   };
@@ -118,22 +121,50 @@ export default function BerichtenAdmin() {
     try {
       const userId = user?.id || 'admin-001';
       const userName = user?.naam || 'Admin';
+      
+      // Get selected worker emails for email sending
+      const selectedWorkerEmails: { id: string; email: string; naam: string }[] = [];
+      if (form.ook_email) {
+        const targetIds = form.is_broadcast ? werknemers.map(w => w.id) : form.naar_ids;
+        targetIds.forEach(id => {
+          const w = werknemers.find(x => x.id === id);
+          if (w && w.email) selectedWorkerEmails.push({ id: w.id, email: w.email, naam: w.naam });
+        });
+      }
+
       if (form.is_broadcast) {
-        // Send as broadcast
         const body = { naar_id: null, is_broadcast: true, onderwerp: form.onderwerp, inhoud: form.inhoud, vastgepind: form.vastgepind };
         await fetch(`${API_URL}/api/berichten?van_id=${userId}&van_naam=${encodeURIComponent(userName)}`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
         });
       } else {
-        // Send to each selected recipient
         for (const naarId of form.naar_ids) {
-          const w = werknemers.find(x => x.id === naarId);
           const body = { naar_id: naarId, is_broadcast: false, onderwerp: form.onderwerp, inhoud: form.inhoud, vastgepind: form.vastgepind };
           await fetch(`${API_URL}/api/berichten?van_id=${userId}&van_naam=${encodeURIComponent(userName)}`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
           });
         }
       }
+
+      // Send via email if toggle is on
+      if (form.ook_email && selectedWorkerEmails.length > 0) {
+        for (const worker of selectedWorkerEmails) {
+          try {
+            await fetch(`${API_URL}/api/berichten/send-email`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                to_email: worker.email,
+                to_naam: worker.naam,
+                onderwerp: form.onderwerp,
+                inhoud: form.inhoud,
+                van_naam: userName,
+              }),
+            });
+          } catch (emailErr) { console.error('Email send error:', emailErr); }
+        }
+      }
+
       setShowModal(false);
       fetchData();
     } catch (e) { console.error(e); alert('Fout bij verzenden'); }
@@ -353,6 +384,29 @@ export default function BerichtenAdmin() {
                   <View style={[styles.toggleThumb, form.vastgepind && styles.toggleThumbActive]} />
                 </View>
               </TouchableOpacity>
+
+              {/* Email toggle */}
+              <TouchableOpacity style={[styles.pinToggle, { marginTop: 10 }]} activeOpacity={0.7}
+                onPress={() => setForm({ ...form, ook_email: !form.ook_email })}>
+                <Ionicons name="mail-outline" size={18} color={form.ook_email ? '#3498db' : '#6c757d'} />
+                <Text style={{ flex: 1, fontSize: 14, color: '#1A1A2E' }}>Ook via e-mail sturen</Text>
+                <View style={[styles.toggle, form.ook_email && { backgroundColor: '#3498db' }]}>
+                  <View style={[styles.toggleThumb, form.ook_email && styles.toggleThumbActive]} />
+                </View>
+              </TouchableOpacity>
+
+              {/* SMS toggle (future) */}
+              <TouchableOpacity style={[styles.pinToggle, { marginTop: 10, opacity: 0.5 }]} activeOpacity={0.7}
+                onPress={() => setForm({ ...form, ook_sms: !form.ook_sms })}>
+                <Ionicons name="chatbox-outline" size={18} color={form.ook_sms ? '#28a745' : '#6c757d'} />
+                <Text style={{ flex: 1, fontSize: 14, color: '#1A1A2E' }}>Ook via SMS sturen</Text>
+                <View style={[styles.toggle, form.ook_sms && { backgroundColor: '#28a745' }]}>
+                  <View style={[styles.toggleThumb, form.ook_sms && styles.toggleThumbActive]} />
+                </View>
+              </TouchableOpacity>
+              {form.ook_sms && (
+                <Text style={{ fontSize: 11, color: '#F5A623', marginTop: 4, fontStyle: 'italic' }}>SMS functie wordt binnenkort geactiveerd</Text>
+              )}
             </ScrollView>
 
             <TouchableOpacity style={styles.saveBtn} onPress={sendBericht} disabled={saving}>

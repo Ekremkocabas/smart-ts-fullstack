@@ -2416,6 +2416,59 @@ async def delete_bericht(bericht_id: str):
         raise HTTPException(status_code=404, detail="Bericht niet gevonden")
     return {"message": "Bericht verwijderd"}
 
+@api_router.post("/berichten/send-email")
+async def send_bericht_email(data: dict):
+    """Send a bericht also via email"""
+    try:
+        to_email = data.get("to_email")
+        to_naam = data.get("to_naam", "")
+        onderwerp = data.get("onderwerp", "Nieuw bericht")
+        inhoud = data.get("inhoud", "")
+        van_naam = data.get("van_naam", "Admin")
+        
+        if not to_email:
+            return {"success": False, "error": "Geen e-mailadres"}
+        
+        instellingen = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0}) or {}
+        bedrijfsnaam = instellingen.get("bedrijfsnaam", "Smart-Tech BV")
+        
+        html_content = f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background-color: #1a1a2e; padding: 20px; border-radius: 10px 10px 0 0; text-align: center;">
+                <h1 style="color: #F5A623; margin: 0; font-size: 22px;">{bedrijfsnaam}</h1>
+            </div>
+            <div style="background-color: #ffffff; padding: 24px; border: 1px solid #e8e9ed;">
+                <p style="color: #6c757d; font-size: 13px; margin: 0 0 8px 0;">Bericht van {van_naam}</p>
+                <h2 style="color: #1a1a2e; margin: 0 0 16px 0; font-size: 18px;">{onderwerp}</h2>
+                <div style="color: #333; font-size: 15px; line-height: 1.6; white-space: pre-wrap;">{inhoud}</div>
+            </div>
+            <div style="background-color: #f5f6fa; padding: 16px; border-radius: 0 0 10px 10px; text-align: center; border: 1px solid #e8e9ed; border-top: 0;">
+                <p style="color: #999; font-size: 11px; margin: 0;">Dit bericht is verzonden via {bedrijfsnaam} App</p>
+            </div>
+        </div>
+        """
+        
+        resend_key = os.getenv("RESEND_API_KEY")
+        sender_email = os.getenv("SENDER_EMAIL", "info@smart-techbv.be")
+        
+        if not resend_key:
+            return {"success": False, "error": "E-mail service niet geconfigureerd"}
+        
+        import resend
+        resend.api_key = resend_key
+        
+        result = resend.Emails.send({
+            "from": f"{bedrijfsnaam} <{sender_email}>",
+            "to": [to_email],
+            "subject": f"{bedrijfsnaam} - {onderwerp}",
+            "html": html_content,
+        })
+        
+        return {"success": True, "id": str(result)}
+    except Exception as e:
+        logging.error(f"Bericht email error: {e}")
+        return {"success": False, "error": str(e)}
+
 # ==================== THEME / APP SETTINGS ROUTE ====================
 
 @api_router.get("/app-settings")
