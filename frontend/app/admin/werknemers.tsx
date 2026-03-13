@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   TextInput,
   Modal,
-  Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -426,18 +425,19 @@ export default function WerknemersAdmin() {
                   <Text style={styles.label}>Nieuw wachtwoord instellen (optioneel)</Text>
                   <TextInput style={styles.input} value={formData.password} onChangeText={(v) => setFormData({ ...formData, password: v })} placeholder="Laat leeg om niet te wijzigen" placeholderTextColor="#6c757d" />
                   
-                  <View style={styles.toggleRow}>
+                  <TouchableOpacity 
+                    style={[styles.toggleRow]}
+                    activeOpacity={0.7}
+                    onPress={() => setFormData({ ...formData, mag_wachtwoord_wijzigen: !formData.mag_wachtwoord_wijzigen })}
+                  >
                     <View style={styles.toggleLeft}>
                       <Ionicons name="shield-checkmark-outline" size={20} color={formData.mag_wachtwoord_wijzigen ? '#27ae60' : '#6c757d'} />
                       <Text style={styles.toggleLabel}>Werknemer mag zelf wachtwoord wijzigen</Text>
                     </View>
-                    <Switch
-                      value={formData.mag_wachtwoord_wijzigen}
-                      onValueChange={(v) => setFormData({ ...formData, mag_wachtwoord_wijzigen: v })}
-                      trackColor={{ false: '#E8E9ED', true: '#27ae6060' }}
-                      thumbColor={formData.mag_wachtwoord_wijzigen ? '#27ae60' : '#ccc'}
-                    />
-                  </View>
+                    <View style={[styles.customToggle, formData.mag_wachtwoord_wijzigen && { backgroundColor: '#27ae60' }]}>
+                      <View style={[styles.customToggleThumb, formData.mag_wachtwoord_wijzigen && styles.customToggleThumbActive]} />
+                    </View>
+                  </TouchableOpacity>
                 </>
               )}
               
@@ -453,27 +453,35 @@ export default function WerknemersAdmin() {
               <Text style={[styles.label, { marginTop: 20 }]}>Werkbon types</Text>
               <Text style={styles.sublabel}>Selecteer welke werkbonnen deze werknemer mag gebruiken</Text>
               <View style={styles.werkbonTypesList}>
-                {WERKBON_TYPES.map((type) => (
-                  <TouchableOpacity 
-                    key={type.key} 
-                    style={[
-                      styles.werkbonTypeItem, 
-                      formData.werkbon_types.includes(type.key) && { borderColor: type.color, backgroundColor: type.color + '10' }
-                    ]} 
-                    onPress={() => toggleWerkbonType(type.key)}
-                  >
-                    <View style={styles.werkbonTypeLeft}>
-                      <Ionicons name={type.icon as any} size={20} color={formData.werkbon_types.includes(type.key) ? type.color : '#6c757d'} />
-                      <Text style={[styles.werkbonTypeLabel, formData.werkbon_types.includes(type.key) && { color: type.color, fontWeight: '600' }]}>{type.label}</Text>
-                    </View>
-                    <Switch
-                      value={formData.werkbon_types.includes(type.key)}
-                      onValueChange={() => toggleWerkbonType(type.key)}
-                      trackColor={{ false: '#E8E9ED', true: type.color + '60' }}
-                      thumbColor={formData.werkbon_types.includes(type.key) ? type.color : '#ccc'}
-                    />
-                  </TouchableOpacity>
-                ))}
+                {WERKBON_TYPES.map((type) => {
+                  const isActive = formData.werkbon_types.includes(type.key);
+                  return (
+                    <TouchableOpacity
+                      key={type.key}
+                      activeOpacity={0.7}
+                      style={[
+                        styles.werkbonTypeItem, 
+                        isActive && { borderColor: type.color, backgroundColor: type.color + '10' }
+                      ]}
+                      onPress={() => {
+                        setFormData(prev => {
+                          const newTypes = isActive 
+                            ? prev.werkbon_types.filter(t => t !== type.key)
+                            : [...prev.werkbon_types, type.key];
+                          return { ...prev, werkbon_types: newTypes.length > 0 ? newTypes : prev.werkbon_types };
+                        });
+                      }}
+                    >
+                      <View style={styles.werkbonTypeLeft}>
+                        <Ionicons name={type.icon as any} size={20} color={isActive ? type.color : '#6c757d'} />
+                        <Text style={[styles.werkbonTypeLabel, isActive && { color: type.color, fontWeight: '600' }]}>{type.label}</Text>
+                      </View>
+                      <View style={[styles.customToggle, isActive && { backgroundColor: type.color }]}>
+                        <View style={[styles.customToggleThumb, isActive && styles.customToggleThumbActive]} />
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
 
               {!editingWerknemer && (
@@ -551,6 +559,9 @@ const styles = StyleSheet.create({
   werkbonTypeItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F5F6FA', padding: 14, borderRadius: 10, borderWidth: 1.5, borderColor: '#E8E9ED' },
   werkbonTypeLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   werkbonTypeLabel: { fontSize: 14, color: '#6c757d' },
+  customToggle: { width: 48, height: 26, borderRadius: 13, backgroundColor: '#E8E9ED', padding: 2, justifyContent: 'center' },
+  customToggleThumb: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff', alignSelf: 'flex-start' },
+  customToggleThumbActive: { alignSelf: 'flex-end' },
   emailNotice: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#27ae6010', padding: 14, borderRadius: 10, marginTop: 20, borderWidth: 1, borderColor: '#27ae6030' },
   emailNoticeText: { flex: 1, fontSize: 13, color: '#27ae60' },
   saveBtn: { backgroundColor: '#F5A623', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 20 },
