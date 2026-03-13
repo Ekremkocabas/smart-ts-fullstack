@@ -640,7 +640,7 @@ async def send_welcome_email(user_email: str, user_naam: str, temp_password: str
             <div style="background: #1a1a2e; border-radius: 8px; padding: 20px; margin: 20px 0; text-align: center;">
                 <p style="color: #F5A623; font-weight: bold; margin: 0 0 10px 0;">📱 Smart-TS App</p>
                 <p style="color: #aaa; margin: 0 0 15px 0;">Open de link hieronder op je telefoon en voeg toe aan het beginscherm</p>
-                <a href="https://job-dispatch-portal.preview.emergentagent.com" style="background: #F5A623; color: #1a1a2e; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; display: inline-block;">
+                <a href="https://ops-manager-15.preview.emergentagent.com" style="background: #F5A623; color: #1a1a2e; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; display: inline-block;">
                     🔗 Open Smart-TS App
                 </a>
                 <p style="color: #666; font-size: 11px; margin: 10px 0 0 0;">Tip: In je browser → "Toevoegen aan beginscherm" voor een app-pictogram</p>
@@ -1315,7 +1315,22 @@ async def login_user(login_data: UserLogin):
     if not user:
         raise HTTPException(status_code=401, detail="Ongeldige inloggegevens")
     
-    if not verify_password(login_data.password, user["password_hash"]):
+    # Try password_hash first, then fall back to plain text comparison
+    authenticated = False
+    if user.get("password_hash"):
+        authenticated = verify_password(login_data.password, user["password_hash"])
+    
+    # Fallback: compare with wachtwoord_plain directly
+    if not authenticated and user.get("wachtwoord_plain"):
+        authenticated = (login_data.password == user["wachtwoord_plain"])
+        # If matched via plain text, create the hash for future logins
+        if authenticated:
+            await db.users.update_one(
+                {"id": user["id"]},
+                {"$set": {"password_hash": hash_password(login_data.password)}}
+            )
+    
+    if not authenticated:
         raise HTTPException(status_code=401, detail="Ongeldige inloggegevens")
     
     if not user.get("actief", True):

@@ -10,7 +10,7 @@ import sys
 from typing import Dict, Any, Optional
 
 # Backend URL Configuration
-BASE_URL = "https://job-dispatch-portal.preview.emergentagent.com/api"
+BASE_URL = "https://ops-manager-15.preview.emergentagent.com/api"
 
 # Admin credentials for testing
 ADMIN_EMAIL = "info@smart-techbv.be"
