@@ -248,6 +248,10 @@ class BedrijfsInstellingen(BaseModel):
     selfie_activeren: bool = False
     sms_verificatie_activeren: bool = False
     automatisch_naar_klant: bool = False  # Auto-include client email in werkbon email
+    # Theme settings for remote control
+    primary_color: str = "#1a1a2e"
+    secondary_color: str = "#F5A623"
+    accent_color: str = "#16213e"
 
 class BedrijfsInstellingenUpdate(BaseModel):
     bedrijfsnaam: Optional[str] = None
@@ -264,6 +268,268 @@ class BedrijfsInstellingenUpdate(BaseModel):
     selfie_activeren: Optional[bool] = None
     sms_verificatie_activeren: Optional[bool] = None
     automatisch_naar_klant: Optional[bool] = None
+    primary_color: Optional[str] = None
+    secondary_color: Optional[str] = None
+    accent_color: Optional[str] = None
+
+# ==================== OPLEVERING WERKBON (Customer Satisfaction) ====================
+
+class SchadeCheck(BaseModel):
+    label: str  # e.g. "Geen schade aan eigendom klant"
+    checked: bool = False
+    opmerking: str = ""
+    foto: Optional[str] = None  # base64 photo if damage found
+
+class Beoordeling(BaseModel):
+    categorie: str  # e.g. "Kwaliteit van het werk"
+    score: int = 0  # 1-5 stars
+    opmerking: str = ""
+
+class OpleveringWerkbon(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    type: str = "oplevering"
+    
+    # Klant & Werf info
+    klant_id: str
+    klant_naam: str
+    klant_email: Optional[str] = None
+    klant_telefoon: Optional[str] = None
+    werf_id: str
+    werf_naam: str
+    werf_adres: Optional[str] = None
+    
+    # Werk details
+    datum: str  # Date of delivery
+    werk_beschrijving: str = ""  # What was done
+    installatie_type: str = ""  # Zonnepaneel, Airco, etc.
+    gebruikte_materialen: str = ""
+    extra_opmerkingen: str = ""
+    
+    # Schade checks (CRITICAL)
+    schade_checks: List[SchadeCheck] = Field(default_factory=lambda: [
+        SchadeCheck(label="Geen schade aan eigendom klant"),
+        SchadeCheck(label="Alle apparatuur werkt correct"),
+        SchadeCheck(label="Werkplek schoon opgeleverd"),
+        SchadeCheck(label="Alle afval afgevoerd"),
+    ])
+    alles_ok: bool = False  # Master toggle - everything OK
+    
+    # Star ratings
+    beoordelingen: List[Beoordeling] = Field(default_factory=lambda: [
+        Beoordeling(categorie="Kwaliteit van het werk"),
+        Beoordeling(categorie="Communicatie met monteurs"),
+        Beoordeling(categorie="Stiptheid / Punctualiteit"),
+        Beoordeling(categorie="Netheid en orde"),
+        Beoordeling(categorie="Algehele tevredenheid"),
+    ])
+    
+    # Photos (before/after + work photos)
+    fotos: List[str] = []  # List of base64 encoded images
+    foto_labels: List[str] = []  # Label for each photo
+    
+    # Signatures
+    handtekening_klant: Optional[str] = None  # Client signature base64
+    handtekening_klant_naam: str = ""
+    handtekening_monteur: Optional[str] = None  # Technician signature base64
+    handtekening_monteur_naam: str = ""
+    handtekening_datum: Optional[datetime] = None
+    
+    # Meta
+    ingevuld_door_id: str
+    ingevuld_door_naam: str
+    status: str = "concept"  # concept, ondertekend, verzonden
+    email_verzonden: bool = False
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class OpleveringWerkbonCreate(BaseModel):
+    klant_id: str
+    werf_id: str
+    datum: str
+    installatie_type: str = ""
+    werk_beschrijving: str = ""
+    gebruikte_materialen: str = ""
+
+class OpleveringWerkbonUpdate(BaseModel):
+    datum: Optional[str] = None
+    werk_beschrijving: Optional[str] = None
+    installatie_type: Optional[str] = None
+    gebruikte_materialen: Optional[str] = None
+    extra_opmerkingen: Optional[str] = None
+    schade_checks: Optional[List[SchadeCheck]] = None
+    alles_ok: Optional[bool] = None
+    beoordelingen: Optional[List[Beoordeling]] = None
+    fotos: Optional[List[str]] = None
+    foto_labels: Optional[List[str]] = None
+    handtekening_klant: Optional[str] = None
+    handtekening_klant_naam: Optional[str] = None
+    handtekening_monteur: Optional[str] = None
+    handtekening_monteur_naam: Optional[str] = None
+    status: Optional[str] = None
+
+# ==================== PROJECT WERKBON (Project Manager) ====================
+
+class ProjectWerkbon(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    type: str = "project"
+    
+    # Klant & Werf info
+    klant_id: str
+    klant_naam: str
+    werf_id: str
+    werf_naam: str
+    werf_adres: Optional[str] = None
+    
+    # Time tracking
+    datum: str
+    start_tijd: str = ""  # HH:MM format
+    stop_tijd: str = ""  # HH:MM format
+    pauze_minuten: int = 0
+    totaal_uren: float = 0
+    
+    # Location
+    locatie_start: Optional[str] = None  # GPS coords or address
+    locatie_stop: Optional[str] = None
+    
+    # Work details
+    werk_beschrijving: str = ""
+    extra_opmerkingen: str = ""
+    
+    # Signatures
+    handtekening_klant: Optional[str] = None
+    handtekening_klant_naam: str = ""
+    handtekening_monteur: Optional[str] = None
+    handtekening_monteur_naam: str = ""
+    handtekening_datum: Optional[datetime] = None
+    
+    # Meta
+    ingevuld_door_id: str
+    ingevuld_door_naam: str
+    status: str = "concept"
+    email_verzonden: bool = False
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class ProjectWerkbonCreate(BaseModel):
+    klant_id: str
+    werf_id: str
+    datum: str
+    start_tijd: str = ""
+    stop_tijd: str = ""
+    pauze_minuten: int = 0
+    werk_beschrijving: str = ""
+
+class ProjectWerkbonUpdate(BaseModel):
+    datum: Optional[str] = None
+    start_tijd: Optional[str] = None
+    stop_tijd: Optional[str] = None
+    pauze_minuten: Optional[int] = None
+    locatie_start: Optional[str] = None
+    locatie_stop: Optional[str] = None
+    werk_beschrijving: Optional[str] = None
+    extra_opmerkingen: Optional[str] = None
+    handtekening_klant: Optional[str] = None
+    handtekening_klant_naam: Optional[str] = None
+    handtekening_monteur: Optional[str] = None
+    handtekening_monteur_naam: Optional[str] = None
+    status: Optional[str] = None
+
+# ==================== PLANNING SYSTEM ====================
+
+class PlanningItem(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    week_nummer: int
+    jaar: int
+    dag: str  # maandag, dinsdag, etc.
+    datum: str  # DD-MM-YYYY
+    
+    # Assignment
+    werknemer_ids: List[str] = []
+    werknemer_namen: List[str] = []
+    team_id: Optional[str] = None
+    team_naam: Optional[str] = None
+    
+    # Job details
+    klant_id: str
+    klant_naam: str
+    werf_id: str
+    werf_naam: str
+    werf_adres: Optional[str] = None
+    
+    # Details
+    omschrijving: str = ""  # Job description
+    materiaallijst: List[str] = []  # Required materials
+    geschatte_duur: str = ""  # Estimated duration (e.g., "4 uur", "hele dag")
+    prioriteit: str = "normaal"  # laag, normaal, hoog, urgent
+    
+    # Status (admin panel only)
+    status: str = "gepland"  # gepland, onderweg, bezig, afgerond
+    
+    # Worker acknowledgment
+    bevestigd_door: List[str] = []  # Worker IDs who pressed OK
+    
+    notities: str = ""  # Additional notes
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class PlanningItemCreate(BaseModel):
+    week_nummer: int
+    jaar: int
+    dag: str
+    datum: str
+    werknemer_ids: List[str] = []
+    werknemer_namen: List[str] = []
+    team_id: Optional[str] = None
+    klant_id: str
+    werf_id: str
+    omschrijving: str = ""
+    materiaallijst: List[str] = []
+    geschatte_duur: str = ""
+    prioriteit: str = "normaal"
+    notities: str = ""
+
+class PlanningItemUpdate(BaseModel):
+    dag: Optional[str] = None
+    datum: Optional[str] = None
+    werknemer_ids: Optional[List[str]] = None
+    werknemer_namen: Optional[List[str]] = None
+    team_id: Optional[str] = None
+    klant_id: Optional[str] = None
+    werf_id: Optional[str] = None
+    omschrijving: Optional[str] = None
+    materiaallijst: Optional[List[str]] = None
+    geschatte_duur: Optional[str] = None
+    prioriteit: Optional[str] = None
+    status: Optional[str] = None
+    notities: Optional[str] = None
+
+# ==================== MESSAGES / BERICHTEN ====================
+
+class Bericht(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    van_id: str  # Sender user ID
+    van_naam: str
+    naar_id: Optional[str] = None  # Recipient user ID (None = all workers)
+    naar_naam: Optional[str] = None
+    is_broadcast: bool = False  # Send to all workers
+    
+    onderwerp: str = ""
+    inhoud: str = ""
+    
+    vastgepind: bool = False  # Pinned message
+    gelezen_door: List[str] = []  # User IDs who read it
+    
+    planning_id: Optional[str] = None  # Linked planning item
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+class BerichtCreate(BaseModel):
+    naar_id: Optional[str] = None
+    is_broadcast: bool = False
+    onderwerp: str = ""
+    inhoud: str = ""
+    vastgepind: bool = False
+    planning_id: Optional[str] = None
 
 # ==================== HELPER FUNCTIONS ====================
 
@@ -1659,6 +1925,438 @@ async def get_csv_export(jaar: int, week: Optional[int] = None, maand: Optional[
 
 # ==================== HEALTH CHECK ====================
 
+# ==================== OPLEVERING WERKBON ROUTES ====================
+
+@api_router.get("/oplevering-werkbonnen")
+async def get_oplevering_werkbonnen(user_id: str):
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
+    query = {} if user.get("rol") == "admin" else {"ingevuld_door_id": user_id}
+    items = await db.oplevering_werkbonnen.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    return items
+
+@api_router.get("/oplevering-werkbonnen/{werkbon_id}")
+async def get_oplevering_werkbon(werkbon_id: str):
+    item = await db.oplevering_werkbonnen.find_one({"id": werkbon_id}, {"_id": 0})
+    if not item:
+        raise HTTPException(status_code=404, detail="Oplevering werkbon niet gevonden")
+    return item
+
+@api_router.post("/oplevering-werkbonnen")
+async def create_oplevering_werkbon(data: OpleveringWerkbonCreate, user_id: str, user_naam: str):
+    klant = await db.klanten.find_one({"id": data.klant_id})
+    werf = await db.werven.find_one({"id": data.werf_id})
+    if not klant:
+        raise HTTPException(status_code=404, detail="Klant niet gevonden")
+    if not werf:
+        raise HTTPException(status_code=404, detail="Werf niet gevonden")
+    
+    werkbon = OpleveringWerkbon(
+        klant_id=data.klant_id,
+        klant_naam=klant["naam"],
+        klant_email=klant.get("email", ""),
+        klant_telefoon=klant.get("telefoon", ""),
+        werf_id=data.werf_id,
+        werf_naam=werf["naam"],
+        werf_adres=werf.get("adres", ""),
+        datum=data.datum,
+        installatie_type=data.installatie_type,
+        werk_beschrijving=data.werk_beschrijving,
+        gebruikte_materialen=data.gebruikte_materialen,
+        ingevuld_door_id=user_id,
+        ingevuld_door_naam=user_naam,
+    )
+    await db.oplevering_werkbonnen.insert_one(werkbon.dict())
+    return werkbon.dict()
+
+@api_router.put("/oplevering-werkbonnen/{werkbon_id}")
+async def update_oplevering_werkbon(werkbon_id: str, update_data: OpleveringWerkbonUpdate):
+    update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
+    update_dict["updated_at"] = datetime.utcnow()
+    
+    if update_data.handtekening_klant:
+        update_dict["handtekening_datum"] = datetime.utcnow()
+        update_dict["status"] = "ondertekend"
+    
+    # Convert nested models to dicts
+    if "schade_checks" in update_dict:
+        update_dict["schade_checks"] = [c.dict() if hasattr(c, 'dict') else c for c in update_dict["schade_checks"]]
+    if "beoordelingen" in update_dict:
+        update_dict["beoordelingen"] = [b.dict() if hasattr(b, 'dict') else b for b in update_dict["beoordelingen"]]
+    
+    result = await db.oplevering_werkbonnen.update_one({"id": werkbon_id}, {"$set": update_dict})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Oplevering werkbon niet gevonden")
+    updated = await db.oplevering_werkbonnen.find_one({"id": werkbon_id}, {"_id": 0})
+    return updated
+
+@api_router.delete("/oplevering-werkbonnen/{werkbon_id}")
+async def delete_oplevering_werkbon(werkbon_id: str):
+    result = await db.oplevering_werkbonnen.delete_one({"id": werkbon_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Oplevering werkbon niet gevonden")
+    return {"message": "Oplevering werkbon verwijderd"}
+
+# ==================== PROJECT WERKBON ROUTES ====================
+
+@api_router.get("/project-werkbonnen")
+async def get_project_werkbonnen(user_id: str):
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
+    query = {} if user.get("rol") == "admin" else {"ingevuld_door_id": user_id}
+    items = await db.project_werkbonnen.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    return items
+
+@api_router.get("/project-werkbonnen/{werkbon_id}")
+async def get_project_werkbon(werkbon_id: str):
+    item = await db.project_werkbonnen.find_one({"id": werkbon_id}, {"_id": 0})
+    if not item:
+        raise HTTPException(status_code=404, detail="Project werkbon niet gevonden")
+    return item
+
+@api_router.post("/project-werkbonnen")
+async def create_project_werkbon(data: ProjectWerkbonCreate, user_id: str, user_naam: str):
+    klant = await db.klanten.find_one({"id": data.klant_id})
+    werf = await db.werven.find_one({"id": data.werf_id})
+    if not klant:
+        raise HTTPException(status_code=404, detail="Klant niet gevonden")
+    if not werf:
+        raise HTTPException(status_code=404, detail="Werf niet gevonden")
+    
+    # Calculate total hours
+    totaal = 0.0
+    if data.start_tijd and data.stop_tijd:
+        try:
+            start_parts = data.start_tijd.split(":")
+            stop_parts = data.stop_tijd.split(":")
+            start_min = int(start_parts[0]) * 60 + int(start_parts[1])
+            stop_min = int(stop_parts[0]) * 60 + int(stop_parts[1])
+            totaal = max(0, (stop_min - start_min - data.pauze_minuten) / 60)
+        except (ValueError, IndexError):
+            totaal = 0.0
+    
+    werkbon = ProjectWerkbon(
+        klant_id=data.klant_id,
+        klant_naam=klant["naam"],
+        werf_id=data.werf_id,
+        werf_naam=werf["naam"],
+        werf_adres=werf.get("adres", ""),
+        datum=data.datum,
+        start_tijd=data.start_tijd,
+        stop_tijd=data.stop_tijd,
+        pauze_minuten=data.pauze_minuten,
+        totaal_uren=round(totaal, 2),
+        werk_beschrijving=data.werk_beschrijving,
+        ingevuld_door_id=user_id,
+        ingevuld_door_naam=user_naam,
+    )
+    await db.project_werkbonnen.insert_one(werkbon.dict())
+    return werkbon.dict()
+
+@api_router.put("/project-werkbonnen/{werkbon_id}")
+async def update_project_werkbon(werkbon_id: str, update_data: ProjectWerkbonUpdate):
+    update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
+    update_dict["updated_at"] = datetime.utcnow()
+    
+    if update_data.handtekening_klant:
+        update_dict["handtekening_datum"] = datetime.utcnow()
+        update_dict["status"] = "ondertekend"
+    
+    # Recalculate hours if times changed
+    existing = await db.project_werkbonnen.find_one({"id": werkbon_id}, {"_id": 0})
+    if existing:
+        st = update_data.start_tijd or existing.get("start_tijd", "")
+        et = update_data.stop_tijd or existing.get("stop_tijd", "")
+        pz = update_data.pauze_minuten if update_data.pauze_minuten is not None else existing.get("pauze_minuten", 0)
+        if st and et:
+            try:
+                sp = st.split(":")
+                ep = et.split(":")
+                sm = int(sp[0]) * 60 + int(sp[1])
+                em = int(ep[0]) * 60 + int(ep[1])
+                update_dict["totaal_uren"] = round(max(0, (em - sm - pz) / 60), 2)
+            except (ValueError, IndexError):
+                pass
+    
+    result = await db.project_werkbonnen.update_one({"id": werkbon_id}, {"$set": update_dict})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Project werkbon niet gevonden")
+    updated = await db.project_werkbonnen.find_one({"id": werkbon_id}, {"_id": 0})
+    return updated
+
+@api_router.delete("/project-werkbonnen/{werkbon_id}")
+async def delete_project_werkbon(werkbon_id: str):
+    result = await db.project_werkbonnen.delete_one({"id": werkbon_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Project werkbon niet gevonden")
+    return {"message": "Project werkbon verwijderd"}
+
+# ==================== PLANNING ROUTES ====================
+
+@api_router.get("/planning")
+async def get_planning(week_nummer: int, jaar: int):
+    items = await db.planning.find({"week_nummer": week_nummer, "jaar": jaar}, {"_id": 0}).sort("dag", 1).to_list(500)
+    return items
+
+@api_router.get("/planning/werknemer/{werknemer_id}")
+async def get_planning_werknemer(werknemer_id: str, week_nummer: Optional[int] = None, jaar: Optional[int] = None):
+    query = {"werknemer_ids": werknemer_id}
+    if week_nummer is not None:
+        query["week_nummer"] = week_nummer
+    if jaar is not None:
+        query["jaar"] = jaar
+    items = await db.planning.find(query, {"_id": 0}).sort([("jaar", -1), ("week_nummer", -1), ("dag", 1)]).to_list(500)
+    return items
+
+@api_router.get("/planning/{planning_id}")
+async def get_planning_item(planning_id: str):
+    item = await db.planning.find_one({"id": planning_id}, {"_id": 0})
+    if not item:
+        raise HTTPException(status_code=404, detail="Planning item niet gevonden")
+    return item
+
+@api_router.post("/planning")
+async def create_planning(data: PlanningItemCreate):
+    # Resolve names
+    klant = await db.klanten.find_one({"id": data.klant_id})
+    werf = await db.werven.find_one({"id": data.werf_id})
+    if not klant:
+        raise HTTPException(status_code=404, detail="Klant niet gevonden")
+    if not werf:
+        raise HTTPException(status_code=404, detail="Werf niet gevonden")
+    
+    # Get worker names if not provided
+    werknemer_namen = data.werknemer_namen
+    if data.werknemer_ids and not werknemer_namen:
+        for wid in data.werknemer_ids:
+            user = await db.users.find_one({"id": wid})
+            if user:
+                werknemer_namen.append(user["naam"])
+    
+    team_naam = None
+    if data.team_id:
+        team = await db.teams.find_one({"id": data.team_id})
+        if team:
+            team_naam = team["naam"]
+    
+    # Check if worker is already assigned (orange warning)
+    waarschuwingen = []
+    for wid in data.werknemer_ids:
+        existing = await db.planning.find_one({
+            "werknemer_ids": wid,
+            "week_nummer": data.week_nummer,
+            "jaar": data.jaar,
+            "dag": data.dag,
+        })
+        if existing:
+            user = await db.users.find_one({"id": wid})
+            naam = user["naam"] if user else wid
+            waarschuwingen.append(f"{naam} is al ingepland op {data.dag}")
+    
+    item = PlanningItem(
+        week_nummer=data.week_nummer,
+        jaar=data.jaar,
+        dag=data.dag,
+        datum=data.datum,
+        werknemer_ids=data.werknemer_ids,
+        werknemer_namen=werknemer_namen,
+        team_id=data.team_id,
+        team_naam=team_naam,
+        klant_id=data.klant_id,
+        klant_naam=klant["naam"],
+        werf_id=data.werf_id,
+        werf_naam=werf["naam"],
+        werf_adres=werf.get("adres", ""),
+        omschrijving=data.omschrijving,
+        materiaallijst=data.materiaallijst,
+        geschatte_duur=data.geschatte_duur,
+        prioriteit=data.prioriteit,
+        notities=data.notities,
+    )
+    await db.planning.insert_one(item.dict())
+    result = item.dict()
+    if waarschuwingen:
+        result["waarschuwingen"] = waarschuwingen
+    return result
+
+@api_router.put("/planning/{planning_id}")
+async def update_planning(planning_id: str, update_data: PlanningItemUpdate):
+    update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
+    update_dict["updated_at"] = datetime.utcnow()
+    
+    # Resolve names if IDs changed
+    if update_data.klant_id:
+        klant = await db.klanten.find_one({"id": update_data.klant_id})
+        if klant:
+            update_dict["klant_naam"] = klant["naam"]
+    if update_data.werf_id:
+        werf = await db.werven.find_one({"id": update_data.werf_id})
+        if werf:
+            update_dict["werf_naam"] = werf["naam"]
+            update_dict["werf_adres"] = werf.get("adres", "")
+    if update_data.werknemer_ids:
+        namen = []
+        for wid in update_data.werknemer_ids:
+            user = await db.users.find_one({"id": wid})
+            if user:
+                namen.append(user["naam"])
+        update_dict["werknemer_namen"] = namen
+    
+    result = await db.planning.update_one({"id": planning_id}, {"$set": update_dict})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Planning item niet gevonden")
+    updated = await db.planning.find_one({"id": planning_id}, {"_id": 0})
+    return updated
+
+@api_router.delete("/planning/{planning_id}")
+async def delete_planning(planning_id: str):
+    result = await db.planning.delete_one({"id": planning_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Planning item niet gevonden")
+    return {"message": "Planning item verwijderd"}
+
+@api_router.post("/planning/{planning_id}/bevestig")
+async def bevestig_planning(planning_id: str, werknemer_id: str):
+    """Worker confirms/acknowledges a planning item"""
+    item = await db.planning.find_one({"id": planning_id})
+    if not item:
+        raise HTTPException(status_code=404, detail="Planning item niet gevonden")
+    
+    bevestigd = item.get("bevestigd_door", [])
+    if werknemer_id not in bevestigd:
+        bevestigd.append(werknemer_id)
+        await db.planning.update_one(
+            {"id": planning_id},
+            {"$set": {"bevestigd_door": bevestigd}}
+        )
+    return {"message": "Planning bevestigd", "bevestigd_door": bevestigd}
+
+# ==================== BERICHTEN (MESSAGES) ROUTES ====================
+
+@api_router.get("/berichten")
+async def get_berichten(user_id: str):
+    """Get messages for a user (broadcasts + direct messages)"""
+    items = await db.berichten.find(
+        {"$or": [{"naar_id": user_id}, {"is_broadcast": True}, {"van_id": user_id}]},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(200)
+    return items
+
+@api_router.get("/berichten/ongelezen")
+async def get_ongelezen_berichten(user_id: str):
+    """Get unread message count for a user"""
+    count = await db.berichten.count_documents({
+        "$or": [{"naar_id": user_id}, {"is_broadcast": True}],
+        "gelezen_door": {"$nin": [user_id]}
+    })
+    return {"ongelezen": count}
+
+@api_router.post("/berichten")
+async def create_bericht(data: BerichtCreate, van_id: str, van_naam: str):
+    bericht = Bericht(
+        van_id=van_id,
+        van_naam=van_naam,
+        naar_id=data.naar_id,
+        is_broadcast=data.is_broadcast,
+        onderwerp=data.onderwerp,
+        inhoud=data.inhoud,
+        vastgepind=data.vastgepind,
+        planning_id=data.planning_id,
+    )
+    
+    # Resolve recipient name
+    if data.naar_id:
+        user = await db.users.find_one({"id": data.naar_id})
+        if user:
+            bericht.naar_naam = user["naam"]
+    
+    await db.berichten.insert_one(bericht.dict())
+    return bericht.dict()
+
+@api_router.post("/berichten/{bericht_id}/gelezen")
+async def markeer_gelezen(bericht_id: str, user_id: str):
+    """Mark a message as read"""
+    await db.berichten.update_one(
+        {"id": bericht_id},
+        {"$addToSet": {"gelezen_door": user_id}}
+    )
+    return {"message": "Bericht als gelezen gemarkeerd"}
+
+@api_router.delete("/berichten/{bericht_id}")
+async def delete_bericht(bericht_id: str):
+    result = await db.berichten.delete_one({"id": bericht_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Bericht niet gevonden")
+    return {"message": "Bericht verwijderd"}
+
+# ==================== THEME / APP SETTINGS ROUTE ====================
+
+@api_router.get("/app-settings")
+async def get_app_settings():
+    """Get app theme settings - used by mobile app for remote theming"""
+    settings = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0})
+    if not settings:
+        settings = {}
+    return {
+        "bedrijfsnaam": settings.get("bedrijfsnaam", "Smart-Tech BV"),
+        "logo_base64": settings.get("logo_base64"),
+        "primary_color": settings.get("primary_color", "#1a1a2e"),
+        "secondary_color": settings.get("secondary_color", "#F5A623"),
+        "accent_color": settings.get("accent_color", "#16213e"),
+    }
+
+# ==================== DASHBOARD STATS ====================
+
+@api_router.get("/dashboard/stats")
+async def get_dashboard_stats():
+    """Get comprehensive dashboard statistics"""
+    now = datetime.utcnow()
+    current_week = now.isocalendar()[1]
+    current_year = now.isocalendar()[0]
+    
+    total_werknemers = await db.users.count_documents({"actief": True, "rol": "werknemer"})
+    total_teams = await db.teams.count_documents({"actief": True})
+    total_klanten = await db.klanten.count_documents({"actief": True})
+    total_werven = await db.werven.count_documents({"actief": True})
+    
+    # Werkbonnen stats
+    werkbonnen_week = await db.werkbonnen.count_documents({"week_nummer": current_week, "jaar": current_year})
+    werkbonnen_ondertekend = await db.werkbonnen.count_documents({"status": "ondertekend"})
+    werkbonnen_concept = await db.werkbonnen.count_documents({"status": "concept"})
+    
+    # Oplevering stats
+    oplevering_total = await db.oplevering_werkbonnen.count_documents({})
+    oplevering_week = await db.oplevering_werkbonnen.count_documents({"datum": {"$regex": f".*"}})
+    
+    # Project werkbon stats
+    project_total = await db.project_werkbonnen.count_documents({})
+    
+    # Planning stats
+    planning_week = await db.planning.count_documents({"week_nummer": current_week, "jaar": current_year})
+    planning_afgerond = await db.planning.count_documents({"week_nummer": current_week, "jaar": current_year, "status": "afgerond"})
+    
+    # Unread messages
+    ongelezen_berichten = await db.berichten.count_documents({"gelezen_door": {"$size": 0}})
+    
+    return {
+        "werknemers": total_werknemers,
+        "teams": total_teams,
+        "klanten": total_klanten,
+        "werven": total_werven,
+        "werkbonnen_deze_week": werkbonnen_week,
+        "werkbonnen_ondertekend": werkbonnen_ondertekend,
+        "werkbonnen_concept": werkbonnen_concept,
+        "oplevering_werkbonnen": oplevering_total,
+        "project_werkbonnen": project_total,
+        "planning_deze_week": planning_week,
+        "planning_afgerond": planning_afgerond,
+        "ongelezen_berichten": ongelezen_berichten,
+        "week_nummer": current_week,
+        "jaar": current_year,
+    }
+
 @api_router.get("/")
 async def root():
     return {"message": "Werkbon API is actief", "version": "2.0.0"}
@@ -1668,6 +2366,15 @@ async def health_check():
     return {"status": "healthy", "database": "connected"}
 
 # Include the router in the main app
+# Temporary download endpoint for GitHub upload
+from fastapi.responses import FileResponse
+@api_router.get("/download-backend-zip")
+async def download_backend_zip():
+    zip_path = "/tmp/smart-ts-backend.zip"
+    if os.path.exists(zip_path):
+        return FileResponse(path=zip_path, filename="smart-ts-backend.zip", media_type="application/zip")
+    raise HTTPException(status_code=404, detail="ZIP file not found")
+
 app.include_router(api_router)
 
 app.add_middleware(
