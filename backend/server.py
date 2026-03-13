@@ -48,12 +48,14 @@ class User(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     email: str
     password_hash: str
+    wachtwoord_plain: str = ""  # Admin can see this
     naam: str
-    rol: str = "werknemer"  # werknemer, admin
-    team_id: Optional[str] = None  # Assigned team
-    telefoon: Optional[str] = None  # Phone number for SMS/notifications
+    rol: str = "werknemer"  # werknemer, ploegbaas, onderaannemer, beheerder, admin
+    team_id: Optional[str] = None
+    telefoon: Optional[str] = None
     actief: bool = True
-    werkbon_types: List[str] = Field(default_factory=lambda: ["uren"])  # Enabled werkbon types: uren, oplevering, project
+    werkbon_types: List[str] = Field(default_factory=lambda: ["uren"])
+    mag_wachtwoord_wijzigen: bool = False
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 class UserCreate(BaseModel):
@@ -75,6 +77,8 @@ class UserResponse(BaseModel):
     telefoon: Optional[str] = None
     actief: bool
     werkbon_types: List[str] = Field(default_factory=lambda: ["uren"])
+    wachtwoord_plain: str = ""
+    mag_wachtwoord_wijzigen: bool = False
 
 class UserUpdate(BaseModel):
     naam: Optional[str] = None
@@ -83,6 +87,8 @@ class UserUpdate(BaseModel):
     telefoon: Optional[str] = None
     actief: Optional[bool] = None
     werkbon_types: Optional[List[str]] = None
+    mag_wachtwoord_wijzigen: Optional[bool] = None
+    wachtwoord_plain: Optional[str] = None
 
 
 class ResendInfoMailResponse(BaseModel):
@@ -1232,18 +1238,26 @@ async def register_user(user_data: UserCreate):
     return UserResponse(**user.dict())
 
 @api_router.post("/auth/register-worker")
-async def register_worker_with_email(email: str, naam: str, password: str, team_id: Optional[str] = None):
+async def register_worker_with_email(email: str, naam: str, password: str, rol: str = "werknemer", team_id: Optional[str] = None, telefoon: Optional[str] = None, werkbon_types: Optional[str] = None):
     """Register a new worker and optionally send welcome email"""
     existing = await db.users.find_one({"email": email})
     if existing:
         raise HTTPException(status_code=400, detail="E-mailadres is al geregistreerd")
     
+    # Parse werkbon_types from comma-separated string
+    wbt = ["uren"]
+    if werkbon_types:
+        wbt = [t.strip() for t in werkbon_types.split(",") if t.strip()]
+    
     user = User(
         email=email,
         password_hash=hash_password(password),
+        wachtwoord_plain=password,
         naam=naam,
-        rol="werknemer",
-        team_id=team_id
+        rol=rol,
+        team_id=team_id,
+        telefoon=telefoon,
+        werkbon_types=wbt,
     )
     await db.users.insert_one(user.dict())
     
@@ -1272,21 +1286,26 @@ async def resend_worker_info_email(user_id: str):
     if user.get("rol") == "admin":
         raise HTTPException(status_code=400, detail="Voor beheerders is deze actie niet beschikbaar")
 
-    temp_password = generate_temp_password()
+    # Generate new permanent password
+    new_password = generate_temp_password()
     await db.users.update_one(
         {"id": user_id},
-        {"$set": {"password_hash": hash_password(temp_password), "actief": True}},
+        {"$set": {
+            "password_hash": hash_password(new_password), 
+            "wachtwoord_plain": new_password,
+            "actief": True
+        }},
     )
 
     instellingen = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0}) or {}
-    email_result = await send_welcome_email(user["email"], user["naam"], temp_password, instellingen)
+    email_result = await send_welcome_email(user["email"], user["naam"], new_password, instellingen)
     updated_user = await db.users.find_one({"id": user_id}, {"_id": 0})
 
     return ResendInfoMailResponse(
         user=UserResponse(**updated_user),
         email_sent=email_result.get("success", False),
         email_error=email_result.get("error"),
-        temp_password=temp_password,
+        temp_password=new_password,
     )
 
 @api_router.post("/auth/login", response_model=UserResponse)
@@ -1319,6 +1338,10 @@ async def update_user(user_id: str, update_data: UserUpdate):
     update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
     if not update_dict:
         raise HTTPException(status_code=400, detail="Geen wijzigingen opgegeven")
+    
+    # If admin sets a new password via wachtwoord_plain, also update the hash
+    if "wachtwoord_plain" in update_dict and update_dict["wachtwoord_plain"]:
+        update_dict["password_hash"] = hash_password(update_dict["wachtwoord_plain"])
     
     result = await db.users.update_one({"id": user_id}, {"$set": update_dict})
     if result.matched_count == 0:

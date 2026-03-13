@@ -27,6 +27,8 @@ interface Werknemer {
   telefoon?: string;
   team_id?: string;
   werkbon_types?: string[];
+  wachtwoord_plain?: string;
+  mag_wachtwoord_wijzigen?: boolean;
 }
 
 interface Team {
@@ -51,7 +53,7 @@ export default function WerknemersAdmin() {
   const [filterActief, setFilterActief] = useState<boolean | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editingWerknemer, setEditingWerknemer] = useState<Werknemer | null>(null);
-  const [formData, setFormData] = useState({ naam: '', email: '', rol: 'werknemer', password: '', telefoon: '', werkbon_types: ['uren'] as string[] });
+  const [formData, setFormData] = useState({ naam: '', email: '', rol: 'werknemer', password: '', telefoon: '', werkbon_types: ['uren'] as string[], mag_wachtwoord_wijzigen: false });
   const [saving, setSaving] = useState(false);
   const [sendingEmail, setSendingEmail] = useState<string | null>(null);
 
@@ -81,7 +83,7 @@ export default function WerknemersAdmin() {
 
   const openAddModal = () => {
     setEditingWerknemer(null);
-    setFormData({ naam: '', email: '', rol: 'werknemer', password: '', telefoon: '', werkbon_types: ['uren'] });
+    setFormData({ naam: '', email: '', rol: 'werknemer', password: '', telefoon: '', werkbon_types: ['uren'], mag_wachtwoord_wijzigen: false });
     setShowModal(true);
   };
 
@@ -94,6 +96,7 @@ export default function WerknemersAdmin() {
       password: '', 
       telefoon: w.telefoon || '',
       werkbon_types: w.werkbon_types || ['uren'],
+      mag_wachtwoord_wijzigen: w.mag_wachtwoord_wijzigen || false,
     });
     setShowModal(true);
   };
@@ -116,21 +119,36 @@ export default function WerknemersAdmin() {
     try {
       if (editingWerknemer) {
         // Update existing worker
+        const updateBody: any = {
+          naam: formData.naam,
+          rol: formData.rol,
+          telefoon: formData.telefoon || null,
+          werkbon_types: formData.werkbon_types,
+          actief: editingWerknemer.actief,
+          mag_wachtwoord_wijzigen: formData.mag_wachtwoord_wijzigen,
+        };
+        // If password changed by admin
+        if (formData.password && formData.password.trim()) {
+          updateBody.wachtwoord_plain = formData.password.trim();
+        }
         await fetch(`${API_URL}/api/auth/users/${editingWerknemer.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            naam: formData.naam,
-            rol: formData.rol,
-            telefoon: formData.telefoon || null,
-            werkbon_types: formData.werkbon_types,
-            actief: editingWerknemer.actief,
-          }),
+          body: JSON.stringify(updateBody),
         });
       } else {
-        // Create new worker with automatic email
+        // Create new worker with ALL parameters including rol
         const password = formData.password || `Smart${Math.floor(1000 + Math.random() * 9000)}`;
-        const res = await fetch(`${API_URL}/api/auth/register-worker?email=${encodeURIComponent(formData.email)}&naam=${encodeURIComponent(formData.naam)}&password=${encodeURIComponent(password)}`, {
+        const params = new URLSearchParams({
+          email: formData.email,
+          naam: formData.naam,
+          password: password,
+          rol: formData.rol,
+        });
+        if (formData.telefoon) params.append('telefoon', formData.telefoon);
+        if (formData.werkbon_types.length > 0) params.append('werkbon_types', formData.werkbon_types.join(','));
+        
+        const res = await fetch(`${API_URL}/api/auth/register-worker?${params.toString()}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
         });
@@ -142,23 +160,10 @@ export default function WerknemersAdmin() {
         }
         const result = await res.json();
         
-        // Update werkbon_types and telefoon
-        if (result.user?.id) {
-          await fetch(`${API_URL}/api/auth/users/${result.user.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              rol: formData.rol,
-              telefoon: formData.telefoon || null,
-              werkbon_types: formData.werkbon_types,
-            }),
-          });
-        }
-        
         if (result.email_sent) {
-          alert(`✅ Werknemer aangemaakt!\n\nInloggegevens zijn per e-mail verstuurd naar:\n${formData.email}\n\nWachtwoord: ${password}`);
+          alert(`✅ Werknemer aangemaakt als ${formData.rol}!\n\nInloggegevens zijn per e-mail verstuurd naar:\n${formData.email}\n\nWachtwoord: ${password}`);
         } else {
-          alert(`⚠️ Werknemer aangemaakt, maar e-mail kon niet worden verzonden.\n\nWachtwoord: ${password}\n\nGebruik de mail-knop om later opnieuw te versturen.`);
+          alert(`⚠️ Werknemer aangemaakt als ${formData.rol}, maar e-mail kon niet worden verzonden.\n\nWachtwoord: ${password}\n\nGebruik de mail-knop om later opnieuw te versturen.`);
         }
       }
       setShowModal(false);
@@ -411,6 +416,31 @@ export default function WerknemersAdmin() {
                 </>
               )}
               
+              {editingWerknemer && (
+                <>
+                  <Text style={styles.label}>Huidig wachtwoord</Text>
+                  <View style={styles.passwordDisplay}>
+                    <Ionicons name="key-outline" size={18} color="#F5A623" />
+                    <Text style={styles.passwordText}>{editingWerknemer.wachtwoord_plain || '(niet beschikbaar)'}</Text>
+                  </View>
+                  <Text style={styles.label}>Nieuw wachtwoord instellen (optioneel)</Text>
+                  <TextInput style={styles.input} value={formData.password} onChangeText={(v) => setFormData({ ...formData, password: v })} placeholder="Laat leeg om niet te wijzigen" placeholderTextColor="#6c757d" />
+                  
+                  <View style={styles.toggleRow}>
+                    <View style={styles.toggleLeft}>
+                      <Ionicons name="shield-checkmark-outline" size={20} color={formData.mag_wachtwoord_wijzigen ? '#27ae60' : '#6c757d'} />
+                      <Text style={styles.toggleLabel}>Werknemer mag zelf wachtwoord wijzigen</Text>
+                    </View>
+                    <Switch
+                      value={formData.mag_wachtwoord_wijzigen}
+                      onValueChange={(v) => setFormData({ ...formData, mag_wachtwoord_wijzigen: v })}
+                      trackColor={{ false: '#E8E9ED', true: '#27ae6060' }}
+                      thumbColor={formData.mag_wachtwoord_wijzigen ? '#27ae60' : '#ccc'}
+                    />
+                  </View>
+                </>
+              )}
+              
               <Text style={styles.label}>Rol</Text>
               <View style={styles.rolSelector}>
                 {ROLLEN.map((rol) => (
@@ -525,4 +555,9 @@ const styles = StyleSheet.create({
   emailNoticeText: { flex: 1, fontSize: 13, color: '#27ae60' },
   saveBtn: { backgroundColor: '#F5A623', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 20 },
   saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  passwordDisplay: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#FFF8E7', padding: 14, borderRadius: 10, borderWidth: 1, borderColor: '#F5A62330' },
+  passwordText: { fontSize: 16, fontWeight: '600', color: '#1A1A2E', fontFamily: 'monospace' },
+  toggleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F5F6FA', padding: 14, borderRadius: 10, borderWidth: 1, borderColor: '#E8E9ED', marginTop: 16 },
+  toggleLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+  toggleLabel: { fontSize: 14, color: '#1A1A2E' },
 });
