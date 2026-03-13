@@ -47,7 +47,7 @@ export default function BerichtenAdmin() {
   const [selectedBericht, setSelectedBericht] = useState<Bericht | null>(null);
 
   const [form, setForm] = useState({
-    naar_id: '',
+    naar_ids: [] as string[],
     is_broadcast: false,
     onderwerp: '',
     inhoud: '',
@@ -74,10 +74,35 @@ export default function BerichtenAdmin() {
     if (Platform.OS === 'web') fetchData();
   }, [fetchData]);
 
+  const werknemerGroups = {
+    werknemers: werknemers.filter(w => w.rol !== 'onderaannemer'),
+    onderaannemers: werknemers.filter(w => w.rol === 'onderaannemer'),
+  };
+
   const openNewMessage = () => {
-    setForm({ naar_id: '', is_broadcast: false, onderwerp: '', inhoud: '', vastgepind: false });
+    setForm({ naar_ids: [], is_broadcast: false, onderwerp: '', inhoud: '', vastgepind: false });
     setSelectedBericht(null);
     setShowModal(true);
+  };
+
+  const toggleRecipient = (id: string) => {
+    setForm(prev => ({
+      ...prev,
+      is_broadcast: false,
+      naar_ids: prev.naar_ids.includes(id) ? prev.naar_ids.filter(x => x !== id) : [...prev.naar_ids, id],
+    }));
+  };
+
+  const selectGroup = (group: 'alle_werknemers' | 'alle_onderaannemers' | 'iedereen') => {
+    if (group === 'iedereen') {
+      setForm(prev => ({ ...prev, is_broadcast: true, naar_ids: werknemers.map(w => w.id) }));
+    } else if (group === 'alle_werknemers') {
+      const ids = werknemerGroups.werknemers.map(w => w.id);
+      setForm(prev => ({ ...prev, is_broadcast: false, naar_ids: ids }));
+    } else {
+      const ids = werknemerGroups.onderaannemers.map(w => w.id);
+      setForm(prev => ({ ...prev, is_broadcast: false, naar_ids: ids }));
+    }
   };
 
   const sendBericht = async () => {
@@ -85,26 +110,30 @@ export default function BerichtenAdmin() {
       alert('Vul onderwerp en bericht in');
       return;
     }
-    if (!form.is_broadcast && !form.naar_id) {
-      alert('Selecteer een werknemer of verstuur als broadcast');
+    if (!form.is_broadcast && form.naar_ids.length === 0) {
+      alert('Selecteer minimaal één ontvanger');
       return;
     }
     setSaving(true);
     try {
-      const body = {
-        naar_id: form.is_broadcast ? null : form.naar_id,
-        is_broadcast: form.is_broadcast,
-        onderwerp: form.onderwerp,
-        inhoud: form.inhoud,
-        vastgepind: form.vastgepind,
-      };
       const userId = user?.id || 'admin-001';
       const userName = user?.naam || 'Admin';
-      await fetch(`${API_URL}/api/berichten?van_id=${userId}&van_naam=${encodeURIComponent(userName)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
+      if (form.is_broadcast) {
+        // Send as broadcast
+        const body = { naar_id: null, is_broadcast: true, onderwerp: form.onderwerp, inhoud: form.inhoud, vastgepind: form.vastgepind };
+        await fetch(`${API_URL}/api/berichten?van_id=${userId}&van_naam=${encodeURIComponent(userName)}`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+        });
+      } else {
+        // Send to each selected recipient
+        for (const naarId of form.naar_ids) {
+          const w = werknemers.find(x => x.id === naarId);
+          const body = { naar_id: naarId, is_broadcast: false, onderwerp: form.onderwerp, inhoud: form.inhoud, vastgepind: form.vastgepind };
+          await fetch(`${API_URL}/api/berichten?van_id=${userId}&van_naam=${encodeURIComponent(userName)}`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+          });
+        }
+      }
       setShowModal(false);
       fetchData();
     } catch (e) { console.error(e); alert('Fout bij verzenden'); }
@@ -240,31 +269,69 @@ export default function BerichtenAdmin() {
               <TouchableOpacity onPress={() => setShowModal(false)}><Ionicons name="close" size={24} color="#1A1A2E" /></TouchableOpacity>
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
-              {/* Broadcast toggle */}
-              <TouchableOpacity style={styles.broadcastToggle} activeOpacity={0.7}
-                onPress={() => setForm({ ...form, is_broadcast: !form.is_broadcast, naar_id: '' })}>
-                <Ionicons name="megaphone-outline" size={20} color={form.is_broadcast ? '#3498db' : '#6c757d'} />
-                <Text style={{ flex: 1, fontSize: 14, color: '#1A1A2E' }}>Verstuur naar alle werknemers (broadcast)</Text>
-                <View style={[styles.toggle, form.is_broadcast && styles.toggleActive]}>
-                  <View style={[styles.toggleThumb, form.is_broadcast && styles.toggleThumbActive]} />
-                </View>
-              </TouchableOpacity>
+              {/* Quick select buttons */}
+              <Text style={styles.label}>Snel selecteren</Text>
+              <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                <TouchableOpacity style={[styles.quickBtn, form.is_broadcast && { backgroundColor: '#3498db', borderColor: '#3498db' }]}
+                  onPress={() => selectGroup('iedereen')}>
+                  <Ionicons name="globe-outline" size={16} color={form.is_broadcast ? '#fff' : '#3498db'} />
+                  <Text style={[styles.quickBtnText, form.is_broadcast && { color: '#fff' }]}>Iedereen</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.quickBtn, !form.is_broadcast && form.naar_ids.length === werknemerGroups.werknemers.length && form.naar_ids.length > 0 && werknemerGroups.werknemers.every(w => form.naar_ids.includes(w.id)) && { backgroundColor: '#F5A623', borderColor: '#F5A623' }]}
+                  onPress={() => selectGroup('alle_werknemers')}>
+                  <Ionicons name="people-outline" size={16} color={!form.is_broadcast && werknemerGroups.werknemers.every(w => form.naar_ids.includes(w.id)) && form.naar_ids.length > 0 ? '#fff' : '#F5A623'} />
+                  <Text style={[styles.quickBtnText, !form.is_broadcast && werknemerGroups.werknemers.every(w => form.naar_ids.includes(w.id)) && form.naar_ids.length > 0 && { color: '#fff' }]}>Alle werknemers</Text>
+                </TouchableOpacity>
+                {werknemerGroups.onderaannemers.length > 0 && (
+                  <TouchableOpacity style={[styles.quickBtn, !form.is_broadcast && werknemerGroups.onderaannemers.every(w => form.naar_ids.includes(w.id)) && form.naar_ids.length > 0 && { backgroundColor: '#e67e22', borderColor: '#e67e22' }]}
+                    onPress={() => selectGroup('alle_onderaannemers')}>
+                    <Ionicons name="construct-outline" size={16} color={!form.is_broadcast && werknemerGroups.onderaannemers.every(w => form.naar_ids.includes(w.id)) && form.naar_ids.length > 0 ? '#fff' : '#e67e22'} />
+                    <Text style={[styles.quickBtnText, !form.is_broadcast && werknemerGroups.onderaannemers.every(w => form.naar_ids.includes(w.id)) && form.naar_ids.length > 0 && { color: '#fff' }]}>Alle onderaannemers</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
 
-              {/* Select Worker (if not broadcast) */}
-              {!form.is_broadcast && (
+              {/* Individual selection */}
+              <Text style={styles.label}>Of selecteer individueel ({form.naar_ids.length} geselecteerd)</Text>
+
+              {werknemerGroups.werknemers.length > 0 && (
                 <>
-                  <Text style={styles.label}>Naar werknemer *</Text>
+                  <Text style={{ fontSize: 12, color: '#3498db', fontWeight: '600', marginBottom: 6 }}>Werknemers & Ploegbazen</Text>
                   <View style={styles.workerList}>
-                    {werknemers.map(w => (
-                      <TouchableOpacity key={w.id} style={[styles.workerOption, form.naar_id === w.id && styles.workerOptionActive]}
-                        onPress={() => setForm({ ...form, naar_id: w.id })}>
-                        <View style={[styles.workerAvatar, form.naar_id === w.id && { backgroundColor: '#F5A623' }]}>
-                          <Text style={[styles.workerAvatarText, form.naar_id === w.id && { color: '#fff' }]}>{w.naam?.charAt(0)}</Text>
-                        </View>
-                        <Text style={[styles.workerOptionName, form.naar_id === w.id && { color: '#F5A623', fontWeight: '600' }]}>{w.naam}</Text>
-                        {form.naar_id === w.id && <Ionicons name="checkmark-circle" size={18} color="#F5A623" />}
-                      </TouchableOpacity>
-                    ))}
+                    {werknemerGroups.werknemers.map(w => {
+                      const isSelected = form.naar_ids.includes(w.id);
+                      return (
+                        <TouchableOpacity key={w.id} style={[styles.workerOption, isSelected && styles.workerOptionActive]}
+                          onPress={() => toggleRecipient(w.id)}>
+                          <View style={[styles.workerAvatar, isSelected && { backgroundColor: '#F5A623' }]}>
+                            <Text style={[styles.workerAvatarText, isSelected && { color: '#fff' }]}>{w.naam?.charAt(0)}</Text>
+                          </View>
+                          <Text style={[styles.workerOptionName, isSelected && { color: '#F5A623', fontWeight: '600' }]}>{w.naam}</Text>
+                          {isSelected && <Ionicons name="checkmark-circle" size={18} color="#F5A623" />}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </>
+              )}
+
+              {werknemerGroups.onderaannemers.length > 0 && (
+                <>
+                  <Text style={{ fontSize: 12, color: '#e67e22', fontWeight: '600', marginBottom: 6, marginTop: 12 }}>Onderaannemers</Text>
+                  <View style={styles.workerList}>
+                    {werknemerGroups.onderaannemers.map(w => {
+                      const isSelected = form.naar_ids.includes(w.id);
+                      return (
+                        <TouchableOpacity key={w.id} style={[styles.workerOption, isSelected && { borderColor: '#e67e22', backgroundColor: '#e67e2210' }]}
+                          onPress={() => toggleRecipient(w.id)}>
+                          <View style={[styles.workerAvatar, { backgroundColor: '#e67e2220' }, isSelected && { backgroundColor: '#e67e22' }]}>
+                            <Text style={[styles.workerAvatarText, { color: '#e67e22' }, isSelected && { color: '#fff' }]}>{w.naam?.charAt(0)}</Text>
+                          </View>
+                          <Text style={[styles.workerOptionName, isSelected && { color: '#e67e22', fontWeight: '600' }]}>{w.naam}</Text>
+                          {isSelected && <Ionicons name="checkmark-circle" size={18} color="#e67e22" />}
+                        </TouchableOpacity>
+                      );
+                    })}
                   </View>
                 </>
               )}
@@ -292,7 +359,9 @@ export default function BerichtenAdmin() {
               {saving ? <ActivityIndicator color="#fff" /> : (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <Ionicons name="send" size={18} color="#fff" />
-                  <Text style={styles.saveBtnText}>Versturen</Text>
+                  <Text style={styles.saveBtnText}>
+                    {form.is_broadcast ? 'Verstuur naar iedereen' : `Verstuur naar ${form.naar_ids.length} ${form.naar_ids.length === 1 ? 'persoon' : 'personen'}`}
+                  </Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -341,6 +410,8 @@ const styles = StyleSheet.create({
   input: { backgroundColor: '#F5F6FA', borderRadius: 10, padding: 14, fontSize: 15, color: '#1A1A2E', borderWidth: 1, borderColor: '#E8E9ED' },
 
   broadcastToggle: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#F5F6FA', padding: 14, borderRadius: 10, borderWidth: 1, borderColor: '#E8E9ED' },
+  quickBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, backgroundColor: '#F5F6FA', borderWidth: 1.5, borderColor: '#E8E9ED' },
+  quickBtnText: { fontSize: 13, fontWeight: '500', color: '#6c757d' },
   pinToggle: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#F5F6FA', padding: 14, borderRadius: 10, borderWidth: 1, borderColor: '#E8E9ED', marginTop: 16 },
   toggle: { width: 48, height: 26, borderRadius: 13, backgroundColor: '#E8E9ED', padding: 2, justifyContent: 'center' },
   toggleActive: { backgroundColor: '#3498db' },

@@ -155,6 +155,48 @@ export default function WerkbonnenAdmin() {
 
   const activeFiltersCount = [filterStatus, filterWeek, filterWerknemer, filterKlant, filterWerf].filter(Boolean).length;
 
+  const exportWerkbonnen = (format: 'csv' | 'pdf') => {
+    const data = filtered;
+    if (format === 'csv') {
+      const headers = ['Week', 'Jaar', 'Klant', 'Werf', 'Werknemer', 'Team', 'Status', 'Totaal Uren'];
+      const rows = data.map(wb => {
+        const totaalUren = wb.uren?.reduce((sum: number, u: any) => {
+          return sum + (u.maandag || 0) + (u.dinsdag || 0) + (u.woensdag || 0) +
+            (u.donderdag || 0) + (u.vrijdag || 0) + (u.zaterdag || 0) + (u.zondag || 0);
+        }, 0) || 0;
+        return [wb.week_nummer, wb.jaar, wb.klant_naam, wb.werf_naam, wb.created_by_naam || '', wb.team_naam || '', wb.status, totaalUren]
+          .map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
+      });
+      const csv = [headers.join(','), ...rows].join('\n');
+      const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `Werkbonnen_Export.csv`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+    } else {
+      let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+        body{font-family:Arial,sans-serif;margin:20px;color:#1A1A2E}
+        h1{color:#F5A623;font-size:22px;border-bottom:2px solid #F5A623;padding-bottom:8px}
+        table{width:100%;border-collapse:collapse;font-size:12px;margin-top:12px}
+        th{background:#1A1A2E;color:#fff;padding:8px 10px;text-align:left}
+        td{padding:6px 10px;border-bottom:1px solid #E8E9ED}
+        tr:nth-child(even){background:#F5F6FA}
+        .meta{color:#6c757d;font-size:12px}
+        .footer{margin-top:20px;text-align:center;color:#999;font-size:10px;border-top:1px solid #E8E9ED;padding-top:8px}
+      </style></head><body>
+      <h1>Smart-Tech BV - Werkbonnen Overzicht</h1>
+      <p class="meta">${data.length} werkbonnen | Gegenereerd: ${new Date().toLocaleDateString('nl-BE')}</p>
+      <table><tr><th>Week</th><th>Jaar</th><th>Klant</th><th>Werf</th><th>Werknemer</th><th>Team</th><th>Status</th><th>Uren</th></tr>`;
+      data.forEach(wb => {
+        const totaalUren = wb.uren?.reduce((sum: number, u: any) => sum + (u.maandag||0) + (u.dinsdag||0) + (u.woensdag||0) + (u.donderdag||0) + (u.vrijdag||0) + (u.zaterdag||0) + (u.zondag||0), 0) || 0;
+        html += `<tr><td>W${wb.week_nummer}</td><td>${wb.jaar}</td><td><strong>${wb.klant_naam}</strong></td><td>${wb.werf_naam}</td><td>${wb.created_by_naam||'-'}</td><td>${wb.team_naam||'-'}</td><td>${wb.status}</td><td>${totaalUren}</td></tr>`;
+      });
+      html += `</table><div class="footer">Smart-Tech BV - ${new Date().toLocaleString('nl-BE')}</div></body></html>`;
+      const w = window.open('', '_blank');
+      if (w) { w.document.write(html); w.document.close(); setTimeout(() => w.print(), 500); }
+    }
+  };
+
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Header */}
@@ -162,6 +204,18 @@ export default function WerkbonnenAdmin() {
         <View>
           <Text style={styles.title}>Werkbonnen</Text>
           <Text style={styles.subtitle}>{werkbonnen.length} totaal, {filtered.length} gefilterd</Text>
+        </View>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#27ae60', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8 }}
+            onPress={() => exportWerkbonnen('csv')}>
+            <Ionicons name="document-outline" size={16} color="#fff" />
+            <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>CSV</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#1A1A2E', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8 }}
+            onPress={() => exportWerkbonnen('pdf')}>
+            <Ionicons name="print-outline" size={16} color="#fff" />
+            <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>PDF</Text>
+          </TouchableOpacity>
         </View>
       </View>
 

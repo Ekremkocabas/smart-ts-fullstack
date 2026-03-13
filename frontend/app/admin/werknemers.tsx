@@ -266,6 +266,49 @@ export default function WerknemersAdmin() {
     }
   };
 
+  const exportWerknemers = (format: 'csv' | 'pdf') => {
+    const data = filtered;
+    if (format === 'csv') {
+      const headers = ['Naam', 'E-mail', 'Telefoon', 'Rol', 'Team', 'Status', 'Werkbon Types', 'Wachtwoord'];
+      const rows = data.map(w => [
+        w.naam, w.email, w.telefoon || '', w.rol, getTeamNaam(w.team_id),
+        w.actief ? 'Actief' : 'Inactief', (w.werkbon_types || []).join('; '), w.wachtwoord_plain || ''
+      ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
+      const csv = [headers.join(','), ...rows].join('\n');
+      const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `Werknemers_Export.csv`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+    } else {
+      const werknemerCount = data.filter(w => w.rol !== 'onderaannemer').length;
+      const onderaannemerCount = data.filter(w => w.rol === 'onderaannemer').length;
+      let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+        body{font-family:Arial,sans-serif;margin:20px;color:#1A1A2E}
+        h1{color:#F5A623;font-size:22px;border-bottom:2px solid #F5A623;padding-bottom:8px}
+        table{width:100%;border-collapse:collapse;font-size:12px;margin-top:12px}
+        th{background:#1A1A2E;color:#fff;padding:8px 10px;text-align:left}
+        td{padding:6px 10px;border-bottom:1px solid #E8E9ED}
+        tr:nth-child(even){background:#F5F6FA}
+        .meta{color:#6c757d;font-size:12px}
+        .actief{color:#28a745} .inactief{color:#dc3545}
+        .footer{margin-top:20px;text-align:center;color:#999;font-size:10px;border-top:1px solid #E8E9ED;padding-top:8px}
+      </style></head><body>
+      <h1>Smart-Tech BV - Werknemers Overzicht</h1>
+      <p class="meta">${data.length} personen | ${werknemerCount} werknemers | ${onderaannemerCount} onderaannemers | ${new Date().toLocaleDateString('nl-BE')}</p>
+      <table><tr><th>Naam</th><th>E-mail</th><th>Telefoon</th><th>Rol</th><th>Team</th><th>Status</th><th>Werkbon Types</th></tr>`;
+      data.forEach(w => {
+        html += `<tr><td><strong>${w.naam}</strong></td><td>${w.email}</td><td>${w.telefoon||'-'}</td>
+          <td>${w.rol}</td><td>${getTeamNaam(w.team_id)}</td>
+          <td class="${w.actief?'actief':'inactief'}">${w.actief?'Actief':'Inactief'}</td>
+          <td>${(w.werkbon_types||[]).join(', ')||'-'}</td></tr>`;
+      });
+      html += `</table><div class="footer">Smart-Tech BV - ${new Date().toLocaleString('nl-BE')}</div></body></html>`;
+      const win = window.open('', '_blank');
+      if (win) { win.document.write(html); win.document.close(); setTimeout(() => win.print(), 500); }
+    }
+  };
+
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Header */}
@@ -274,10 +317,22 @@ export default function WerknemersAdmin() {
           <Text style={styles.title}>Werknemers</Text>
           <Text style={styles.subtitle}>{werknemers.length} totaal, {werknemers.filter(w => w.actief).length} actief</Text>
         </View>
-        <TouchableOpacity style={styles.addBtn} onPress={openAddModal}>
-          <Ionicons name="add" size={22} color="#fff" />
-          <Text style={styles.addBtnText}>Toevoegen</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#27ae60', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8 }}
+            onPress={() => exportWerknemers('csv')}>
+            <Ionicons name="document-outline" size={16} color="#fff" />
+            <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>CSV</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#1A1A2E', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8 }}
+            onPress={() => exportWerknemers('pdf')}>
+            <Ionicons name="print-outline" size={16} color="#fff" />
+            <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>PDF</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.addBtn} onPress={openAddModal}>
+            <Ionicons name="add" size={22} color="#fff" />
+            <Text style={styles.addBtnText}>Toevoegen</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Filters */}
