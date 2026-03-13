@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   ScrollView,
   Platform,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -167,6 +168,8 @@ export default function WerkbonnenScreen() {
     );
   };
 
+  const [showTypeModal, setShowTypeModal] = useState(false);
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
@@ -180,7 +183,7 @@ export default function WerkbonnenScreen() {
         <TouchableOpacity
           testID="werkbon-add-button"
           style={styles.addButton}
-          onPress={() => router.push('/werkbon/nieuw')}
+          onPress={() => setShowTypeModal(true)}
         >
           <Ionicons name="add" size={24} color="#fff" />
         </TouchableOpacity>
@@ -262,6 +265,44 @@ export default function WerkbonnenScreen() {
           }
         />
       )}
+      {/* Werkbon Type Selection Modal */}
+      <Modal visible={showTypeModal} transparent animationType="fade">
+        <TouchableOpacity style={styles.typeModalOverlay} activeOpacity={1} onPress={() => setShowTypeModal(false)}>
+          <View style={styles.typeModalContent}>
+            <Text style={styles.typeModalTitle}>Werkbon type kiezen</Text>
+            <TouchableOpacity style={styles.typeOption} onPress={() => { setShowTypeModal(false); router.push('/werkbon/nieuw'); }}>
+              <View style={[styles.typeIcon, { backgroundColor: '#3498db15' }]}>
+                <Ionicons name="time-outline" size={24} color="#3498db" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.typeOptionTitle}>Uren Werkbon</Text>
+                <Text style={styles.typeOptionDesc}>Standaard urenregistratie</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#6c757d" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.typeOption} onPress={() => { setShowTypeModal(false); router.push('/werkbon/oplevering'); }}>
+              <View style={[styles.typeIcon, { backgroundColor: '#28a74515' }]}>
+                <Ionicons name="checkmark-done-outline" size={24} color="#28a745" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.typeOptionTitle}>Oplevering</Text>
+                <Text style={styles.typeOptionDesc}>Klanttevredenheid & overdracht</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#6c757d" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.typeOption} onPress={() => { setShowTypeModal(false); router.push('/werkbon/project'); }}>
+              <View style={[styles.typeIcon, { backgroundColor: '#F5A62315' }]}>
+                <Ionicons name="location-outline" size={24} color="#F5A623" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.typeOptionTitle}>Project</Text>
+                <Text style={styles.typeOptionDesc}>Locatie & urenregistratie</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#6c757d" />
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -285,6 +326,13 @@ const styles = StyleSheet.create({
     width: 44, height: 44, borderRadius: 22,
     alignItems: 'center', justifyContent: 'center',
   },
+  typeModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  typeModalContent: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 40 },
+  typeModalTitle: { fontSize: 18, fontWeight: '700', color: '#1A1A2E', marginBottom: 16, textAlign: 'center' },
+  typeOption: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, backgroundColor: '#F5F6FA', borderRadius: 12, marginBottom: 10 },
+  typeIcon: { width: 48, height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  typeOptionTitle: { fontSize: 16, fontWeight: '600', color: '#1A1A2E' },
+  typeOptionDesc: { fontSize: 12, color: '#6c757d', marginTop: 2 },
   statsRow: {
     flexDirection: 'row',
     paddingHorizontal: 16,

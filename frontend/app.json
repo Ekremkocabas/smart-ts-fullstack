@@ -24,8 +24,9 @@
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
       ]
     },
     "web": {
@@ -46,6 +47,12 @@
         {
           "photosPermission": "Foto selecteren voor selfie verificatie",
           "cameraPermission": "Selfie nemen bij handtekening verificatie"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Locatie ophalen voor werkbon registratie"
         }
       ],
       [
