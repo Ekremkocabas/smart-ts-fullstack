@@ -17,46 +17,62 @@ const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_B
 
 interface DashboardStats {
   totaalWerknemers: number;
+  totaalTeams: number;
+  totaalKlanten: number;
   totaalWerven: number;
   werkbonnenDezeWeek: number;
   werkbonnenWachtend: number;
   totaalUrenDezeWeek: number;
 }
 
+interface RecentWerkbon {
+  id: string;
+  klant_naam: string;
+  werf_naam: string;
+  created_by_naam: string;
+  week_nummer: number;
+  status: string;
+  created_at: string;
+}
+
 export default function AdminDashboard() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [recentWerkbonnen, setRecentWerkbonnen] = useState<RecentWerkbon[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // ALL HOOKS MUST BE BEFORE ANY CONDITIONAL RETURNS
   useEffect(() => {
     if (Platform.OS === 'web' && (user?.rol === 'beheerder' || user?.rol === 'admin')) {
-      fetchStats();
+      fetchData();
     }
   }, [user]);
 
-  const fetchStats = async () => {
+  const fetchData = async () => {
     try {
       setLoading(true);
-      // Get current week
       const now = new Date();
       const startOfYear = new Date(now.getFullYear(), 0, 1);
       const days = Math.floor((now.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000));
       const currentWeek = Math.ceil((days + startOfYear.getDay() + 1) / 7);
 
-      const [werknemersRes, wervenRes, werkbonnenRes] = await Promise.all([
+      const [werknemersRes, teamsRes, klantenRes, wervenRes, werkbonnenRes] = await Promise.all([
         fetch(`${API_URL}/api/auth/users`),
+        fetch(`${API_URL}/api/teams`),
+        fetch(`${API_URL}/api/klanten`),
         fetch(`${API_URL}/api/werven`),
         fetch(`${API_URL}/api/werkbonnen?user_id=admin-001&is_admin=true`),
       ]);
 
       const werknemers = await werknemersRes.json();
+      const teams = await teamsRes.json();
+      const klanten = await klantenRes.json();
       const werven = await wervenRes.json();
       const werkbonnen = await werkbonnenRes.json();
 
-      // Handle case where response is error or empty
-      const wervenList = Array.isArray(werven) ? werven : [];
       const werknemersList = Array.isArray(werknemers) ? werknemers : [];
+      const teamsList = Array.isArray(teams) ? teams : [];
+      const klantenList = Array.isArray(klanten) ? klanten : [];
+      const wervenList = Array.isArray(werven) ? werven : [];
       const werkbonnenList = Array.isArray(werkbonnen) ? werkbonnen : [];
 
       const werkbonnenDezeWeek = werkbonnenList.filter(
@@ -64,7 +80,7 @@ export default function AdminDashboard() {
       );
 
       const werkbonnenWachtend = werkbonnenList.filter(
-        (wb: any) => wb.status === 'concept'
+        (wb: any) => wb.status === 'concept' || !wb.handtekening_data
       );
 
       const totaalUren = werkbonnenDezeWeek.reduce((acc: number, wb: any) => {
@@ -76,12 +92,20 @@ export default function AdminDashboard() {
       }, 0);
 
       setStats({
-        totaalWerknemers: werknemersList.filter((w: any) => w.actief).length,
+        totaalWerknemers: werknemersList.filter((w: any) => w.actief !== false).length,
+        totaalTeams: teamsList.length,
+        totaalKlanten: klantenList.filter((k: any) => k.actief !== false).length,
         totaalWerven: wervenList.filter((w: any) => w.actief !== false).length,
         werkbonnenDezeWeek: werkbonnenDezeWeek.length,
         werkbonnenWachtend: werkbonnenWachtend.length,
         totaalUrenDezeWeek: totaalUren,
       });
+
+      // Sort by created_at descending and take last 5
+      const sorted = werkbonnenList
+        .sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+        .slice(0, 5);
+      setRecentWerkbonnen(sorted);
     } catch (error) {
       console.error('Error fetching stats:', error);
     } finally {
@@ -89,12 +113,6 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleLogout = async () => {
-    await logout();
-    router.replace('/admin/login');
-  };
-
-  // CONDITIONAL RETURNS AFTER ALL HOOKS
   if (Platform.OS !== 'web') return null;
 
   if (user?.rol !== 'beheerder' && user?.rol !== 'admin') {
@@ -109,82 +127,148 @@ export default function AdminDashboard() {
     );
   }
 
-  const menuItems = [
-    { icon: 'people', label: 'Werknemers', route: '/admin/werknemers', color: '#3498db' },
-    { icon: 'git-branch', label: 'Teams', route: '/admin/teams', color: '#9b59b6' },
-    { icon: 'business', label: 'Werven', route: '/admin/werven', color: '#e67e22' },
-    { icon: 'briefcase', label: 'Klanten', route: '/admin/klanten', color: '#1abc9c' },
-    { icon: 'document-text', label: 'Werkbonnen', route: '/admin/werkbonnen', color: '#F5A623' },
-    { icon: 'settings', label: 'Instellingen', route: '/admin/instellingen', color: '#6c757d' },
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'concept': return '#ffc107';
+      case 'ondertekend': return '#28a745';
+      case 'verzonden': return '#F5A623';
+      default: return '#6c757d';
+    }
+  };
+
+  const quickActions = [
+    { icon: 'person-add', label: 'Nieuwe werknemer', route: '/admin/werknemers', color: '#3498db' },
+    { icon: 'add-circle', label: 'Nieuwe klant', route: '/admin/klanten', color: '#1abc9c' },
+    { icon: 'business', label: 'Nieuwe werf', route: '/admin/werven', color: '#e67e22' },
+    { icon: 'document-text', label: 'Bekijk werkbonnen', route: '/admin/werkbonnen', color: '#F5A623' },
+    { icon: 'bar-chart', label: 'Rapporten', route: '/admin/rapporten', color: '#9b59b6' },
+    { icon: 'download', label: 'Export CSV', route: '/admin/rapporten', color: '#34495e' },
   ];
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      {/* Page Header */}
+      <View style={styles.pageHeader}>
         <View>
-          <Text style={styles.title}>Admin Dashboard</Text>
-          <Text style={styles.subtitle}>Smart-Tech BV Beheerportaal</Text>
+          <Text style={styles.greeting}>Welkom terug,</Text>
+          <Text style={styles.pageTitle}>{user?.naam || 'Beheerder'}</Text>
         </View>
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={24} color="#dc3545" />
-        </TouchableOpacity>
+        <Text style={styles.dateText}>{new Date().toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</Text>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Stats Cards */}
-        <Text style={styles.sectionTitle}>Overzicht</Text>
-        {loading ? (
-          <ActivityIndicator size="large" color="#F5A623" style={{ marginVertical: 24 }} />
-        ) : (
+      {loading ? (
+        <ActivityIndicator size="large" color="#F5A623" style={{ marginVertical: 40 }} />
+      ) : (
+        <>
+          {/* Stats Grid */}
           <View style={styles.statsGrid}>
-            <View style={[styles.statCard, { borderLeftColor: '#3498db' }]}>
-              <Ionicons name="people" size={28} color="#3498db" />
+            <TouchableOpacity style={[styles.statCard, styles.statCardLarge]} onPress={() => router.push('/admin/werknemers')}>
+              <View style={[styles.statIcon, { backgroundColor: '#3498db15' }]}>
+                <Ionicons name="people" size={28} color="#3498db" />
+              </View>
               <Text style={styles.statValue}>{stats?.totaalWerknemers || 0}</Text>
               <Text style={styles.statLabel}>Werknemers</Text>
-            </View>
-            <View style={[styles.statCard, { borderLeftColor: '#e67e22' }]}>
-              <Ionicons name="business" size={28} color="#e67e22" />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[styles.statCard, styles.statCardLarge]} onPress={() => router.push('/admin/teams')}>
+              <View style={[styles.statIcon, { backgroundColor: '#9b59b615' }]}>
+                <Ionicons name="git-branch" size={28} color="#9b59b6" />
+              </View>
+              <Text style={styles.statValue}>{stats?.totaalTeams || 0}</Text>
+              <Text style={styles.statLabel}>Teams</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[styles.statCard, styles.statCardLarge]} onPress={() => router.push('/admin/klanten')}>
+              <View style={[styles.statIcon, { backgroundColor: '#1abc9c15' }]}>
+                <Ionicons name="briefcase" size={28} color="#1abc9c" />
+              </View>
+              <Text style={styles.statValue}>{stats?.totaalKlanten || 0}</Text>
+              <Text style={styles.statLabel}>Klanten</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[styles.statCard, styles.statCardLarge]} onPress={() => router.push('/admin/werven')}>
+              <View style={[styles.statIcon, { backgroundColor: '#e67e2215' }]}>
+                <Ionicons name="business" size={28} color="#e67e22" />
+              </View>
               <Text style={styles.statValue}>{stats?.totaalWerven || 0}</Text>
               <Text style={styles.statLabel}>Werven</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Werkbonnen Stats */}
+          <Text style={styles.sectionTitle}>Werkbonnen overzicht</Text>
+          <View style={styles.werkbonStats}>
+            <View style={[styles.werkbonStatCard, { borderLeftColor: '#F5A623' }]}>
+              <Text style={styles.werkbonStatValue}>{stats?.werkbonnenDezeWeek || 0}</Text>
+              <Text style={styles.werkbonStatLabel}>Deze week</Text>
             </View>
-            <View style={[styles.statCard, { borderLeftColor: '#F5A623' }]}>
-              <Ionicons name="document-text" size={28} color="#F5A623" />
-              <Text style={styles.statValue}>{stats?.werkbonnenDezeWeek || 0}</Text>
-              <Text style={styles.statLabel}>Werkbonnen deze week</Text>
+            <View style={[styles.werkbonStatCard, { borderLeftColor: '#ffc107' }]}>
+              <Text style={styles.werkbonStatValue}>{stats?.werkbonnenWachtend || 0}</Text>
+              <Text style={styles.werkbonStatLabel}>Wachtend op handtekening</Text>
             </View>
-            <View style={[styles.statCard, { borderLeftColor: '#ffc107' }]}>
-              <Ionicons name="time" size={28} color="#ffc107" />
-              <Text style={styles.statValue}>{stats?.werkbonnenWachtend || 0}</Text>
-              <Text style={styles.statLabel}>Wachtend op handtekening</Text>
-            </View>
-            <View style={[styles.statCard, { borderLeftColor: '#28a745' }]}>
-              <Ionicons name="timer" size={28} color="#28a745" />
-              <Text style={styles.statValue}>{stats?.totaalUrenDezeWeek || 0}</Text>
-              <Text style={styles.statLabel}>Totaal uren deze week</Text>
+            <View style={[styles.werkbonStatCard, { borderLeftColor: '#28a745' }]}>
+              <Text style={styles.werkbonStatValue}>{stats?.totaalUrenDezeWeek || 0}</Text>
+              <Text style={styles.werkbonStatLabel}>Uren deze week</Text>
             </View>
           </View>
-        )}
 
-        {/* Quick Menu */}
-        <Text style={styles.sectionTitle}>Snelle navigatie</Text>
-        <View style={styles.menuGrid}>
-          {menuItems.map((item, index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.menuCard}
-              onPress={() => router.push(item.route as any)}
-            >
-              <View style={[styles.menuIcon, { backgroundColor: `${item.color}15` }]}>
-                <Ionicons name={item.icon as any} size={28} color={item.color} />
-              </View>
-              <Text style={styles.menuLabel}>{item.label}</Text>
-              <Ionicons name="chevron-forward" size={20} color="#6c757d" />
+          {/* Recent Werkbonnen */}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Recent aangemaakte werkbonnen</Text>
+            <TouchableOpacity onPress={() => router.push('/admin/werkbonnen')}>
+              <Text style={styles.viewAllLink}>Bekijk alle</Text>
             </TouchableOpacity>
-          ))}
-        </View>
-      </ScrollView>
-    </View>
+          </View>
+          <View style={styles.recentList}>
+            {recentWerkbonnen.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="document-text-outline" size={48} color="#E8E9ED" />
+                <Text style={styles.emptyText}>Geen recente werkbonnen</Text>
+              </View>
+            ) : (
+              recentWerkbonnen.map((wb) => (
+                <TouchableOpacity
+                  key={wb.id}
+                  style={styles.recentCard}
+                  onPress={() => router.push(`/admin/werkbon-detail?id=${wb.id}` as any)}
+                >
+                  <View style={styles.recentCardLeft}>
+                    <View style={styles.weekBadge}>
+                      <Text style={styles.weekBadgeText}>W{wb.week_nummer}</Text>
+                    </View>
+                    <View>
+                      <Text style={styles.recentKlant}>{wb.klant_naam}</Text>
+                      <Text style={styles.recentWerf}>{wb.werf_naam}</Text>
+                      <Text style={styles.recentMeta}>{wb.created_by_naam}</Text>
+                    </View>
+                  </View>
+                  <View style={[styles.statusBadge, { backgroundColor: getStatusColor(wb.status) }]}>
+                    <Text style={styles.statusText}>{wb.status}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))
+            )}
+          </View>
+
+          {/* Quick Actions */}
+          <Text style={styles.sectionTitle}>Snelle acties</Text>
+          <View style={styles.quickActionsGrid}>
+            {quickActions.map((action, index) => (
+              <TouchableOpacity
+                key={index}
+                style={styles.quickActionCard}
+                onPress={() => router.push(action.route as any)}
+              >
+                <View style={[styles.quickActionIcon, { backgroundColor: `${action.color}15` }]}>
+                  <Ionicons name={action.icon as any} size={24} color={action.color} />
+                </View>
+                <Text style={styles.quickActionLabel}>{action.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </>
+      )}
+    </ScrollView>
   );
 }
 
@@ -192,97 +276,201 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F5F6FA',
+    padding: 24,
   },
-  header: {
+  pageHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E8E9ED',
+    alignItems: 'flex-start',
+    marginBottom: 24,
   },
-  title: {
+  greeting: {
+    fontSize: 14,
+    color: '#6c757d',
+  },
+  pageTitle: {
     fontSize: 28,
-    fontWeight: 'bold',
+    fontWeight: '700',
     color: '#1A1A2E',
   },
-  subtitle: {
+  dateText: {
+    fontSize: 14,
+    color: '#6c757d',
+    textAlign: 'right',
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+    marginBottom: 32,
+  },
+  statCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#E8E9ED',
+  },
+  statCardLarge: {
+    flex: 1,
+    minWidth: 180,
+  },
+  statIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  statValue: {
+    fontSize: 36,
+    fontWeight: '700',
+    color: '#1A1A2E',
+  },
+  statLabel: {
     fontSize: 14,
     color: '#6c757d',
     marginTop: 4,
   },
-  logoutBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#dc354510',
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  content: {
-    flex: 1,
-    padding: 20,
+    marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#1A1A2E',
     marginBottom: 16,
-    marginTop: 8,
   },
-  statsGrid: {
+  viewAllLink: {
+    fontSize: 14,
+    color: '#F5A623',
+    fontWeight: '500',
+  },
+  werkbonStats: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 24,
+    gap: 16,
+    marginBottom: 32,
   },
-  statCard: {
+  werkbonStatCard: {
+    flex: 1,
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
-    minWidth: 160,
-    flex: 1,
     borderLeftWidth: 4,
     borderWidth: 1,
     borderColor: '#E8E9ED',
   },
-  statValue: {
-    fontSize: 32,
-    fontWeight: 'bold',
+  werkbonStatValue: {
+    fontSize: 28,
+    fontWeight: '700',
     color: '#1A1A2E',
-    marginTop: 8,
   },
-  statLabel: {
+  werkbonStatLabel: {
     fontSize: 13,
     color: '#6c757d',
     marginTop: 4,
   },
-  menuGrid: {
-    gap: 10,
+  recentList: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E8E9ED',
+    marginBottom: 32,
+    overflow: 'hidden',
   },
-  menuCard: {
+  recentCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E8E9ED',
+  },
+  recentCardLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
+  },
+  weekBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: '#F5A62315',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  weekBadgeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#F5A623',
+  },
+  recentKlant: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1A1A2E',
+  },
+  recentWerf: {
+    fontSize: 13,
+    color: '#6c757d',
+  },
+  recentMeta: {
+    fontSize: 12,
+    color: '#adb5bd',
+    marginTop: 2,
+  },
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#6c757d',
+    marginTop: 12,
+  },
+  quickActionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 40,
+  },
+  quickActionCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
+    alignItems: 'center',
+    minWidth: 140,
+    flex: 1,
     borderWidth: 1,
     borderColor: '#E8E9ED',
   },
-  menuIcon: {
+  quickActionIcon: {
     width: 48,
     height: 48,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 16,
+    marginBottom: 8,
   },
-  menuLabel: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '500',
+  quickActionLabel: {
+    fontSize: 13,
     color: '#1A1A2E',
+    fontWeight: '500',
+    textAlign: 'center',
   },
   noAccess: {
     flex: 1,

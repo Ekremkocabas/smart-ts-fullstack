@@ -24,6 +24,7 @@ interface Werf {
   klant_id?: string;
   klant_naam?: string;
   werfleider?: string;
+  werfleider_email?: string;
   actief: boolean;
 }
 
@@ -38,12 +39,12 @@ export default function WervenAdmin() {
   const [klanten, setKlanten] = useState<Klant[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [filterActief, setFilterActief] = useState<boolean | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editingWerf, setEditingWerf] = useState<Werf | null>(null);
-  const [formData, setFormData] = useState({ naam: '', adres: '', klant_id: '', werfleider: '' });
+  const [formData, setFormData] = useState({ naam: '', adres: '', klant_id: '', werfleider: '', werfleider_email: '' });
   const [saving, setSaving] = useState(false);
 
-  // ALL HOOKS MUST BE BEFORE ANY CONDITIONAL RETURNS
   useEffect(() => { 
     if (Platform.OS === 'web' && (user?.rol === 'beheerder' || user?.rol === 'admin')) {
       fetchData(); 
@@ -70,13 +71,13 @@ export default function WervenAdmin() {
 
   const openAddModal = () => {
     setEditingWerf(null);
-    setFormData({ naam: '', adres: '', klant_id: '', werfleider: '' });
+    setFormData({ naam: '', adres: '', klant_id: '', werfleider: '', werfleider_email: '' });
     setShowModal(true);
   };
 
   const openEditModal = (w: Werf) => {
     setEditingWerf(w);
-    setFormData({ naam: w.naam, adres: w.adres || '', klant_id: w.klant_id || '', werfleider: w.werfleider || '' });
+    setFormData({ naam: w.naam, adres: w.adres || '', klant_id: w.klant_id || '', werfleider: w.werfleider || '', werfleider_email: w.werfleider_email || '' });
     setShowModal(true);
   };
 
@@ -87,17 +88,9 @@ export default function WervenAdmin() {
     const klant = klanten.find(k => k.id === formData.klant_id);
     try {
       if (editingWerf) {
-        await fetch(`${API_URL}/api/werven/${editingWerf.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...editingWerf, ...formData, klant_naam: klant?.naam }),
-        });
+        await fetch(`${API_URL}/api/werven/${editingWerf.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...editingWerf, ...formData, klant_naam: klant?.naam }) });
       } else {
-        await fetch(`${API_URL}/api/werven`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ naam: formData.naam, klant_id: formData.klant_id, adres: formData.adres }),
-        });
+        await fetch(`${API_URL}/api/werven`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ naam: formData.naam, klant_id: formData.klant_id, adres: formData.adres, werfleider: formData.werfleider, werfleider_email: formData.werfleider_email }) });
       }
       setShowModal(false);
       fetchData();
@@ -105,6 +98,15 @@ export default function WervenAdmin() {
       console.error('Error:', error);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const toggleActief = async (w: Werf) => {
+    try {
+      await fetch(`${API_URL}/api/werven/${w.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...w, actief: !w.actief }) });
+      fetchData();
+    } catch (error) {
+      console.error('Error:', error);
     }
   };
 
@@ -118,7 +120,6 @@ export default function WervenAdmin() {
     }
   };
 
-  // CONDITIONAL RETURNS AFTER ALL HOOKS
   if (Platform.OS !== 'web') return null;
   
   if (user?.rol !== 'beheerder' && user?.rol !== 'admin') {
@@ -132,60 +133,116 @@ export default function WervenAdmin() {
     );
   }
 
-  const filtered = werven.filter(w =>
-    w.naam?.toLowerCase().includes(search.toLowerCase()) ||
-    w.klant_naam?.toLowerCase().includes(search.toLowerCase())
-  );
+  let filtered = werven;
+  if (search) {
+    filtered = filtered.filter(w => w.naam?.toLowerCase().includes(search.toLowerCase()) || w.klant_naam?.toLowerCase().includes(search.toLowerCase()));
+  }
+  if (filterActief !== null) {
+    filtered = filtered.filter(w => w.actief === filterActief);
+  }
+
+  const getKlantNaam = (klantId?: string) => klanten.find(k => k.id === klantId)?.naam || '-';
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#1A1A2E" />
-        </TouchableOpacity>
-        <View style={styles.headerCenter}>
+        <View>
           <Text style={styles.title}>Werven</Text>
-          <Text style={styles.subtitle}>{werven.length} totaal</Text>
+          <Text style={styles.subtitle}>{werven.length} werven, {werven.filter(w => w.actief !== false).length} actief</Text>
         </View>
         <TouchableOpacity style={styles.addBtn} onPress={openAddModal}>
-          <Ionicons name="add" size={24} color="#fff" />
+          <Ionicons name="add" size={22} color="#fff" />
+          <Text style={styles.addBtnText}>Nieuwe werf</Text>
         </TouchableOpacity>
       </View>
 
-      <View style={styles.searchBar}>
-        <Ionicons name="search" size={20} color="#6c757d" />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Zoek werf..."
-          placeholderTextColor="#6c757d"
-          value={search}
-          onChangeText={setSearch}
-        />
+      <View style={styles.filterBar}>
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={20} color="#6c757d" />
+          <TextInput style={styles.searchInput} placeholder="Zoek op naam of klant..." placeholderTextColor="#6c757d" value={search} onChangeText={setSearch} />
+        </View>
       </View>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtersScroll}>
+        <View style={styles.filters}>
+          <TouchableOpacity style={[styles.filterChip, filterActief === null && styles.filterChipActive]} onPress={() => setFilterActief(null)}>
+            <Text style={[styles.filterText, filterActief === null && styles.filterTextActive]}>Alle statussen</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.filterChip, filterActief === true && styles.filterChipActive]} onPress={() => setFilterActief(filterActief === true ? null : true)}>
+            <View style={[styles.statusDot, { backgroundColor: '#28a745' }]} />
+            <Text style={[styles.filterText, filterActief === true && styles.filterTextActive]}>Actief</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.filterChip, filterActief === false && styles.filterChipActive]} onPress={() => setFilterActief(filterActief === false ? null : false)}>
+            <View style={[styles.statusDot, { backgroundColor: '#dc3545' }]} />
+            <Text style={[styles.filterText, filterActief === false && styles.filterTextActive]}>Inactief</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
 
       {loading ? (
         <ActivityIndicator size="large" color="#F5A623" style={{ marginTop: 40 }} />
       ) : (
-        <ScrollView style={styles.list}>
-          {filtered.map((w) => (
-            <TouchableOpacity key={w.id} style={[styles.card, !w.actief && { opacity: 0.6 }]} onPress={() => openEditModal(w)}>
-              <View style={styles.cardHeader}>
-                <View style={[styles.avatar, { backgroundColor: '#e67e2220' }]}>
-                  <Ionicons name="business" size={24} color="#e67e22" />
+        <View style={styles.tableContainer}>
+          <View style={styles.tableHeader}>
+            <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Werf</Text>
+            <Text style={styles.tableHeaderCell}>Klant</Text>
+            <Text style={styles.tableHeaderCell}>Werfleider</Text>
+            <Text style={styles.tableHeaderCell}>Status</Text>
+            <Text style={[styles.tableHeaderCell, { flex: 0.5, textAlign: 'center' }]}>Acties</Text>
+          </View>
+
+          {filtered.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="business-outline" size={48} color="#E8E9ED" />
+              <Text style={styles.emptyText}>Geen werven gevonden</Text>
+            </View>
+          ) : (
+            filtered.map((w, index) => (
+              <TouchableOpacity
+                key={w.id}
+                style={[styles.tableRow, index % 2 === 0 && styles.tableRowAlt]}
+                onPress={() => router.push(`/admin/werf-detail?id=${w.id}` as any)}
+              >
+                <View style={[styles.tableCell, { flex: 2 }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <View style={styles.werfIcon}>
+                      <Ionicons name="business" size={20} color="#e67e22" />
+                    </View>
+                    <View>
+                      <Text style={styles.werfName}>{w.naam}</Text>
+                      {w.adres && <Text style={styles.werfAdres}>{w.adres}</Text>}
+                    </View>
+                  </View>
                 </View>
-                <View style={styles.cardInfo}>
-                  <Text style={styles.cardName}>{w.naam}</Text>
-                  {w.klant_naam && <Text style={styles.cardSub}>Klant: {w.klant_naam}</Text>}
-                  {w.adres && <Text style={styles.cardSub}>{w.adres}</Text>}
-                  {w.werfleider && <Text style={styles.cardSub}>Werfleider: {w.werfleider}</Text>}
+                <Text style={styles.tableCell}>{w.klant_naam || getKlantNaam(w.klant_id)}</Text>
+                <View style={styles.tableCell}>
+                  {w.werfleider ? (
+                    <View>
+                      <Text style={styles.werfleiderName}>{w.werfleider}</Text>
+                      {w.werfleider_email && <Text style={styles.werfleiderEmail}>{w.werfleider_email}</Text>}
+                    </View>
+                  ) : (
+                    <Text style={styles.emptyValue}>-</Text>
+                  )}
                 </View>
-                <TouchableOpacity onPress={() => deleteWerf(w.id)} style={styles.deleteBtn}>
-                  <Ionicons name="trash-outline" size={22} color="#dc3545" />
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+                <View style={styles.tableCell}>
+                  <TouchableOpacity style={[styles.statusBadge, { backgroundColor: w.actief !== false ? '#28a74520' : '#dc354520' }]} onPress={(e) => { e.stopPropagation(); toggleActief(w); }}>
+                    <View style={[styles.statusDot, { backgroundColor: w.actief !== false ? '#28a745' : '#dc3545' }]} />
+                    <Text style={[styles.statusText, { color: w.actief !== false ? '#28a745' : '#dc3545' }]}>{w.actief !== false ? 'Actief' : 'Inactief'}</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={[styles.tableCell, { flex: 0.5, flexDirection: 'row', justifyContent: 'center', gap: 4 }]}>
+                  <TouchableOpacity style={styles.actionIcon} onPress={(e) => { e.stopPropagation(); openEditModal(w); }}>
+                    <Ionicons name="create-outline" size={18} color="#3498db" />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.actionIcon} onPress={(e) => { e.stopPropagation(); deleteWerf(w.id); }}>
+                    <Ionicons name="trash-outline" size={18} color="#dc3545" />
+                  </TouchableOpacity>
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
+        </View>
       )}
 
       <Modal visible={showModal} transparent animationType="fade">
@@ -198,7 +255,7 @@ export default function WervenAdmin() {
               </TouchableOpacity>
             </View>
             <ScrollView>
-              <Text style={styles.label}>Naam *</Text>
+              <Text style={styles.label}>Werfnaam *</Text>
               <TextInput style={styles.input} value={formData.naam} onChangeText={(v) => setFormData({ ...formData, naam: v })} placeholder="Werfnaam" placeholderTextColor="#6c757d" />
               <Text style={styles.label}>Klant *</Text>
               <ScrollView horizontal style={styles.klantScroll}>
@@ -210,8 +267,10 @@ export default function WervenAdmin() {
               </ScrollView>
               <Text style={styles.label}>Adres</Text>
               <TextInput style={styles.input} value={formData.adres} onChangeText={(v) => setFormData({ ...formData, adres: v })} placeholder="Straat, nr, postcode, stad" placeholderTextColor="#6c757d" />
-              <Text style={styles.label}>Werfleider</Text>
+              <Text style={styles.label}>Werfleider naam</Text>
               <TextInput style={styles.input} value={formData.werfleider} onChangeText={(v) => setFormData({ ...formData, werfleider: v })} placeholder="Naam werfleider" placeholderTextColor="#6c757d" />
+              <Text style={styles.label}>Werfleider e-mail</Text>
+              <TextInput style={styles.input} value={formData.werfleider_email} onChangeText={(v) => setFormData({ ...formData, werfleider_email: v })} placeholder="email@voorbeeld.be" placeholderTextColor="#6c757d" keyboardType="email-address" />
             </ScrollView>
             <TouchableOpacity style={styles.saveBtn} onPress={saveWerf} disabled={saving}>
               {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Opslaan</Text>}
@@ -219,39 +278,55 @@ export default function WervenAdmin() {
           </View>
         </View>
       </Modal>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F6FA' },
-  header: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', padding: 16, borderBottomWidth: 1, borderBottomColor: '#E8E9ED' },
-  backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  headerCenter: { flex: 1, marginLeft: 8 },
-  title: { fontSize: 24, fontWeight: 'bold', color: '#1A1A2E' },
-  subtitle: { fontSize: 13, color: '#6c757d' },
-  addBtn: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#e67e22', alignItems: 'center', justifyContent: 'center' },
-  searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', margin: 16, borderRadius: 12, paddingHorizontal: 16, borderWidth: 1, borderColor: '#E8E9ED' },
-  searchInput: { flex: 1, paddingVertical: 14, paddingLeft: 10, fontSize: 16, color: '#1A1A2E' },
-  list: { flex: 1, paddingHorizontal: 16 },
-  card: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#E8E9ED' },
-  cardHeader: { flexDirection: 'row', alignItems: 'center' },
-  avatar: { width: 50, height: 50, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  cardInfo: { flex: 1, marginLeft: 12 },
-  cardName: { fontSize: 18, fontWeight: '600', color: '#1A1A2E' },
-  cardSub: { fontSize: 13, color: '#6c757d', marginTop: 2 },
-  deleteBtn: { padding: 8 },
+  container: { flex: 1, backgroundColor: '#F5F6FA', padding: 24 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
+  title: { fontSize: 28, fontWeight: '700', color: '#1A1A2E' },
+  subtitle: { fontSize: 14, color: '#6c757d', marginTop: 4 },
+  addBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#e67e22', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 10 },
+  addBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  filterBar: { marginBottom: 8 },
+  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 10, paddingHorizontal: 16, borderWidth: 1, borderColor: '#E8E9ED' },
+  searchInput: { flex: 1, paddingVertical: 14, paddingLeft: 10, fontSize: 15, color: '#1A1A2E' },
+  filtersScroll: { marginBottom: 16 },
+  filters: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  filterChip: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FFFFFF', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: '#E8E9ED' },
+  filterChipActive: { backgroundColor: '#F5A623', borderColor: '#F5A623' },
+  filterText: { fontSize: 13, color: '#6c757d' },
+  filterTextActive: { color: '#fff' },
+  statusDot: { width: 8, height: 8, borderRadius: 4 },
+  tableContainer: { backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#E8E9ED', overflow: 'hidden', marginBottom: 40 },
+  tableHeader: { flexDirection: 'row', backgroundColor: '#F5F6FA', paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#E8E9ED' },
+  tableHeaderCell: { flex: 1, fontSize: 12, fontWeight: '600', color: '#6c757d', textTransform: 'uppercase' },
+  tableRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#E8E9ED' },
+  tableRowAlt: { backgroundColor: '#FAFAFA' },
+  tableCell: { flex: 1 },
+  werfIcon: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#e67e2220', alignItems: 'center', justifyContent: 'center' },
+  werfName: { fontSize: 15, fontWeight: '600', color: '#1A1A2E' },
+  werfAdres: { fontSize: 12, color: '#6c757d', marginTop: 2 },
+  werfleiderName: { fontSize: 14, color: '#1A1A2E' },
+  werfleiderEmail: { fontSize: 12, color: '#6c757d', marginTop: 2 },
+  emptyValue: { color: '#adb5bd', fontSize: 13 },
+  statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20 },
+  statusText: { fontSize: 12, fontWeight: '600' },
+  actionIcon: { padding: 6 },
+  emptyState: { alignItems: 'center', padding: 60 },
+  emptyText: { fontSize: 16, fontWeight: '600', color: '#1A1A2E', marginTop: 16 },
   noAccess: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   noAccessText: { fontSize: 20, color: '#1A1A2E', marginTop: 16 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   modalContent: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 24, width: '100%', maxWidth: 500, maxHeight: '90%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   modalTitle: { fontSize: 20, fontWeight: '600', color: '#1A1A2E' },
-  label: { fontSize: 14, color: '#6c757d', marginBottom: 6, marginTop: 12 },
+  label: { fontSize: 14, color: '#6c757d', marginBottom: 6, marginTop: 16 },
   input: { backgroundColor: '#F5F6FA', borderRadius: 10, padding: 14, fontSize: 16, color: '#1A1A2E', borderWidth: 1, borderColor: '#E8E9ED' },
   klantScroll: { marginBottom: 8 },
   klantChip: { backgroundColor: '#F5F6FA', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, marginRight: 8, borderWidth: 1, borderColor: '#E8E9ED' },
-  klantChipActive: { backgroundColor: '#e67e22', borderColor: '#e67e22' },
+  klantChipActive: { backgroundColor: '#1abc9c', borderColor: '#1abc9c' },
   klantChipText: { color: '#6c757d', fontSize: 14 },
   klantChipTextActive: { color: '#fff' },
   saveBtn: { backgroundColor: '#e67e22', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 20 },

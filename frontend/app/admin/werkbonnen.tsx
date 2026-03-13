@@ -24,31 +24,56 @@ interface Werkbon {
   werf_naam: string;
   status: string;
   created_by_naam?: string;
+  created_by?: string;
+  team_naam?: string;
   handtekening_data?: string;
   uren?: any[];
+  created_at?: string;
 }
+
+interface Werknemer { id: string; naam: string; }
+interface Team { id: string; naam: string; }
+interface Klant { id: string; naam: string; }
+interface Werf { id: string; naam: string; }
 
 export default function WerkbonnenAdmin() {
   const { user } = useAuth();
   const [werkbonnen, setWerkbonnen] = useState<Werkbon[]>([]);
+  const [werknemers, setWerknemers] = useState<Werknemer[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [klanten, setKlanten] = useState<Klant[]>([]);
+  const [werven, setWerven] = useState<Werf[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
   const [filterWeek, setFilterWeek] = useState<number | null>(null);
+  const [filterWerknemer, setFilterWerknemer] = useState<string | null>(null);
+  const [filterKlant, setFilterKlant] = useState<string | null>(null);
+  const [filterWerf, setFilterWerf] = useState<string | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
 
-  // ALL HOOKS MUST BE BEFORE ANY CONDITIONAL RETURNS
   useEffect(() => { 
     if (Platform.OS === 'web' && (user?.rol === 'beheerder' || user?.rol === 'admin')) {
-      fetchWerkbonnen(); 
+      fetchData(); 
     }
   }, [user]);
 
-  const fetchWerkbonnen = async () => {
+  const fetchData = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_URL}/api/werkbonnen?user_id=admin-001&is_admin=true`);
-      const data = await res.json();
+      const [werkbonnenRes, werknemersRes, teamsRes, klantenRes, wervenRes] = await Promise.all([
+        fetch(`${API_URL}/api/werkbonnen?user_id=admin-001&is_admin=true`),
+        fetch(`${API_URL}/api/auth/users`),
+        fetch(`${API_URL}/api/teams`),
+        fetch(`${API_URL}/api/klanten`),
+        fetch(`${API_URL}/api/werven`),
+      ]);
+      const data = await werkbonnenRes.json();
       setWerkbonnen(Array.isArray(data) ? data.sort((a: Werkbon, b: Werkbon) => b.week_nummer - a.week_nummer) : []);
+      setWerknemers(Array.isArray(await werknemersRes.json()) ? await werknemersRes.clone().json() : []);
+      setTeams(Array.isArray(await teamsRes.json()) ? await teamsRes.clone().json() : []);
+      setKlanten(Array.isArray(await klantenRes.json()) ? await klantenRes.clone().json() : []);
+      setWerven(Array.isArray(await wervenRes.json()) ? await wervenRes.clone().json() : []);
     } catch (error) {
       console.error('Error:', error);
     } finally {
@@ -95,7 +120,6 @@ export default function WerkbonnenAdmin() {
     }, 0) || 0;
   };
 
-  // CONDITIONAL RETURNS AFTER ALL HOOKS
   if (Platform.OS !== 'web') return null;
   
   if (user?.rol !== 'beheerder' && user?.rol !== 'admin') {
@@ -117,146 +141,247 @@ export default function WerkbonnenAdmin() {
       wb.created_by_naam?.toLowerCase().includes(search.toLowerCase())
     );
   }
-  if (filterStatus) {
-    filtered = filtered.filter(wb => wb.status === filterStatus);
-  }
-  if (filterWeek) {
-    filtered = filtered.filter(wb => wb.week_nummer === filterWeek);
-  }
+  if (filterStatus) filtered = filtered.filter(wb => wb.status === filterStatus);
+  if (filterWeek) filtered = filtered.filter(wb => wb.week_nummer === filterWeek);
+  if (filterWerknemer) filtered = filtered.filter(wb => wb.created_by_naam === filterWerknemer);
+  if (filterKlant) filtered = filtered.filter(wb => wb.klant_naam === filterKlant);
+  if (filterWerf) filtered = filtered.filter(wb => wb.werf_naam === filterWerf);
 
   const statusOptions = ['concept', 'ondertekend', 'verzonden'];
-  const weekOptions = [...new Set(werkbonnen.map(wb => wb.week_nummer))].sort((a, b) => b - a).slice(0, 10);
+  const weekOptions = [...new Set(werkbonnen.map(wb => wb.week_nummer))].sort((a, b) => b - a).slice(0, 12);
+  const werknemerOptions = [...new Set(werkbonnen.map(wb => wb.created_by_naam).filter(Boolean))];
+  const klantOptions = [...new Set(werkbonnen.map(wb => wb.klant_naam).filter(Boolean))];
+  const werfOptions = [...new Set(werkbonnen.map(wb => wb.werf_naam).filter(Boolean))];
+
+  const activeFiltersCount = [filterStatus, filterWeek, filterWerknemer, filterKlant, filterWerf].filter(Boolean).length;
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#1A1A2E" />
-        </TouchableOpacity>
-        <View style={styles.headerCenter}>
+        <View>
           <Text style={styles.title}>Werkbonnen</Text>
-          <Text style={styles.subtitle}>{werkbonnen.length} totaal</Text>
+          <Text style={styles.subtitle}>{werkbonnen.length} totaal, {filtered.length} gefilterd</Text>
         </View>
       </View>
 
-      <View style={styles.searchBar}>
-        <Ionicons name="search" size={20} color="#6c757d" />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Zoek klant, werf of werknemer..."
-          placeholderTextColor="#6c757d"
-          value={search}
-          onChangeText={setSearch}
-        />
+      {/* Search & Filter Toggle */}
+      <View style={styles.filterBar}>
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={20} color="#6c757d" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Zoek klant, werf of werknemer..."
+            placeholderTextColor="#6c757d"
+            value={search}
+            onChangeText={setSearch}
+          />
+        </View>
+        <TouchableOpacity style={[styles.filterToggle, showFilters && styles.filterToggleActive]} onPress={() => setShowFilters(!showFilters)}>
+          <Ionicons name="options-outline" size={20} color={showFilters ? '#fff' : '#6c757d'} />
+          {activeFiltersCount > 0 && (
+            <View style={styles.filterBadge}>
+              <Text style={styles.filterBadgeText}>{activeFiltersCount}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
 
-      <ScrollView horizontal style={styles.filtersScroll} showsHorizontalScrollIndicator={false}>
-        <View style={styles.filters}>
-          <TouchableOpacity style={[styles.filterChip, !filterStatus && styles.filterChipActive]} onPress={() => setFilterStatus(null)}>
-            <Text style={[styles.filterText, !filterStatus && styles.filterTextActive]}>Alle statussen</Text>
+      {/* Expanded Filters */}
+      {showFilters && (
+        <View style={styles.filtersPanel}>
+          <View style={styles.filterSection}>
+            <Text style={styles.filterLabel}>Status</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={styles.filterRow}>
+                <TouchableOpacity style={[styles.filterChip, !filterStatus && styles.filterChipActive]} onPress={() => setFilterStatus(null)}>
+                  <Text style={[styles.filterChipText, !filterStatus && styles.filterChipTextActive]}>Alle</Text>
+                </TouchableOpacity>
+                {statusOptions.map((s) => (
+                  <TouchableOpacity key={s} style={[styles.filterChip, filterStatus === s && styles.filterChipActive]} onPress={() => setFilterStatus(filterStatus === s ? null : s)}>
+                    <View style={[styles.statusDot, { backgroundColor: getStatusColor(s) }]} />
+                    <Text style={[styles.filterChipText, filterStatus === s && styles.filterChipTextActive]}>{s}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+          </View>
+
+          <View style={styles.filterSection}>
+            <Text style={styles.filterLabel}>Week</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={styles.filterRow}>
+                <TouchableOpacity style={[styles.filterChip, !filterWeek && styles.filterChipActive]} onPress={() => setFilterWeek(null)}>
+                  <Text style={[styles.filterChipText, !filterWeek && styles.filterChipTextActive]}>Alle</Text>
+                </TouchableOpacity>
+                {weekOptions.map((w) => (
+                  <TouchableOpacity key={w} style={[styles.filterChip, filterWeek === w && styles.filterChipActive]} onPress={() => setFilterWeek(filterWeek === w ? null : w)}>
+                    <Text style={[styles.filterChipText, filterWeek === w && styles.filterChipTextActive]}>Week {w}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+          </View>
+
+          <View style={styles.filterSection}>
+            <Text style={styles.filterLabel}>Werknemer</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={styles.filterRow}>
+                <TouchableOpacity style={[styles.filterChip, !filterWerknemer && styles.filterChipActive]} onPress={() => setFilterWerknemer(null)}>
+                  <Text style={[styles.filterChipText, !filterWerknemer && styles.filterChipTextActive]}>Alle</Text>
+                </TouchableOpacity>
+                {werknemerOptions.map((w) => (
+                  <TouchableOpacity key={w} style={[styles.filterChip, filterWerknemer === w && styles.filterChipActive]} onPress={() => setFilterWerknemer(filterWerknemer === w ? null : w)}>
+                    <Text style={[styles.filterChipText, filterWerknemer === w && styles.filterChipTextActive]}>{w}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+          </View>
+
+          <View style={styles.filterSection}>
+            <Text style={styles.filterLabel}>Klant</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={styles.filterRow}>
+                <TouchableOpacity style={[styles.filterChip, !filterKlant && styles.filterChipActive]} onPress={() => setFilterKlant(null)}>
+                  <Text style={[styles.filterChipText, !filterKlant && styles.filterChipTextActive]}>Alle</Text>
+                </TouchableOpacity>
+                {klantOptions.map((k) => (
+                  <TouchableOpacity key={k} style={[styles.filterChip, filterKlant === k && styles.filterChipActive]} onPress={() => setFilterKlant(filterKlant === k ? null : k)}>
+                    <Text style={[styles.filterChipText, filterKlant === k && styles.filterChipTextActive]}>{k}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+          </View>
+
+          <View style={styles.filterSection}>
+            <Text style={styles.filterLabel}>Werf</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={styles.filterRow}>
+                <TouchableOpacity style={[styles.filterChip, !filterWerf && styles.filterChipActive]} onPress={() => setFilterWerf(null)}>
+                  <Text style={[styles.filterChipText, !filterWerf && styles.filterChipTextActive]}>Alle</Text>
+                </TouchableOpacity>
+                {werfOptions.map((w) => (
+                  <TouchableOpacity key={w} style={[styles.filterChip, filterWerf === w && styles.filterChipActive]} onPress={() => setFilterWerf(filterWerf === w ? null : w)}>
+                    <Text style={[styles.filterChipText, filterWerf === w && styles.filterChipTextActive]}>{w}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+          </View>
+
+          <TouchableOpacity style={styles.clearFiltersBtn} onPress={() => { setFilterStatus(null); setFilterWeek(null); setFilterWerknemer(null); setFilterKlant(null); setFilterWerf(null); }}>
+            <Ionicons name="close-circle-outline" size={18} color="#dc3545" />
+            <Text style={styles.clearFiltersText}>Wis alle filters</Text>
           </TouchableOpacity>
-          {statusOptions.map((s) => (
-            <TouchableOpacity key={s} style={[styles.filterChip, filterStatus === s && styles.filterChipActive]} onPress={() => setFilterStatus(filterStatus === s ? null : s)}>
-              <View style={[styles.statusDot, { backgroundColor: getStatusColor(s) }]} />
-              <Text style={[styles.filterText, filterStatus === s && styles.filterTextActive]}>{s}</Text>
-            </TouchableOpacity>
-          ))}
-          <View style={styles.filterDivider} />
-          <TouchableOpacity style={[styles.filterChip, !filterWeek && styles.filterChipActive]} onPress={() => setFilterWeek(null)}>
-            <Text style={[styles.filterText, !filterWeek && styles.filterTextActive]}>Alle weken</Text>
-          </TouchableOpacity>
-          {weekOptions.map((w) => (
-            <TouchableOpacity key={w} style={[styles.filterChip, filterWeek === w && styles.filterChipActive]} onPress={() => setFilterWeek(filterWeek === w ? null : w)}>
-              <Text style={[styles.filterText, filterWeek === w && styles.filterTextActive]}>Week {w}</Text>
-            </TouchableOpacity>
-          ))}
         </View>
-      </ScrollView>
+      )}
 
       {loading ? (
         <ActivityIndicator size="large" color="#F5A623" style={{ marginTop: 40 }} />
       ) : (
-        <ScrollView style={styles.list}>
-          {filtered.map((wb) => (
-            <View key={wb.id} style={styles.card}>
-              <View style={styles.cardHeader}>
-                <View style={styles.weekBadge}>
-                  <Text style={styles.weekText}>Week {wb.week_nummer}</Text>
-                </View>
-                <View style={[styles.statusBadge, { backgroundColor: getStatusColor(wb.status) }]}>
-                  <Text style={styles.statusText}>{wb.status}</Text>
-                </View>
-              </View>
-              <Text style={styles.klantNaam}>{wb.klant_naam}</Text>
-              <Text style={styles.werfNaam}>{wb.werf_naam}</Text>
-              <View style={styles.cardMeta}>
-                <View style={styles.metaItem}>
-                  <Ionicons name="person-outline" size={14} color="#6c757d" />
-                  <Text style={styles.metaText}>{wb.created_by_naam || '-'}</Text>
-                </View>
-                <View style={styles.metaItem}>
-                  <Ionicons name="time-outline" size={14} color="#6c757d" />
-                  <Text style={styles.metaText}>{calcTotalUren(wb)} uur</Text>
-                </View>
-                <View style={styles.metaItem}>
-                  <Ionicons name={wb.handtekening_data ? 'checkmark-circle' : 'ellipse-outline'} size={14} color={wb.handtekening_data ? '#28a745' : '#6c757d'} />
-                  <Text style={styles.metaText}>{wb.handtekening_data ? 'Getekend' : 'Niet getekend'}</Text>
-                </View>
-              </View>
-              <View style={styles.cardActions}>
-                <TouchableOpacity style={styles.actionBtn} onPress={() => downloadPdf(wb.id)}>
-                  <Ionicons name="download-outline" size={20} color="#3498db" />
-                  <Text style={[styles.actionText, { color: '#3498db' }]}>PDF</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.actionBtn} onPress={() => resendEmail(wb.id)}>
-                  <Ionicons name="mail-outline" size={20} color="#F5A623" />
-                  <Text style={[styles.actionText, { color: '#F5A623' }]}>Versturen</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.actionBtn} onPress={() => router.push(`/werkbon/${wb.id}` as any)}>
-                  <Ionicons name="eye-outline" size={20} color="#6c757d" />
-                  <Text style={styles.actionText}>Bekijken</Text>
-                </TouchableOpacity>
-              </View>
+        <View style={styles.tableContainer}>
+          {/* Table Header */}
+          <View style={styles.tableHeader}>
+            <Text style={styles.tableHeaderCell}>Week</Text>
+            <Text style={[styles.tableHeaderCell, { flex: 1.5 }]}>Klant / Werf</Text>
+            <Text style={styles.tableHeaderCell}>Werknemer</Text>
+            <Text style={styles.tableHeaderCell}>Uren</Text>
+            <Text style={styles.tableHeaderCell}>Status</Text>
+            <Text style={styles.tableHeaderCell}>Handtek.</Text>
+            <Text style={[styles.tableHeaderCell, { flex: 0.8, textAlign: 'center' }]}>Acties</Text>
+          </View>
+
+          {filtered.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="document-text-outline" size={48} color="#E8E9ED" />
+              <Text style={styles.emptyText}>Geen werkbonnen gevonden</Text>
             </View>
-          ))}
-        </ScrollView>
+          ) : (
+            filtered.map((wb, index) => (
+              <TouchableOpacity
+                key={wb.id}
+                style={[styles.tableRow, index % 2 === 0 && styles.tableRowAlt]}
+                onPress={() => router.push(`/admin/werkbon-detail?id=${wb.id}` as any)}
+              >
+                <View style={styles.tableCell}>
+                  <View style={styles.weekBadge}>
+                    <Text style={styles.weekText}>W{wb.week_nummer}</Text>
+                  </View>
+                </View>
+                <View style={[styles.tableCell, { flex: 1.5 }]}>
+                  <Text style={styles.klantText}>{wb.klant_naam}</Text>
+                  <Text style={styles.werfText}>{wb.werf_naam}</Text>
+                </View>
+                <Text style={styles.tableCell}>{wb.created_by_naam || '-'}</Text>
+                <View style={styles.tableCell}>
+                  <Text style={styles.urenText}>{calcTotalUren(wb)} u</Text>
+                </View>
+                <View style={styles.tableCell}>
+                  <View style={[styles.statusBadge, { backgroundColor: getStatusColor(wb.status) }]}>
+                    <Text style={styles.statusText}>{wb.status}</Text>
+                  </View>
+                </View>
+                <View style={styles.tableCell}>
+                  <Ionicons name={wb.handtekening_data ? 'checkmark-circle' : 'ellipse-outline'} size={20} color={wb.handtekening_data ? '#28a745' : '#adb5bd'} />
+                </View>
+                <View style={[styles.tableCell, { flex: 0.8, flexDirection: 'row', justifyContent: 'center', gap: 4 }]}>
+                  <TouchableOpacity style={styles.actionIcon} onPress={(e) => { e.stopPropagation(); downloadPdf(wb.id); }}>
+                    <Ionicons name="download-outline" size={18} color="#3498db" />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.actionIcon} onPress={(e) => { e.stopPropagation(); resendEmail(wb.id); }}>
+                    <Ionicons name="mail-outline" size={18} color="#F5A623" />
+                  </TouchableOpacity>
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
+        </View>
       )}
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F6FA' },
-  header: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', padding: 16, borderBottomWidth: 1, borderBottomColor: '#E8E9ED' },
-  backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  headerCenter: { flex: 1, marginLeft: 8 },
-  title: { fontSize: 24, fontWeight: 'bold', color: '#1A1A2E' },
-  subtitle: { fontSize: 13, color: '#6c757d' },
-  searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', margin: 16, marginBottom: 8, borderRadius: 12, paddingHorizontal: 16, borderWidth: 1, borderColor: '#E8E9ED' },
-  searchInput: { flex: 1, paddingVertical: 14, paddingLeft: 10, fontSize: 16, color: '#1A1A2E' },
-  filtersScroll: { maxHeight: 50, marginBottom: 8 },
-  filters: { flexDirection: 'row', paddingHorizontal: 16, gap: 8, alignItems: 'center' },
-  filterChip: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FFFFFF', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: '#E8E9ED' },
+  container: { flex: 1, backgroundColor: '#F5F6FA', padding: 24 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
+  title: { fontSize: 28, fontWeight: '700', color: '#1A1A2E' },
+  subtitle: { fontSize: 14, color: '#6c757d', marginTop: 4 },
+  filterBar: { flexDirection: 'row', gap: 12, marginBottom: 16 },
+  searchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 10, paddingHorizontal: 16, borderWidth: 1, borderColor: '#E8E9ED' },
+  searchInput: { flex: 1, paddingVertical: 14, paddingLeft: 10, fontSize: 15, color: '#1A1A2E' },
+  filterToggle: { width: 48, height: 48, borderRadius: 10, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#E8E9ED', position: 'relative' },
+  filterToggleActive: { backgroundColor: '#F5A623', borderColor: '#F5A623' },
+  filterBadge: { position: 'absolute', top: -4, right: -4, backgroundColor: '#dc3545', width: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  filterBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
+  filtersPanel: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#E8E9ED' },
+  filterSection: { marginBottom: 16 },
+  filterLabel: { fontSize: 12, fontWeight: '600', color: '#6c757d', marginBottom: 8, textTransform: 'uppercase' },
+  filterRow: { flexDirection: 'row', gap: 8 },
+  filterChip: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#F5F6FA', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, borderWidth: 1, borderColor: '#E8E9ED' },
   filterChipActive: { backgroundColor: '#F5A623', borderColor: '#F5A623' },
-  filterText: { fontSize: 13, color: '#6c757d' },
-  filterTextActive: { color: '#fff' },
+  filterChipText: { fontSize: 13, color: '#6c757d' },
+  filterChipTextActive: { color: '#fff' },
   statusDot: { width: 8, height: 8, borderRadius: 4 },
-  filterDivider: { width: 1, height: 24, backgroundColor: '#E8E9ED', marginHorizontal: 8 },
-  list: { flex: 1, paddingHorizontal: 16 },
-  card: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#E8E9ED' },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  weekBadge: { backgroundColor: '#F5F6FA', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
-  weekText: { fontSize: 13, fontWeight: '600', color: '#1A1A2E' },
-  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
-  statusText: { fontSize: 12, fontWeight: '600', color: '#fff' },
-  klantNaam: { fontSize: 18, fontWeight: '600', color: '#1A1A2E' },
-  werfNaam: { fontSize: 14, color: '#6c757d', marginTop: 2 },
-  cardMeta: { flexDirection: 'row', gap: 16, marginTop: 12, flexWrap: 'wrap' },
-  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  metaText: { fontSize: 13, color: '#6c757d' },
-  cardActions: { flexDirection: 'row', gap: 12, marginTop: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#E8E9ED' },
-  actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, backgroundColor: '#F5F6FA' },
-  actionText: { fontSize: 13, color: '#6c757d', fontWeight: '500' },
+  clearFiltersBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#E8E9ED', marginTop: 8 },
+  clearFiltersText: { fontSize: 13, color: '#dc3545', fontWeight: '500' },
+  tableContainer: { backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#E8E9ED', overflow: 'hidden', marginBottom: 40 },
+  tableHeader: { flexDirection: 'row', backgroundColor: '#F5F6FA', paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#E8E9ED' },
+  tableHeaderCell: { flex: 1, fontSize: 11, fontWeight: '600', color: '#6c757d', textTransform: 'uppercase' },
+  tableRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#E8E9ED' },
+  tableRowAlt: { backgroundColor: '#FAFAFA' },
+  tableCell: { flex: 1 },
+  weekBadge: { backgroundColor: '#F5A62315', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, alignSelf: 'flex-start' },
+  weekText: { fontSize: 13, fontWeight: '700', color: '#F5A623' },
+  klantText: { fontSize: 14, fontWeight: '600', color: '#1A1A2E' },
+  werfText: { fontSize: 12, color: '#6c757d', marginTop: 2 },
+  urenText: { fontSize: 14, fontWeight: '600', color: '#1A1A2E' },
+  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, alignSelf: 'flex-start' },
+  statusText: { fontSize: 11, fontWeight: '600', color: '#fff', textTransform: 'uppercase' },
+  actionIcon: { padding: 6 },
+  emptyState: { alignItems: 'center', padding: 60 },
+  emptyText: { fontSize: 16, fontWeight: '600', color: '#1A1A2E', marginTop: 16 },
   noAccess: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   noAccessText: { fontSize: 20, color: '#1A1A2E', marginTop: 16 },
 });
