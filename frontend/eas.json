@@ -9,12 +9,18 @@
         "buildType": "apk",
         "credentialsSource": "local"
       },
+      "env": {
+        "EXPO_PUBLIC_BACKEND_URL": "https://web-production-7bce.up.railway.app"
+      },
       "distribution": "internal"
     },
     "production": {
       "android": {
         "buildType": "apk",
         "credentialsSource": "local"
+      },
+      "env": {
+        "EXPO_PUBLIC_BACKEND_URL": "https://web-production-7bce.up.railway.app"
       }
     }
   },
