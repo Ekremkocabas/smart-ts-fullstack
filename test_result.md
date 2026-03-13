@@ -38,6 +38,36 @@
 ### 6. Dashboard Stats
 - GET /api/dashboard/stats - Comprehensive dashboard statistics
 
+## Frontend Changes - New Admin Pages Added
+
+### 7. Planning Admin Page (planning.tsx) - NEW
+- Weekly calendar view with 7-day columns (Ma-Zo)
+- Week navigation with arrows and "Vandaag" button
+- Stats row: Totaal, Gepland, Bezig, Afgerond
+- Create new planning items via modal (select day, klant, werf, werknemers)
+- Detail view with status management (gepland/onderweg/bezig/afgerond)
+- Priority system (laag/normaal/hoog/urgent) with color coding
+- Double-booking warnings
+- Materiaallijst and geschatte duur fields
+- Delete planning items
+
+### 8. Berichten (Messages) Admin Page (berichten.tsx) - NEW
+- Message list with sender, recipient, subject, content
+- Create new messages: direct to worker or broadcast to all
+- Pin messages (vastgepind)
+- View message details with read tracking (gelezen_door)
+- Delete messages
+
+### 9. Sidebar Navigation Updated (_layout.tsx)
+- Added "Planning" menu item with calendar icon
+- Added "Berichten" menu item with chatbubbles icon
+
+### 10. Werknemer Detail Page (werknemer-detail.tsx) - ALREADY UPDATED
+- Shows all new fields: telefoon, wachtwoord_plain, werkbon_types, mag_wachtwoord_wijzigen
+- Edit modal with all fields including onderaannemer role
+- Resend email functionality
+- Copy credentials to clipboard
+
 ## Testing Protocol
 - Test all new API endpoints
 - Verify CRUD operations for all new models
