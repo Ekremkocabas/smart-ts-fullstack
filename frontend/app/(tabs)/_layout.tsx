@@ -1,12 +1,12 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Platform } from 'react-native';
+import { Platform, View, Text } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 
 export default function TabsLayout() {
   const { user } = useAuth();
-  const isAdmin = user?.rol === 'admin';
+  const isAdmin = user?.rol === 'admin' || user?.rol === 'beheerder';
 
   return (
     <Tabs
@@ -23,7 +23,7 @@ export default function TabsLayout() {
         tabBarActiveTintColor: '#F5A623',
         tabBarInactiveTintColor: '#6c757d',
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: '500',
         },
       }}
@@ -34,6 +34,24 @@ export default function TabsLayout() {
           title: 'Werkbonnen',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="document-text" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="planning"
+        options={{
+          title: 'Planning',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="calendar" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="berichten"
+        options={{
+          title: 'Berichten',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="chatbubbles" size={size} color={color} />
           ),
         }}
       />

@@ -149,7 +149,7 @@ export default function WerkbonnenAdmin() {
 
   const statusOptions = ['concept', 'ondertekend', 'verzonden'];
   const weekOptions = [...new Set(werkbonnen.map(wb => wb.week_nummer))].sort((a, b) => b - a).slice(0, 12);
-  const werknemerOptions = [...new Set(werkbonnen.map(wb => wb.created_by_naam).filter(Boolean))];
+  const werknemerOptions: string[] = [...new Set(werkbonnen.map(wb => wb.created_by_naam).filter(Boolean) as string[])];
   const klantOptions = [...new Set(werkbonnen.map(wb => wb.klant_naam).filter(Boolean))];
   const werfOptions = [...new Set(werkbonnen.map(wb => wb.werf_naam).filter(Boolean))];
 

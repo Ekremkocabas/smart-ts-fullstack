@@ -106,8 +106,10 @@ export default function RapportScreen() {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
       } else {
-        const path = (FileSystem.documentDirectory || '') + filename;
-        await FileSystem.writeAsStringAsync(path, csv, { encoding: FileSystem.EncodingType.UTF8 });
+        const docDir = (FileSystem as any).documentDirectory || '';
+        const path = docDir + filename;
+        const encoding = (FileSystem as any).EncodingType?.UTF8 || 'utf8';
+        await (FileSystem as any).writeAsStringAsync(path, csv, { encoding });
         await Sharing.shareAsync(path, { mimeType: 'text/csv', UTI: '.csv', dialogTitle: 'Export Rapport' });
       }
     } catch {
