@@ -51,7 +51,9 @@ class User(BaseModel):
     naam: str
     rol: str = "werknemer"  # werknemer, admin
     team_id: Optional[str] = None  # Assigned team
+    telefoon: Optional[str] = None  # Phone number for SMS/notifications
     actief: bool = True
+    werkbon_types: List[str] = Field(default_factory=lambda: ["uren"])  # Enabled werkbon types: uren, oplevering, project
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 class UserCreate(BaseModel):
@@ -70,13 +72,17 @@ class UserResponse(BaseModel):
     naam: str
     rol: str
     team_id: Optional[str] = None
+    telefoon: Optional[str] = None
     actief: bool
+    werkbon_types: List[str] = Field(default_factory=lambda: ["uren"])
 
 class UserUpdate(BaseModel):
     naam: Optional[str] = None
     rol: Optional[str] = None
     team_id: Optional[str] = None
+    telefoon: Optional[str] = None
     actief: Optional[bool] = None
+    werkbon_types: Optional[List[str]] = None
 
 
 class ResendInfoMailResponse(BaseModel):
@@ -666,6 +672,89 @@ async def send_welcome_email(user_email: str, user_naam: str, temp_password: str
         return {"success": True, "email_id": result.get("id")}
     except Exception as e:
         logging.error(f"Failed to send welcome email: {str(e)}")
+        return {"success": False, "error": str(e)}
+
+
+async def send_klant_welcome_email(klant_email: str, klant_naam: str, instellingen: dict):
+    """Send professional welcome email to a new client."""
+    
+    if not resend.api_key:
+        logging.warning("RESEND_API_KEY not configured, skipping client email")
+        return {"success": False, "error": "Email not configured"}
+    
+    bedrijfsnaam = get_email_brand_name(instellingen)
+    logo_base64 = instellingen.get("logo_base64", "")
+    primary_color = instellingen.get("primary_color", "#1a1a2e")
+    secondary_color = instellingen.get("secondary_color", "#F5A623")
+    telefoon = instellingen.get("telefoon", "")
+    email_bedrijf = instellingen.get("email", "")
+    
+    sender_email = os.environ.get("SENDER_EMAIL") or email_bedrijf or COMPANY_EMAIL
+    sender = sender_email if "<" in sender_email else f"{bedrijfsnaam} <{sender_email}>"
+    
+    logo_html = ""
+    if logo_base64:
+        logo_html = f'<img src="data:image/png;base64,{logo_base64}" style="max-height:60px;margin-bottom:10px;" alt="{bedrijfsnaam}">'
+    
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"></head>
+    <body style="font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.7; color: #333; max-width: 600px; margin: 0 auto; background: #f5f5f5; padding: 20px;">
+        <div style="background: {primary_color}; color: white; padding: 35px; text-align: center; border-radius: 12px 12px 0 0;">
+            {logo_html}
+            <h1 style="color: {secondary_color}; margin: 0; font-size: 24px;">{bedrijfsnaam}</h1>
+        </div>
+        
+        <div style="background: white; padding: 35px; border-radius: 0 0 12px 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+            <h2 style="color: {primary_color}; margin-top: 0;">Beste {klant_naam},</h2>
+            
+            <p>Welkom bij het digitale werkbonportaal van <strong>{bedrijfsnaam}</strong>.</p>
+            
+            <p>Wij zijn verheugd u te mogen informeren dat u bent toegevoegd aan ons digitale werkbonsysteem. 
+            Vanaf heden ontvangt u automatisch de getekende werkbonnen digitaal via e-mail na afronding van werkzaamheden.</p>
+            
+            <div style="background: #f8f9fa; border-left: 4px solid {secondary_color}; padding: 20px; margin: 25px 0; border-radius: 0 8px 8px 0;">
+                <h3 style="color: {primary_color}; margin-top: 0;">Wat kunt u verwachten?</h3>
+                <ul style="margin: 0; padding-left: 20px;">
+                    <li>Digitale werkbonnen per e-mail na ondertekening</li>
+                    <li>Overzichtelijke PDF-documenten met alle werkdetails</li>
+                    <li>Professionele rapportage van uitgevoerde werkzaamheden</li>
+                </ul>
+            </div>
+            
+            <p>Indien u vragen heeft over het systeem of aanpassingen wenst, neem dan gerust contact met ons op.</p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <div style="display: inline-block; background: {primary_color}; padding: 20px 30px; border-radius: 10px;">
+                    <p style="color: {secondary_color}; font-weight: bold; margin: 0 0 5px 0; font-size: 16px;">Contact</p>
+                    <p style="color: white; margin: 0;">{email_bedrijf}</p>
+                    {"<p style='color: white; margin: 5px 0 0 0;'>" + telefoon + "</p>" if telefoon else ""}
+                </div>
+            </div>
+            
+            <p style="color: #666; font-size: 13px;">Met vriendelijke groet,<br><strong>{bedrijfsnaam}</strong></p>
+        </div>
+        
+        <div style="text-align: center; padding: 15px; font-size: 11px; color: #999;">
+            <p>Dit is een automatisch gegenereerd bericht van {bedrijfsnaam}.</p>
+        </div>
+    </body>
+    </html>
+    """
+    
+    try:
+        params = {
+            "from": sender,
+            "to": [klant_email],
+            "subject": f"Welkom bij het werkbonportaal van {bedrijfsnaam}",
+            "html": html_content
+        }
+        result = await asyncio.to_thread(resend.Emails.send, params)
+        logging.info(f"Client welcome email sent to {klant_email}: {result}")
+        return {"success": True, "email_id": result.get("id")}
+    except Exception as e:
+        logging.error(f"Failed to send client welcome email: {str(e)}")
         return {"success": False, "error": str(e)}
 
 
@@ -1338,6 +1427,19 @@ async def delete_klant(klant_id: str):
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Klant niet gevonden")
     return {"message": "Klant verwijderd"}
+
+@api_router.post("/klanten/{klant_id}/send-welcome-email")
+async def send_klant_welcome(klant_id: str):
+    """Send a welcome email to a client"""
+    klant = await db.klanten.find_one({"id": klant_id})
+    if not klant:
+        raise HTTPException(status_code=404, detail="Klant niet gevonden")
+    if not klant.get("email"):
+        raise HTTPException(status_code=400, detail="Klant heeft geen e-mailadres")
+    
+    instellingen = await db.instellingen.find_one({"id": "company_settings"}) or {}
+    result = await send_klant_welcome_email(klant["email"], klant["naam"], instellingen)
+    return {"email_sent": result.get("success", False), "error": result.get("error")}
 
 # ==================== WERF ROUTES ====================
 
