@@ -2521,6 +2521,31 @@ logger = logging.getLogger(__name__)
 async def shutdown_db_client():
     client.close()
 
+@app.on_event("startup")
+async def startup_migrate():
+    """Migrate old users to add new fields automatically"""
+    try:
+        # Add missing fields to all users
+        await db.users.update_many(
+            {"werkbon_types": {"$exists": False}},
+            {"$set": {"werkbon_types": ["uren"]}}
+        )
+        await db.users.update_many(
+            {"wachtwoord_plain": {"$exists": False}},
+            {"$set": {"wachtwoord_plain": ""}}
+        )
+        await db.users.update_many(
+            {"mag_wachtwoord_wijzigen": {"$exists": False}},
+            {"$set": {"mag_wachtwoord_wijzigen": False}}
+        )
+        await db.users.update_many(
+            {"telefoon": {"$exists": False}},
+            {"$set": {"telefoon": None}}
+        )
+        logging.info("Database migration completed - all users have new fields")
+    except Exception as e:
+        logging.error(f"Migration error: {e}")
+
 
 
 # ══════════════════════════════════════════════════════════════════════════════

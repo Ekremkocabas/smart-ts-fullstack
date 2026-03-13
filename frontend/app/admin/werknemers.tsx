@@ -219,6 +219,15 @@ export default function WerknemersAdmin() {
 
   if (Platform.OS !== 'web') return null;
   
+  if (loading && !werknemers.length) {
+    return (
+      <View style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}>
+        <ActivityIndicator size="large" color="#F5A623" />
+        <Text style={{ marginTop: 16, color: '#6c757d' }}>Laden...</Text>
+      </View>
+    );
+  }
+  
   if (user?.rol !== 'beheerder' && user?.rol !== 'admin') {
     return (
       <View style={styles.container}>
