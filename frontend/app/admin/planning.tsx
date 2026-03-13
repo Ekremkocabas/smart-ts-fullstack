@@ -91,6 +91,9 @@ export default function PlanningAdmin() {
   const [selectedItem, setSelectedItem] = useState<PlanningItem | null>(null);
   const [saving, setSaving] = useState(false);
   const [waarschuwingen, setWaarschuwingen] = useState<string[]>([]);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportPeriode, setExportPeriode] = useState('week');
+  const [exportFormaat, setExportFormaat] = useState('csv');
 
   const [form, setForm] = useState({
     dag: 'maandag',
@@ -230,6 +233,136 @@ export default function PlanningAdmin() {
 
   const filteredWerven = form.klant_id ? werven.filter(w => w.klant_id === form.klant_id) : werven;
 
+  // Group workers by role
+  const werknemerGroups = {
+    werknemers: werknemers.filter(w => w.rol !== 'onderaannemer'),
+    onderaannemers: werknemers.filter(w => w.rol === 'onderaannemer'),
+  };
+
+  // Export function
+  const exportPlanning = async () => {
+    try {
+      let allPlanning: PlanningItem[] = [];
+      const now = new Date();
+      let weekStart = weekNummer;
+      let weekEnd = weekNummer;
+      let yearStart = jaar;
+      let yearEnd = jaar;
+      let periodeLabel = '';
+
+      if (exportPeriode === 'dag') {
+        allPlanning = planning;
+        periodeLabel = `Week_${weekNummer}_${jaar}`;
+      } else if (exportPeriode === 'week') {
+        allPlanning = planning;
+        periodeLabel = `Week_${weekNummer}_${jaar}`;
+      } else if (exportPeriode === 'maand') {
+        const weeksInMonth: number[] = [];
+        for (let w = weekNummer - 2; w <= weekNummer + 2; w++) weeksInMonth.push(w);
+        const promises = weeksInMonth.map(w =>
+          fetch(`${API_URL}/api/planning?week_nummer=${w}&jaar=${jaar}`).then(r => r.json())
+        );
+        const results = await Promise.all(promises);
+        allPlanning = results.flat();
+        periodeLabel = `Maand_Week${weekNummer - 2}_tot_${weekNummer + 2}_${jaar}`;
+      } else if (exportPeriode === '6maanden') {
+        const promises = [];
+        for (let w = Math.max(1, weekNummer - 13); w <= Math.min(52, weekNummer + 13); w++) {
+          promises.push(fetch(`${API_URL}/api/planning?week_nummer=${w}&jaar=${jaar}`).then(r => r.json()));
+        }
+        const results = await Promise.all(promises);
+        allPlanning = results.flat();
+        periodeLabel = `6_Maanden_${jaar}`;
+      } else if (exportPeriode === 'jaar') {
+        const promises = [];
+        for (let w = 1; w <= 52; w++) {
+          promises.push(fetch(`${API_URL}/api/planning?week_nummer=${w}&jaar=${jaar}`).then(r => r.json()));
+        }
+        const results = await Promise.all(promises);
+        allPlanning = results.flat();
+        periodeLabel = `Jaar_${jaar}`;
+      }
+
+      if (exportFormaat === 'csv') {
+        exportAsCSV(allPlanning, periodeLabel);
+      } else {
+        exportAsPDF(allPlanning, periodeLabel);
+      }
+      setShowExportModal(false);
+    } catch (e) { console.error(e); alert('Fout bij exporteren'); }
+  };
+
+  const exportAsCSV = (data: PlanningItem[], label: string) => {
+    const headers = ['Week', 'Dag', 'Datum', 'Klant', 'Werf', 'Adres', 'Werknemers', 'Status', 'Prioriteit', 'Omschrijving', 'Materiaal', 'Geschatte Duur', 'Notities'];
+    const rows = data.map(item => [
+      item.week_nummer, item.dag, item.datum, item.klant_naam, item.werf_naam,
+      item.werf_adres || '', item.werknemer_namen.join('; '), item.status, item.prioriteit,
+      item.omschrijving, item.materiaallijst.join('; '), item.geschatte_duur, item.notities,
+    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
+    const csv = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Planning_${label}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const exportAsPDF = (data: PlanningItem[], label: string) => {
+    const statusSymbols: Record<string, string> = { gepland: '○', onderweg: '◐', bezig: '◑', afgerond: '●' };
+    let htmlContent = `<!DOCTYPE html><html><head><meta charset="utf-8">
+    <style>
+      body { font-family: Arial, sans-serif; margin: 20px; color: #1A1A2E; }
+      h1 { color: #F5A623; font-size: 24px; border-bottom: 2px solid #F5A623; padding-bottom: 8px; }
+      h2 { color: #1A1A2E; font-size: 18px; margin-top: 24px; }
+      table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 12px; }
+      th { background: #1A1A2E; color: #fff; padding: 8px 10px; text-align: left; }
+      td { padding: 6px 10px; border-bottom: 1px solid #E8E9ED; }
+      tr:nth-child(even) { background: #F5F6FA; }
+      .status-gepland { color: #6c757d; } .status-onderweg { color: #3498db; }
+      .status-bezig { color: #F5A623; } .status-afgerond { color: #28a745; }
+      .header { display: flex; justify-content: space-between; align-items: center; }
+      .logo { font-size: 28px; font-weight: bold; color: #F5A623; }
+      .meta { color: #6c757d; font-size: 12px; }
+      .footer { margin-top: 24px; text-align: center; color: #999; font-size: 10px; border-top: 1px solid #E8E9ED; padding-top: 8px; }
+    </style></head><body>
+    <div class="header"><span class="logo">Smart-Tech BV</span><span class="meta">Planning Export - ${label}<br>${new Date().toLocaleDateString('nl-BE')}</span></div>
+    <h1>Planning Overzicht</h1>
+    <p class="meta">Totaal: ${data.length} taken | Afgerond: ${data.filter(d => d.status === 'afgerond').length} | Bezig: ${data.filter(d => d.status === 'bezig' || d.status === 'onderweg').length}</p>`;
+
+    // Group by week
+    const byWeek: Record<number, PlanningItem[]> = {};
+    data.forEach(item => {
+      if (!byWeek[item.week_nummer]) byWeek[item.week_nummer] = [];
+      byWeek[item.week_nummer].push(item);
+    });
+
+    Object.entries(byWeek).sort(([a], [b]) => Number(a) - Number(b)).forEach(([week, items]) => {
+      htmlContent += `<h2>Week ${week}</h2>
+      <table><tr><th>Dag</th><th>Datum</th><th>Klant</th><th>Werf</th><th>Werknemers</th><th>Status</th><th>Prioriteit</th><th>Omschrijving</th><th>Materiaal</th><th>Duur</th></tr>`;
+      items.forEach(item => {
+        htmlContent += `<tr>
+          <td>${item.dag}</td><td>${item.datum}</td><td><strong>${item.klant_naam}</strong></td>
+          <td>${item.werf_naam}</td><td>${item.werknemer_namen.join(', ')}</td>
+          <td class="status-${item.status}">${statusSymbols[item.status] || '○'} ${item.status}</td>
+          <td>${item.prioriteit}</td><td>${item.omschrijving || '-'}</td>
+          <td>${item.materiaallijst.join(', ') || '-'}</td><td>${item.geschatte_duur || '-'}</td></tr>`;
+      });
+      htmlContent += '</table>';
+    });
+
+    htmlContent += `<div class="footer">Gegenereerd door Smart-Tech BV Planning System - ${new Date().toLocaleString('nl-BE')}</div></body></html>`;
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+      setTimeout(() => printWindow.print(), 500);
+    }
+  };
+
   if (Platform.OS !== 'web') return null;
 
   return (
@@ -240,10 +373,16 @@ export default function PlanningAdmin() {
           <Text style={styles.title}>Planning</Text>
           <Text style={styles.subtitle}>Weekoverzicht en taaktoewijzing</Text>
         </View>
-        <TouchableOpacity style={styles.addBtn} onPress={() => openCreateModal()}>
-          <Ionicons name="add" size={22} color="#fff" />
-          <Text style={styles.addBtnText}>Nieuwe taak</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <TouchableOpacity style={[styles.addBtn, { backgroundColor: '#1A1A2E' }]} onPress={() => setShowExportModal(true)}>
+            <Ionicons name="download-outline" size={20} color="#fff" />
+            <Text style={styles.addBtnText}>Exporteren</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.addBtn} onPress={() => openCreateModal()}>
+            <Ionicons name="add" size={22} color="#fff" />
+            <Text style={styles.addBtnText}>Nieuwe taak</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Week Selector */}
@@ -415,21 +554,52 @@ export default function PlanningAdmin() {
 
               {/* Werknemers */}
               <Text style={styles.label}>Werknemers *</Text>
-              <View style={styles.workerGrid}>
-                {werknemers.map(w => {
-                  const isSelected = form.werknemer_ids.includes(w.id);
-                  return (
-                    <TouchableOpacity key={w.id} style={[styles.workerChip, isSelected && styles.workerChipActive]}
-                      onPress={() => toggleWorker(w.id)}>
-                      <View style={[styles.workerAvatar, isSelected && { backgroundColor: '#F5A623' }]}>
-                        <Text style={[styles.workerAvatarText, isSelected && { color: '#fff' }]}>{w.naam?.charAt(0)}</Text>
-                      </View>
-                      <Text style={[styles.workerName, isSelected && { color: '#F5A623', fontWeight: '600' }]} numberOfLines={1}>{w.naam}</Text>
-                      {isSelected && <Ionicons name="checkmark-circle" size={18} color="#F5A623" />}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+              {werknemerGroups.werknemers.length > 0 && (
+                <>
+                  <Text style={{ fontSize: 12, color: '#3498db', fontWeight: '600', marginBottom: 6 }}>Werknemers & Ploegbazen</Text>
+                  <View style={styles.workerGrid}>
+                    {werknemerGroups.werknemers.map(w => {
+                      const isSelected = form.werknemer_ids.includes(w.id);
+                      return (
+                        <TouchableOpacity key={w.id} style={[styles.workerChip, isSelected && styles.workerChipActive]}
+                          onPress={() => toggleWorker(w.id)}>
+                          <View style={[styles.workerAvatar, isSelected && { backgroundColor: '#F5A623' }]}>
+                            <Text style={[styles.workerAvatarText, isSelected && { color: '#fff' }]}>{w.naam?.charAt(0)}</Text>
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.workerName, isSelected && { color: '#F5A623', fontWeight: '600' }]} numberOfLines={1}>{w.naam}</Text>
+                            <Text style={{ fontSize: 10, color: '#999' }}>{w.rol}</Text>
+                          </View>
+                          {isSelected && <Ionicons name="checkmark-circle" size={18} color="#F5A623" />}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </>
+              )}
+              {werknemerGroups.onderaannemers.length > 0 && (
+                <>
+                  <Text style={{ fontSize: 12, color: '#e67e22', fontWeight: '600', marginBottom: 6, marginTop: 12 }}>Onderaannemers</Text>
+                  <View style={styles.workerGrid}>
+                    {werknemerGroups.onderaannemers.map(w => {
+                      const isSelected = form.werknemer_ids.includes(w.id);
+                      return (
+                        <TouchableOpacity key={w.id} style={[styles.workerChip, isSelected && { borderColor: '#e67e22', backgroundColor: '#e67e2210' }]}
+                          onPress={() => toggleWorker(w.id)}>
+                          <View style={[styles.workerAvatar, { backgroundColor: '#e67e2220' }, isSelected && { backgroundColor: '#e67e22' }]}>
+                            <Text style={[styles.workerAvatarText, { color: '#e67e22' }, isSelected && { color: '#fff' }]}>{w.naam?.charAt(0)}</Text>
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.workerName, isSelected && { color: '#e67e22', fontWeight: '600' }]} numberOfLines={1}>{w.naam}</Text>
+                            <Text style={{ fontSize: 10, color: '#e67e22' }}>onderaannemer</Text>
+                          </View>
+                          {isSelected && <Ionicons name="checkmark-circle" size={18} color="#e67e22" />}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </>
+              )}
 
               {/* Omschrijving */}
               <Text style={styles.label}>Omschrijving</Text>
@@ -604,6 +774,65 @@ export default function PlanningAdmin() {
                 </View>
               </>
             )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* ============ EXPORT MODAL ============ */}
+      <Modal visible={showExportModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxWidth: 480 }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Planning Exporteren</Text>
+              <TouchableOpacity onPress={() => setShowExportModal(false)}><Ionicons name="close" size={24} color="#1A1A2E" /></TouchableOpacity>
+            </View>
+
+            <Text style={styles.label}>Periode</Text>
+            <View style={styles.chipRow}>
+              {[
+                { key: 'dag', label: 'Dagelijks' },
+                { key: 'week', label: 'Wekelijks' },
+                { key: 'maand', label: 'Maandelijks' },
+                { key: '6maanden', label: '6 Maanden' },
+                { key: 'jaar', label: 'Jaarlijks' },
+              ].map(p => (
+                <TouchableOpacity key={p.key} style={[styles.chip, exportPeriode === p.key && styles.chipActive]}
+                  onPress={() => setExportPeriode(p.key)}>
+                  <Text style={[styles.chipText, exportPeriode === p.key && styles.chipTextActive]}>{p.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.label}>Formaat</Text>
+            <View style={styles.chipRow}>
+              <TouchableOpacity style={[styles.chip, exportFormaat === 'csv' && styles.chipActiveGreen, { flex: 1, alignItems: 'center' }]}
+                onPress={() => setExportFormaat('csv')}>
+                <Ionicons name="document-outline" size={18} color={exportFormaat === 'csv' ? '#fff' : '#6c757d'} />
+                <Text style={[styles.chipText, exportFormaat === 'csv' && styles.chipTextActive]}>CSV (Excel)</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.chip, exportFormaat === 'pdf' && styles.chipActiveBlue, { flex: 1, alignItems: 'center' }]}
+                onPress={() => setExportFormaat('pdf')}>
+                <Ionicons name="print-outline" size={18} color={exportFormaat === 'pdf' ? '#fff' : '#6c757d'} />
+                <Text style={[styles.chipText, exportFormaat === 'pdf' && styles.chipTextActive]}>PDF (Print)</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ backgroundColor: '#F5F6FA', borderRadius: 10, padding: 14, marginTop: 16 }}>
+              <Text style={{ fontSize: 13, color: '#6c757d' }}>
+                {exportPeriode === 'dag' ? `Huidige week ${weekNummer} (${jaar})` :
+                 exportPeriode === 'week' ? `Week ${weekNummer} (${jaar})` :
+                 exportPeriode === 'maand' ? `Week ${weekNummer - 2} t/m ${weekNummer + 2} (${jaar})` :
+                 exportPeriode === '6maanden' ? `26 weken rondom week ${weekNummer} (${jaar})` :
+                 `Heel ${jaar} (52 weken)`}
+              </Text>
+            </View>
+
+            <TouchableOpacity style={styles.saveBtn} onPress={exportPlanning}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Ionicons name="download" size={20} color="#fff" />
+                <Text style={styles.saveBtnText}>Exporteren</Text>
+              </View>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>

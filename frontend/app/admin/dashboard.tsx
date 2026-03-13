@@ -17,12 +17,15 @@ const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_B
 
 interface DashboardStats {
   totaalWerknemers: number;
+  totaalOnderaannemers: number;
   totaalTeams: number;
   totaalKlanten: number;
   totaalWerven: number;
   werkbonnenDezeWeek: number;
   werkbonnenWachtend: number;
   totaalUrenDezeWeek: number;
+  planningDezeWeek: number;
+  planningAfgerond: number;
 }
 
 interface RecentWerkbon {
@@ -55,12 +58,13 @@ export default function AdminDashboard() {
       const days = Math.floor((now.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000));
       const currentWeek = Math.ceil((days + startOfYear.getDay() + 1) / 7);
 
-      const [werknemersRes, teamsRes, klantenRes, wervenRes, werkbonnenRes] = await Promise.all([
+      const [werknemersRes, teamsRes, klantenRes, wervenRes, werkbonnenRes, planningRes] = await Promise.all([
         fetch(`${API_URL}/api/auth/users`),
         fetch(`${API_URL}/api/teams`),
         fetch(`${API_URL}/api/klanten`),
         fetch(`${API_URL}/api/werven`),
         fetch(`${API_URL}/api/werkbonnen?user_id=admin-001&is_admin=true`),
+        fetch(`${API_URL}/api/planning?week_nummer=${currentWeek}&jaar=${now.getFullYear()}`),
       ]);
 
       const werknemers = await werknemersRes.json();
@@ -68,12 +72,19 @@ export default function AdminDashboard() {
       const klanten = await klantenRes.json();
       const werven = await wervenRes.json();
       const werkbonnen = await werkbonnenRes.json();
+      const planningData = await planningRes.json();
 
       const werknemersList = Array.isArray(werknemers) ? werknemers : [];
       const teamsList = Array.isArray(teams) ? teams : [];
       const klantenList = Array.isArray(klanten) ? klanten : [];
       const wervenList = Array.isArray(werven) ? werven : [];
       const werkbonnenList = Array.isArray(werkbonnen) ? werkbonnen : [];
+      const planningList = Array.isArray(planningData) ? planningData : [];
+
+      // Separate werknemers and onderaannemers
+      const actieveWerknemers = werknemersList.filter((w: any) => w.actief !== false);
+      const werknemerCount = actieveWerknemers.filter((w: any) => w.rol !== 'onderaannemer').length;
+      const onderaannemerCount = actieveWerknemers.filter((w: any) => w.rol === 'onderaannemer').length;
 
       const werkbonnenDezeWeek = werkbonnenList.filter(
         (wb: any) => wb.week_nummer === currentWeek && wb.jaar === now.getFullYear()
@@ -92,13 +103,16 @@ export default function AdminDashboard() {
       }, 0);
 
       setStats({
-        totaalWerknemers: werknemersList.filter((w: any) => w.actief !== false).length,
+        totaalWerknemers: werknemerCount,
+        totaalOnderaannemers: onderaannemerCount,
         totaalTeams: teamsList.length,
         totaalKlanten: klantenList.filter((k: any) => k.actief !== false).length,
         totaalWerven: wervenList.filter((w: any) => w.actief !== false).length,
         werkbonnenDezeWeek: werkbonnenDezeWeek.length,
         werkbonnenWachtend: werkbonnenWachtend.length,
         totaalUrenDezeWeek: totaalUren,
+        planningDezeWeek: planningList.length,
+        planningAfgerond: planningList.filter((p: any) => p.status === 'afgerond').length,
       });
 
       // Sort by created_at descending and take last 5
@@ -170,6 +184,14 @@ export default function AdminDashboard() {
               <Text style={styles.statLabel}>Werknemers</Text>
             </TouchableOpacity>
 
+            <TouchableOpacity style={[styles.statCard, styles.statCardLarge]} onPress={() => router.push('/admin/werknemers')}>
+              <View style={[styles.statIcon, { backgroundColor: '#e67e2215' }]}>
+                <Ionicons name="construct" size={28} color="#e67e22" />
+              </View>
+              <Text style={styles.statValue}>{stats?.totaalOnderaannemers || 0}</Text>
+              <Text style={styles.statLabel}>Onderaannemers</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity style={[styles.statCard, styles.statCardLarge]} onPress={() => router.push('/admin/teams')}>
               <View style={[styles.statIcon, { backgroundColor: '#9b59b615' }]}>
                 <Ionicons name="git-branch" size={28} color="#9b59b6" />
@@ -187,11 +209,19 @@ export default function AdminDashboard() {
             </TouchableOpacity>
 
             <TouchableOpacity style={[styles.statCard, styles.statCardLarge]} onPress={() => router.push('/admin/werven')}>
-              <View style={[styles.statIcon, { backgroundColor: '#e67e2215' }]}>
-                <Ionicons name="business" size={28} color="#e67e22" />
+              <View style={[styles.statIcon, { backgroundColor: '#F5A62315' }]}>
+                <Ionicons name="business" size={28} color="#F5A623" />
               </View>
               <Text style={styles.statValue}>{stats?.totaalWerven || 0}</Text>
               <Text style={styles.statLabel}>Werven</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[styles.statCard, styles.statCardLarge]} onPress={() => router.push('/admin/planning')}>
+              <View style={[styles.statIcon, { backgroundColor: '#28a74515' }]}>
+                <Ionicons name="calendar" size={28} color="#28a745" />
+              </View>
+              <Text style={styles.statValue}>{stats?.planningDezeWeek || 0}</Text>
+              <Text style={styles.statLabel}>Planning deze week</Text>
             </TouchableOpacity>
           </View>
 
