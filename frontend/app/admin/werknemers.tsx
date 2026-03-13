@@ -9,12 +9,12 @@ import {
   ActivityIndicator,
   TextInput,
   Modal,
+  Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import Constants from 'expo-constants';
-import * as Clipboard from 'expo-clipboard';
 
 const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_BACKEND_URL || (typeof window !== 'undefined' ? window.location.origin : '');
 
@@ -24,14 +24,22 @@ interface Werknemer {
   email: string;
   rol: string;
   actief: boolean;
-  tijdelijk_wachtwoord?: string;
+  telefoon?: string;
   team_id?: string;
+  werkbon_types?: string[];
 }
 
 interface Team {
   id: string;
   naam: string;
 }
+
+const ROLLEN = ['werknemer', 'ploegbaas', 'onderaannemer', 'beheerder'];
+const WERKBON_TYPES = [
+  { key: 'uren', label: 'Uren Werkbon', icon: 'time-outline', color: '#3498db' },
+  { key: 'oplevering', label: 'Oplevering Werkbon', icon: 'checkmark-done-outline', color: '#27ae60' },
+  { key: 'project', label: 'Project Werkbon', icon: 'briefcase-outline', color: '#9b59b6' },
+];
 
 export default function WerknemersAdmin() {
   const { user } = useAuth();
@@ -43,8 +51,9 @@ export default function WerknemersAdmin() {
   const [filterActief, setFilterActief] = useState<boolean | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editingWerknemer, setEditingWerknemer] = useState<Werknemer | null>(null);
-  const [formData, setFormData] = useState({ naam: '', email: '', rol: 'werknemer', password: '', team_id: '' });
+  const [formData, setFormData] = useState({ naam: '', email: '', rol: 'werknemer', password: '', telefoon: '', werkbon_types: ['uren'] as string[] });
   const [saving, setSaving] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState<string | null>(null);
 
   useEffect(() => { 
     if (Platform.OS === 'web' && (user?.rol === 'beheerder' || user?.rol === 'admin')) {
@@ -72,51 +81,84 @@ export default function WerknemersAdmin() {
 
   const openAddModal = () => {
     setEditingWerknemer(null);
-    setFormData({ naam: '', email: '', rol: 'werknemer', password: '', team_id: '' });
+    setFormData({ naam: '', email: '', rol: 'werknemer', password: '', telefoon: '', werkbon_types: ['uren'] });
     setShowModal(true);
   };
 
   const openEditModal = (w: Werknemer) => {
     setEditingWerknemer(w);
-    setFormData({ naam: w.naam, email: w.email, rol: w.rol, password: '', team_id: w.team_id || '' });
+    setFormData({ 
+      naam: w.naam, 
+      email: w.email, 
+      rol: w.rol, 
+      password: '', 
+      telefoon: w.telefoon || '',
+      werkbon_types: w.werkbon_types || ['uren'],
+    });
     setShowModal(true);
+  };
+
+  const toggleWerkbonType = (type: string) => {
+    setFormData(prev => {
+      const types = prev.werkbon_types.includes(type) 
+        ? prev.werkbon_types.filter(t => t !== type)
+        : [...prev.werkbon_types, type];
+      return { ...prev, werkbon_types: types.length > 0 ? types : prev.werkbon_types };
+    });
   };
 
   const saveWerknemer = async () => {
     if (!formData.naam.trim() || !formData.email.trim()) {
-      alert('Naam en email zijn verplicht');
+      alert('Naam en e-mail zijn verplicht');
       return;
     }
     setSaving(true);
     try {
       if (editingWerknemer) {
+        // Update existing worker
         await fetch(`${API_URL}/api/auth/users/${editingWerknemer.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             naam: formData.naam,
-            email: formData.email,
             rol: formData.rol,
-            team_id: formData.team_id || null,
+            telefoon: formData.telefoon || null,
+            werkbon_types: formData.werkbon_types,
             actief: editingWerknemer.actief,
           }),
         });
       } else {
-        const res = await fetch(`${API_URL}/api/auth/register`, {
+        // Create new worker with automatic email
+        const password = formData.password || `Smart${Math.floor(1000 + Math.random() * 9000)}`;
+        const res = await fetch(`${API_URL}/api/auth/register-worker?email=${encodeURIComponent(formData.email)}&naam=${encodeURIComponent(formData.naam)}&password=${encodeURIComponent(password)}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            naam: formData.naam,
-            email: formData.email,
-            password: formData.password || 'temp123',
-            rol: formData.rol,
-          }),
         });
         if (!res.ok) {
           const err = await res.json();
           alert(err.detail || 'Fout bij aanmaken');
           setSaving(false);
           return;
+        }
+        const result = await res.json();
+        
+        // Update werkbon_types and telefoon
+        if (result.user?.id) {
+          await fetch(`${API_URL}/api/auth/users/${result.user.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              rol: formData.rol,
+              telefoon: formData.telefoon || null,
+              werkbon_types: formData.werkbon_types,
+            }),
+          });
+        }
+        
+        if (result.email_sent) {
+          alert(`✅ Werknemer aangemaakt!\n\nInloggegevens zijn per e-mail verstuurd naar:\n${formData.email}\n\nWachtwoord: ${password}`);
+        } else {
+          alert(`⚠️ Werknemer aangemaakt, maar e-mail kon niet worden verzonden.\n\nWachtwoord: ${password}\n\nGebruik de mail-knop om later opnieuw te versturen.`);
         }
       }
       setShowModal(false);
@@ -129,15 +171,23 @@ export default function WerknemersAdmin() {
     }
   };
 
-  const copyToClipboard = async (text: string, label: string) => {
-    await Clipboard.setStringAsync(text);
-    alert(`${label} gekopieerd!`);
-  };
-
-  const copyAllCredentials = async (w: Werknemer) => {
-    const text = `Email: ${w.email}\nWachtwoord: ${w.tijdelijk_wachtwoord || 'Niet beschikbaar'}`;
-    await Clipboard.setStringAsync(text);
-    alert('Inloggegevens gekopieerd!');
+  const resendEmail = async (w: Werknemer) => {
+    setSendingEmail(w.id);
+    try {
+      const res = await fetch(`${API_URL}/api/auth/users/${w.id}/resend-info`, { method: 'POST' });
+      const result = await res.json();
+      if (result.email_sent) {
+        alert(`✅ E-mail verstuurd naar ${w.email}\n\nNieuw wachtwoord: ${result.temp_password}`);
+      } else {
+        alert(`❌ E-mail kon niet worden verzonden: ${result.email_error || 'Onbekende fout'}`);
+      }
+      fetchData();
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Fout bij verzenden e-mail');
+    } finally {
+      setSendingEmail(null);
+    }
   };
 
   const toggleActief = async (w: Werknemer) => {
@@ -145,7 +195,7 @@ export default function WerknemersAdmin() {
       await fetch(`${API_URL}/api/auth/users/${w.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...w, actief: !w.actief }),
+        body: JSON.stringify({ actief: !w.actief }),
       });
       fetchData();
     } catch (error) {
@@ -194,6 +244,15 @@ export default function WerknemersAdmin() {
     return teams.find(t => t.id === teamId)?.naam || '-';
   };
 
+  const getRolColor = (rol: string) => {
+    switch (rol) {
+      case 'beheerder': case 'admin': return '#F5A623';
+      case 'ploegbaas': return '#3498db';
+      case 'onderaannemer': return '#e67e22';
+      default: return '#6c757d';
+    }
+  };
+
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Header */}
@@ -227,7 +286,7 @@ export default function WerknemersAdmin() {
           <TouchableOpacity style={[styles.filterChip, !filterRol && styles.filterChipActive]} onPress={() => setFilterRol(null)}>
             <Text style={[styles.filterText, !filterRol && styles.filterTextActive]}>Alle rollen</Text>
           </TouchableOpacity>
-          {['werknemer', 'ploegbaas', 'beheerder'].map((rol) => (
+          {ROLLEN.map((rol) => (
             <TouchableOpacity key={rol} style={[styles.filterChip, filterRol === rol && styles.filterChipActive]} onPress={() => setFilterRol(filterRol === rol ? null : rol)}>
               <Text style={[styles.filterText, filterRol === rol && styles.filterTextActive]}>{rol}</Text>
             </TouchableOpacity>
@@ -258,7 +317,7 @@ export default function WerknemersAdmin() {
             <Text style={styles.tableHeaderCell}>Rol</Text>
             <Text style={styles.tableHeaderCell}>Team</Text>
             <Text style={styles.tableHeaderCell}>Status</Text>
-            <Text style={[styles.tableHeaderCell, { flex: 0.5, textAlign: 'center' }]}>Acties</Text>
+            <Text style={[styles.tableHeaderCell, { flex: 1.2, textAlign: 'center' }]}>Acties</Text>
           </View>
 
           {/* Table Rows */}
@@ -278,30 +337,45 @@ export default function WerknemersAdmin() {
                   <View style={styles.avatar}>
                     <Text style={styles.avatarText}>{w.naam?.charAt(0).toUpperCase()}</Text>
                   </View>
-                  <Text style={styles.cellName}>{w.naam}</Text>
+                  <View>
+                    <Text style={styles.cellName}>{w.naam}</Text>
+                    {w.telefoon ? <Text style={styles.cellPhone}>{w.telefoon}</Text> : null}
+                  </View>
                 </View>
-                <Text style={[styles.tableCell, { flex: 2 }]}>{w.email}</Text>
+                <Text style={[styles.tableCell, { flex: 2 }]} numberOfLines={1}>{w.email}</Text>
                 <View style={styles.tableCell}>
-                  <View style={[styles.rolBadge, (w.rol === 'beheerder' || w.rol === 'admin') && styles.rolBadgeAdmin]}>
-                    <Text style={styles.rolText}>{w.rol}</Text>
+                  <View style={[styles.rolBadge, { backgroundColor: getRolColor(w.rol) + '20' }]}>
+                    <Text style={[styles.rolText, { color: getRolColor(w.rol) }]}>{w.rol}</Text>
                   </View>
                 </View>
                 <Text style={styles.tableCell}>{getTeamNaam(w.team_id)}</Text>
                 <View style={styles.tableCell}>
-                  <TouchableOpacity style={[styles.statusBadge, { backgroundColor: w.actief ? '#28a74520' : '#dc354520' }]} onPress={(e) => { e.stopPropagation(); toggleActief(w); }}>
+                  <TouchableOpacity style={[styles.statusBadge, { backgroundColor: w.actief ? '#28a74520' : '#dc354520' }]} onPress={(e: any) => { e.stopPropagation(); toggleActief(w); }}>
                     <View style={[styles.statusDot, { backgroundColor: w.actief ? '#28a745' : '#dc3545' }]} />
                     <Text style={[styles.statusText, { color: w.actief ? '#28a745' : '#dc3545' }]}>{w.actief ? 'Actief' : 'Inactief'}</Text>
                   </TouchableOpacity>
                 </View>
-                <View style={[styles.tableCell, { flex: 0.5, flexDirection: 'row', justifyContent: 'center', gap: 4 }]}>
-                  <TouchableOpacity style={styles.actionIcon} onPress={(e) => { e.stopPropagation(); copyAllCredentials(w); }}>
-                    <Ionicons name="copy-outline" size={18} color="#F5A623" />
+                <View style={[styles.tableCell, { flex: 1.2, flexDirection: 'row', justifyContent: 'center', gap: 4 }]}>
+                  {/* Resend Email Button */}
+                  <TouchableOpacity 
+                    style={[styles.actionBtn, { backgroundColor: '#27ae6015' }]} 
+                    onPress={(e: any) => { e.stopPropagation(); resendEmail(w); }}
+                    disabled={sendingEmail === w.id}
+                  >
+                    {sendingEmail === w.id ? (
+                      <ActivityIndicator size="small" color="#27ae60" />
+                    ) : (
+                      <Ionicons name="mail-outline" size={16} color="#27ae60" />
+                    )}
+                    <Text style={[styles.actionBtnText, { color: '#27ae60' }]}>Mail</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.actionIcon} onPress={(e) => { e.stopPropagation(); openEditModal(w); }}>
-                    <Ionicons name="create-outline" size={18} color="#3498db" />
+                  {/* Edit Button */}
+                  <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#3498db15' }]} onPress={(e: any) => { e.stopPropagation(); openEditModal(w); }}>
+                    <Ionicons name="create-outline" size={16} color="#3498db" />
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.actionIcon} onPress={(e) => { e.stopPropagation(); deleteWerknemer(w.id); }}>
-                    <Ionicons name="trash-outline" size={18} color="#dc3545" />
+                  {/* Delete Button */}
+                  <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#dc354515' }]} onPress={(e: any) => { e.stopPropagation(); deleteWerknemer(w.id); }}>
+                    <Ionicons name="trash-outline" size={16} color="#dc3545" />
                   </TouchableOpacity>
                 </View>
               </TouchableOpacity>
@@ -320,39 +394,72 @@ export default function WerknemersAdmin() {
                 <Ionicons name="close" size={24} color="#1A1A2E" />
               </TouchableOpacity>
             </View>
-            <ScrollView>
+            <ScrollView showsVerticalScrollIndicator={false}>
               <Text style={styles.label}>Naam *</Text>
               <TextInput style={styles.input} value={formData.naam} onChangeText={(v) => setFormData({ ...formData, naam: v })} placeholder="Volledige naam" placeholderTextColor="#6c757d" />
+              
               <Text style={styles.label}>E-mail *</Text>
-              <TextInput style={styles.input} value={formData.email} onChangeText={(v) => setFormData({ ...formData, email: v })} placeholder="email@voorbeeld.be" placeholderTextColor="#6c757d" keyboardType="email-address" autoCapitalize="none" />
+              <TextInput style={styles.input} value={formData.email} onChangeText={(v) => setFormData({ ...formData, email: v })} placeholder="email@voorbeeld.be" placeholderTextColor="#6c757d" keyboardType="email-address" autoCapitalize="none" editable={!editingWerknemer} />
+              
+              <Text style={styles.label}>Telefoon (optioneel)</Text>
+              <TextInput style={styles.input} value={formData.telefoon} onChangeText={(v) => setFormData({ ...formData, telefoon: v })} placeholder="+32 471 23 45 67" placeholderTextColor="#6c757d" keyboardType="phone-pad" />
+              
               {!editingWerknemer && (
                 <>
-                  <Text style={styles.label}>Wachtwoord</Text>
-                  <TextInput style={styles.input} value={formData.password} onChangeText={(v) => setFormData({ ...formData, password: v })} placeholder="Tijdelijk wachtwoord" placeholderTextColor="#6c757d" />
+                  <Text style={styles.label}>Wachtwoord (leeg = auto-gegenereerd)</Text>
+                  <TextInput style={styles.input} value={formData.password} onChangeText={(v) => setFormData({ ...formData, password: v })} placeholder="Wordt automatisch gegenereerd" placeholderTextColor="#6c757d" />
                 </>
               )}
+              
               <Text style={styles.label}>Rol</Text>
               <View style={styles.rolSelector}>
-                {['werknemer', 'ploegbaas', 'beheerder'].map((rol) => (
-                  <TouchableOpacity key={rol} style={[styles.rolOption, formData.rol === rol && styles.rolOptionActive]} onPress={() => setFormData({ ...formData, rol })}>
+                {ROLLEN.map((rol) => (
+                  <TouchableOpacity key={rol} style={[styles.rolOption, formData.rol === rol && { backgroundColor: getRolColor(rol), borderColor: getRolColor(rol) }]} onPress={() => setFormData({ ...formData, rol })}>
                     <Text style={[styles.rolOptionText, formData.rol === rol && styles.rolOptionTextActive]}>{rol}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
-              <Text style={styles.label}>Team</Text>
-              <ScrollView horizontal style={styles.teamSelector}>
-                <TouchableOpacity style={[styles.teamOption, !formData.team_id && styles.teamOptionActive]} onPress={() => setFormData({ ...formData, team_id: '' })}>
-                  <Text style={[styles.teamOptionText, !formData.team_id && styles.teamOptionTextActive]}>Geen team</Text>
-                </TouchableOpacity>
-                {teams.map((team) => (
-                  <TouchableOpacity key={team.id} style={[styles.teamOption, formData.team_id === team.id && styles.teamOptionActive]} onPress={() => setFormData({ ...formData, team_id: team.id })}>
-                    <Text style={[styles.teamOptionText, formData.team_id === team.id && styles.teamOptionTextActive]}>{team.naam}</Text>
+
+              <Text style={[styles.label, { marginTop: 20 }]}>Werkbon types</Text>
+              <Text style={styles.sublabel}>Selecteer welke werkbonnen deze werknemer mag gebruiken</Text>
+              <View style={styles.werkbonTypesList}>
+                {WERKBON_TYPES.map((type) => (
+                  <TouchableOpacity 
+                    key={type.key} 
+                    style={[
+                      styles.werkbonTypeItem, 
+                      formData.werkbon_types.includes(type.key) && { borderColor: type.color, backgroundColor: type.color + '10' }
+                    ]} 
+                    onPress={() => toggleWerkbonType(type.key)}
+                  >
+                    <View style={styles.werkbonTypeLeft}>
+                      <Ionicons name={type.icon as any} size={20} color={formData.werkbon_types.includes(type.key) ? type.color : '#6c757d'} />
+                      <Text style={[styles.werkbonTypeLabel, formData.werkbon_types.includes(type.key) && { color: type.color, fontWeight: '600' }]}>{type.label}</Text>
+                    </View>
+                    <Switch
+                      value={formData.werkbon_types.includes(type.key)}
+                      onValueChange={() => toggleWerkbonType(type.key)}
+                      trackColor={{ false: '#E8E9ED', true: type.color + '60' }}
+                      thumbColor={formData.werkbon_types.includes(type.key) ? type.color : '#ccc'}
+                    />
                   </TouchableOpacity>
                 ))}
-              </ScrollView>
+              </View>
+
+              {!editingWerknemer && (
+                <View style={styles.emailNotice}>
+                  <Ionicons name="mail" size={18} color="#27ae60" />
+                  <Text style={styles.emailNoticeText}>Inloggegevens worden automatisch per e-mail verstuurd naar de werknemer.</Text>
+                </View>
+              )}
             </ScrollView>
             <TouchableOpacity style={styles.saveBtn} onPress={saveWerknemer} disabled={saving}>
-              {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Opslaan</Text>}
+              {saving ? <ActivityIndicator color="#fff" /> : (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Ionicons name={editingWerknemer ? "checkmark" : "person-add"} size={20} color="#fff" />
+                  <Text style={styles.saveBtnText}>{editingWerknemer ? 'Opslaan' : 'Aanmaken & Mail versturen'}</Text>
+                </View>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -388,32 +495,34 @@ const styles = StyleSheet.create({
   avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F5A62320', alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontSize: 14, fontWeight: '600', color: '#F5A623' },
   cellName: { fontSize: 14, fontWeight: '500', color: '#1A1A2E' },
-  rolBadge: { alignSelf: 'flex-start', backgroundColor: '#E8E9ED', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
-  rolBadgeAdmin: { backgroundColor: '#F5A62320' },
-  rolText: { fontSize: 12, color: '#1A1A2E', fontWeight: '500' },
+  cellPhone: { fontSize: 11, color: '#6c757d', marginTop: 2 },
+  rolBadge: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
+  rolText: { fontSize: 12, fontWeight: '500' },
   statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20 },
   statusText: { fontSize: 12, fontWeight: '600' },
-  actionIcon: { padding: 6 },
+  actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 6, borderRadius: 6 },
+  actionBtnText: { fontSize: 11, fontWeight: '600' },
   emptyState: { alignItems: 'center', padding: 40 },
   emptyText: { fontSize: 14, color: '#6c757d', marginTop: 12 },
   noAccess: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   noAccessText: { fontSize: 20, color: '#1A1A2E', marginTop: 16 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  modalContent: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 24, width: '100%', maxWidth: 500, maxHeight: '90%' },
+  modalContent: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 24, width: '100%', maxWidth: 540, maxHeight: '90%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   modalTitle: { fontSize: 20, fontWeight: '600', color: '#1A1A2E' },
-  label: { fontSize: 14, color: '#6c757d', marginBottom: 6, marginTop: 16 },
+  label: { fontSize: 14, color: '#6c757d', marginBottom: 6, marginTop: 16, fontWeight: '500' },
+  sublabel: { fontSize: 12, color: '#999', marginBottom: 10 },
   input: { backgroundColor: '#F5F6FA', borderRadius: 10, padding: 14, fontSize: 16, color: '#1A1A2E', borderWidth: 1, borderColor: '#E8E9ED' },
-  rolSelector: { flexDirection: 'row', gap: 8 },
-  rolOption: { flex: 1, paddingVertical: 12, borderRadius: 8, backgroundColor: '#F5F6FA', alignItems: 'center', borderWidth: 1, borderColor: '#E8E9ED' },
-  rolOptionActive: { backgroundColor: '#F5A623', borderColor: '#F5A623' },
-  rolOptionText: { fontSize: 14, color: '#6c757d', fontWeight: '500' },
+  rolSelector: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  rolOption: { paddingHorizontal: 16, paddingVertical: 12, borderRadius: 8, backgroundColor: '#F5F6FA', alignItems: 'center', borderWidth: 1.5, borderColor: '#E8E9ED' },
+  rolOptionText: { fontSize: 13, color: '#6c757d', fontWeight: '500' },
   rolOptionTextActive: { color: '#fff' },
-  teamSelector: { marginTop: 8 },
-  teamOption: { paddingHorizontal: 16, paddingVertical: 12, borderRadius: 8, backgroundColor: '#F5F6FA', marginRight: 8, borderWidth: 1, borderColor: '#E8E9ED' },
-  teamOptionActive: { backgroundColor: '#9b59b6', borderColor: '#9b59b6' },
-  teamOptionText: { fontSize: 14, color: '#6c757d' },
-  teamOptionTextActive: { color: '#fff' },
+  werkbonTypesList: { gap: 10 },
+  werkbonTypeItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F5F6FA', padding: 14, borderRadius: 10, borderWidth: 1.5, borderColor: '#E8E9ED' },
+  werkbonTypeLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  werkbonTypeLabel: { fontSize: 14, color: '#6c757d' },
+  emailNotice: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#27ae6010', padding: 14, borderRadius: 10, marginTop: 20, borderWidth: 1, borderColor: '#27ae6030' },
+  emailNoticeText: { flex: 1, fontSize: 13, color: '#27ae60' },
   saveBtn: { backgroundColor: '#F5A623', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 20 },
   saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });
