@@ -24,7 +24,7 @@ from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Tabl
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
-APP_URL = os.environ.get('APP_URL', 'https://ops-manager-15.preview.emergentagent.com').strip()
+APP_URL = os.environ.get('APP_URL', 'https://smart-ops-deploy.preview.emergentagent.com').strip()
 
 # Resend configuration
 resend.api_key = os.environ.get('RESEND_API_KEY', '')

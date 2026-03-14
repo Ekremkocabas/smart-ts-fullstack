@@ -8,8 +8,8 @@ Mevcut timesheet uygulaması, planlama, mesajlaşma, çoklu werkbon tipleri ve m
 - **Backend:** FastAPI + MongoDB
 - **PDF:** ReportLab
 - **Mail:** Resend
-- **Preview URL:** `https://ops-manager-15.preview.emergentagent.com`
-- **Admin web panel:** `https://ops-manager-15.preview.emergentagent.com/admin/login`
+- **Preview URL:** `https://smart-ops-deploy.preview.emergentagent.com`
+- **Admin web panel:** `https://smart-ops-deploy.preview.emergentagent.com/admin/login`
 
 ## Uygulamada Olan Ana Modüller
 1. Standart uren werkbon
@@ -49,7 +49,7 @@ Mevcut timesheet uygulaması, planlama, mesajlaşma, çoklu werkbon tipleri ve m
 
 ### 3. APK build ayarı düzeltildi
 - `frontend/eas.json` preview profili artık çalışan preview backend’e bakıyor:
-  - `https://ops-manager-15.preview.emergentagent.com`
+  - `https://smart-ops-deploy.preview.emergentagent.com`
 - Bu önemliydi çünkü eski APK / build profili bozuk Railway backend’e bakıyordu
 
 ### 4. Project werkbon genişletildi

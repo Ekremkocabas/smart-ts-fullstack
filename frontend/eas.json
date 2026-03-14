@@ -11,7 +11,7 @@
         "credentialsSource": "local"
       },
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://ops-manager-15.preview.emergentagent.com"
+        "EXPO_PUBLIC_BACKEND_URL": "https://smart-ops-deploy.preview.emergentagent.com"
       },
       "distribution": "internal"
     },
