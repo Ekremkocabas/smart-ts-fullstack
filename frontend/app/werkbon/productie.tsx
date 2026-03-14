@@ -685,7 +685,7 @@ export default function ProductieWerkbonScreen() {
           /* ================ PAGE 2 ================ */
           <ScrollView style={styles.flex} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
             <View style={[styles.pageBanner, { backgroundColor: '#28a74518', borderColor: '#28a74540' }]}>
-              <Ionicons name="pen-outline" size={18} color="#28a745" />
+              <Ionicons name="pencil-outline" size={18} color="#28a745" />
               <Text style={[styles.pageBannerText, { color: '#28a745' }]}>Pagina 2 van 2 — Handtekening & Bevestiging</Text>
             </View>
 

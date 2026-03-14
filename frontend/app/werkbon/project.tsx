@@ -368,7 +368,7 @@ export default function ProjectWerkbonScreen() {
           )}
           {page === 2 && (
             <View style={[styles.infoBanner, { backgroundColor: '#28a74515', borderColor: '#28a74535' }]}>
-              <Ionicons name="pen-outline" size={20} color="#28a745" />
+              <Ionicons name="pencil-outline" size={20} color="#28a745" />
               <Text style={[styles.infoBannerText, { color: '#28a745' }]}>Pagina 2 van 2 — Handtekening & Bevestiging</Text>
             </View>
           )}

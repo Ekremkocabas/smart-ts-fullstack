@@ -1,115 +1,60 @@
-# Smart-TS - PRD / Handoff
+# Smart-Tech BV Operations Management App — PRD
 
-## Probleemstelling
-Mevcut timesheet uygulaması, planlama, mesajlaşma, çoklu werkbon tipleri ve mobil kullanım odaklı tam operasyon yönetim sistemine dönüştürüldü. Son turda özellikle **Oplevering werkbon** akışı gerçek kullanıma uygun hale getirildi ve mobil APK test build’i tekrar hazırlandı.
+## Original Problem Statement
+A full-stack Expo (React Native) + FastAPI + MongoDB operations management app for Smart-Tech BV field workers. Admin can create planning, workers fill in werkbons (work orders) in the field and sign digitally, then PDFs are automatically emailed.
 
-## Mimari
-- **Frontend:** Expo React Native (SDK 54), Expo Router, TypeScript
-- **Backend:** FastAPI + MongoDB
-- **PDF:** ReportLab
-- **Mail:** Resend
-- **Preview URL:** `https://smart-ops-deploy.preview.emergentagent.com`
-- **Admin web panel:** `https://smart-ops-deploy.preview.emergentagent.com/admin/login`
+## Implemented Features (with dates)
 
-## Uygulamada Olan Ana Modüller
-1. Standart uren werkbon
-2. Oplevering werkbon
-3. Project werkbon
-4. Planning / dispatch
-5. Messaging / berichten
-6. Dynamic theme + push notifications
-7. Admin exportleri (CSV/PDF)
+### Core (Previous Sessions)
+- Worker login & auth, role-based access (admin/beheerder/werknemer)
+- Planning system with workers assignment
+- Three werkbon types: Uren, Oplevering, Project
+- PDF generation & email (Resend) for all types
+- Dynamic theming (company color + logo)
+- Push notifications
+- Admin panel (users, klanten, werven, teams, settings)
+- Messaging/berichten system
 
-## Bu Forkta Doğrulanan Çalışan Loginler
-- **Worker preview/app:** `davy@smart-techbv.be / Smart1234-`
-- **Admin web panel:** `hr@smart-techbv.be / Smart1234-`
-- **Ekrem hesabı:** `ekremkocabas@live.be / cf5ef946ba`
+### 2026-03-14 (This Session)
+- **Productie Werkbon 1** — Completely new werkbon type for PUR insulation:
+  - Page 1: Planning info (date, worker, start/eind/voorziene uur with auto-calc), klant/werf selection, werk beschrijving, PUR production (3 floors: m², cm dikte), schuurwerken/stofzuigen toggles with m², up to 4 work photos with GPS metadata, opmerking
+  - Page 2: GPS capture, signature (name NOT auto-filled), date, selfie, send-to-client toggle, privacy notice
+  - Backend: ProductieWerkbon model, CRUD endpoints, PDF generation, email sending
+  - Navigation: Added as 4th type in werkbon creation modal
 
-## Bu Turda Yapılanlar
+- **Standardized Page 2 for all werkbons** — Oplevering & Project now have 2-page structure:
+  - Page 1: All job data
+  - Page 2: GPS, signature (name NOT auto-filled), date, selfie, privacy notice, send-to-client toggle
+  - Both screens have page indicator (2 dots) in header
+  - Back button on page 2 returns to page 1
 
-### 1. Oplevering werkbon yeniden tasarlandı
-- `Geen schade` / `Schade aanwezig` net butonları eklendi
-- `Schade aanwezig` seçilirse foto zorunlu doğrulaması eklendi
-- 5 adet yıldız değerlendirme alanı eklendi:
-  - Kwaliteit van afwerking
-  - Netheid werkplek
-  - Communicatie
-  - Stiptheid
-  - Algemene tevredenheid
-- Müşteri imza alanı eklendi
-- İmza alanında opsiyonel `Ook naar klant mailen` seçeneği eklendi
-- İstenirse müşteri e-mail alanı doldurulabiliyor
+- **Planning Confirmation Timestamp** — Enhanced bevestig system:
+  - Backend stores {worker_id, worker_naam, timestamp} in bevestigingen array
+  - Admin planning view shows "BEVESTIGD" with timestamp
+  - Worker planning tab passes worker_naam when confirming
 
-### 2. Backend Oplevering PDF + mail akışı eklendi
-- Oplevering werkbon create endpoint’i zengin payload kabul edecek şekilde genişletildi
-- Oplevering için ayrı PDF üretimi eklendi
-- Oplevering PDF mail servisi eklendi
-- PDF varsayılan olarak beheerder / şirket mailine gidiyor
-- Toggle açıksa müşteri mailine de gönderiliyor
+- **Branding consistency** — Oplevering werkbon now uses theme primaryColor instead of hardcoded #F5A623
 
-### 3. APK build ayarı düzeltildi
-- `frontend/eas.json` preview profili artık çalışan preview backend’e bakıyor:
-  - `https://smart-ops-deploy.preview.emergentagent.com`
-- Bu önemliydi çünkü eski APK / build profili bozuk Railway backend’e bakıyordu
+## Architecture
+- **Backend:** FastAPI, MongoDB, Resend (email), ReportLab (PDF)
+- **Frontend:** Expo (React Native), expo-router, expo-location, expo-image-picker
+- **Collections:** users, werkbonnen, oplevering_werkbonnen, project_werkbonnen, productie_werkbonnen, planning, klanten, werven, instellingen
 
-### 4. Project werkbon genişletildi
-- Çok günlü proje akışı eklendi
-- Gün ekleme / silme, her gün için tarih + start + stop + pauze + not desteği eklendi
-- Müşteri performans feedback checklist’i eklendi
-- En altta 3 yıldız genel skor eklendi
-- İmza sonrası project PDF mail akışı eklendi
+## Credentials
+- Admin: info@smart-techbv.be / Smart1988-
+- Worker: davy@smart-techbv.be / Smart1234-
 
-### 5. Theme / logo / metin bağları güçlendirildi
-- Admin web `instellingen` ekranı artık gerçek backend theme alanlarını kaydediyor (`primary_color`, `secondary_color`, `accent_color`)
-- Web admin responsive hale getirildi
-- Web admin login + sidebar branding tema verisine bağlandı
-- Mobile login logo / şirket adı backend theme verisine bağlandı
-- PDF müşteri onay metinleri admin ayarlarından düzenlenebilir hale getirildi
-- Uren werkbon oluşturma ekranının koyu mavi shell’i açık temaya çekildi
+## Prioritized Backlog (P0/P1/P2)
 
-## Teknik Olarak Güncellenen Dosyalar
-- `/app/frontend/app/werkbon/oplevering.tsx`
-- `/app/frontend/app/werkbon/project.tsx`
-- `/app/backend/server.py`
-- `/app/frontend/app/admin/login.tsx`
-- `/app/frontend/app/admin/_layout.tsx`
-- `/app/frontend/eas.json`
-- `/app/frontend/app/admin/instellingen.tsx`
-- `/app/frontend/context/ThemeContext.tsx`
-- `/app/frontend/app/werkbon/nieuw.tsx`
-- `/app/.github/workflows/android-build.yml`
+### P0 (Critical)
+- Live Railway deployment still pointing to wrong repo (blocked on user action)
 
-## Test Özeti
-- Worker login backend ve preview üzerinde çalışıyor
-- Admin web panel login çalışıyor
-- Oplevering form render test başarılı
-- Oplevering create backend test başarılı
-- Oplevering PDF mail gönderimi backend test başarılı
-- Browser üzerinden end-to-end oplevering submit başarılı
-- Project create backend test başarılı
-- Project PDF mail gönderimi backend test başarılı
-- Admin settings responsive render düzeltildi
-- Test raporları:
-  - `/app/test_reports/iteration_7.json`
-  - `/app/test_reports/iteration_8.json`
+### P1 (Important)
+- PDF photo display: Work photos should be LARGE (max 2 per PDF page) for Oplevering & Project werkbons
+- Worker auto-fill: Pre-fill assigned worker names in werkbons from planning
+- GitHub Actions APK build automation (broken)
 
-## Build Durumu
-- Eski preview build: `4f05938f-d0f4-4d1f-a947-5d11905762fd`
-- Son güncel preview APK build:
-  - URL: `https://expo.dev/accounts/smarttechbv/projects/smart-ts/builds/e09bfa31-ab47-45e3-b844-5fc4fa98b751`
-  - Build ID: `e09bfa31-ab47-45e3-b844-5fc4fa98b751`
-  - Durum: `IN_PROGRESS`
-
-## P0 Backlog
-- [ ] Railway canlı backend’i güncelle
-- [ ] Railway prod backend stale: `/api/app-settings` burada 404 dönüyor, yani eski kod çalışıyor
-- [ ] Final APK’yı Railway backend’e bağla
-- [ ] GitHub Actions Android build akışındaki kalan CI hatalarını stabilize et
-
-## P1 Backlog
-- [ ] Oplevering / project werkbon admin görüntüleme ekranlarını genişlet
-- [ ] Müşteri e-mail toggle davranışını admin ayarlarına bağla
-
-## P2 Backlog
-- [ ] Multi-tenant / company_id mimarisi
-- [ ] EAS Update uyumluluğunu tamamlama
+### P2 (Enhancement)
+- Productie Werkbon in admin panel view/list
+- 'Voorziene uur' auto-calculation enhancement for Project werkbon
+- B2C Planning (create plan without full client record)
