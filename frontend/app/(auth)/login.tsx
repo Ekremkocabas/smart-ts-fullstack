@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -30,6 +31,11 @@ export default function LoginScreen() {
   const [errorMessage, setErrorMessage] = useState('');
   const router = useRouter();
   const { setUser } = useAuth();
+  const { theme } = useTheme();
+
+  const logoSource = theme.logoBase64
+    ? { uri: theme.logoBase64.startsWith('data:image') ? theme.logoBase64 : `data:image/png;base64,${theme.logoBase64}` }
+    : LOGO_DARK;
 
   const handleLogin = async () => {
     setErrorMessage('');
@@ -88,11 +94,11 @@ export default function LoginScreen() {
         >
           <View style={styles.header}>
             <Image 
-              source={LOGO_DARK}
+              source={logoSource}
               style={styles.logo}
               resizeMode="contain"
             />
-            <Text style={styles.title}>Werkbon</Text>
+            <Text style={[styles.title, { color: theme.secondaryColor }]}>{theme.bedrijfsnaam || 'Werkbon'}</Text>
             <Text style={styles.subtitle}>Login met uw gebruikersnaam</Text>
           </View>
 
@@ -153,15 +159,15 @@ export default function LoginScreen() {
 
             <TouchableOpacity
               testID="login-submit-button"
-              style={[styles.button, isLoading && styles.buttonDisabled]}
+              style={[styles.button, { backgroundColor: theme.primaryColor }, isLoading && styles.buttonDisabled]}
               onPress={handleLogin}
               disabled={isLoading}
               activeOpacity={0.7}
             >
               {isLoading ? (
-                <ActivityIndicator color="#000" />
+                <ActivityIndicator color={theme.secondaryColor || '#000'} />
               ) : (
-                <Text style={styles.buttonText}>Inloggen</Text>
+                <Text style={[styles.buttonText, { color: theme.secondaryColor || '#000' }]}>Inloggen</Text>
               )}
             </TouchableOpacity>
           </View>

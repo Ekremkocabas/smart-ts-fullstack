@@ -103,9 +103,15 @@ export interface BedrijfsInstellingen {
   btw_nummer?: string;
   logo_base64?: string;
   pdf_voettekst?: string;
+  uren_confirmation_text?: string;
+  oplevering_confirmation_text?: string;
+  project_confirmation_text?: string;
   selfie_activeren?: boolean;
   sms_verificatie_activeren?: boolean;
   automatisch_naar_klant?: boolean;
+  primary_color?: string;
+  secondary_color?: string;
+  accent_color?: string;
 }
 
 export interface AddWerknemerResult extends User {

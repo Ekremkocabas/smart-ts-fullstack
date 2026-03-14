@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -20,6 +21,7 @@ const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_B
 
 export default function AdminLogin() {
   const { setUser } = useAuth();
+  const { theme } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -90,10 +92,18 @@ export default function AdminLogin() {
         <View style={styles.card}>
           <View style={styles.header}>
             <View style={styles.iconContainer}>
-              <Ionicons name="shield-checkmark" size={48} color="#F5A623" />
+              {theme.logoBase64 ? (
+                <Image
+                  source={{ uri: theme.logoBase64.startsWith('data:image') ? theme.logoBase64 : `data:image/png;base64,${theme.logoBase64}` }}
+                  style={styles.remoteLogo}
+                  resizeMode="contain"
+                />
+              ) : (
+                <Ionicons name="shield-checkmark" size={48} color={theme.primaryColor || '#F5A623'} />
+              )}
             </View>
-            <Text style={styles.title}>Admin Portaal</Text>
-            <Text style={styles.subtitle}>Smart-Tech BV Beheerders Login</Text>
+            <Text style={[styles.title, { color: theme.secondaryColor || '#1A1A2E' }]}>Admin Portaal</Text>
+            <Text style={styles.subtitle}>{theme.bedrijfsnaam || 'Smart-Tech BV'} Beheerders Login</Text>
           </View>
 
           {error ? (
@@ -140,16 +150,16 @@ export default function AdminLogin() {
 
             <TouchableOpacity
               testID="admin-login-submit-button"
-              style={[styles.loginButton, loading && styles.loginButtonDisabled]}
+              style={[styles.loginButton, { backgroundColor: theme.primaryColor || '#F5A623' }, loading && styles.loginButtonDisabled]}
               onPress={handleLogin}
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color="#000" />
+                <ActivityIndicator color={theme.secondaryColor || '#000'} />
               ) : (
                 <>
-                  <Ionicons name="log-in-outline" size={22} color="#000" />
-                  <Text style={styles.loginButtonText}>Inloggen</Text>
+                  <Ionicons name="log-in-outline" size={22} color={theme.secondaryColor || '#000'} />
+                  <Text style={[styles.loginButtonText, { color: theme.secondaryColor || '#000' }]}>Inloggen</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -204,6 +214,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
+  },
+  remoteLogo: {
+    width: 68,
+    height: 68,
   },
   title: {
     fontSize: 28,

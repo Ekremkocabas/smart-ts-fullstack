@@ -7,13 +7,19 @@ const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_B
 interface AppTheme {
   primaryColor: string;
   secondaryColor: string;
+  accentColor: string;
   bedrijfsnaam: string;
   logoBase64?: string;
+  pdfFooterText?: string;
+  urenConfirmationText?: string;
+  opleveringConfirmationText?: string;
+  projectConfirmationText?: string;
 }
 
 const defaultTheme: AppTheme = {
   primaryColor: '#F5A623',
   secondaryColor: '#1A1A2E',
+  accentColor: '#16213E',
   bedrijfsnaam: 'Smart-Tech BV',
 };
 
@@ -38,8 +44,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         setTheme({
           primaryColor: data.primaire_kleur || data.primary_color || defaultTheme.primaryColor,
           secondaryColor: data.secundaire_kleur || data.secondary_color || defaultTheme.secondaryColor,
+          accentColor: data.accent_color || defaultTheme.accentColor,
           bedrijfsnaam: data.bedrijfsnaam || defaultTheme.bedrijfsnaam,
           logoBase64: data.logo_base64 || undefined,
+          pdfFooterText: data.pdf_voettekst || undefined,
+          urenConfirmationText: data.uren_confirmation_text || undefined,
+          opleveringConfirmationText: data.oplevering_confirmation_text || undefined,
+          projectConfirmationText: data.project_confirmation_text || undefined,
         });
       }
     } catch (e) {

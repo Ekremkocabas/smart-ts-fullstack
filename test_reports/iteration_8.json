@@ -1,0 +1,62 @@
+{
+  "summary": "Executed backend + frontend regression for project werkbon multi-day flow, project PDF send endpoint, app-settings/theme exposure, admin settings UI, and standard nieuwe werkbon shell on public preview URL.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Admin instellingen layout (web)",
+        "issue": "At mobile viewport (375x667), admin panel sidebar/content does not adapt and settings heading text collapses vertically/clips, reducing usability.",
+        "testID": "N/A",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "/admin/instellingen",
+        "issues": [
+          "No mobile-responsive breakpoint for desktop sidebar layout in web admin panel."
+        ]
+      }
+    ],
+    "react_native_issues": [
+      {
+        "component": "Expo web runtime",
+        "issue": "Console still reports deprecated style warning: 'shadow* style props are deprecated. Use boxShadow.'"
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_project_werkbon_and_theme_jan2026.py",
+    "/app/test_reports/pytest/pytest_project_werkbon_theme_jan2026.xml",
+    "/app/test_reports/iteration_8_initial_load.jpeg",
+    "/app/test_reports/iteration_8_project_screen.jpeg",
+    "/app/test_reports/iteration_8_admin_instellingen.jpeg"
+  ],
+  "action_items": [
+    "Add responsive behavior or explicit desktop-only guard/message for admin web panel when opened on small/mobile viewport.",
+    "Continue migrating deprecated shadow* web styles to boxShadow to reduce console noise.",
+    "Align frontend env naming with strict project guidance (EXPO_BACKEND_URL convention) across screens/contexts."
+  ],
+  "critical_code_review_comments": [
+    "frontend/app/admin/instellingen.tsx interactive controls still lack testID attributes, reducing deterministic E2E coverage stability.",
+    "Multiple frontend files (e.g., login/theme/project/admin settings) still rely on EXPO_PUBLIC_BACKEND_URL and fallback chains; project guidance requests stricter env-key consistency.",
+    "backend/server.py still includes fallback defaults for APP_URL and DB_NAME instead of fully fail-fast env-only usage."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_project_werkbon_and_theme_jan2026.py",
+    "/app/test_reports/iteration_8.json"
+  ],
+  "success_rate": {
+    "backend": "100% (4/4 pytest tests passed)",
+    "frontend": "95% (all requested flows passed; 1 responsive design issue on admin settings in mobile viewport)"
+  },
+  "seed_data_creation": "Created and cleaned TEST_ProjectKlant_* and TEST_ProjectWerf_* plus temporary project werkbon records during pytest run.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "NO MOCKED API USED. Public preview URL used. Worker login (davy@smart-techbv.be) and admin login (hr@smart-techbv.be) succeeded. Project werkbon screen rendered multi-day add button, feedback checklist, 3-star score and signature block; add-day increased row count from 1 to 2. /api/app-settings and /api/instellingen exposed expected theme/text fields.",
+  "rca_of_issue": "Admin panel uses persistent desktop sidebar layout with no small-screen adaptation; when tested in required mobile viewport, available width is consumed by sidebar and causes settings heading/content clipping."
+}

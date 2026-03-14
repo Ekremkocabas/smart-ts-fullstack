@@ -15,6 +15,7 @@ import { router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import Constants from 'expo-constants';
 import * as ImagePicker from 'expo-image-picker';
+import { useTheme } from '../../context/ThemeContext';
 
 const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_BACKEND_URL || (typeof window !== 'undefined' ? window.location.origin : '');
 
@@ -26,10 +27,13 @@ interface Instellingen {
   email: string;
   telefoon: string;
   logo_base64?: string;
-  primaire_kleur: string;
-  secundaire_kleur: string;
-  pdf_header?: string;
-  pdf_footer?: string;
+  primary_color: string;
+  secondary_color: string;
+  accent_color: string;
+  pdf_voettekst?: string;
+  uren_confirmation_text?: string;
+  oplevering_confirmation_text?: string;
+  project_confirmation_text?: string;
 }
 
 const defaultInstellingen: Instellingen = {
@@ -38,12 +42,14 @@ const defaultInstellingen: Instellingen = {
   btw_nummer: '',
   email: '',
   telefoon: '',
-  primaire_kleur: '#F5A623',
-  secundaire_kleur: '#1A1A2E',
+  primary_color: '#F5A623',
+  secondary_color: '#1A1A2E',
+  accent_color: '#16213E',
 };
 
 export default function InstellingenAdmin() {
   const { user } = useAuth();
+  const { refreshTheme } = useTheme();
   const [instellingen, setInstellingen] = useState<Instellingen>(defaultInstellingen);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -91,6 +97,7 @@ export default function InstellingenAdmin() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(instellingen),
       });
+      await refreshTheme();
       alert('Instellingen opgeslagen!');
     } catch (error) {
       console.error('Error:', error);
@@ -177,26 +184,35 @@ export default function InstellingenAdmin() {
             <View style={styles.colorItem}>
               <Text style={styles.label}>Primaire kleur</Text>
               <View style={styles.colorInput}>
-                <View style={[styles.colorPreview, { backgroundColor: instellingen.primaire_kleur }]} />
-                <TextInput style={styles.colorText} value={instellingen.primaire_kleur} onChangeText={(v) => setInstellingen({ ...instellingen, primaire_kleur: v })} placeholder="#F5A623" placeholderTextColor="#6c757d" />
+                <View style={[styles.colorPreview, { backgroundColor: instellingen.primary_color }]} />
+                <TextInput style={styles.colorText} value={instellingen.primary_color} onChangeText={(v) => setInstellingen({ ...instellingen, primary_color: v })} placeholder="#F5A623" placeholderTextColor="#6c757d" />
               </View>
             </View>
             <View style={styles.colorItem}>
               <Text style={styles.label}>Secundaire kleur</Text>
               <View style={styles.colorInput}>
-                <View style={[styles.colorPreview, { backgroundColor: instellingen.secundaire_kleur }]} />
-                <TextInput style={styles.colorText} value={instellingen.secundaire_kleur} onChangeText={(v) => setInstellingen({ ...instellingen, secundaire_kleur: v })} placeholder="#1A1A2E" placeholderTextColor="#6c757d" />
+                <View style={[styles.colorPreview, { backgroundColor: instellingen.secondary_color }]} />
+                <TextInput style={styles.colorText} value={instellingen.secondary_color} onChangeText={(v) => setInstellingen({ ...instellingen, secondary_color: v })} placeholder="#1A1A2E" placeholderTextColor="#6c757d" />
               </View>
             </View>
+          </View>
+          <Text style={styles.label}>Accent kleur</Text>
+          <View style={styles.colorInput}>
+            <View style={[styles.colorPreview, { backgroundColor: instellingen.accent_color }]} />
+            <TextInput style={styles.colorText} value={instellingen.accent_color} onChangeText={(v) => setInstellingen({ ...instellingen, accent_color: v })} placeholder="#16213E" placeholderTextColor="#6c757d" />
           </View>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>PDF instellingen</Text>
-          <Text style={styles.label}>PDF Header tekst</Text>
-          <TextInput style={[styles.input, styles.textArea]} value={instellingen.pdf_header} onChangeText={(v) => setInstellingen({ ...instellingen, pdf_header: v })} placeholder="Tekst bovenaan de PDF" placeholderTextColor="#6c757d" multiline />
-          <Text style={styles.label}>PDF Footer tekst</Text>
-          <TextInput style={[styles.input, styles.textArea]} value={instellingen.pdf_footer} onChangeText={(v) => setInstellingen({ ...instellingen, pdf_footer: v })} placeholder="Tekst onderaan de PDF" placeholderTextColor="#6c757d" multiline />
+          <Text style={styles.sectionTitle}>Werkbon teksten & PDF</Text>
+          <Text style={styles.label}>Algemene PDF voettekst</Text>
+          <TextInput style={[styles.input, styles.textArea]} value={instellingen.pdf_voettekst} onChangeText={(v) => setInstellingen({ ...instellingen, pdf_voettekst: v })} placeholder="Tekst onderaan elke PDF" placeholderTextColor="#6c757d" multiline />
+          <Text style={styles.label}>Uren werkbon klant bevestiging</Text>
+          <TextInput style={[styles.input, styles.textArea]} value={instellingen.uren_confirmation_text} onChangeText={(v) => setInstellingen({ ...instellingen, uren_confirmation_text: v })} placeholder="Bevestigingstekst voor uren werkbon" placeholderTextColor="#6c757d" multiline />
+          <Text style={styles.label}>Oplevering klant bevestiging</Text>
+          <TextInput style={[styles.input, styles.textArea]} value={instellingen.oplevering_confirmation_text} onChangeText={(v) => setInstellingen({ ...instellingen, oplevering_confirmation_text: v })} placeholder="Bevestigingstekst voor oplevering werkbon" placeholderTextColor="#6c757d" multiline />
+          <Text style={styles.label}>Project werkbon klant bevestiging</Text>
+          <TextInput style={[styles.input, styles.textArea]} value={instellingen.project_confirmation_text} onChangeText={(v) => setInstellingen({ ...instellingen, project_confirmation_text: v })} placeholder="Bevestigingstekst voor project werkbon" placeholderTextColor="#6c757d" multiline />
         </View>
 
         <TouchableOpacity style={styles.saveBtn} onPress={saveInstellingen} disabled={saving}>

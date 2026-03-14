@@ -258,6 +258,9 @@ class BedrijfsInstellingen(BaseModel):
     # PDF Settings
     logo_base64: Optional[str] = None  # Company logo for PDF
     pdf_voettekst: str = "Factuur wordt als goedgekeurd beschouwd indien geen klacht wordt ingediend binnen 1 week."
+    uren_confirmation_text: str = "Hierbij bevestigt de klant dat deze ingevulde werkbon juist is ingevuld."
+    oplevering_confirmation_text: str = "Hierbij bevestigt de klant dat deze ingevulde oplevering bon juist is ingevuld."
+    project_confirmation_text: str = "Hierbij bevestigt de klant dat deze ingevulde project werkbon juist is ingevuld."
     # Feature toggles
     selfie_activeren: bool = False
     sms_verificatie_activeren: bool = False
@@ -279,6 +282,9 @@ class BedrijfsInstellingenUpdate(BaseModel):
     btw_nummer: Optional[str] = None
     logo_base64: Optional[str] = None
     pdf_voettekst: Optional[str] = None
+    uren_confirmation_text: Optional[str] = None
+    oplevering_confirmation_text: Optional[str] = None
+    project_confirmation_text: Optional[str] = None
     selfie_activeren: Optional[bool] = None
     sms_verificatie_activeren: Optional[bool] = None
     automatisch_naar_klant: Optional[bool] = None
@@ -420,10 +426,11 @@ class ProjectWerkbon(BaseModel):
     
     # Time tracking
     datum: str
-    start_tijd: str = ""  # HH:MM format
-    stop_tijd: str = ""  # HH:MM format
+    start_tijd: str = ""  # legacy
+    stop_tijd: str = ""  # legacy
     pauze_minuten: int = 0
     totaal_uren: float = 0
+    dag_regels: List[dict] = Field(default_factory=list)
     
     # Location
     locatie_start: Optional[str] = None  # GPS coords or address
@@ -432,6 +439,13 @@ class ProjectWerkbon(BaseModel):
     # Work details
     werk_beschrijving: str = ""
     extra_opmerkingen: str = ""
+    klant_feedback_items: List[dict] = Field(default_factory=list)
+    klant_feedback_opmerking: str = ""
+    klant_prestatie_score: int = 0
+    klant_email_override: Optional[str] = None
+    verstuur_naar_klant: bool = False
+    pdf_bestandsnaam: Optional[str] = None
+    email_error: Optional[str] = None
     
     # Signatures
     handtekening_klant: Optional[str] = None
@@ -456,20 +470,36 @@ class ProjectWerkbonCreate(BaseModel):
     stop_tijd: str = ""
     pauze_minuten: int = 0
     werk_beschrijving: str = ""
+    extra_opmerkingen: str = ""
+    dag_regels: List[dict] = Field(default_factory=list)
+    klant_feedback_items: List[dict] = Field(default_factory=list)
+    klant_feedback_opmerking: str = ""
+    klant_prestatie_score: int = 0
+    handtekening_klant: Optional[str] = None
+    handtekening_klant_naam: str = ""
+    handtekening_monteur_naam: str = ""
+    verstuur_naar_klant: bool = False
+    klant_email_override: Optional[str] = None
 
 class ProjectWerkbonUpdate(BaseModel):
     datum: Optional[str] = None
     start_tijd: Optional[str] = None
     stop_tijd: Optional[str] = None
     pauze_minuten: Optional[int] = None
+    dag_regels: Optional[List[dict]] = None
     locatie_start: Optional[str] = None
     locatie_stop: Optional[str] = None
     werk_beschrijving: Optional[str] = None
     extra_opmerkingen: Optional[str] = None
+    klant_feedback_items: Optional[List[dict]] = None
+    klant_feedback_opmerking: Optional[str] = None
+    klant_prestatie_score: Optional[int] = None
     handtekening_klant: Optional[str] = None
     handtekening_klant_naam: Optional[str] = None
     handtekening_monteur: Optional[str] = None
     handtekening_monteur_naam: Optional[str] = None
+    verstuur_naar_klant: Optional[bool] = None
+    klant_email_override: Optional[str] = None
     status: Optional[str] = None
 
 # ==================== PLANNING SYSTEM ====================
@@ -1025,7 +1055,7 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     # ── MAIN HEADER: [Logo + Week/Jaar | Smart-Tech BV + Company Info] ──
     logo_bytes = decode_base64_data(instellingen.get("logo_base64"))
     # Slightly shorter logo (25mm wide x 20mm tall)
-    logo = make_safe_reportlab_image(logo_bytes, 25 * mm, 20 * mm)
+    logo = make_safe_reportlab_image(logo_bytes, 34 * mm, 24 * mm)
     left_cell: list = []
     if logo:
         left_cell.append(logo)
@@ -1035,7 +1065,7 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     left_cell.append(Paragraph(f"<b>{werkbon.get('jaar', '-')}</b>", week_style))
 
     bedrijfsnaam_pdf = instellingen.get("bedrijfsnaam", "Smart-Tech BV")
-    company_name_style = ParagraphStyle("CompNameBold", fontName="Helvetica-Bold", fontSize=10,
+    company_name_style = ParagraphStyle("CompNameBold", fontName="Helvetica-Bold", fontSize=13,
                                         textColor=colors.HexColor("#1a1a2e"), spaceAfter=3)
     company_detail_style = ParagraphStyle("CompDetailSmall", fontSize=8, leading=10, textColor=colors.HexColor("#333333"))
     company_lines = [
@@ -1210,6 +1240,9 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     # Signature cell
     sig_content = []
     if werkbon.get("handtekening_data"):
+        confirmation_text = instellingen.get("uren_confirmation_text") or "Hierbij bevestigt de klant dat deze ingevulde werkbon juist is ingevuld."
+        sig_content.append(Paragraph(confirmation_text.replace("\n", "<br/>"), styles["BodySmall"]))
+        sig_content.append(Spacer(1, 3))
         sig_content.append(Paragraph("<b>Handtekening klant</b>", styles["BodySmall"]))
         if werkbon.get("handtekening_naam"):
             sig_content.append(Paragraph(f"Naam: {werkbon.get('handtekening_naam')}", styles["BodySmall"]))
@@ -1351,17 +1384,18 @@ def generate_oplevering_pdf(werkbon: dict, instellingen: dict) -> tuple[bytes, s
     story.append(Paragraph(f"<b>Extra opmerkingen:</b> {opmerkingen_text.replace(chr(10), '<br/>')}", styles["OVBody"]))
     story.append(Spacer(1, 8))
 
-    schade_status = "Schade aanwezig" if werkbon.get("schade_status") == "schade_aanwezig" else "Geen schade"
+    schade_bool = werkbon.get("schade_status") == "schade_aanwezig"
+    schade_status = "Ja" if schade_bool else "Nee"
     schade_text = werkbon.get("schade_opmerking") or "-"
     schade_checks = werkbon.get("schade_checks") or []
-    schade_rows = [["Schade status", schade_status], ["Toelichting", schade_text]]
+    schade_rows = [["Schade", schade_status], ["Toelichting", schade_text]]
     for item in schade_checks:
         label = item.get("label") if isinstance(item, dict) else getattr(item, "label", "Check")
         checked = item.get("checked") if isinstance(item, dict) else getattr(item, "checked", False)
         schade_rows.append([label, "Ja" if checked else "Nee"])
     schade_table = Table(schade_rows, colWidths=[70 * mm, 100 * mm])
     schade_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#fff3cd") if werkbon.get("schade_status") == "schade_aanwezig" else colors.HexColor("#eaf7ee")),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#ffd6d6") if schade_bool else colors.HexColor("#eaf7ee")),
         ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#cccccc")),
         ("INNERGRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#dddddd")),
         ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
@@ -1436,13 +1470,267 @@ def generate_oplevering_pdf(werkbon: dict, instellingen: dict) -> tuple[bytes, s
         ("TOPPADDING", (0, 0), (-1, -1), 8),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
     ]))
-    story.extend([Paragraph("Handtekening klant", styles["OVSection"]), signature_table, Spacer(1, 10)])
+    confirmation_text = instellingen.get("oplevering_confirmation_text") or "Hierbij bevestigt de klant dat deze ingevulde oplevering bon juist is ingevuld."
+    story.extend([Paragraph(confirmation_text.replace("\n", "<br/>"), styles["OVBody"]), Spacer(1, 6), Paragraph("Handtekening klant", styles["OVSection"]), signature_table, Spacer(1, 10)])
     story.append(Paragraph((instellingen.get("pdf_voettekst") or "Digitale oplevering bon").replace("\n", "<br/>"), styles["OVSmall"]))
 
     pdf.build(story)
     pdf_bytes = buffer.getvalue()
     buffer.close()
     return pdf_bytes, build_oplevering_pdf_filename(werkbon)
+
+
+PROJECT_FEEDBACK_DEFAULTS = [
+    "Werken uitgevoerd volgens planning",
+    "Communicatie met klant was duidelijk",
+    "Werf proper en veilig achtergelaten",
+    "Afspraken correct nageleefd",
+    "Klant tevreden over algemene prestatie",
+]
+
+
+def normalize_project_day_rows(data: ProjectWerkbonCreate | ProjectWerkbonUpdate | dict) -> tuple[list[dict], float]:
+    if isinstance(data, dict):
+        raw_rows = data.get("dag_regels") or []
+        datum = data.get("datum") or ""
+        start_tijd = data.get("start_tijd") or ""
+        stop_tijd = data.get("stop_tijd") or ""
+        pauze_minuten = data.get("pauze_minuten") or 0
+    else:
+        raw_rows = data.dag_regels or []
+        datum = getattr(data, "datum", "")
+        start_tijd = getattr(data, "start_tijd", "")
+        stop_tijd = getattr(data, "stop_tijd", "")
+        pauze_minuten = getattr(data, "pauze_minuten", 0) or 0
+
+    if not raw_rows and datum and start_tijd and stop_tijd:
+        raw_rows = [{
+            "datum": datum,
+            "start_tijd": start_tijd,
+            "stop_tijd": stop_tijd,
+            "pauze_minuten": pauze_minuten,
+            "omschrijving": "",
+        }]
+
+    if not raw_rows:
+        raise HTTPException(status_code=400, detail="Voeg minstens 1 werkdag toe")
+
+    normalized_rows: list[dict] = []
+    totaal = 0.0
+    parsed_dates = []
+    for row in raw_rows:
+        datum_value = (row.get("datum") or "").strip()
+        start_value = (row.get("start_tijd") or "").strip()
+        stop_value = (row.get("stop_tijd") or "").strip()
+        pauze_value = int(row.get("pauze_minuten") or 0)
+        dag_opmerking = (row.get("omschrijving") or row.get("opmerking") or "").strip()
+
+        if not datum_value or not start_value or not stop_value:
+            raise HTTPException(status_code=400, detail="Elke werkdag moet datum, startuur en stopuur hebben")
+
+        try:
+            parsed_date = datetime.strptime(datum_value, "%Y-%m-%d")
+            parsed_dates.append(parsed_date)
+            start_parts = start_value.split(":")
+            stop_parts = stop_value.split(":")
+            start_min = int(start_parts[0]) * 60 + int(start_parts[1])
+            stop_min = int(stop_parts[0]) * 60 + int(stop_parts[1])
+            uren = round(max(0, (stop_min - start_min - pauze_value) / 60), 2)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Controleer datum en tijd formaat van de project werkbon")
+
+        normalized_rows.append({
+            "datum": datum_value,
+            "start_tijd": start_value,
+            "stop_tijd": stop_value,
+            "pauze_minuten": pauze_value,
+            "totaal_uren": uren,
+            "omschrijving": dag_opmerking,
+        })
+        totaal += uren
+
+    if parsed_dates:
+        delta_days = (max(parsed_dates) - min(parsed_dates)).days
+        if delta_days > 62:
+            raise HTTPException(status_code=400, detail="Project werkbon mag maximaal 2 maanden bevatten")
+
+    return normalized_rows, round(totaal, 2)
+
+
+def normalize_project_feedback_items(items: Optional[list[dict]]) -> list[dict]:
+    if not items:
+        return [{"label": label, "checked": False} for label in PROJECT_FEEDBACK_DEFAULTS]
+    normalized = []
+    for index, item in enumerate(items[:5]):
+        normalized.append({
+            "label": (item.get("label") or PROJECT_FEEDBACK_DEFAULTS[index] if index < len(PROJECT_FEEDBACK_DEFAULTS) else f"Feedback {index + 1}").strip(),
+            "checked": bool(item.get("checked")),
+            "opmerking": (item.get("opmerking") or "").strip(),
+        })
+    return normalized
+
+
+def build_project_pdf_filename(werkbon: dict) -> str:
+    werf = (werkbon.get("werf_naam") or "werf").lower().replace(" ", "-")
+    safe_werf = "".join(char for char in werf if char.isalnum() or char == "-") or "werf"
+    return f"project-werkbon-{safe_werf}-{werkbon.get('datum', 'datum')}.pdf"
+
+
+def generate_project_werkbon_pdf(werkbon: dict, instellingen: dict) -> tuple[bytes, str]:
+    buffer = io.BytesIO()
+    pdf = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=14 * mm, rightMargin=14 * mm, topMargin=12 * mm, bottomMargin=12 * mm)
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(name="PJSection", parent=styles["Heading2"], fontSize=11, textColor=colors.HexColor("#1a1a2e"), spaceAfter=6, spaceBefore=6))
+    styles.add(ParagraphStyle(name="PJBody", parent=styles["BodyText"], fontSize=9, leading=12))
+    styles.add(ParagraphStyle(name="PJSmall", parent=styles["BodyText"], fontSize=8, leading=10, textColor=colors.HexColor("#555555")))
+    story = []
+
+    logo = make_safe_reportlab_image(decode_base64_data(instellingen.get("logo_base64")), 26 * mm, 18 * mm)
+    bedrijfsnaam = instellingen.get("bedrijfsnaam") or "Smart-Tech BV"
+    header_left = [logo, Spacer(1, 3)] if logo else []
+    header_left.append(Paragraph(f"<b>{bedrijfsnaam}</b>", ParagraphStyle("PJCompany", fontName="Helvetica-Bold", fontSize=14, textColor=colors.HexColor("#1a1a2e"))))
+    header_left.append(Paragraph(instellingen.get("email") or COMPANY_EMAIL, styles["PJSmall"]))
+    header_right = [
+        Paragraph("<b>PROJECT WERKBON</b>", ParagraphStyle("PJTitle", fontName="Helvetica-Bold", fontSize=16, textColor=colors.HexColor("#1a1a2e"), alignment=2)),
+        Paragraph(f"Status: {(werkbon.get('status') or 'ondertekend').capitalize()}", styles["PJBody"]),
+        Paragraph(f"Periode start: {(werkbon.get('dag_regels') or [{}])[0].get('datum', werkbon.get('datum', '-'))}", styles["PJBody"]),
+    ]
+    header = Table([[header_left, header_right]], colWidths=[90 * mm, 80 * mm])
+    header.setStyle(TableStyle([
+        ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#F5A623")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    story.extend([header, Spacer(1, 8)])
+
+    info_table = Table([
+        ["Klant", werkbon.get("klant_naam") or "-"],
+        ["Werf", werkbon.get("werf_naam") or "-"],
+        ["Adres", werkbon.get("werf_adres") or "-"],
+        ["Monteur", werkbon.get("ingevuld_door_naam") or "-"],
+        ["Totaal uren", f"{werkbon.get('totaal_uren', 0)} u"],
+    ], colWidths=[42 * mm, 128 * mm])
+    info_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#f5f5f5")),
+        ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#cccccc")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#dddddd")),
+        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+    ]))
+    story.extend([Paragraph("Project info", styles["PJSection"]), info_table, Spacer(1, 8)])
+
+    dag_rows = [["Datum", "Start", "Stop", "Pauze", "Uren", "Opmerking"]]
+    for row in werkbon.get("dag_regels") or []:
+        dag_rows.append([
+            row.get("datum") or "-",
+            row.get("start_tijd") or "-",
+            row.get("stop_tijd") or "-",
+            f"{row.get('pauze_minuten', 0)} min",
+            f"{row.get('totaal_uren', 0)}",
+            row.get("omschrijving") or "-",
+        ])
+    dag_table = Table(dag_rows, colWidths=[28 * mm, 18 * mm, 18 * mm, 20 * mm, 16 * mm, 70 * mm])
+    dag_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#cccccc")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#dddddd")),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8.5),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]))
+    story.extend([Paragraph("Werkdagen", styles["PJSection"]), dag_table, Spacer(1, 8)])
+
+    feedback_rows = [["Klant feedback", "Ja / Nee"]]
+    for item in werkbon.get("klant_feedback_items") or []:
+        feedback_rows.append([item.get("label") or "-", "Ja" if item.get("checked") else "Nee"])
+    feedback_rows.append(["Algemene score", "★" * int(werkbon.get("klant_prestatie_score") or 0) + "☆" * max(0, 3 - int(werkbon.get("klant_prestatie_score") or 0))])
+    feedback_table = Table(feedback_rows, colWidths=[120 * mm, 50 * mm])
+    feedback_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F5A623")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.black),
+        ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#cccccc")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#dddddd")),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+    ]))
+    story.extend([Paragraph("Prestatie feedback", styles["PJSection"]), feedback_table, Spacer(1, 6)])
+    story.append(Paragraph(f"<b>Extra feedback:</b> {(werkbon.get('klant_feedback_opmerking') or '-').replace(chr(10), '<br/>')}", styles["PJBody"]))
+    story.append(Spacer(1, 8))
+
+    work_desc = (werkbon.get("werk_beschrijving") or "-").replace("\n", "<br/>")
+    notes = (werkbon.get("extra_opmerkingen") or "-").replace("\n", "<br/>")
+    story.extend([
+        Paragraph("Werkbeschrijving", styles["PJSection"]),
+        Paragraph(work_desc, styles["PJBody"]),
+        Spacer(1, 6),
+        Paragraph("Extra opmerkingen", styles["PJSection"]),
+        Paragraph(notes, styles["PJBody"]),
+        Spacer(1, 10),
+    ])
+
+    confirmation_text = instellingen.get("project_confirmation_text") or "Hierbij bevestigt de klant dat deze ingevulde project werkbon juist is ingevuld."
+    story.append(Paragraph(confirmation_text.replace("\n", "<br/>"), styles["PJBody"]))
+    story.append(Spacer(1, 6))
+    signature_image = make_safe_reportlab_image(decode_base64_data(werkbon.get("handtekening_klant")), 80 * mm, 28 * mm)
+    signature_box = [Paragraph(f"<b>Klant naam:</b> {werkbon.get('handtekening_klant_naam') or '-'}", styles["PJBody"])]
+    if signature_image:
+        signature_box.extend([Spacer(1, 4), signature_image])
+    sig_table = Table([[signature_box]], colWidths=[170 * mm])
+    sig_table.setStyle(TableStyle([("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#cccccc")), ("LEFTPADDING", (0, 0), (-1, -1), 8), ("TOPPADDING", (0, 0), (-1, -1), 8), ("BOTTOMPADDING", (0, 0), (-1, -1), 8)]))
+    story.extend([sig_table, Spacer(1, 8), Paragraph((instellingen.get("pdf_voettekst") or "Digitale project werkbon").replace("\n", "<br/>"), styles["PJSmall"])])
+
+    pdf.build(story)
+    pdf_bytes = buffer.getvalue()
+    buffer.close()
+    return pdf_bytes, build_project_pdf_filename(werkbon)
+
+
+async def send_project_werkbon_email(werkbon: dict, instellingen: dict, pdf_bytes: bytes, pdf_filename: str, klant_email: Optional[str] = None):
+    if not resend.api_key:
+        return {"success": False, "error": "Email not configured", "recipients": []}
+
+    company_recipient = get_company_recipient(instellingen)
+    klant_recipient = klant_email or werkbon.get("klant_email_override")
+    recipients = [company_recipient] if company_recipient else []
+    if werkbon.get("verstuur_naar_klant") and klant_recipient:
+        recipients = get_unique_recipients(company_recipient, klant_recipient)
+    if not recipients:
+        return {"success": False, "error": "Geen ontvangers geconfigureerd", "recipients": []}
+
+    subject = f"Project Werkbon PDF - {werkbon.get('werf_naam', 'Werf')}"
+    html = f"""
+    <div style='font-family:Arial,sans-serif;max-width:640px;margin:0 auto;'>
+      <div style='background:#1a1a2e;color:#fff;padding:24px;border-bottom:4px solid #F5A623;'>
+        <h1 style='margin:0;color:#F5A623;'>{instellingen.get('bedrijfsnaam') or 'Smart-Tech BV'}</h1>
+        <p style='margin:8px 0 0;'>Ondertekende project werkbon in bijlage</p>
+      </div>
+      <div style='padding:24px;'>
+        <p>Klant: <strong>{werkbon.get('klant_naam') or '-'}</strong></p>
+        <p>Werf: <strong>{werkbon.get('werf_naam') or '-'}</strong></p>
+        <p>Totaal uren: <strong>{werkbon.get('totaal_uren', 0)} uur</strong></p>
+      </div>
+    </div>
+    """
+    try:
+        params = {
+            "from": get_sender_email(instellingen),
+            "to": recipients,
+            "subject": subject,
+            "html": html,
+            "attachments": [{
+                "filename": pdf_filename,
+                "content": base64.b64encode(pdf_bytes).decode(),
+                "contentType": "application/pdf",
+            }],
+        }
+        result = await asyncio.to_thread(resend.Emails.send, params)
+        return {"success": True, "email_id": result.get("id"), "recipients": recipients}
+    except Exception as e:
+        return {"success": False, "error": str(e), "recipients": recipients}
 
 class UserCreateWithEmail(BaseModel):
     email: str
@@ -2581,17 +2869,15 @@ async def create_project_werkbon(data: ProjectWerkbonCreate, user_id: str, user_
     if not werf:
         raise HTTPException(status_code=404, detail="Werf niet gevonden")
     
-    # Calculate total hours
-    totaal = 0.0
-    if data.start_tijd and data.stop_tijd:
-        try:
-            start_parts = data.start_tijd.split(":")
-            stop_parts = data.stop_tijd.split(":")
-            start_min = int(start_parts[0]) * 60 + int(start_parts[1])
-            stop_min = int(stop_parts[0]) * 60 + int(stop_parts[1])
-            totaal = max(0, (stop_min - start_min - data.pauze_minuten) / 60)
-        except (ValueError, IndexError):
-            totaal = 0.0
+    dag_regels, totaal = normalize_project_day_rows(data)
+    feedback_items = normalize_project_feedback_items(data.klant_feedback_items)
+    klant_email = (data.klant_email_override or klant.get("email") or "").strip()
+    if not data.handtekening_klant or not data.handtekening_klant_naam.strip():
+        raise HTTPException(status_code=400, detail="Klant handtekening en naam zijn verplicht")
+    if data.klant_prestatie_score < 1 or data.klant_prestatie_score > 3:
+        raise HTTPException(status_code=400, detail="Geef een algemene score van 1 tot 3 sterren")
+    if data.verstuur_naar_klant and not klant_email:
+        raise HTTPException(status_code=400, detail="Klant e-mail is verplicht wanneer u naar de klant wilt sturen")
     
     werkbon = ProjectWerkbon(
         klant_id=data.klant_id,
@@ -2599,14 +2885,26 @@ async def create_project_werkbon(data: ProjectWerkbonCreate, user_id: str, user_
         werf_id=data.werf_id,
         werf_naam=werf["naam"],
         werf_adres=werf.get("adres", ""),
-        datum=data.datum,
-        start_tijd=data.start_tijd,
-        stop_tijd=data.stop_tijd,
-        pauze_minuten=data.pauze_minuten,
+        datum=dag_regels[0]["datum"],
+        start_tijd=dag_regels[0]["start_tijd"],
+        stop_tijd=dag_regels[0]["stop_tijd"],
+        pauze_minuten=dag_regels[0]["pauze_minuten"],
         totaal_uren=round(totaal, 2),
         werk_beschrijving=data.werk_beschrijving,
+        extra_opmerkingen=data.extra_opmerkingen,
+        dag_regels=dag_regels,
+        klant_feedback_items=feedback_items,
+        klant_feedback_opmerking=data.klant_feedback_opmerking,
+        klant_prestatie_score=data.klant_prestatie_score,
+        handtekening_klant=data.handtekening_klant,
+        handtekening_klant_naam=data.handtekening_klant_naam,
+        handtekening_monteur_naam=data.handtekening_monteur_naam or user_naam,
+        handtekening_datum=datetime.now(timezone.utc),
+        klant_email_override=klant_email,
+        verstuur_naar_klant=data.verstuur_naar_klant,
         ingevuld_door_id=user_id,
         ingevuld_door_naam=user_naam,
+        status="ondertekend",
     )
     await db.project_werkbonnen.insert_one(werkbon.dict())
     return werkbon.dict()
@@ -2614,7 +2912,7 @@ async def create_project_werkbon(data: ProjectWerkbonCreate, user_id: str, user_
 @api_router.put("/project-werkbonnen/{werkbon_id}")
 async def update_project_werkbon(werkbon_id: str, update_data: ProjectWerkbonUpdate):
     update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
-    update_dict["updated_at"] = datetime.utcnow()
+    update_dict["updated_at"] = datetime.now(timezone.utc)
     
     if update_data.handtekening_klant:
         update_dict["handtekening_datum"] = datetime.utcnow()
@@ -2623,24 +2921,56 @@ async def update_project_werkbon(werkbon_id: str, update_data: ProjectWerkbonUpd
     # Recalculate hours if times changed
     existing = await db.project_werkbonnen.find_one({"id": werkbon_id}, {"_id": 0})
     if existing:
-        st = update_data.start_tijd or existing.get("start_tijd", "")
-        et = update_data.stop_tijd or existing.get("stop_tijd", "")
-        pz = update_data.pauze_minuten if update_data.pauze_minuten is not None else existing.get("pauze_minuten", 0)
-        if st and et:
-            try:
-                sp = st.split(":")
-                ep = et.split(":")
-                sm = int(sp[0]) * 60 + int(sp[1])
-                em = int(ep[0]) * 60 + int(ep[1])
-                update_dict["totaal_uren"] = round(max(0, (em - sm - pz) / 60), 2)
-            except (ValueError, IndexError):
-                pass
+        merged = {**existing, **update_dict}
+        dag_regels, totaal = normalize_project_day_rows(merged)
+        update_dict["dag_regels"] = dag_regels
+        update_dict["totaal_uren"] = totaal
+        update_dict["datum"] = dag_regels[0]["datum"]
+        update_dict["start_tijd"] = dag_regels[0]["start_tijd"]
+        update_dict["stop_tijd"] = dag_regels[0]["stop_tijd"]
+        update_dict["pauze_minuten"] = dag_regels[0]["pauze_minuten"]
+        if "klant_feedback_items" in update_dict:
+            update_dict["klant_feedback_items"] = normalize_project_feedback_items(update_dict.get("klant_feedback_items"))
     
     result = await db.project_werkbonnen.update_one({"id": werkbon_id}, {"$set": update_dict})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Project werkbon niet gevonden")
     updated = await db.project_werkbonnen.find_one({"id": werkbon_id}, {"_id": 0})
     return updated
+
+
+@api_router.post("/project-werkbonnen/{werkbon_id}/verzenden")
+async def verzend_project_werkbon(werkbon_id: str, klant_email: Optional[str] = Query(None)):
+    werkbon = await db.project_werkbonnen.find_one({"id": werkbon_id}, {"_id": 0})
+    if not werkbon:
+        raise HTTPException(status_code=404, detail="Project werkbon niet gevonden")
+    if not werkbon.get("handtekening_klant") or not werkbon.get("handtekening_klant_naam"):
+        raise HTTPException(status_code=400, detail="Project werkbon moet eerst ondertekend worden")
+
+    instellingen = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0}) or {}
+    pdf_bytes, pdf_filename = generate_project_werkbon_pdf(werkbon, instellingen)
+    override_email = (klant_email or werkbon.get("klant_email_override") or "").strip()
+    email_result = await send_project_werkbon_email(werkbon, instellingen, pdf_bytes, pdf_filename, klant_email=override_email)
+
+    await db.project_werkbonnen.update_one(
+        {"id": werkbon_id},
+        {"$set": {
+            "status": "verzonden" if email_result.get("success") else werkbon.get("status", "ondertekend"),
+            "email_verzonden": email_result.get("success", False),
+            "email_error": email_result.get("error"),
+            "pdf_bestandsnaam": pdf_filename,
+            "klant_email_override": override_email,
+            "updated_at": datetime.now(timezone.utc),
+        }}
+    )
+
+    return {
+        "success": True,
+        "email_sent": email_result.get("success", False),
+        "email_error": email_result.get("error"),
+        "pdf_filename": pdf_filename,
+        "recipients": email_result.get("recipients", []),
+    }
 
 @api_router.delete("/project-werkbonnen/{werkbon_id}")
 async def delete_project_werkbon(werkbon_id: str):
@@ -2926,6 +3256,10 @@ async def get_app_settings():
         "primary_color": settings.get("primary_color", "#1a1a2e"),
         "secondary_color": settings.get("secondary_color", "#F5A623"),
         "accent_color": settings.get("accent_color", "#16213e"),
+        "pdf_voettekst": settings.get("pdf_voettekst"),
+        "uren_confirmation_text": settings.get("uren_confirmation_text"),
+        "oplevering_confirmation_text": settings.get("oplevering_confirmation_text"),
+        "project_confirmation_text": settings.get("project_confirmation_text"),
     }
 
 # ==================== DASHBOARD STATS ====================

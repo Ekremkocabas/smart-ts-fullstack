@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Stack, usePathname, router } from 'expo-router';
-import { Platform, View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { Platform, View, Text, TouchableOpacity, StyleSheet, ScrollView, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 
 const menuItems = [
   { icon: 'grid-outline', label: 'Dashboard', route: '/admin/dashboard' },
@@ -20,6 +21,7 @@ const menuItems = [
 function Sidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const { theme } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
 
   const handleLogout = async () => {
@@ -34,10 +36,18 @@ function Sidebar() {
         {!collapsed && (
           <View style={styles.logoContainer}>
             <View style={styles.logoIcon}>
-              <Ionicons name="cube" size={24} color="#F5A623" />
+              {theme.logoBase64 ? (
+                <Image
+                  source={{ uri: theme.logoBase64.startsWith('data:image') ? theme.logoBase64 : `data:image/png;base64,${theme.logoBase64}` }}
+                  style={styles.sidebarLogoImage}
+                  resizeMode="contain"
+                />
+              ) : (
+                <Ionicons name="cube" size={24} color={theme.primaryColor || '#F5A623'} />
+              )}
             </View>
             <View>
-              <Text style={styles.logoText}>Smart-Tech</Text>
+              <Text style={[styles.logoText, { color: theme.secondaryColor || '#1A1A2E' }]}>{theme.bedrijfsnaam || 'Smart-Tech'}</Text>
               <Text style={styles.logoSubtext}>Beheerportaal</Text>
             </View>
           </View>
@@ -54,20 +64,20 @@ function Sidebar() {
           return (
             <TouchableOpacity
               key={index}
-              style={[styles.menuItem, isActive && styles.menuItemActive]}
+              style={[styles.menuItem, isActive && { backgroundColor: `${theme.primaryColor || '#F5A623'}15` }]}
               onPress={() => router.push(item.route as any)}
             >
               <Ionicons 
                 name={isActive ? item.icon.replace('-outline', '') as any : item.icon as any} 
                 size={22} 
-                color={isActive ? '#F5A623' : '#6c757d'} 
+                color={isActive ? theme.primaryColor || '#F5A623' : '#6c757d'} 
               />
               {!collapsed && (
-                <Text style={[styles.menuLabel, isActive && styles.menuLabelActive]}>
+                <Text style={[styles.menuLabel, isActive && { color: theme.secondaryColor || '#1A1A2E' }]}>
                   {item.label}
                 </Text>
               )}
-              {isActive && !collapsed && <View style={styles.activeIndicator} />}
+              {isActive && !collapsed && <View style={[styles.activeIndicator, { backgroundColor: theme.primaryColor || '#F5A623' }]} />}
             </TouchableOpacity>
           );
         })}
@@ -177,6 +187,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5A62315',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  sidebarLogoImage: {
+    width: 30,
+    height: 30,
   },
   logoText: {
     fontSize: 18,
