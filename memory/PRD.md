@@ -52,11 +52,31 @@ Mevcut timesheet uygulaması, planlama, mesajlaşma, çoklu werkbon tipleri ve m
   - `https://ops-manager-15.preview.emergentagent.com`
 - Bu önemliydi çünkü eski APK / build profili bozuk Railway backend’e bakıyordu
 
+### 4. Project werkbon genişletildi
+- Çok günlü proje akışı eklendi
+- Gün ekleme / silme, her gün için tarih + start + stop + pauze + not desteği eklendi
+- Müşteri performans feedback checklist’i eklendi
+- En altta 3 yıldız genel skor eklendi
+- İmza sonrası project PDF mail akışı eklendi
+
+### 5. Theme / logo / metin bağları güçlendirildi
+- Admin web `instellingen` ekranı artık gerçek backend theme alanlarını kaydediyor (`primary_color`, `secondary_color`, `accent_color`)
+- Web admin responsive hale getirildi
+- Web admin login + sidebar branding tema verisine bağlandı
+- Mobile login logo / şirket adı backend theme verisine bağlandı
+- PDF müşteri onay metinleri admin ayarlarından düzenlenebilir hale getirildi
+- Uren werkbon oluşturma ekranının koyu mavi shell’i açık temaya çekildi
+
 ## Teknik Olarak Güncellenen Dosyalar
 - `/app/frontend/app/werkbon/oplevering.tsx`
+- `/app/frontend/app/werkbon/project.tsx`
 - `/app/backend/server.py`
 - `/app/frontend/app/admin/login.tsx`
+- `/app/frontend/app/admin/_layout.tsx`
 - `/app/frontend/eas.json`
+- `/app/frontend/app/admin/instellingen.tsx`
+- `/app/frontend/context/ThemeContext.tsx`
+- `/app/frontend/app/werkbon/nieuw.tsx`
 - `/app/.github/workflows/android-build.yml`
 
 ## Test Özeti
@@ -66,17 +86,23 @@ Mevcut timesheet uygulaması, planlama, mesajlaşma, çoklu werkbon tipleri ve m
 - Oplevering create backend test başarılı
 - Oplevering PDF mail gönderimi backend test başarılı
 - Browser üzerinden end-to-end oplevering submit başarılı
-- Test raporu: `/app/test_reports/iteration_7.json`
+- Project create backend test başarılı
+- Project PDF mail gönderimi backend test başarılı
+- Admin settings responsive render düzeltildi
+- Test raporları:
+  - `/app/test_reports/iteration_7.json`
+  - `/app/test_reports/iteration_8.json`
 
 ## Build Durumu
-- Yeni Android preview APK build başlatıldı
-- EAS build URL:
-  - `https://expo.dev/accounts/smarttechbv/projects/smart-ts/builds/4f05938f-d0f4-4d1f-a947-5d11905762fd`
-- Build ID:
-  - `4f05938f-d0f4-4d1f-a947-5d11905762fd`
+- Eski preview build: `4f05938f-d0f4-4d1f-a947-5d11905762fd`
+- Son güncel preview APK build:
+  - URL: `https://expo.dev/accounts/smarttechbv/projects/smart-ts/builds/e09bfa31-ab47-45e3-b844-5fc4fa98b751`
+  - Build ID: `e09bfa31-ab47-45e3-b844-5fc4fa98b751`
+  - Durum: `IN_PROGRESS`
 
 ## P0 Backlog
 - [ ] Railway canlı backend’i güncelle
+- [ ] Railway prod backend stale: `/api/app-settings` burada 404 dönüyor, yani eski kod çalışıyor
 - [ ] Final APK’yı Railway backend’e bağla
 - [ ] GitHub Actions Android build akışındaki kalan CI hatalarını stabilize et
 

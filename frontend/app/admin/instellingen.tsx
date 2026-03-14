@@ -139,7 +139,7 @@ export default function InstellingenAdmin() {
           <Text style={styles.title}>Bedrijfsinstellingen</Text>
           <Text style={styles.subtitle}>Beheer uw bedrijfsgegevens</Text>
         </View>
-        <TouchableOpacity style={styles.saveHeaderBtn} onPress={saveInstellingen} disabled={saving}>
+        <TouchableOpacity testID="admin-settings-save-header-button" style={styles.saveHeaderBtn} onPress={saveInstellingen} disabled={saving}>
           {saving ? <ActivityIndicator color="#fff" size="small" /> : <Ionicons name="save-outline" size={22} color="#fff" />}
         </TouchableOpacity>
       </View>
@@ -147,7 +147,7 @@ export default function InstellingenAdmin() {
       <ScrollView style={styles.content}>
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Logo</Text>
-          <TouchableOpacity style={styles.logoUpload} onPress={pickLogo}>
+          <TouchableOpacity testID="admin-settings-logo-upload-button" style={styles.logoUpload} onPress={pickLogo}>
             {instellingen.logo_base64 ? (
               <Image source={{ uri: `data:image/png;base64,${instellingen.logo_base64}` }} style={styles.logoPreview} resizeMode="contain" />
             ) : (
@@ -158,7 +158,7 @@ export default function InstellingenAdmin() {
             )}
           </TouchableOpacity>
           {instellingen.logo_base64 && (
-            <TouchableOpacity style={styles.removeLogo} onPress={() => setInstellingen({ ...instellingen, logo_base64: undefined })}>
+            <TouchableOpacity testID="admin-settings-logo-remove-button" style={styles.removeLogo} onPress={() => setInstellingen({ ...instellingen, logo_base64: undefined })}>
               <Text style={styles.removeLogoText}>Logo verwijderen</Text>
             </TouchableOpacity>
           )}
@@ -167,13 +167,13 @@ export default function InstellingenAdmin() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Bedrijfsgegevens</Text>
           <Text style={styles.label}>Bedrijfsnaam</Text>
-          <TextInput style={styles.input} value={instellingen.bedrijfsnaam} onChangeText={(v) => setInstellingen({ ...instellingen, bedrijfsnaam: v })} placeholder="Bedrijfsnaam" placeholderTextColor="#6c757d" />
+          <TextInput testID="admin-settings-company-name-input" style={styles.input} value={instellingen.bedrijfsnaam} onChangeText={(v) => setInstellingen({ ...instellingen, bedrijfsnaam: v })} placeholder="Bedrijfsnaam" placeholderTextColor="#6c757d" />
           <Text style={styles.label}>Adres</Text>
-          <TextInput style={styles.input} value={instellingen.adres} onChangeText={(v) => setInstellingen({ ...instellingen, adres: v })} placeholder="Straat, nr, postcode, stad" placeholderTextColor="#6c757d" />
+          <TextInput testID="admin-settings-address-input" style={styles.input} value={instellingen.adres} onChangeText={(v) => setInstellingen({ ...instellingen, adres: v })} placeholder="Straat, nr, postcode, stad" placeholderTextColor="#6c757d" />
           <Text style={styles.label}>BTW-nummer</Text>
           <TextInput style={styles.input} value={instellingen.btw_nummer} onChangeText={(v) => setInstellingen({ ...instellingen, btw_nummer: v })} placeholder="BE0123456789" placeholderTextColor="#6c757d" />
           <Text style={styles.label}>E-mail</Text>
-          <TextInput style={styles.input} value={instellingen.email} onChangeText={(v) => setInstellingen({ ...instellingen, email: v })} placeholder="info@bedrijf.be" placeholderTextColor="#6c757d" keyboardType="email-address" />
+          <TextInput testID="admin-settings-email-input" style={styles.input} value={instellingen.email} onChangeText={(v) => setInstellingen({ ...instellingen, email: v })} placeholder="info@bedrijf.be" placeholderTextColor="#6c757d" keyboardType="email-address" />
           <Text style={styles.label}>Telefoon</Text>
           <TextInput style={styles.input} value={instellingen.telefoon} onChangeText={(v) => setInstellingen({ ...instellingen, telefoon: v })} placeholder="+32 ..." placeholderTextColor="#6c757d" keyboardType="phone-pad" />
         </View>
@@ -185,37 +185,37 @@ export default function InstellingenAdmin() {
               <Text style={styles.label}>Primaire kleur</Text>
               <View style={styles.colorInput}>
                 <View style={[styles.colorPreview, { backgroundColor: instellingen.primary_color }]} />
-                <TextInput style={styles.colorText} value={instellingen.primary_color} onChangeText={(v) => setInstellingen({ ...instellingen, primary_color: v })} placeholder="#F5A623" placeholderTextColor="#6c757d" />
+                <TextInput testID="admin-settings-primary-color-input" style={styles.colorText} value={instellingen.primary_color} onChangeText={(v) => setInstellingen({ ...instellingen, primary_color: v })} placeholder="#F5A623" placeholderTextColor="#6c757d" />
               </View>
             </View>
             <View style={styles.colorItem}>
               <Text style={styles.label}>Secundaire kleur</Text>
               <View style={styles.colorInput}>
                 <View style={[styles.colorPreview, { backgroundColor: instellingen.secondary_color }]} />
-                <TextInput style={styles.colorText} value={instellingen.secondary_color} onChangeText={(v) => setInstellingen({ ...instellingen, secondary_color: v })} placeholder="#1A1A2E" placeholderTextColor="#6c757d" />
+                <TextInput testID="admin-settings-secondary-color-input" style={styles.colorText} value={instellingen.secondary_color} onChangeText={(v) => setInstellingen({ ...instellingen, secondary_color: v })} placeholder="#1A1A2E" placeholderTextColor="#6c757d" />
               </View>
             </View>
           </View>
           <Text style={styles.label}>Accent kleur</Text>
           <View style={styles.colorInput}>
             <View style={[styles.colorPreview, { backgroundColor: instellingen.accent_color }]} />
-            <TextInput style={styles.colorText} value={instellingen.accent_color} onChangeText={(v) => setInstellingen({ ...instellingen, accent_color: v })} placeholder="#16213E" placeholderTextColor="#6c757d" />
+            <TextInput testID="admin-settings-accent-color-input" style={styles.colorText} value={instellingen.accent_color} onChangeText={(v) => setInstellingen({ ...instellingen, accent_color: v })} placeholder="#16213E" placeholderTextColor="#6c757d" />
           </View>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Werkbon teksten & PDF</Text>
           <Text style={styles.label}>Algemene PDF voettekst</Text>
-          <TextInput style={[styles.input, styles.textArea]} value={instellingen.pdf_voettekst} onChangeText={(v) => setInstellingen({ ...instellingen, pdf_voettekst: v })} placeholder="Tekst onderaan elke PDF" placeholderTextColor="#6c757d" multiline />
+          <TextInput testID="admin-settings-pdf-footer-input" style={[styles.input, styles.textArea]} value={instellingen.pdf_voettekst} onChangeText={(v) => setInstellingen({ ...instellingen, pdf_voettekst: v })} placeholder="Tekst onderaan elke PDF" placeholderTextColor="#6c757d" multiline />
           <Text style={styles.label}>Uren werkbon klant bevestiging</Text>
-          <TextInput style={[styles.input, styles.textArea]} value={instellingen.uren_confirmation_text} onChangeText={(v) => setInstellingen({ ...instellingen, uren_confirmation_text: v })} placeholder="Bevestigingstekst voor uren werkbon" placeholderTextColor="#6c757d" multiline />
+          <TextInput testID="admin-settings-uren-confirmation-input" style={[styles.input, styles.textArea]} value={instellingen.uren_confirmation_text} onChangeText={(v) => setInstellingen({ ...instellingen, uren_confirmation_text: v })} placeholder="Bevestigingstekst voor uren werkbon" placeholderTextColor="#6c757d" multiline />
           <Text style={styles.label}>Oplevering klant bevestiging</Text>
-          <TextInput style={[styles.input, styles.textArea]} value={instellingen.oplevering_confirmation_text} onChangeText={(v) => setInstellingen({ ...instellingen, oplevering_confirmation_text: v })} placeholder="Bevestigingstekst voor oplevering werkbon" placeholderTextColor="#6c757d" multiline />
+          <TextInput testID="admin-settings-oplevering-confirmation-input" style={[styles.input, styles.textArea]} value={instellingen.oplevering_confirmation_text} onChangeText={(v) => setInstellingen({ ...instellingen, oplevering_confirmation_text: v })} placeholder="Bevestigingstekst voor oplevering werkbon" placeholderTextColor="#6c757d" multiline />
           <Text style={styles.label}>Project werkbon klant bevestiging</Text>
-          <TextInput style={[styles.input, styles.textArea]} value={instellingen.project_confirmation_text} onChangeText={(v) => setInstellingen({ ...instellingen, project_confirmation_text: v })} placeholder="Bevestigingstekst voor project werkbon" placeholderTextColor="#6c757d" multiline />
+          <TextInput testID="admin-settings-project-confirmation-input" style={[styles.input, styles.textArea]} value={instellingen.project_confirmation_text} onChangeText={(v) => setInstellingen({ ...instellingen, project_confirmation_text: v })} placeholder="Bevestigingstekst voor project werkbon" placeholderTextColor="#6c757d" multiline />
         </View>
 
-        <TouchableOpacity style={styles.saveBtn} onPress={saveInstellingen} disabled={saving}>
+        <TouchableOpacity testID="admin-settings-save-button" style={styles.saveBtn} onPress={saveInstellingen} disabled={saving}>
           {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Instellingen opslaan</Text>}
         </TouchableOpacity>
       </ScrollView>

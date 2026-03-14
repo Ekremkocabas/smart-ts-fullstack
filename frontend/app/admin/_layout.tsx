@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Stack, usePathname, router } from 'expo-router';
-import { Platform, View, Text, TouchableOpacity, StyleSheet, ScrollView, Image } from 'react-native';
+import { Platform, View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -105,9 +105,48 @@ function Sidebar() {
   );
 }
 
+function CompactTopNav() {
+  const pathname = usePathname();
+  const { logout } = useAuth();
+  const { theme } = useTheme();
+
+  const handleLogout = async () => {
+    await logout();
+    router.replace('/admin/login');
+  };
+
+  return (
+    <View style={styles.compactShell}>
+      <View style={styles.compactHeader}>
+        <Text style={[styles.compactTitle, { color: theme.secondaryColor || '#1A1A2E' }]}>{theme.bedrijfsnaam || 'Smart-Tech'} Admin</Text>
+        <TouchableOpacity onPress={handleLogout} style={styles.compactLogoutBtn}>
+          <Ionicons name="log-out-outline" size={18} color="#dc3545" />
+          <Text style={styles.compactLogoutText}>Uitloggen</Text>
+        </TouchableOpacity>
+      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.compactMenuRow}>
+        {menuItems.map((item) => {
+          const isActive = pathname === item.route || pathname.startsWith(item.route + '/');
+          return (
+            <TouchableOpacity
+              key={item.route}
+              style={[styles.compactMenuItem, isActive && { backgroundColor: `${theme.primaryColor || '#F5A623'}18`, borderColor: theme.primaryColor || '#F5A623' }]}
+              onPress={() => router.push(item.route as any)}
+            >
+              <Ionicons name={item.icon as any} size={16} color={isActive ? theme.primaryColor || '#F5A623' : '#6c757d'} />
+              <Text style={[styles.compactMenuLabel, isActive && { color: theme.secondaryColor || '#1A1A2E' }]}>{item.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
+}
+
 export default function AdminLayout() {
   const pathname = usePathname();
   const { user } = useAuth();
+  const { width } = useWindowDimensions();
 
   if (Platform.OS !== 'web') {
     return null;
@@ -115,12 +154,40 @@ export default function AdminLayout() {
 
   // Don't show sidebar on login page
   const isLoginPage = pathname === '/admin/login';
+  const isCompactWeb = width < 1024;
 
   if (isLoginPage) {
     return (
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#F5F6FA' } }}>
         <Stack.Screen name="login" />
       </Stack>
+    );
+  }
+
+  if (isCompactWeb) {
+    return (
+      <View style={styles.compactContainer}>
+        <CompactTopNav />
+        <View style={styles.compactContent}>
+          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#F5F6FA' } }}>
+            <Stack.Screen name="dashboard" />
+            <Stack.Screen name="werknemers" />
+            <Stack.Screen name="werknemer-detail" />
+            <Stack.Screen name="teams" />
+            <Stack.Screen name="team-detail" />
+            <Stack.Screen name="klanten" />
+            <Stack.Screen name="klant-detail" />
+            <Stack.Screen name="werven" />
+            <Stack.Screen name="werf-detail" />
+            <Stack.Screen name="werkbonnen" />
+            <Stack.Screen name="werkbon-detail" />
+            <Stack.Screen name="planning" />
+            <Stack.Screen name="berichten" />
+            <Stack.Screen name="rapporten" />
+            <Stack.Screen name="instellingen" />
+          </Stack>
+        </View>
+      </View>
     );
   }
 
@@ -155,6 +222,61 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     backgroundColor: '#F5F6FA',
+  },
+  compactContainer: {
+    flex: 1,
+    backgroundColor: '#F5F6FA',
+  },
+  compactShell: {
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E8E9ED',
+    paddingTop: 10,
+    paddingBottom: 8,
+  },
+  compactHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingBottom: 10,
+  },
+  compactTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  compactLogoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  compactLogoutText: {
+    color: '#dc3545',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  compactMenuRow: {
+    paddingHorizontal: 12,
+    gap: 8,
+  },
+  compactMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 999,
+    backgroundColor: '#F7F8FA',
+    borderWidth: 1,
+    borderColor: '#E8E9ED',
+  },
+  compactMenuLabel: {
+    color: '#6c757d',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  compactContent: {
+    flex: 1,
   },
   sidebar: {
     width: 260,
