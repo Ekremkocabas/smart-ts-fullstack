@@ -24,7 +24,7 @@ from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Tabl
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
-APP_URL = os.environ.get('APP_URL', 'https://werkbon-portal.preview.emergentagent.com').strip()
+APP_URL = os.environ.get('APP_URL', 'https://expo-fastapi-1.preview.emergentagent.com').strip()
 
 # Resend configuration
 resend.api_key = os.environ.get('RESEND_API_KEY', '')
@@ -1522,14 +1522,33 @@ def generate_oplevering_pdf(werkbon: dict, instellingen: dict) -> tuple[bytes, s
     if fotos:
         from reportlab.platypus import PageBreak as PBrk
         story.append(Paragraph("Werkfoto's", styles["OVSection"]))
-        for i, foto in enumerate(fotos[:6]):
-            if i > 0 and i % 2 == 0:
+        # Build 2-column grid: 2 photos per row, up to 6 photos (3 rows)
+        foto_images = []
+        for foto in fotos[:6]:
+            foto_data = foto if isinstance(foto, str) else foto.get("base64", "")
+            img = make_safe_reportlab_image(decode_base64_data(foto_data), 82 * mm, 108 * mm)
+            foto_images.append(img)
+        # Pair them into rows of 2
+        for row_idx in range(0, len(foto_images), 2):
+            if row_idx > 0 and row_idx % 4 == 0:
                 story.append(PBrk())
                 story.append(Paragraph("Werkfoto's (vervolg)", styles["OVSection"]))
-            foto_data = foto if isinstance(foto, str) else foto.get("base64", "")
-            image = make_safe_reportlab_image(decode_base64_data(foto_data), 160 * mm, 110 * mm)
-            if image:
-                story.extend([image, Spacer(1, 8)])
+            pair = foto_images[row_idx:row_idx + 2]
+            left_img = pair[0] or Spacer(82 * mm, 108 * mm)
+            right_img = pair[1] if len(pair) > 1 else Spacer(82 * mm, 108 * mm)
+            photo_row_table = Table([[left_img, right_img]], colWidths=[86 * mm, 86 * mm])
+            photo_row_table.setStyle(TableStyle([
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 2),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+                ("TOPPADDING", (0, 0), (-1, -1), 2),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+                ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#E8E9ED")),
+                ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#E8E9ED")),
+            ]))
+            story.append(photo_row_table)
+            story.append(Spacer(1, 6))
 
     signer_name = werkbon.get("handtekening_klant_naam") or "-"
     signature_bytes = decode_base64_data(werkbon.get("handtekening_klant"))
@@ -1714,25 +1733,50 @@ def generate_productie_pdf(werkbon: dict, instellingen: dict) -> tuple[bytes, st
         story.append(Paragraph(f"<b>Opmerking:</b> {werkbon.get('opmerking', '').replace(chr(10), '<br/>')}", styles["PBody"]))
         story.append(Spacer(1, 8))
 
-    # Work photos - LARGE, max 2 per page
+    # Work photos - 2-column grid layout, 4 photos max (2x2 per page)
     fotos = werkbon.get("fotos") or []
     if fotos:
         story.append(Paragraph("Werkfoto's", styles["PSec"]))
+        # Collect all photo images with captions
+        foto_cells = []
         for i, foto in enumerate(fotos[:4]):
-            if i > 0 and i % 2 == 0:
-                story.append(PageBreak())
-                story.append(Paragraph("Werkfoto's (vervolg)", styles["PSec"]))
             base64_data = foto.get("base64") if isinstance(foto, dict) else foto
             foto_ts = foto.get("timestamp", "") if isinstance(foto, dict) else ""
             foto_gps = foto.get("gps", "") if isinstance(foto, dict) else ""
-            image = make_safe_reportlab_image(decode_base64_data(base64_data), 160 * mm, 110 * mm)
-            if image:
-                caption_parts = [f"Foto {i + 1}"]
-                if foto_ts:
-                    caption_parts.append(foto_ts)
-                if foto_gps:
-                    caption_parts.append(f"GPS: {foto_gps}")
-                story.extend([image, Paragraph(" | ".join(caption_parts), styles["PSmall"]), Spacer(1, 8)])
+            img = make_safe_reportlab_image(decode_base64_data(base64_data), 82 * mm, 108 * mm)
+            caption_parts = [f"Foto {i + 1}"]
+            if foto_ts:
+                try:
+                    ts_str = foto_ts[:16].replace("T", " ")
+                    caption_parts.append(ts_str)
+                except Exception:
+                    pass
+            if foto_gps:
+                caption_parts.append(f"GPS: {foto_gps}")
+            caption = Paragraph(" | ".join(caption_parts), styles["PSmall"])
+            cell_content = [img, Spacer(1, 3), caption] if img else [caption]
+            foto_cells.append(cell_content)
+        # Build 2-column rows
+        for row_idx in range(0, len(foto_cells), 2):
+            if row_idx > 0 and row_idx % 4 == 0:
+                story.append(PageBreak())
+                story.append(Paragraph("Werkfoto's (vervolg)", styles["PSec"]))
+            pair = foto_cells[row_idx:row_idx + 2]
+            left_cell = pair[0]
+            right_cell = pair[1] if len(pair) > 1 else [Spacer(82 * mm, 1)]
+            photo_row_table = Table([[left_cell, right_cell]], colWidths=[86 * mm, 86 * mm])
+            photo_row_table.setStyle(TableStyle([
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 2),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+                ("TOPPADDING", (0, 0), (-1, -1), 2),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+                ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#E8E9ED")),
+                ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#E8E9ED")),
+            ]))
+            story.append(photo_row_table)
+            story.append(Spacer(1, 8))
 
     # Signature section
     signer_name = werkbon.get("handtekening_naam") or "-"
@@ -3332,7 +3376,10 @@ async def delete_project_werkbon(werkbon_id: str):
 # ==================== PRODUCTIE WERKBON ROUTES ====================
 
 @api_router.get("/productie-werkbonnen")
-async def get_productie_werkbonnen(user_id: str):
+async def get_productie_werkbonnen(user_id: str, is_admin: bool = False):
+    if is_admin:
+        items = await db.productie_werkbonnen.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+        return items
     user = await db.users.find_one({"id": user_id})
     if not user:
         raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
@@ -3429,6 +3476,20 @@ async def verzend_productie_werkbon(werkbon_id: str, klant_email: Optional[str] 
         "pdf_filename": pdf_filename,
         "recipients": email_result.get("recipients", []),
     }
+
+@api_router.get("/productie-werkbonnen/{werkbon_id}/pdf")
+async def get_productie_werkbon_pdf(werkbon_id: str):
+    werkbon = await db.productie_werkbonnen.find_one({"id": werkbon_id}, {"_id": 0})
+    if not werkbon:
+        raise HTTPException(status_code=404, detail="Productie werkbon niet gevonden")
+    instellingen = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0}) or {}
+    try:
+        pdf_bytes, pdf_filename = generate_productie_pdf(werkbon, instellingen)
+    except Exception as exc:
+        logging.exception("Productie PDF generation failed for %s", werkbon_id)
+        raise HTTPException(status_code=500, detail=f"PDF genereren mislukt: {str(exc)}")
+    pdf_base64 = base64.b64encode(pdf_bytes).decode("utf-8")
+    return {"pdf_base64": pdf_base64, "pdf_filename": pdf_filename}
 
 @api_router.delete("/productie-werkbonnen/{werkbon_id}")
 async def delete_productie_werkbon(werkbon_id: str):

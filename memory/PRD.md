@@ -62,7 +62,7 @@ The `werkbonnen` collection is **polymorphic** — a single collection stores al
 - **GitHub Repository:** `https://github.com/Ekremkocabas/smart-ts-fullstack`
 
 ### Local Development (Emergent)
-- **Frontend Preview:** `https://werkbon-portal.preview.emergentagent.com`
+- **Frontend Preview:** `https://expo-fastapi-1.preview.emergentagent.com`
 - **Backend:** `http://0.0.0.0:8001`
 
 ## Credentials

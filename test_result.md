@@ -1,4 +1,15 @@
 backend:
+  - task: smart-ts fullstack app - continuation tasks
+  - status: all 3 tasks implemented
+  - tasks_done:
+    1. PDF Large Photo Layout (P0): Both oplevering and productie PDFs now use 2-column grid layout (2 photos per row, 82mm x 108mm each, border around cells, page break after 4 photos)
+    2. Worker Auto-fill from Planning (P1): nieuw.tsx now fetches planning for current week via /api/planning/werknemer/{id} and shows a "Planning suggesties" banner. Tapping a suggestion auto-fills klant, werf, and team members.
+    3. Productie Werkbon Admin Panel (P1): werkbonnen.tsx admin page now has "Uren" and "Productie" tab switcher. Productie tab shows all productie werkbonnen with datum, klant, werf, monteur, m², status, and download PDF/email/delete actions.
+  - backend_changes:
+    - Fixed generate_oplevering_pdf photo layout (2-column grid)
+    - Fixed generate_productie_pdf photo layout (2-column grid with captions)
+    - Added GET /api/productie-werkbonnen/{id}/pdf endpoint for admin PDF download
+    - Updated GET /api/productie-werkbonnen to support is_admin=true parameter
   - task: "Auth API Login and Users"
     implemented: true
     working: true

@@ -17,6 +17,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAppStore, Klant, Werf, Team, UrenRegel, KmRegel, WeekDates } from '../../store/appStore';
 import { useAuth } from '../../context/AuthContext';
 import { showAlert } from '../../utils/alerts';
+import Constants from 'expo-constants';
+
+const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
 const DAGEN = ['maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag', 'zondag'];
 const DAGEN_KORT = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'];
@@ -72,6 +75,10 @@ export default function NieuweWerkbonScreen() {
   const [showAfkortingPicker, setShowAfkortingPicker] = useState<{index: number, dag: string} | null>(null);
   const [gpsOpPdf, setGpsOpPdf] = useState(false);
 
+  // Planning suggestions
+  const [planningItems, setPlanningItems] = useState<any[]>([]);
+  const [showPlanningSuggesties, setShowPlanningSuggesties] = useState(true);
+
   useEffect(() => {
     loadData();
   }, []);
@@ -84,6 +91,46 @@ export default function NieuweWerkbonScreen() {
     setIsLoading(true);
     await Promise.all([fetchKlanten(), fetchWerven(), fetchTeams()]);
     setIsLoading(false);
+    // Fetch planning for current week after data loads
+    if (user?.id) {
+      fetchPlanning();
+    }
+  };
+
+  const fetchPlanning = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/planning/werknemer/${user?.id}?week_nummer=${weekNummer}&jaar=${jaar}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          setPlanningItems(data);
+        }
+      }
+    } catch (e) {
+      console.error('Planning fetch error:', e);
+    }
+  };
+
+  const applyPlanningItem = async (item: any) => {
+    // Find klant from klanten list
+    const klant = klanten.find(k => k.id === item.klant_id);
+    if (klant) {
+      setSelectedKlant(klant);
+      const wervenData = await fetchWervenByKlant(klant.id);
+      setKlantWerven(wervenData);
+      // Find werf
+      const werf = wervenData.find((w: Werf) => w.id === item.werf_id);
+      if (werf) {
+        setSelectedWerf(werf);
+      }
+    }
+    // Pre-fill team members from planning
+    if (item.werknemer_namen && item.werknemer_namen.length > 0) {
+      const regels = item.werknemer_namen.map((naam: string) => createEmptyUrenRegel(naam));
+      setUrenRegels(regels);
+    }
+    setShowPlanningSuggesties(false);
+    showAlert('Planning geladen', `${item.klant_naam} — ${item.werf_naam} is automatisch ingevuld.`);
   };
 
   const loadWeekDates = async () => {
@@ -237,6 +284,45 @@ export default function NieuweWerkbonScreen() {
         </View>
 
         <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 100 }}>
+          {/* Planning Suggestions Banner */}
+          {planningItems.length > 0 && showPlanningSuggesties && (
+            <View style={styles.planningBanner}>
+              <View style={styles.planningBannerHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Ionicons name="calendar-outline" size={18} color="#3498db" />
+                  <Text style={styles.planningBannerTitle}>Planning suggesties (week {weekNummer})</Text>
+                </View>
+                <TouchableOpacity onPress={() => setShowPlanningSuggesties(false)}>
+                  <Ionicons name="close" size={20} color="#6c757d" />
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.planningBannerSubtitle}>Tik op een planning om klant, werf en teamleden automatisch in te vullen</Text>
+              {planningItems.map((item, idx) => (
+                <TouchableOpacity
+                  key={item.id || idx}
+                  style={styles.planningItem}
+                  onPress={() => applyPlanningItem(item)}
+                >
+                  <View style={styles.planningItemLeft}>
+                    <View style={styles.planningDagBadge}>
+                      <Text style={styles.planningDagText}>{item.dag?.substring(0, 2).toUpperCase()}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.planningItemKlant}>{item.klant_naam}</Text>
+                      <Text style={styles.planningItemWerf}>{item.werf_naam}</Text>
+                      {item.werknemer_namen && item.werknemer_namen.length > 0 && (
+                        <Text style={styles.planningItemWerknemers}>
+                          👥 {item.werknemer_namen.slice(0, 3).join(', ')}{item.werknemer_namen.length > 3 ? '...' : ''}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                  <Ionicons name="arrow-forward-circle" size={24} color="#3498db" />
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
           {/* Week Selection */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Week</Text>
@@ -624,4 +710,16 @@ const styles = StyleSheet.create({
   saveButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#F5A623', padding: 16, borderRadius: 12 },
   saveButtonDisabled: { opacity: 0.7 },
   saveButtonText: { color: '#000', fontSize: 16, fontWeight: '600' },
+  // Planning suggestions
+  planningBanner: { backgroundColor: '#EBF5FB', borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1.5, borderColor: '#3498db30' },
+  planningBannerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  planningBannerTitle: { fontSize: 14, fontWeight: '700', color: '#1A1A2E' },
+  planningBannerSubtitle: { fontSize: 12, color: '#6c757d', marginBottom: 12 },
+  planningItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 12, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: '#3498db20', justifyContent: 'space-between' },
+  planningItemLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  planningDagBadge: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#3498db15', alignItems: 'center', justifyContent: 'center' },
+  planningDagText: { fontSize: 11, fontWeight: '700', color: '#3498db' },
+  planningItemKlant: { fontSize: 14, fontWeight: '600', color: '#1A1A2E' },
+  planningItemWerf: { fontSize: 12, color: '#6c757d', marginTop: 2 },
+  planningItemWerknemers: { fontSize: 11, color: '#3498db', marginTop: 2 },
 });
