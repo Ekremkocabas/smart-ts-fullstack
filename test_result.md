@@ -1,4 +1,34 @@
 backend:
+  - task: smart-ts fullstack app - planning system improvements
+  - status: all planning improvements implemented
+  - new_planning_fields_backend:
+    - start_uur (string, e.g. "08:00")
+    - eind_uur (string, e.g. "16:30")
+    - voorziene_uur (auto-calculated or manual, e.g. "8u30")
+    - nodige_materiaal (multiline text, mirrors materiaallijst)
+    - opmerking_aandachtspunt (special notes/warnings/risks)
+    - belangrijk (boolean, marks item as important)
+  - admin_planning_changes:
+    - New "Wanneer" section with start_uur, eind_uur, voorziene_uur (auto-calc)
+    - "Locatie" section with klant/werf chips
+    - "Team" section with worker selection
+    - "Werkinstructies" section: omschrijving (multiline), nodige_materiaal (newline-per-item), opmerking_aandachtspunt
+    - "Instellingen" section: prioriteit + belangrijk toggle
+    - Edit button in detail modal (openEditModal)
+    - Belangrijk badge on planning cards
+    - Time shown on planning cards
+  - worker_app_planning_changes:
+    - Complete rewrite of (tabs)/planning.tsx
+    - Start/eind uur shown in time badge on card
+    - "Uit te voeren werk" always visible on card (not hidden)
+    - Opmerking/aandachtspunt shown with yellow warning box on card
+    - Materiaal preview (3 items) on card
+    - Belangrijk banner (red, prominent) on card
+    - "Details" button opens full-screen modal
+    - Detail modal shows ALL fields in structured sections (Wanneer, Locatie, Team, Werk, Materiaal, Aandachtspunt)
+    - JIJ badge on current user in team list
+    - Large navigation button in detail modal
+    - Bevestig button in both card and detail modal
   - task: smart-ts fullstack app - continuation tasks
   - status: all 3 tasks implemented
   - tasks_done:

@@ -602,6 +602,11 @@ class PlanningItem(BaseModel):
     dag: str  # maandag, dinsdag, etc.
     datum: str  # DD-MM-YYYY
     
+    # Time fields
+    start_uur: Optional[str] = ""   # e.g. "08:00"
+    eind_uur: Optional[str] = ""    # e.g. "16:30"
+    voorziene_uur: Optional[str] = ""  # e.g. "8 uur" — auto-calc or manual
+    
     # Assignment
     werknemer_ids: List[str] = []
     werknemer_namen: List[str] = []
@@ -615,11 +620,14 @@ class PlanningItem(BaseModel):
     werf_naam: str
     werf_adres: Optional[str] = None
     
-    # Details
-    omschrijving: str = ""  # Job description
-    materiaallijst: List[str] = []  # Required materials
-    geschatte_duur: str = ""  # Estimated duration (e.g., "4 uur", "hele dag")
-    prioriteit: str = "normaal"  # laag, normaal, hoog, urgent
+    # Work instructions
+    omschrijving: str = ""            # Uit te voeren werk (main job instruction)
+    materiaallijst: List[str] = []    # Required materials (list of items)
+    nodige_materiaal: str = ""        # Materials as free text (multiline, mirrors materiaallijst)
+    opmerking_aandachtspunt: str = "" # Special notes, risks, warnings, client instructions
+    geschatte_duur: str = ""          # Estimated duration (kept for compatibility)
+    prioriteit: str = "normaal"       # laag, normaal, hoog, urgent
+    belangrijk: bool = False          # Admin can mark as important
     
     # Status (admin panel only)
     status: str = "gepland"  # gepland, onderweg, bezig, afgerond
@@ -637,6 +645,9 @@ class PlanningItemCreate(BaseModel):
     jaar: int
     dag: str
     datum: str
+    start_uur: Optional[str] = ""
+    eind_uur: Optional[str] = ""
+    voorziene_uur: Optional[str] = ""
     werknemer_ids: List[str] = []
     werknemer_namen: List[str] = []
     team_id: Optional[str] = None
@@ -644,13 +655,19 @@ class PlanningItemCreate(BaseModel):
     werf_id: str
     omschrijving: str = ""
     materiaallijst: List[str] = []
+    nodige_materiaal: str = ""
+    opmerking_aandachtspunt: str = ""
     geschatte_duur: str = ""
     prioriteit: str = "normaal"
+    belangrijk: bool = False
     notities: str = ""
 
 class PlanningItemUpdate(BaseModel):
     dag: Optional[str] = None
     datum: Optional[str] = None
+    start_uur: Optional[str] = None
+    eind_uur: Optional[str] = None
+    voorziene_uur: Optional[str] = None
     werknemer_ids: Optional[List[str]] = None
     werknemer_namen: Optional[List[str]] = None
     team_id: Optional[str] = None
@@ -658,8 +675,11 @@ class PlanningItemUpdate(BaseModel):
     werf_id: Optional[str] = None
     omschrijving: Optional[str] = None
     materiaallijst: Optional[List[str]] = None
+    nodige_materiaal: Optional[str] = None
+    opmerking_aandachtspunt: Optional[str] = None
     geschatte_duur: Optional[str] = None
     prioriteit: Optional[str] = None
+    belangrijk: Optional[bool] = None
     status: Optional[str] = None
     notities: Optional[str] = None
 
@@ -3565,6 +3585,9 @@ async def create_planning(data: PlanningItemCreate):
         jaar=data.jaar,
         dag=data.dag,
         datum=data.datum,
+        start_uur=data.start_uur or "",
+        eind_uur=data.eind_uur or "",
+        voorziene_uur=data.voorziene_uur or "",
         werknemer_ids=data.werknemer_ids,
         werknemer_namen=werknemer_namen,
         team_id=data.team_id,
@@ -3576,8 +3599,11 @@ async def create_planning(data: PlanningItemCreate):
         werf_adres=werf.get("adres", ""),
         omschrijving=data.omschrijving,
         materiaallijst=data.materiaallijst,
-        geschatte_duur=data.geschatte_duur,
+        nodige_materiaal=data.nodige_materiaal or "\n".join(data.materiaallijst),
+        opmerking_aandachtspunt=data.opmerking_aandachtspunt or "",
+        geschatte_duur=data.geschatte_duur or data.voorziene_uur or "",
         prioriteit=data.prioriteit,
+        belangrijk=data.belangrijk,
         notities=data.notities,
     )
     await db.planning.insert_one(item.dict())

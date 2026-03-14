@@ -29,6 +29,9 @@ interface PlanningItem {
   jaar: number;
   dag: string;
   datum: string;
+  start_uur?: string;
+  eind_uur?: string;
+  voorziene_uur?: string;
   werknemer_ids: string[];
   werknemer_namen: string[];
   team_id?: string;
@@ -40,8 +43,11 @@ interface PlanningItem {
   werf_adres?: string;
   omschrijving: string;
   materiaallijst: string[];
+  nodige_materiaal?: string;
+  opmerking_aandachtspunt?: string;
   geschatte_duur: string;
   prioriteit: string;
+  belangrijk?: boolean;
   status: string;
   bevestigd_door: string[];
   bevestigingen?: { worker_id: string; worker_naam: string; timestamp: string }[];
@@ -95,21 +101,52 @@ export default function PlanningAdmin() {
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportPeriode, setExportPeriode] = useState('week');
   const [exportFormaat, setExportFormaat] = useState('csv');
+  const [isEditing, setIsEditing] = useState(false);
 
-  const [form, setForm] = useState({
+  const emptyForm = {
     dag: 'maandag',
     werknemer_ids: [] as string[],
     team_id: '',
     klant_id: '',
     werf_id: '',
+    start_uur: '',
+    eind_uur: '',
+    voorziene_uur: '',
     omschrijving: '',
-    materiaallijst: '',
+    nodige_materiaal: '',
+    opmerking_aandachtspunt: '',
     geschatte_duur: '',
     prioriteit: 'normaal',
+    belangrijk: false,
     notities: '',
-  });
+  };
+
+  const [form, setForm] = useState(emptyForm);
 
   const weekDates = getWeekDates(jaar, weekNummer);
+
+  // Auto-calculate voorziene_uur from start/eind
+  const calcVoorzeineUur = (start: string, eind: string): string => {
+    if (!start || !eind) return '';
+    const [sh, sm] = start.split(':').map(Number);
+    const [eh, em] = eind.split(':').map(Number);
+    if (isNaN(sh) || isNaN(sm) || isNaN(eh) || isNaN(em)) return '';
+    const diffMin = (eh * 60 + em) - (sh * 60 + sm);
+    if (diffMin <= 0) return '';
+    const h = Math.floor(diffMin / 60);
+    const m = diffMin % 60;
+    return m > 0 ? `${h}u${m < 10 ? '0' : ''}${m}` : `${h} uur`;
+  };
+
+  const handleStartUur = (v: string) => {
+    const calc = calcVoorzeineUur(v, form.eind_uur);
+    setForm(prev => ({ ...prev, start_uur: v, voorziene_uur: calc || prev.voorziene_uur }));
+  };
+
+  const handleEindUur = (v: string) => {
+    const calc = calcVoorzeineUur(form.start_uur, v);
+    setForm(prev => ({ ...prev, eind_uur: v, voorziene_uur: calc || prev.voorziene_uur }));
+  };
 
   const fetchData = useCallback(async () => {
     try {
@@ -147,11 +184,32 @@ export default function PlanningAdmin() {
   };
 
   const openCreateModal = (dag?: string) => {
-    setForm({
-      dag: dag || 'maandag', werknemer_ids: [], team_id: '', klant_id: '', werf_id: '',
-      omschrijving: '', materiaallijst: '', geschatte_duur: '', prioriteit: 'normaal', notities: '',
-    });
+    setForm({ ...emptyForm, dag: dag || 'maandag' });
     setWaarschuwingen([]);
+    setIsEditing(false);
+    setShowModal(true);
+  };
+
+  const openEditModal = (item: PlanningItem) => {
+    setForm({
+      dag: item.dag,
+      werknemer_ids: item.werknemer_ids || [],
+      team_id: item.team_id || '',
+      klant_id: item.klant_id,
+      werf_id: item.werf_id,
+      start_uur: item.start_uur || '',
+      eind_uur: item.eind_uur || '',
+      voorziene_uur: item.voorziene_uur || item.geschatte_duur || '',
+      omschrijving: item.omschrijving || '',
+      nodige_materiaal: item.nodige_materiaal || item.materiaallijst?.join('\n') || '',
+      opmerking_aandachtspunt: item.opmerking_aandachtspunt || '',
+      geschatte_duur: item.geschatte_duur || '',
+      prioriteit: item.prioriteit || 'normaal',
+      belangrijk: item.belangrijk || false,
+      notities: item.notities || '',
+    });
+    setIsEditing(true);
+    setShowDetailModal(false);
     setShowModal(true);
   };
 
@@ -181,6 +239,7 @@ export default function PlanningAdmin() {
     setSaving(true);
     setWaarschuwingen([]);
     try {
+      const materiaalItems = form.nodige_materiaal.split('\n').map(m => m.trim()).filter(Boolean);
       const body = {
         week_nummer: weekNummer,
         jaar: jaar,
@@ -191,20 +250,35 @@ export default function PlanningAdmin() {
         team_id: form.team_id || null,
         klant_id: form.klant_id,
         werf_id: form.werf_id,
+        start_uur: form.start_uur,
+        eind_uur: form.eind_uur,
+        voorziene_uur: form.voorziene_uur || calcVoorzeineUur(form.start_uur, form.eind_uur),
         omschrijving: form.omschrijving,
-        materiaallijst: form.materiaallijst.split(',').map(m => m.trim()).filter(Boolean),
-        geschatte_duur: form.geschatte_duur,
+        materiaallijst: materiaalItems,
+        nodige_materiaal: form.nodige_materiaal,
+        opmerking_aandachtspunt: form.opmerking_aandachtspunt,
+        geschatte_duur: form.voorziene_uur || calcVoorzeineUur(form.start_uur, form.eind_uur) || form.geschatte_duur,
         prioriteit: form.prioriteit,
+        belangrijk: form.belangrijk,
         notities: form.notities,
       };
-      const res = await fetch(`${API_URL}/api/planning`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      const result = await res.json();
-      if (result.waarschuwingen && result.waarschuwingen.length > 0) {
-        setWaarschuwingen(result.waarschuwingen);
+
+      if (isEditing && selectedItem) {
+        await fetch(`${API_URL}/api/planning/${selectedItem.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+      } else {
+        const res = await fetch(`${API_URL}/api/planning`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const result = await res.json();
+        if (result.waarschuwingen?.length > 0) {
+          setWaarschuwingen(result.waarschuwingen);
+        }
       }
       setShowModal(false);
       fetchData();
@@ -220,6 +294,7 @@ export default function PlanningAdmin() {
         body: JSON.stringify({ status: newStatus }),
       });
       fetchData();
+      if (selectedItem?.id === itemId) setSelectedItem(prev => prev ? { ...prev, status: newStatus } : null);
     } catch (e) { console.error(e); }
   };
 
@@ -234,7 +309,6 @@ export default function PlanningAdmin() {
 
   const filteredWerven = form.klant_id ? werven.filter(w => w.klant_id === form.klant_id) : werven;
 
-  // Group workers by role
   const werknemerGroups = {
     werknemers: werknemers.filter(w => w.rol !== 'onderaannemer'),
     onderaannemers: werknemers.filter(w => w.rol === 'onderaannemer'),
@@ -449,10 +523,17 @@ export default function PlanningAdmin() {
                       <Text style={styles.emptyDayText}>Geen taken</Text>
                     </View>
                   ) : dagItems.map(item => (
-                    <TouchableOpacity key={item.id} style={styles.planCard} onPress={() => openDetail(item)} activeOpacity={0.7}>
+                    <TouchableOpacity key={item.id} style={[styles.planCard, item.belangrijk && styles.planCardBelangrijk]} onPress={() => openDetail(item)} activeOpacity={0.7}>
                       {/* Priority strip */}
                       <View style={[styles.priorityStrip, { backgroundColor: PRIORITEIT_KLEUREN[item.prioriteit] || '#3498db' }]} />
                       <View style={styles.planCardContent}>
+                        {/* Belangrijk banner */}
+                        {item.belangrijk && (
+                          <View style={styles.planCardBelangrijkBanner}>
+                            <Ionicons name="warning" size={12} color="#fff" />
+                            <Text style={styles.planCardBelangrijkText}>BELANGRIJK</Text>
+                          </View>
+                        )}
                         {/* Status */}
                         <View style={[styles.statusBadge, { backgroundColor: (STATUS_KLEUREN[item.status] || '#6c757d') + '20' }]}>
                           <View style={[styles.statusDot, { backgroundColor: STATUS_KLEUREN[item.status] || '#6c757d' }]} />
@@ -464,18 +545,20 @@ export default function PlanningAdmin() {
                           <Ionicons name="location-outline" size={12} color="#6c757d" />
                           <Text style={styles.planWerf} numberOfLines={1}>{item.werf_naam}</Text>
                         </View>
+                        {/* Time */}
+                        {(item.start_uur || item.voorziene_uur) && (
+                          <View style={styles.planDuurRow}>
+                            <Ionicons name="time-outline" size={12} color="#3498db" />
+                            <Text style={[styles.planDuur, { color: '#3498db' }]}>
+                              {item.start_uur && item.eind_uur ? `${item.start_uur} - ${item.eind_uur}` : (item.voorziene_uur || '')}
+                            </Text>
+                          </View>
+                        )}
                         {/* Workers */}
                         <View style={styles.planWorkersRow}>
                           <Ionicons name="people-outline" size={12} color="#3498db" />
                           <Text style={styles.planWorkers} numberOfLines={1}>{item.werknemer_namen.join(', ') || 'Geen werknemers'}</Text>
                         </View>
-                        {/* Duration */}
-                        {item.geschatte_duur ? (
-                          <View style={styles.planDuurRow}>
-                            <Ionicons name="time-outline" size={12} color="#6c757d" />
-                            <Text style={styles.planDuur}>{item.geschatte_duur}</Text>
-                          </View>
-                        ) : null}
                       </View>
                     </TouchableOpacity>
                   ))}
@@ -485,8 +568,6 @@ export default function PlanningAdmin() {
           })}
         </View>
       )}
-
-      {/* Warning Toast */}
       {waarschuwingen.length > 0 && (
         <View style={styles.warningBanner}>
           <Ionicons name="warning" size={20} color="#F5A623" />
@@ -501,144 +582,247 @@ export default function PlanningAdmin() {
         </View>
       )}
 
-      {/* ============ CREATE MODAL ============ */}
+      {/* ============ CREATE / EDIT MODAL ============ */}
       <Modal visible={showModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Nieuwe taak plannen</Text>
+              <Text style={styles.modalTitle}>{isEditing ? 'Taak bewerken' : 'Nieuwe taak plannen'}</Text>
               <TouchableOpacity onPress={() => setShowModal(false)}><Ionicons name="close" size={24} color="#1A1A2E" /></TouchableOpacity>
             </View>
-            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 600 }}>
-              {/* Dag */}
-              <Text style={styles.label}>Dag</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={styles.chipRow}>
-                  {DAGEN.map(dag => (
-                    <TouchableOpacity key={dag} style={[styles.chip, form.dag === dag && styles.chipActive]} onPress={() => setForm({ ...form, dag })}>
-                      <Text style={[styles.chipText, form.dag === dag && styles.chipTextActive]}>{(DAG_KORT as any)[dag]} {weekDates[dag]?.substring(0, 5)}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </ScrollView>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 620 }}>
 
-              {/* Klant */}
-              <Text style={styles.label}>Klant *</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={styles.chipRow}>
-                  {klanten.map(k => (
-                    <TouchableOpacity key={k.id} style={[styles.chip, form.klant_id === k.id && styles.chipActiveGreen]}
-                      onPress={() => setForm({ ...form, klant_id: k.id, werf_id: '' })}>
-                      <Text style={[styles.chipText, form.klant_id === k.id && styles.chipTextActive]}>{k.naam}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </ScrollView>
+              {/* === SECTIE 1: WANNEER === */}
+              <View style={styles.formSection}>
+                <Text style={styles.formSectionTitle}>📅 Wanneer</Text>
 
-              {/* Werf */}
-              <Text style={styles.label}>Werf *</Text>
-              {filteredWerven.length === 0 ? (
-                <Text style={styles.noItemsText}>{form.klant_id ? 'Geen werven voor deze klant' : 'Selecteer eerst een klant'}</Text>
-              ) : (
+                {/* Dag */}
+                <Text style={styles.label}>Dag *</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   <View style={styles.chipRow}>
-                    {filteredWerven.map(w => (
-                      <TouchableOpacity key={w.id} style={[styles.chip, form.werf_id === w.id && styles.chipActiveBlue]}
-                        onPress={() => setForm({ ...form, werf_id: w.id })}>
-                        <Text style={[styles.chipText, form.werf_id === w.id && styles.chipTextActive]}>{w.naam}</Text>
-                        {w.adres ? <Text style={styles.chipSub}>{w.adres}</Text> : null}
+                    {DAGEN.map(dag => (
+                      <TouchableOpacity key={dag} style={[styles.chip, form.dag === dag && styles.chipActive]} onPress={() => setForm({ ...form, dag })}>
+                        <Text style={[styles.chipText, form.dag === dag && styles.chipTextActive]}>{(DAG_KORT as any)[dag]} {weekDates[dag]?.substring(0, 5)}</Text>
                       </TouchableOpacity>
                     ))}
                   </View>
                 </ScrollView>
-              )}
 
-              {/* Werknemers */}
-              <Text style={styles.label}>Werknemers *</Text>
-              {werknemerGroups.werknemers.length > 0 && (
-                <>
-                  <Text style={{ fontSize: 12, color: '#3498db', fontWeight: '600', marginBottom: 6 }}>Werknemers & Ploegbazen</Text>
-                  <View style={styles.workerGrid}>
-                    {werknemerGroups.werknemers.map(w => {
-                      const isSelected = form.werknemer_ids.includes(w.id);
-                      return (
-                        <TouchableOpacity key={w.id} style={[styles.workerChip, isSelected && styles.workerChipActive]}
-                          onPress={() => toggleWorker(w.id)}>
-                          <View style={[styles.workerAvatar, isSelected && { backgroundColor: '#F5A623' }]}>
-                            <Text style={[styles.workerAvatarText, isSelected && { color: '#fff' }]}>{w.naam?.charAt(0)}</Text>
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={[styles.workerName, isSelected && { color: '#F5A623', fontWeight: '600' }]} numberOfLines={1}>{w.naam}</Text>
-                            <Text style={{ fontSize: 10, color: '#999' }}>{w.rol}</Text>
-                          </View>
-                          {isSelected && <Ionicons name="checkmark-circle" size={18} color="#F5A623" />}
-                        </TouchableOpacity>
-                      );
-                    })}
+                {/* Tijden */}
+                <View style={styles.timeRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.label}>Start uur</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={form.start_uur}
+                      onChangeText={handleStartUur}
+                      placeholder="08:00"
+                      placeholderTextColor="#999"
+                      keyboardType="numbers-and-punctuation"
+                    />
                   </View>
-                </>
-              )}
-              {werknemerGroups.onderaannemers.length > 0 && (
-                <>
-                  <Text style={{ fontSize: 12, color: '#e67e22', fontWeight: '600', marginBottom: 6, marginTop: 12 }}>Onderaannemers</Text>
-                  <View style={styles.workerGrid}>
-                    {werknemerGroups.onderaannemers.map(w => {
-                      const isSelected = form.werknemer_ids.includes(w.id);
-                      return (
-                        <TouchableOpacity key={w.id} style={[styles.workerChip, isSelected && { borderColor: '#e67e22', backgroundColor: '#e67e2210' }]}
-                          onPress={() => toggleWorker(w.id)}>
-                          <View style={[styles.workerAvatar, { backgroundColor: '#e67e2220' }, isSelected && { backgroundColor: '#e67e22' }]}>
-                            <Text style={[styles.workerAvatarText, { color: '#e67e22' }, isSelected && { color: '#fff' }]}>{w.naam?.charAt(0)}</Text>
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={[styles.workerName, isSelected && { color: '#e67e22', fontWeight: '600' }]} numberOfLines={1}>{w.naam}</Text>
-                            <Text style={{ fontSize: 10, color: '#e67e22' }}>onderaannemer</Text>
-                          </View>
-                          {isSelected && <Ionicons name="checkmark-circle" size={18} color="#e67e22" />}
-                        </TouchableOpacity>
-                      );
-                    })}
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.label}>Eind uur</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={form.eind_uur}
+                      onChangeText={handleEindUur}
+                      placeholder="16:30"
+                      placeholderTextColor="#999"
+                      keyboardType="numbers-and-punctuation"
+                    />
                   </View>
-                </>
-              )}
-
-              {/* Omschrijving */}
-              <Text style={styles.label}>Omschrijving</Text>
-              <TextInput style={[styles.input, { minHeight: 80 }]} value={form.omschrijving} onChangeText={v => setForm({ ...form, omschrijving: v })}
-                placeholder="Wat moet er gedaan worden?" placeholderTextColor="#999" multiline />
-
-              {/* Materiaallijst */}
-              <Text style={styles.label}>Materiaallijst</Text>
-              <TextInput style={styles.input} value={form.materiaallijst} onChangeText={v => setForm({ ...form, materiaallijst: v })}
-                placeholder="Materiaal 1, Materiaal 2, ..." placeholderTextColor="#999" />
-
-              {/* Geschatte duur */}
-              <Text style={styles.label}>Geschatte duur</Text>
-              <TextInput style={styles.input} value={form.geschatte_duur} onChangeText={v => setForm({ ...form, geschatte_duur: v })}
-                placeholder="bijv. 4 uur, hele dag" placeholderTextColor="#999" />
-
-              {/* Prioriteit */}
-              <Text style={styles.label}>Prioriteit</Text>
-              <View style={styles.chipRow}>
-                {PRIORITEIT_OPTIES.map(p => (
-                  <TouchableOpacity key={p} style={[styles.chip, form.prioriteit === p && { backgroundColor: PRIORITEIT_KLEUREN[p], borderColor: PRIORITEIT_KLEUREN[p] }]}
-                    onPress={() => setForm({ ...form, prioriteit: p })}>
-                    <Text style={[styles.chipText, form.prioriteit === p && styles.chipTextActive]}>{p}</Text>
-                  </TouchableOpacity>
-                ))}
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.label}>Voorziene uur</Text>
+                    <TextInput
+                      style={[styles.input, form.voorziene_uur ? { borderColor: '#F5A623' } : {}]}
+                      value={form.voorziene_uur}
+                      onChangeText={v => setForm({ ...form, voorziene_uur: v })}
+                      placeholder="auto"
+                      placeholderTextColor="#999"
+                    />
+                  </View>
+                </View>
               </View>
 
-              {/* Notities */}
-              <Text style={styles.label}>Notities</Text>
-              <TextInput style={[styles.input, { minHeight: 60 }]} value={form.notities} onChangeText={v => setForm({ ...form, notities: v })}
-                placeholder="Extra notities..." placeholderTextColor="#999" multiline />
+              {/* === SECTIE 2: LOCATIE === */}
+              <View style={styles.formSection}>
+                <Text style={styles.formSectionTitle}>📍 Locatie</Text>
+
+                {/* Klant */}
+                <Text style={styles.label}>Klant / Bedrijf *</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={styles.chipRow}>
+                    {klanten.map(k => (
+                      <TouchableOpacity key={k.id} style={[styles.chip, form.klant_id === k.id && styles.chipActiveGreen]}
+                        onPress={() => setForm({ ...form, klant_id: k.id, werf_id: '' })}>
+                        <Text style={[styles.chipText, form.klant_id === k.id && styles.chipTextActive]}>{k.naam}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </ScrollView>
+
+                {/* Werf */}
+                <Text style={styles.label}>Werf *</Text>
+                {filteredWerven.length === 0 ? (
+                  <Text style={styles.noItemsText}>{form.klant_id ? 'Geen werven voor deze klant' : 'Selecteer eerst een klant'}</Text>
+                ) : (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <View style={styles.chipRow}>
+                      {filteredWerven.map(w => (
+                        <TouchableOpacity key={w.id} style={[styles.chip, form.werf_id === w.id && styles.chipActiveBlue]}
+                          onPress={() => setForm({ ...form, werf_id: w.id })}>
+                          <Text style={[styles.chipText, form.werf_id === w.id && styles.chipTextActive]}>{w.naam}</Text>
+                          {w.adres ? <Text style={styles.chipSub}>{w.adres}</Text> : null}
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </ScrollView>
+                )}
+              </View>
+
+              {/* === SECTIE 3: TEAM === */}
+              <View style={styles.formSection}>
+                <Text style={styles.formSectionTitle}>👷 Werknemers *</Text>
+                {werknemerGroups.werknemers.length > 0 && (
+                  <>
+                    <Text style={{ fontSize: 12, color: '#3498db', fontWeight: '600', marginBottom: 6 }}>Werknemers & Ploegbazen</Text>
+                    <View style={styles.workerGrid}>
+                      {werknemerGroups.werknemers.map(w => {
+                        const isSelected = form.werknemer_ids.includes(w.id);
+                        return (
+                          <TouchableOpacity key={w.id} style={[styles.workerChip, isSelected && styles.workerChipActive]}
+                            onPress={() => toggleWorker(w.id)}>
+                            <View style={[styles.workerAvatar, isSelected && { backgroundColor: '#F5A623' }]}>
+                              <Text style={[styles.workerAvatarText, isSelected && { color: '#fff' }]}>{w.naam?.charAt(0)}</Text>
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Text style={[styles.workerName, isSelected && { color: '#F5A623', fontWeight: '600' }]} numberOfLines={1}>{w.naam}</Text>
+                              <Text style={{ fontSize: 10, color: '#999' }}>{w.rol}</Text>
+                            </View>
+                            {isSelected && <Ionicons name="checkmark-circle" size={18} color="#F5A623" />}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </>
+                )}
+                {werknemerGroups.onderaannemers.length > 0 && (
+                  <>
+                    <Text style={{ fontSize: 12, color: '#e67e22', fontWeight: '600', marginBottom: 6, marginTop: 12 }}>Onderaannemers</Text>
+                    <View style={styles.workerGrid}>
+                      {werknemerGroups.onderaannemers.map(w => {
+                        const isSelected = form.werknemer_ids.includes(w.id);
+                        return (
+                          <TouchableOpacity key={w.id} style={[styles.workerChip, isSelected && { borderColor: '#e67e22', backgroundColor: '#e67e2210' }]}
+                            onPress={() => toggleWorker(w.id)}>
+                            <View style={[styles.workerAvatar, { backgroundColor: '#e67e2220' }, isSelected && { backgroundColor: '#e67e22' }]}>
+                              <Text style={[styles.workerAvatarText, { color: '#e67e22' }, isSelected && { color: '#fff' }]}>{w.naam?.charAt(0)}</Text>
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Text style={[styles.workerName, isSelected && { color: '#e67e22', fontWeight: '600' }]} numberOfLines={1}>{w.naam}</Text>
+                              <Text style={{ fontSize: 10, color: '#e67e22' }}>onderaannemer</Text>
+                            </View>
+                            {isSelected && <Ionicons name="checkmark-circle" size={18} color="#e67e22" />}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </>
+                )}
+              </View>
+
+              {/* === SECTIE 4: WERKINSTRUCTIES === */}
+              <View style={styles.formSection}>
+                <Text style={styles.formSectionTitle}>📋 Werkinstructies</Text>
+
+                {/* Uit te voeren werk */}
+                <Text style={styles.label}>Uit te voeren werk</Text>
+                <TextInput
+                  style={[styles.input, { minHeight: 90, textAlignVertical: 'top' }]}
+                  value={form.omschrijving}
+                  onChangeText={v => setForm({ ...form, omschrijving: v })}
+                  placeholder="Beschrijf wat er gedaan moet worden..."
+                  placeholderTextColor="#999"
+                  multiline
+                  numberOfLines={4}
+                />
+
+                {/* Nodige materiaal */}
+                <Text style={styles.label}>Nodige materiaal</Text>
+                <Text style={{ fontSize: 11, color: '#999', marginTop: -6, marginBottom: 8 }}>Één item per regel</Text>
+                <TextInput
+                  style={[styles.input, { minHeight: 80, textAlignVertical: 'top' }]}
+                  value={form.nodige_materiaal}
+                  onChangeText={v => setForm({ ...form, nodige_materiaal: v })}
+                  placeholder={"Steigers\nBouten M12\nSiliconen kit wit"}
+                  placeholderTextColor="#999"
+                  multiline
+                  numberOfLines={4}
+                />
+
+                {/* Opmerking / aandachtspunt */}
+                <Text style={styles.label}>Opmerking / Aandachtspunt</Text>
+                <TextInput
+                  style={[styles.input, { minHeight: 70, textAlignVertical: 'top', borderColor: form.opmerking_aandachtspunt ? '#F5A623' : '#E8E9ED' }]}
+                  value={form.opmerking_aandachtspunt}
+                  onChangeText={v => setForm({ ...form, opmerking_aandachtspunt: v })}
+                  placeholder="Risico's, speciale instructies, klantafspraken..."
+                  placeholderTextColor="#999"
+                  multiline
+                  numberOfLines={3}
+                />
+              </View>
+
+              {/* === SECTIE 5: INSTELLINGEN === */}
+              <View style={styles.formSection}>
+                <Text style={styles.formSectionTitle}>⚙️ Instellingen</Text>
+
+                {/* Prioriteit */}
+                <Text style={styles.label}>Prioriteit</Text>
+                <View style={styles.chipRow}>
+                  {PRIORITEIT_OPTIES.map(p => (
+                    <TouchableOpacity key={p} style={[styles.chip, form.prioriteit === p && { backgroundColor: PRIORITEIT_KLEUREN[p], borderColor: PRIORITEIT_KLEUREN[p] }]}
+                      onPress={() => setForm({ ...form, prioriteit: p })}>
+                      <Text style={[styles.chipText, form.prioriteit === p && styles.chipTextActive]}>{p}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Belangrijk toggle */}
+                <TouchableOpacity
+                  style={[styles.belangrijkToggle, form.belangrijk && styles.belangrijkToggleActive]}
+                  onPress={() => setForm({ ...form, belangrijk: !form.belangrijk })}
+                >
+                  <Ionicons name={form.belangrijk ? 'warning' : 'warning-outline'} size={22} color={form.belangrijk ? '#fff' : '#F5A623'} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.belangrijkToggleText, form.belangrijk && { color: '#fff' }]}>Markeer als Belangrijk</Text>
+                    <Text style={[{ fontSize: 11, color: form.belangrijk ? '#fff' : '#999', marginTop: 2 }]}>Werknemer ziet dit prominent op zijn app</Text>
+                  </View>
+                  <View style={[styles.toggleSwitch, form.belangrijk && styles.toggleSwitchOn]}>
+                    <View style={[styles.toggleThumb, form.belangrijk && styles.toggleThumbOn]} />
+                  </View>
+                </TouchableOpacity>
+
+                {/* Notities */}
+                <Text style={styles.label}>Bijkomende notities</Text>
+                <TextInput
+                  style={[styles.input, { minHeight: 60, textAlignVertical: 'top' }]}
+                  value={form.notities}
+                  onChangeText={v => setForm({ ...form, notities: v })}
+                  placeholder="Interne notities (niet zichtbaar voor werknemer)..."
+                  placeholderTextColor="#999"
+                  multiline
+                />
+              </View>
+
             </ScrollView>
 
             <TouchableOpacity style={styles.saveBtn} onPress={savePlanning} disabled={saving}>
               {saving ? <ActivityIndicator color="#fff" /> : (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Ionicons name="calendar" size={20} color="#fff" />
-                  <Text style={styles.saveBtnText}>Inplannen</Text>
+                  <Ionicons name={isEditing ? 'save' : 'calendar'} size={20} color="#fff" />
+                  <Text style={styles.saveBtnText}>{isEditing ? 'Wijzigingen opslaan' : 'Inplannen'}</Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -653,10 +837,27 @@ export default function PlanningAdmin() {
             {selectedItem && (
               <>
                 <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Taak details</Text>
+                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    {selectedItem.belangrijk && (
+                      <View style={styles.belangrijkBadge}>
+                        <Ionicons name="warning" size={14} color="#fff" />
+                        <Text style={styles.belangrijkBadgeText}>BELANGRIJK</Text>
+                      </View>
+                    )}
+                    <Text style={styles.modalTitle} numberOfLines={1}>Taak details</Text>
+                  </View>
                   <TouchableOpacity onPress={() => setShowDetailModal(false)}><Ionicons name="close" size={24} color="#1A1A2E" /></TouchableOpacity>
                 </View>
-                <ScrollView showsVerticalScrollIndicator={false}>
+
+                {/* Belangrijk banner */}
+                {selectedItem.belangrijk && (
+                  <View style={styles.belangrijkBanner}>
+                    <Ionicons name="warning" size={18} color="#dc3545" />
+                    <Text style={styles.belangrijkBannerText}>Dit is een BELANGRIJKE taak — extra aandacht vereist</Text>
+                  </View>
+                )}
+
+                <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 560 }}>
                   {/* Status Selector */}
                   <Text style={styles.label}>Status</Text>
                   <View style={styles.chipRow}>
@@ -669,106 +870,143 @@ export default function PlanningAdmin() {
                     ))}
                   </View>
 
-                  {/* Priority */}
-                  <View style={styles.detailRow}>
-                    <Ionicons name="flag-outline" size={18} color={PRIORITEIT_KLEUREN[selectedItem.prioriteit]} />
-                    <Text style={styles.detailLabel}>Prioriteit:</Text>
-                    <View style={[styles.priorityBadge, { backgroundColor: (PRIORITEIT_KLEUREN[selectedItem.prioriteit] || '#3498db') + '20' }]}>
-                      <Text style={[styles.priorityBadgeText, { color: PRIORITEIT_KLEUREN[selectedItem.prioriteit] }]}>{selectedItem.prioriteit}</Text>
+                  {/* Priority + Dag */}
+                  <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+                    <View style={[styles.detailRow, { flex: 1 }]}>
+                      <Ionicons name="flag-outline" size={18} color={PRIORITEIT_KLEUREN[selectedItem.prioriteit]} />
+                      <Text style={styles.detailLabel}>Prioriteit:</Text>
+                      <View style={[styles.priorityBadge, { backgroundColor: (PRIORITEIT_KLEUREN[selectedItem.prioriteit] || '#3498db') + '20' }]}>
+                        <Text style={[styles.priorityBadgeText, { color: PRIORITEIT_KLEUREN[selectedItem.prioriteit] }]}>{selectedItem.prioriteit}</Text>
+                      </View>
                     </View>
                   </View>
 
-                  {/* Day & Date */}
-                  <View style={styles.detailRow}>
-                    <Ionicons name="calendar-outline" size={18} color="#3498db" />
-                    <Text style={styles.detailLabel}>Dag:</Text>
-                    <Text style={styles.detailValue}>{selectedItem.dag} ({selectedItem.datum})</Text>
-                  </View>
-
-                  {/* Client */}
-                  <View style={styles.detailRow}>
-                    <Ionicons name="briefcase-outline" size={18} color="#6c757d" />
-                    <Text style={styles.detailLabel}>Klant:</Text>
-                    <Text style={styles.detailValue}>{selectedItem.klant_naam}</Text>
-                  </View>
-
-                  {/* Site */}
-                  <View style={styles.detailRow}>
-                    <Ionicons name="location-outline" size={18} color="#6c757d" />
-                    <Text style={styles.detailLabel}>Werf:</Text>
-                    <Text style={styles.detailValue}>{selectedItem.werf_naam}</Text>
-                  </View>
-                  {selectedItem.werf_adres ? (
+                  {/* When block */}
+                  <View style={styles.detailBlock}>
+                    <Text style={styles.detailBlockTitle}>📅 Wanneer</Text>
                     <View style={styles.detailRow}>
-                      <Ionicons name="navigate-outline" size={18} color="#3498db" />
-                      <Text style={[styles.detailValue, { color: '#3498db', flex: 1 }]}>{selectedItem.werf_adres}</Text>
+                      <Ionicons name="calendar-outline" size={18} color="#3498db" />
+                      <Text style={styles.detailLabel}>Dag:</Text>
+                      <Text style={styles.detailValue}>{selectedItem.dag} ({selectedItem.datum})</Text>
                     </View>
-                  ) : null}
+                    {(selectedItem.start_uur || selectedItem.eind_uur) && (
+                      <View style={styles.detailRow}>
+                        <Ionicons name="time-outline" size={18} color="#3498db" />
+                        <Text style={styles.detailLabel}>Tijden:</Text>
+                        <Text style={styles.detailValue}>
+                          {selectedItem.start_uur || '?'} → {selectedItem.eind_uur || '?'}
+                          {selectedItem.voorziene_uur ? `  (${selectedItem.voorziene_uur})` : ''}
+                        </Text>
+                      </View>
+                    )}
+                    {selectedItem.voorziene_uur && !selectedItem.start_uur && (
+                      <View style={styles.detailRow}>
+                        <Ionicons name="hourglass-outline" size={18} color="#6c757d" />
+                        <Text style={styles.detailLabel}>Voorziene uur:</Text>
+                        <Text style={styles.detailValue}>{selectedItem.voorziene_uur}</Text>
+                      </View>
+                    )}
+                  </View>
 
-                  {/* Workers */}
-                  <Text style={[styles.label, { marginTop: 16 }]}>Werknemers</Text>
-                  <View style={{ gap: 6 }}>
-                    {selectedItem.werknemer_namen.map((naam, i) => {
-                      const wId = selectedItem.werknemer_ids[i];
-                      const bevestigd = selectedItem.bevestigd_door.includes(wId);
-                      const bevestiging = (selectedItem.bevestigingen || []).find((b: any) => b.worker_id === wId);
-                      const tsLabel = bevestiging?.timestamp
-                        ? new Date(bevestiging.timestamp).toLocaleString('nl-BE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-                        : null;
-                      const naamLabel = bevestiging?.worker_naam || wNaam;
-                      return (
-                        <View key={i} style={styles.workerDetailRow}>
-                          <View style={styles.workerAvatarSmall}><Text style={styles.workerAvatarTextSmall}>{naam?.charAt(0)}</Text></View>
-                          <Text style={styles.workerDetailName}>{naam}</Text>
-                          <View style={[styles.bevestigBadge, { backgroundColor: bevestigd ? '#28a74520' : '#F5A62320' }]}>
-                            <Ionicons name={bevestigd ? 'checkmark-circle' : 'time'} size={14} color={bevestigd ? '#28a745' : '#F5A623'} />
-                            <Text style={{ fontSize: 11, color: bevestigd ? '#28a745' : '#F5A623', fontWeight: '600' }}>
-                              {bevestigd ? `BEVESTIGD` : 'Wacht'}
-                            </Text>
-                            {bevestigd && tsLabel && (
-                              <Text style={{ fontSize: 9, color: '#28a745', marginTop: 1 }}>{tsLabel}</Text>
-                            )}
+                  {/* Location block */}
+                  <View style={styles.detailBlock}>
+                    <Text style={styles.detailBlockTitle}>📍 Locatie</Text>
+                    <View style={styles.detailRow}>
+                      <Ionicons name="briefcase-outline" size={18} color="#6c757d" />
+                      <Text style={styles.detailLabel}>Klant:</Text>
+                      <Text style={styles.detailValue}>{selectedItem.klant_naam}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Ionicons name="location-outline" size={18} color="#6c757d" />
+                      <Text style={styles.detailLabel}>Werf:</Text>
+                      <Text style={styles.detailValue}>{selectedItem.werf_naam}</Text>
+                    </View>
+                    {selectedItem.werf_adres ? (
+                      <View style={styles.detailRow}>
+                        <Ionicons name="navigate-outline" size={18} color="#3498db" />
+                        <Text style={[styles.detailValue, { color: '#3498db', flex: 1 }]}>{selectedItem.werf_adres}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+
+                  {/* Workers block */}
+                  <View style={styles.detailBlock}>
+                    <Text style={styles.detailBlockTitle}>👷 Werknemers</Text>
+                    <View style={{ gap: 6 }}>
+                      {selectedItem.werknemer_namen.map((naam, i) => {
+                        const wId = selectedItem.werknemer_ids[i];
+                        const bevestigd = selectedItem.bevestigd_door.includes(wId);
+                        const bevestiging = (selectedItem.bevestigingen || []).find((b: any) => b.worker_id === wId);
+                        const tsLabel = bevestiging?.timestamp
+                          ? new Date(bevestiging.timestamp).toLocaleString('nl-BE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                          : null;
+                        return (
+                          <View key={i} style={styles.workerDetailRow}>
+                            <View style={styles.workerAvatarSmall}><Text style={styles.workerAvatarTextSmall}>{naam?.charAt(0)}</Text></View>
+                            <Text style={styles.workerDetailName}>{naam}</Text>
+                            <View style={[styles.bevestigBadge, { backgroundColor: bevestigd ? '#28a74520' : '#F5A62320' }]}>
+                              <Ionicons name={bevestigd ? 'checkmark-circle' : 'time'} size={14} color={bevestigd ? '#28a745' : '#F5A623'} />
+                              <Text style={{ fontSize: 11, color: bevestigd ? '#28a745' : '#F5A623', fontWeight: '600' }}>
+                                {bevestigd ? 'BEVESTIGD' : 'Wacht'}
+                              </Text>
+                              {bevestigd && tsLabel && (
+                                <Text style={{ fontSize: 9, color: '#28a745', marginTop: 1 }}>{tsLabel}</Text>
+                              )}
+                            </View>
                           </View>
-                        </View>
-                      );
-                    })}
+                        );
+                      })}
+                    </View>
                   </View>
 
-                  {/* Description */}
-                  {selectedItem.omschrijving ? (
-                    <View style={styles.detailSection}>
-                      <Text style={styles.detailSectionTitle}>Omschrijving</Text>
-                      <Text style={styles.detailSectionText}>{selectedItem.omschrijving}</Text>
-                    </View>
-                  ) : null}
+                  {/* Work instructions block */}
+                  <View style={styles.detailBlock}>
+                    <Text style={styles.detailBlockTitle}>📋 Werkinstructies</Text>
+                    {selectedItem.omschrijving ? (
+                      <View style={styles.detailSection}>
+                        <Text style={styles.detailSectionTitle}>Uit te voeren werk</Text>
+                        <Text style={styles.detailSectionText}>{selectedItem.omschrijving}</Text>
+                      </View>
+                    ) : null}
 
-                  {/* Materials */}
-                  {selectedItem.materiaallijst.length > 0 ? (
-                    <View style={styles.detailSection}>
-                      <Text style={styles.detailSectionTitle}>Materiaallijst</Text>
-                      {selectedItem.materiaallijst.map((m, i) => (
-                        <View key={i} style={styles.materialRow}>
-                          <View style={styles.materialDot} />
-                          <Text style={styles.materialText}>{m}</Text>
+                    {(selectedItem.nodige_materiaal || selectedItem.materiaallijst?.length > 0) ? (
+                      <View style={styles.detailSection}>
+                        <Text style={styles.detailSectionTitle}>Nodige materiaal</Text>
+                        {selectedItem.nodige_materiaal
+                          ? selectedItem.nodige_materiaal.split('\n').filter(Boolean).map((m, i) => (
+                            <View key={i} style={styles.materialRow}>
+                              <View style={styles.materialDot} />
+                              <Text style={styles.materialText}>{m}</Text>
+                            </View>
+                          ))
+                          : selectedItem.materiaallijst.map((m, i) => (
+                            <View key={i} style={styles.materialRow}>
+                              <View style={styles.materialDot} />
+                              <Text style={styles.materialText}>{m}</Text>
+                            </View>
+                          ))
+                        }
+                      </View>
+                    ) : null}
+
+                    {selectedItem.opmerking_aandachtspunt ? (
+                      <View style={[styles.detailSection, { backgroundColor: '#FFF3CD', borderLeftWidth: 3, borderLeftColor: '#F5A623' }]}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                          <Ionicons name="warning-outline" size={14} color="#856404" />
+                          <Text style={[styles.detailSectionTitle, { color: '#856404' }]}>Opmerking / Aandachtspunt</Text>
                         </View>
-                      ))}
-                    </View>
-                  ) : null}
+                        <Text style={[styles.detailSectionText, { color: '#856404' }]}>{selectedItem.opmerking_aandachtspunt}</Text>
+                      </View>
+                    ) : null}
+                  </View>
 
-                  {/* Duration */}
-                  {selectedItem.geschatte_duur ? (
-                    <View style={styles.detailRow}>
-                      <Ionicons name="time-outline" size={18} color="#6c757d" />
-                      <Text style={styles.detailLabel}>Geschatte duur:</Text>
-                      <Text style={styles.detailValue}>{selectedItem.geschatte_duur}</Text>
-                    </View>
-                  ) : null}
-
-                  {/* Notes */}
+                  {/* Notes (internal) */}
                   {selectedItem.notities ? (
-                    <View style={styles.detailSection}>
-                      <Text style={styles.detailSectionTitle}>Notities</Text>
-                      <Text style={styles.detailSectionText}>{selectedItem.notities}</Text>
+                    <View style={styles.detailBlock}>
+                      <Text style={styles.detailBlockTitle}>📝 Interne notities</Text>
+                      <View style={styles.detailSection}>
+                        <Text style={styles.detailSectionText}>{selectedItem.notities}</Text>
+                      </View>
                     </View>
                   ) : null}
                 </ScrollView>
@@ -778,6 +1016,10 @@ export default function PlanningAdmin() {
                   <TouchableOpacity style={[styles.detailActionBtn, { backgroundColor: '#dc354515' }]} onPress={() => deletePlanningItem(selectedItem.id)}>
                     <Ionicons name="trash-outline" size={18} color="#dc3545" />
                     <Text style={{ color: '#dc3545', fontWeight: '600', fontSize: 14 }}>Verwijderen</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.detailActionBtn, { backgroundColor: '#3498db15' }]} onPress={() => openEditModal(selectedItem)}>
+                    <Ionicons name="pencil-outline" size={18} color="#3498db" />
+                    <Text style={{ color: '#3498db', fontWeight: '600', fontSize: 14 }}>Bewerken</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={[styles.detailActionBtn, { backgroundColor: '#F5A623', flex: 1 }]} onPress={() => setShowDetailModal(false)}>
                     <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Sluiten</Text>
@@ -952,4 +1194,28 @@ const styles = StyleSheet.create({
 
   detailActions: { flexDirection: 'row', gap: 10, marginTop: 16 },
   detailActionBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 10 },
+  // New form section styles
+  formSection: { backgroundColor: '#F8F9FA', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#E8E9ED' },
+  formSectionTitle: { fontSize: 14, fontWeight: '700', color: '#1A1A2E', marginBottom: 12 },
+  timeRow: { flexDirection: 'row', gap: 10 },
+  // Belangrijk toggle
+  belangrijkToggle: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#FFF9ED', borderRadius: 12, padding: 14, marginTop: 12, borderWidth: 1.5, borderColor: '#F5A623' },
+  belangrijkToggleActive: { backgroundColor: '#F5A623' },
+  belangrijkToggleText: { fontSize: 14, fontWeight: '600', color: '#1A1A2E' },
+  toggleSwitch: { width: 44, height: 24, borderRadius: 12, backgroundColor: '#E8E9ED', justifyContent: 'center', padding: 2 },
+  toggleSwitchOn: { backgroundColor: '#1A1A2E' },
+  toggleThumb: { width: 20, height: 20, borderRadius: 10, backgroundColor: '#fff' },
+  toggleThumbOn: { alignSelf: 'flex-end' },
+  // Belangrijk card badge
+  planCardBelangrijk: { borderColor: '#dc3545', borderWidth: 1.5 },
+  planCardBelangrijkBanner: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#dc3545', alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginBottom: 4 },
+  planCardBelangrijkText: { fontSize: 9, fontWeight: '700', color: '#fff' },
+  // Detail block
+  detailBlock: { backgroundColor: '#F8F9FA', borderRadius: 12, padding: 12, marginTop: 12, borderWidth: 1, borderColor: '#E8E9ED' },
+  detailBlockTitle: { fontSize: 13, fontWeight: '700', color: '#6c757d', marginBottom: 8 },
+  // Important badges
+  belangrijkBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#dc3545', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  belangrijkBadgeText: { fontSize: 11, fontWeight: '700', color: '#fff' },
+  belangrijkBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#FDECEA', borderRadius: 8, padding: 10, marginBottom: 12, borderWidth: 1, borderColor: '#dc354530' },
+  belangrijkBannerText: { fontSize: 13, fontWeight: '600', color: '#dc3545', flex: 1 },
 });
