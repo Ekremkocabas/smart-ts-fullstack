@@ -1,0 +1,52 @@
+{
+  "summary": "Executed backend + mobile-web UI regression for requested oplevering flow on public preview URL. Worker login, admin login, oplevering render checks, no-damage create+send, schade-without-photo rejection, and signed verzenden endpoint all validated.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Oplevering signature -> immediate save",
+        "issue": "On web, immediate tap on 'Opslaan & PDF versturen' right after drawing signature can trigger alert 'Plaats eerst de handtekening van de klant'. Retrying with a short delay succeeded and sent PDF.",
+        "affected_testIDs": [
+          "oplevering-signature-pad-wrapper",
+          "oplevering-save-send-button"
+        ]
+      }
+    ],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_oplevering_flow_jan2026.py",
+    "/app/test_reports/pytest/pytest_oplevering_flow_jan2026.xml",
+    "/app/test_reports/iteration_7_worker_login_screen.jpeg",
+    "/app/test_reports/iteration_7_oplevering_render.jpeg",
+    "/app/test_reports/iteration_7_admin_after_retry.jpeg"
+  ],
+  "action_items": [
+    "Investigate web signature state timing/race so immediate save after signing is always accepted.",
+    "Add testID attributes to admin login interactive elements (email input, password input, login button, back button) for stable automation.",
+    "Align frontend/backend env usage with playbook fail-fast policy (EXPO_BACKEND_URL pattern, avoid hardcoded fallbacks)."
+  ],
+  "critical_code_review_comments": [
+    "frontend/app/admin/login.tsx interactive controls are missing testID attributes, reducing reliable mobile-web test automation coverage.",
+    "frontend/app/werkbon/oplevering.tsx and auth screens rely on EXPO_PUBLIC_BACKEND_URL/apiUrl fallbacks; playbook requires strict EXPO_BACKEND_URL-style env consistency.",
+    "backend/server.py uses default fallbacks for APP_URL and DB_NAME; deployment guidance prefers env-only fail-fast configuration."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_oplevering_flow_jan2026.py",
+    "/app/test_reports/iteration_7.json"
+  ],
+  "success_rate": {
+    "backend": "100% (5/5 pytest tests passed)",
+    "frontend": "92% (core requested flows passed; 1 reproducible timing issue on immediate signature save)"
+  },
+  "seed_data_creation": "Created and cleaned TEST_OpleveringKlant_* and TEST_OpleveringWerf_* records plus temporary oplevering werkbonnen during pytest runs.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "NO MOCKED API USED. Public preview URL used. Worker login with davy@smart-techbv.be and admin login with hr@smart-techbv.be both succeeded. Oplevering form shows schade toggle labels, 5-star categories, signature section, and optional customer email toggle. Backend create/send flow works and sent mail to info@smart-techbv.be during test.",
+  "rca_of_issue": "RCA (likely): Signature presence check depends on async state (`hasSignature`) set by canvas end event; if user taps save immediately, validation can run before state settles, producing false 'signature missing'. Mitigation: persist a synchronous signature flag/ref on draw end or force-read signature before validation on web path."
+}

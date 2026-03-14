@@ -318,6 +318,8 @@ class OpleveringWerkbon(BaseModel):
     installatie_type: str = ""  # Zonnepaneel, Airco, etc.
     gebruikte_materialen: str = ""
     extra_opmerkingen: str = ""
+    schade_status: str = "geen_schade"  # geen_schade, schade_aanwezig
+    schade_opmerking: str = ""
     
     # Schade checks (CRITICAL)
     schade_checks: List[SchadeCheck] = Field(default_factory=lambda: [
@@ -347,6 +349,10 @@ class OpleveringWerkbon(BaseModel):
     handtekening_monteur: Optional[str] = None  # Technician signature base64
     handtekening_monteur_naam: str = ""
     handtekening_datum: Optional[datetime] = None
+    verstuur_naar_klant: bool = False
+    klant_email_override: Optional[str] = None
+    email_error: Optional[str] = None
+    pdf_bestandsnaam: Optional[str] = None
     
     # Meta
     ingevuld_door_id: str
@@ -363,6 +369,20 @@ class OpleveringWerkbonCreate(BaseModel):
     installatie_type: str = ""
     werk_beschrijving: str = ""
     gebruikte_materialen: str = ""
+    extra_opmerkingen: str = ""
+    schade_status: str = "geen_schade"
+    schade_opmerking: str = ""
+    schade_checks: List[SchadeCheck] = Field(default_factory=list)
+    alles_ok: bool = False
+    beoordelingen: List[Beoordeling] = Field(default_factory=list)
+    fotos: List[str] = Field(default_factory=list)
+    foto_labels: List[str] = Field(default_factory=list)
+    handtekening_klant: Optional[str] = None
+    handtekening_klant_naam: str = ""
+    handtekening_monteur: Optional[str] = None
+    handtekening_monteur_naam: str = ""
+    verstuur_naar_klant: bool = False
+    klant_email_override: Optional[str] = None
 
 class OpleveringWerkbonUpdate(BaseModel):
     datum: Optional[str] = None
@@ -370,6 +390,8 @@ class OpleveringWerkbonUpdate(BaseModel):
     installatie_type: Optional[str] = None
     gebruikte_materialen: Optional[str] = None
     extra_opmerkingen: Optional[str] = None
+    schade_status: Optional[str] = None
+    schade_opmerking: Optional[str] = None
     schade_checks: Optional[List[SchadeCheck]] = None
     alles_ok: Optional[bool] = None
     beoordelingen: Optional[List[Beoordeling]] = None
@@ -379,6 +401,8 @@ class OpleveringWerkbonUpdate(BaseModel):
     handtekening_klant_naam: Optional[str] = None
     handtekening_monteur: Optional[str] = None
     handtekening_monteur_naam: Optional[str] = None
+    verstuur_naar_klant: Optional[bool] = None
+    klant_email_override: Optional[str] = None
     status: Optional[str] = None
 
 # ==================== PROJECT WERKBON (Project Manager) ====================
@@ -926,6 +950,34 @@ def build_pdf_filename(werkbon: dict) -> str:
     return f"werkbon-week-{werkbon.get('week_nummer', 'x')}-{werkbon.get('jaar', 'x')}-{safe_werf}.pdf"
 
 
+def build_oplevering_pdf_filename(werkbon: dict) -> str:
+    werf = (werkbon.get("werf_naam") or "werf").lower().replace(" ", "-")
+    safe_werf = "".join(char for char in werf if char.isalnum() or char == "-") or "werf"
+    datum = (werkbon.get("datum") or "datum").replace("/", "-")
+    return f"oplevering-{datum}-{safe_werf}.pdf"
+
+
+def validate_oplevering_payload(data: OpleveringWerkbonCreate) -> None:
+    if data.schade_status not in {"geen_schade", "schade_aanwezig"}:
+        raise HTTPException(status_code=400, detail="Ongeldige schade status")
+
+    if data.schade_status == "schade_aanwezig" and not data.fotos:
+        raise HTTPException(status_code=400, detail="Bij schade is minimaal 1 foto verplicht")
+
+    if data.verstuur_naar_klant and not (data.klant_email_override or "").strip():
+        raise HTTPException(status_code=400, detail="Klant e-mail is verplicht wanneer u naar de klant wilt versturen")
+
+    if not data.handtekening_klant or not data.handtekening_klant_naam.strip():
+        raise HTTPException(status_code=400, detail="Klant handtekening en naam zijn verplicht")
+
+    if len(data.beoordelingen) < 5:
+        raise HTTPException(status_code=400, detail="Vul 5 beoordelingen in")
+
+    for beoordeling in data.beoordelingen:
+        if beoordeling.score < 1 or beoordeling.score > 5:
+            raise HTTPException(status_code=400, detail="Beoordelingen moeten tussen 1 en 5 sterren zijn")
+
+
 def get_hours_pdf(regel: dict, dag: str) -> str:
     """Return hours for PDF - afkortingen are internal only, show hours or blank"""
     hours = float(regel.get(dag, 0) or 0)
@@ -1213,6 +1265,184 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     pdf_bytes = buffer.getvalue()
     buffer.close()
     return pdf_bytes, build_pdf_filename(werkbon)
+
+
+def generate_oplevering_pdf(werkbon: dict, instellingen: dict) -> tuple[bytes, str]:
+    buffer = io.BytesIO()
+    pdf = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        leftMargin=14 * mm,
+        rightMargin=14 * mm,
+        topMargin=12 * mm,
+        bottomMargin=12 * mm,
+    )
+
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(name="OVSection", parent=styles["Heading2"], fontSize=11, textColor=colors.HexColor("#1a1a2e"), spaceAfter=5, spaceBefore=4))
+    styles.add(ParagraphStyle(name="OVBody", parent=styles["BodyText"], fontSize=9, leading=12))
+    styles.add(ParagraphStyle(name="OVSmall", parent=styles["BodyText"], fontSize=8, leading=10, textColor=colors.HexColor("#555555")))
+
+    story = []
+    logo_bytes = decode_base64_data(instellingen.get("logo_base64"))
+    logo = make_safe_reportlab_image(logo_bytes, 24 * mm, 18 * mm)
+    bedrijfsnaam = instellingen.get("bedrijfsnaam") or "Smart-Tech BV"
+
+    left_cell = [logo] if logo else []
+    left_cell.append(Spacer(1, 2))
+    left_cell.append(Paragraph(f"<b>{bedrijfsnaam}</b>", ParagraphStyle("OVCompany", fontName="Helvetica-Bold", fontSize=14, textColor=colors.HexColor("#1a1a2e"))))
+    left_cell.append(Paragraph(instellingen.get("email") or COMPANY_EMAIL, styles["OVSmall"]))
+
+    title_box = [
+        Paragraph("<b>OPLEVERING WERKBON</b>", ParagraphStyle("OVTitle", fontName="Helvetica-Bold", fontSize=16, textColor=colors.HexColor("#1a1a2e"), alignment=2)),
+        Paragraph(f"Datum: {werkbon.get('datum') or '-'}", styles["OVBody"]),
+        Paragraph(f"Status: {(werkbon.get('status') or 'ondertekend').capitalize()}", styles["OVBody"]),
+    ]
+    header_table = Table([[left_cell, title_box]], colWidths=[85 * mm, 85 * mm])
+    header_table.setStyle(TableStyle([
+        ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#F5A623")),
+        ("BACKGROUND", (0, 0), (-1, -1), colors.white),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    story.extend([header_table, Spacer(1, 8)])
+
+    info_rows = [
+        ["Klant", werkbon.get("klant_naam") or "-"],
+        ["Klant e-mail", werkbon.get("klant_email_override") or werkbon.get("klant_email") or "-"],
+        ["Werf", werkbon.get("werf_naam") or "-"],
+        ["Adres", werkbon.get("werf_adres") or "-"],
+        ["Installatie", werkbon.get("installatie_type") or "-"],
+        ["Monteur", werkbon.get("ingevuld_door_naam") or "-"],
+    ]
+    info_table = Table(info_rows, colWidths=[40 * mm, 130 * mm])
+    info_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#f5f5f5")),
+        ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#cccccc")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#dddddd")),
+        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    story.extend([Paragraph("Algemene info", styles["OVSection"]), info_table, Spacer(1, 8)])
+
+    werk_text = werkbon.get("werk_beschrijving") or "-"
+    materiaal_text = werkbon.get("gebruikte_materialen") or "-"
+    opmerkingen_text = werkbon.get("extra_opmerkingen") or "-"
+    detail_table = Table([
+        [Paragraph("<b>Uitgevoerde werken</b>", styles["OVBody"]), Paragraph("<b>Gebruikte materialen</b>", styles["OVBody"])],
+        [Paragraph(werk_text.replace("\n", "<br/>"), styles["OVBody"]), Paragraph(materiaal_text.replace("\n", "<br/>"), styles["OVBody"])],
+    ], colWidths=[85 * mm, 85 * mm])
+    detail_table.setStyle(TableStyle([
+        ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#cccccc")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#dddddd")),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f8f9fa")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    story.extend([Paragraph("Werk details", styles["OVSection"]), detail_table, Spacer(1, 6)])
+    story.append(Paragraph(f"<b>Extra opmerkingen:</b> {opmerkingen_text.replace(chr(10), '<br/>')}", styles["OVBody"]))
+    story.append(Spacer(1, 8))
+
+    schade_status = "Schade aanwezig" if werkbon.get("schade_status") == "schade_aanwezig" else "Geen schade"
+    schade_text = werkbon.get("schade_opmerking") or "-"
+    schade_checks = werkbon.get("schade_checks") or []
+    schade_rows = [["Schade status", schade_status], ["Toelichting", schade_text]]
+    for item in schade_checks:
+        label = item.get("label") if isinstance(item, dict) else getattr(item, "label", "Check")
+        checked = item.get("checked") if isinstance(item, dict) else getattr(item, "checked", False)
+        schade_rows.append([label, "Ja" if checked else "Nee"])
+    schade_table = Table(schade_rows, colWidths=[70 * mm, 100 * mm])
+    schade_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#fff3cd") if werkbon.get("schade_status") == "schade_aanwezig" else colors.HexColor("#eaf7ee")),
+        ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#cccccc")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#dddddd")),
+        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    story.extend([Paragraph("Schadecontrole", styles["OVSection"]), schade_table, Spacer(1, 8)])
+
+    beoordelingen = werkbon.get("beoordelingen") or []
+    rating_rows = [["Onderdeel", "Sterren"]]
+    for beoordeling in beoordelingen:
+        categorie = beoordeling.get("categorie") if isinstance(beoordeling, dict) else getattr(beoordeling, "categorie", "-")
+        score = beoordeling.get("score") if isinstance(beoordeling, dict) else getattr(beoordeling, "score", 0)
+        rating_rows.append([categorie, "★" * int(score) + "☆" * max(0, 5 - int(score))])
+    ratings_table = Table(rating_rows, colWidths=[110 * mm, 60 * mm])
+    ratings_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#cccccc")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#dddddd")),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    story.extend([Paragraph("Klantbeoordeling", styles["OVSection"]), ratings_table, Spacer(1, 8)])
+
+    fotos = werkbon.get("fotos") or []
+    if fotos:
+        story.append(Paragraph("Foto's", styles["OVSection"]))
+        image_cells = []
+        for foto in fotos[:6]:
+            image = make_safe_reportlab_image(decode_base64_data(foto), 75 * mm, 55 * mm)
+            if image:
+                image_cells.append(image)
+        if image_cells:
+            rows = []
+            for index in range(0, len(image_cells), 2):
+                pair = image_cells[index:index + 2]
+                if len(pair) == 1:
+                    pair.append("")
+                rows.append(pair)
+            images_table = Table(rows, colWidths=[80 * mm, 80 * mm])
+            images_table.setStyle(TableStyle([
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ]))
+            story.extend([images_table, Spacer(1, 8)])
+
+    signer_name = werkbon.get("handtekening_klant_naam") or "-"
+    signature_bytes = decode_base64_data(werkbon.get("handtekening_klant"))
+    signature_image = make_safe_reportlab_image(signature_bytes, 80 * mm, 28 * mm)
+    signature_content: list = [Paragraph(f"<b>Klant naam:</b> {signer_name}", styles["OVBody"])]
+    if werkbon.get("handtekening_datum"):
+        sign_date = werkbon.get("handtekening_datum")
+        signature_content.append(Paragraph(f"<b>Ondertekend op:</b> {str(sign_date)[:16]}", styles["OVBody"]))
+    signature_content.append(Spacer(1, 4))
+    if signature_image:
+        signature_content.append(signature_image)
+
+    signature_table = Table([[signature_content]], colWidths=[170 * mm])
+    signature_table.setStyle(TableStyle([
+        ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#cccccc")),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    story.extend([Paragraph("Handtekening klant", styles["OVSection"]), signature_table, Spacer(1, 10)])
+    story.append(Paragraph((instellingen.get("pdf_voettekst") or "Digitale oplevering bon").replace("\n", "<br/>"), styles["OVSmall"]))
+
+    pdf.build(story)
+    pdf_bytes = buffer.getvalue()
+    buffer.close()
+    return pdf_bytes, build_oplevering_pdf_filename(werkbon)
 
 class UserCreateWithEmail(BaseModel):
     email: str
@@ -1857,6 +2087,86 @@ async def send_werkbon_email(
         logging.error(f"Failed to send email: {str(e)}")
         return {"success": False, "error": str(e), "recipients": recipients}
 
+
+async def send_oplevering_email(
+    werkbon: dict,
+    instellingen: dict,
+    pdf_bytes: bytes,
+    pdf_filename: str,
+    klant_email: Optional[str] = None,
+):
+    if not resend.api_key:
+        logging.warning("RESEND_API_KEY not configured, skipping oplevering email")
+        return {"success": False, "error": "Email not configured", "recipients": []}
+
+    bedrijfsnaam = get_email_brand_name(instellingen)
+    company_recipient = get_company_recipient(instellingen)
+    klant_recipient = klant_email or werkbon.get("klant_email_override") or werkbon.get("klant_email")
+
+    recipients = [company_recipient] if company_recipient else []
+    if werkbon.get("verstuur_naar_klant") and klant_recipient:
+        recipients = get_unique_recipients(company_recipient, klant_recipient)
+
+    if not recipients:
+        return {"success": False, "error": "Geen ontvangers geconfigureerd", "recipients": []}
+
+    subject = f"Oplevering PDF - {werkbon.get('werf_naam', 'Werf')} - {werkbon.get('datum', '')}"
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset=\"utf-8\" />
+        <style>
+            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 640px; margin: 0 auto; }}
+            .header {{ background: #1a1a2e; color: white; padding: 24px; text-align: center; border-bottom: 4px solid #F5A623; }}
+            .header h1 {{ color: #F5A623; margin: 0; }}
+            .content {{ padding: 24px; }}
+            .info {{ background: #f8f9fa; border-left: 4px solid #F5A623; padding: 16px; margin: 18px 0; }}
+            .footer {{ background: #f4f4f4; padding: 16px; font-size: 12px; color: #666; text-align: center; }}
+        </style>
+    </head>
+    <body>
+        <div class=\"header\">
+            <h1>{bedrijfsnaam}</h1>
+            <p>Ondertekende oplevering werkbon</p>
+        </div>
+        <div class=\"content\">
+            <p>In bijlage vindt u de oplevering werkbon als PDF.</p>
+            <div class=\"info\">
+                <strong>Klant:</strong> {werkbon.get('klant_naam') or '-'}<br/>
+                <strong>Werf:</strong> {werkbon.get('werf_naam') or '-'}<br/>
+                <strong>Datum:</strong> {werkbon.get('datum') or '-'}<br/>
+                <strong>Ondertekend door:</strong> {werkbon.get('handtekening_klant_naam') or '-'}
+            </div>
+            <p>Schade status: <strong>{'Schade aanwezig' if werkbon.get('schade_status') == 'schade_aanwezig' else 'Geen schade'}</strong></p>
+            <p>Met vriendelijke groeten,<br/><strong>{bedrijfsnaam}</strong></p>
+        </div>
+        <div class=\"footer\">Dit is een automatisch gegenereerde e-mail van {bedrijfsnaam}.</div>
+    </body>
+    </html>
+    """
+
+    try:
+        params = {
+            "from": get_sender_email(instellingen),
+            "to": recipients,
+            "subject": subject,
+            "html": html_content,
+            "attachments": [
+                {
+                    "filename": pdf_filename,
+                    "content": base64.b64encode(pdf_bytes).decode(),
+                    "contentType": "application/pdf",
+                }
+            ],
+        }
+        result = await asyncio.to_thread(resend.Emails.send, params)
+        logging.info("Oplevering email sent successfully: %s", result)
+        return {"success": True, "email_id": result.get("id"), "recipients": recipients}
+    except Exception as e:
+        logging.error("Failed to send oplevering email: %s", str(e))
+        return {"success": False, "error": str(e), "recipients": recipients}
+
 @api_router.post("/werkbonnen/{werkbon_id}/verzenden")
 async def verzend_werkbon(werkbon_id: str, klant_email: Optional[str] = Query(None)):
     """Generate signed werkbon PDF and email it. By default only to company. Provide klant_email to also send to client."""
@@ -2118,6 +2428,7 @@ async def get_oplevering_werkbon(werkbon_id: str):
 
 @api_router.post("/oplevering-werkbonnen")
 async def create_oplevering_werkbon(data: OpleveringWerkbonCreate, user_id: str, user_naam: str):
+    validate_oplevering_payload(data)
     klant = await db.klanten.find_one({"id": data.klant_id})
     werf = await db.werven.find_one({"id": data.werf_id})
     if not klant:
@@ -2137,8 +2448,27 @@ async def create_oplevering_werkbon(data: OpleveringWerkbonCreate, user_id: str,
         installatie_type=data.installatie_type,
         werk_beschrijving=data.werk_beschrijving,
         gebruikte_materialen=data.gebruikte_materialen,
+        extra_opmerkingen=data.extra_opmerkingen,
+        schade_status=data.schade_status,
+        schade_opmerking=data.schade_opmerking,
+        schade_checks=data.schade_checks or [
+            SchadeCheck(label="Geen schade", checked=data.schade_status == "geen_schade"),
+            SchadeCheck(label="Schade aanwezig", checked=data.schade_status == "schade_aanwezig", opmerking=data.schade_opmerking),
+        ],
+        alles_ok=data.alles_ok,
+        beoordelingen=data.beoordelingen,
+        fotos=data.fotos,
+        foto_labels=data.foto_labels,
+        handtekening_klant=data.handtekening_klant,
+        handtekening_klant_naam=data.handtekening_klant_naam,
+        handtekening_monteur=data.handtekening_monteur,
+        handtekening_monteur_naam=data.handtekening_monteur_naam or user_naam,
+        handtekening_datum=datetime.now(timezone.utc),
+        verstuur_naar_klant=data.verstuur_naar_klant,
+        klant_email_override=(data.klant_email_override or klant.get("email") or "").strip(),
         ingevuld_door_id=user_id,
         ingevuld_door_naam=user_naam,
+        status="ondertekend",
     )
     await db.oplevering_werkbonnen.insert_one(werkbon.dict())
     return werkbon.dict()
@@ -2146,7 +2476,7 @@ async def create_oplevering_werkbon(data: OpleveringWerkbonCreate, user_id: str,
 @api_router.put("/oplevering-werkbonnen/{werkbon_id}")
 async def update_oplevering_werkbon(werkbon_id: str, update_data: OpleveringWerkbonUpdate):
     update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
-    update_dict["updated_at"] = datetime.utcnow()
+    update_dict["updated_at"] = datetime.now(timezone.utc)
     
     if update_data.handtekening_klant:
         update_dict["handtekening_datum"] = datetime.utcnow()
@@ -2163,6 +2493,59 @@ async def update_oplevering_werkbon(werkbon_id: str, update_data: OpleveringWerk
         raise HTTPException(status_code=404, detail="Oplevering werkbon niet gevonden")
     updated = await db.oplevering_werkbonnen.find_one({"id": werkbon_id}, {"_id": 0})
     return updated
+
+
+@api_router.post("/oplevering-werkbonnen/{werkbon_id}/verzenden")
+async def verzend_oplevering_werkbon(werkbon_id: str, klant_email: Optional[str] = Query(None)):
+    werkbon = await db.oplevering_werkbonnen.find_one({"id": werkbon_id}, {"_id": 0})
+    if not werkbon:
+        raise HTTPException(status_code=404, detail="Oplevering werkbon niet gevonden")
+
+    if not werkbon.get("handtekening_klant") or not werkbon.get("handtekening_klant_naam"):
+        raise HTTPException(status_code=400, detail="Oplevering werkbon moet eerst door de klant ondertekend worden")
+
+    if werkbon.get("schade_status") == "schade_aanwezig" and not werkbon.get("fotos"):
+        raise HTTPException(status_code=400, detail="Bij schade is minimaal 1 foto verplicht")
+
+    instellingen = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0}) or {}
+
+    try:
+        pdf_bytes, pdf_filename = generate_oplevering_pdf(werkbon, instellingen)
+    except Exception as exc:
+        logging.exception("Oplevering PDF generation failed for %s", werkbon_id)
+        raise HTTPException(status_code=500, detail=f"PDF genereren mislukt: {str(exc)}")
+
+    override_email = (klant_email or werkbon.get("klant_email_override") or werkbon.get("klant_email") or "").strip()
+    email_result = await send_oplevering_email(
+        werkbon,
+        instellingen,
+        pdf_bytes,
+        pdf_filename,
+        klant_email=override_email,
+    )
+    nieuwe_status = "verzonden" if email_result.get("success") else werkbon.get("status", "ondertekend")
+
+    await db.oplevering_werkbonnen.update_one(
+        {"id": werkbon_id},
+        {"$set": {
+            "status": nieuwe_status,
+            "email_verzonden": email_result.get("success", False),
+            "email_error": email_result.get("error"),
+            "pdf_bestandsnaam": pdf_filename,
+            "klant_email_override": override_email,
+            "updated_at": datetime.now(timezone.utc),
+        }}
+    )
+
+    return {
+        "message": "Oplevering werkbon als PDF verzonden" if email_result.get("success") else "PDF gemaakt, maar e-mail kon niet worden verzonden",
+        "status": nieuwe_status,
+        "pdf_filename": pdf_filename,
+        "recipients": email_result.get("recipients", []),
+        "email_sent": email_result.get("success", False),
+        "email_error": email_result.get("error"),
+        "success": True,
+    }
 
 @api_router.delete("/oplevering-werkbonnen/{werkbon_id}")
 async def delete_oplevering_werkbon(werkbon_id: str):
