@@ -11,7 +11,7 @@
         "credentialsSource": "local"
       },
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://smart-ops-deploy.preview.emergentagent.com"
+        "EXPO_PUBLIC_BACKEND_URL": "https://werkbon-portal.preview.emergentagent.com"
       },
       "distribution": "internal"
     },

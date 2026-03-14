@@ -24,7 +24,7 @@ from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Tabl
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
-APP_URL = os.environ.get('APP_URL', 'https://smart-ops-deploy.preview.emergentagent.com').strip()
+APP_URL = os.environ.get('APP_URL', 'https://werkbon-portal.preview.emergentagent.com').strip()
 
 # Resend configuration
 resend.api_key = os.environ.get('RESEND_API_KEY', '')
@@ -1520,41 +1520,39 @@ def generate_oplevering_pdf(werkbon: dict, instellingen: dict) -> tuple[bytes, s
 
     fotos = werkbon.get("fotos") or []
     if fotos:
-        story.append(Paragraph("Foto's", styles["OVSection"]))
-        image_cells = []
-        for foto in fotos[:6]:
-            image = make_safe_reportlab_image(decode_base64_data(foto), 75 * mm, 55 * mm)
+        from reportlab.platypus import PageBreak as PBrk
+        story.append(Paragraph("Werkfoto's", styles["OVSection"]))
+        for i, foto in enumerate(fotos[:6]):
+            if i > 0 and i % 2 == 0:
+                story.append(PBrk())
+                story.append(Paragraph("Werkfoto's (vervolg)", styles["OVSection"]))
+            foto_data = foto if isinstance(foto, str) else foto.get("base64", "")
+            image = make_safe_reportlab_image(decode_base64_data(foto_data), 160 * mm, 110 * mm)
             if image:
-                image_cells.append(image)
-        if image_cells:
-            rows = []
-            for index in range(0, len(image_cells), 2):
-                pair = image_cells[index:index + 2]
-                if len(pair) == 1:
-                    pair.append("")
-                rows.append(pair)
-            images_table = Table(rows, colWidths=[80 * mm, 80 * mm])
-            images_table.setStyle(TableStyle([
-                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("LEFTPADDING", (0, 0), (-1, -1), 4),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-                ("TOPPADDING", (0, 0), (-1, -1), 4),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-            ]))
-            story.extend([images_table, Spacer(1, 8)])
+                story.extend([image, Spacer(1, 8)])
 
     signer_name = werkbon.get("handtekening_klant_naam") or "-"
     signature_bytes = decode_base64_data(werkbon.get("handtekening_klant"))
     signature_image = make_safe_reportlab_image(signature_bytes, 80 * mm, 28 * mm)
-    signature_content: list = [Paragraph(f"<b>Klant naam:</b> {signer_name}", styles["OVBody"])]
+    sig_content: list = [Paragraph(f"<b>Klant naam:</b> {signer_name}", styles["OVBody"])]
     if werkbon.get("handtekening_datum"):
         sign_date = werkbon.get("handtekening_datum")
-        signature_content.append(Paragraph(f"<b>Ondertekend op:</b> {str(sign_date)[:16]}", styles["OVBody"]))
-    signature_content.append(Spacer(1, 4))
+        sig_content.append(Paragraph(f"<b>Ondertekend op:</b> {str(sign_date)[:16]}", styles["OVBody"]))
+    elif werkbon.get("handtekening_datum_str"):
+        sig_content.append(Paragraph(f"<b>Ondertekend op:</b> {werkbon.get('handtekening_datum_str')}", styles["OVBody"]))
+    if werkbon.get("gps_locatie"):
+        sig_content.append(Paragraph(f"<b>GPS:</b> {werkbon.get('gps_locatie')}", styles["OVBody"]))
+    sig_content.append(Spacer(1, 4))
     if signature_image:
-        signature_content.append(signature_image)
+        sig_content.append(signature_image)
 
-    signature_table = Table([[signature_content]], colWidths=[170 * mm])
+    selfie_bytes = decode_base64_data(werkbon.get("selfie_foto"))
+    selfie_img = make_safe_reportlab_image(selfie_bytes, 30 * mm, 30 * mm)
+    if selfie_img:
+        selfie_col: list = [Paragraph("<b>Selfie</b>", styles["OVSmall"]), selfie_img]
+        sig_table = Table([[sig_content, selfie_col]], colWidths=[130 * mm, 40 * mm])
+    else:
+        sig_table = Table([[sig_content]], colWidths=[170 * mm])
     signature_table.setStyle(TableStyle([
         ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#cccccc")),
         ("LEFTPADDING", (0, 0), (-1, -1), 8),
@@ -2013,11 +2011,25 @@ def generate_project_werkbon_pdf(werkbon: dict, instellingen: dict) -> tuple[byt
     confirmation_text = instellingen.get("project_confirmation_text") or "Hierbij bevestigt de klant dat deze ingevulde project werkbon juist is ingevuld."
     story.append(Paragraph(confirmation_text.replace("\n", "<br/>"), styles["PJBody"]))
     story.append(Spacer(1, 6))
+
+    signer_name = werkbon.get("handtekening_klant_naam") or "-"
     signature_image = make_safe_reportlab_image(decode_base64_data(werkbon.get("handtekening_klant")), 80 * mm, 28 * mm)
-    signature_box = [Paragraph(f"<b>Klant naam:</b> {werkbon.get('handtekening_klant_naam') or '-'}", styles["PJBody"])]
+    sig_box: list = [Paragraph(f"<b>Klant naam:</b> {signer_name}", styles["PJBody"])]
+    if werkbon.get("handtekening_datum_str"):
+        sig_box.append(Paragraph(f"<b>Ondertekend op:</b> {werkbon.get('handtekening_datum_str')}", styles["PJBody"]))
+    if werkbon.get("gps_locatie"):
+        sig_box.append(Paragraph(f"<b>GPS:</b> {werkbon.get('gps_locatie')}", styles["PJBody"]))
     if signature_image:
-        signature_box.extend([Spacer(1, 4), signature_image])
-    sig_table = Table([[signature_box]], colWidths=[170 * mm])
+        sig_box.extend([Spacer(1, 4), signature_image])
+
+    selfie_bytes_p = decode_base64_data(werkbon.get("selfie_foto"))
+    selfie_img_p = make_safe_reportlab_image(selfie_bytes_p, 30 * mm, 30 * mm)
+    if selfie_img_p:
+        selfie_col_p: list = [Paragraph("<b>Selfie</b>", styles["PJSmall"]), selfie_img_p]
+        sig_table = Table([[sig_box, selfie_col_p]], colWidths=[130 * mm, 40 * mm])
+    else:
+        sig_table = Table([[sig_box]], colWidths=[170 * mm])
+
     sig_table.setStyle(TableStyle([("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#cccccc")), ("LEFTPADDING", (0, 0), (-1, -1), 8), ("TOPPADDING", (0, 0), (-1, -1), 8), ("BOTTOMPADDING", (0, 0), (-1, -1), 8)]))
     story.extend([sig_table, Spacer(1, 8), Paragraph((instellingen.get("pdf_voettekst") or "Digitale project werkbon").replace("\n", "<br/>"), styles["PJSmall"])])
 

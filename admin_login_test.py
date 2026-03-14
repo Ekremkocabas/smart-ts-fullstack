@@ -9,7 +9,7 @@ import json
 from datetime import datetime
 
 # Configuration
-BACKEND_URL = "https://smart-ops-deploy.preview.emergentagent.com/api"
+BACKEND_URL = "https://werkbon-portal.preview.emergentagent.com/api"
 HEADERS = {"Content-Type": "application/json"}
 
 # Admin credentials as requested
