@@ -97,9 +97,9 @@ export default function AdminLogin() {
           </View>
 
           {error ? (
-            <View style={styles.errorContainer}>
+            <View testID="admin-login-error-container" style={styles.errorContainer}>
               <Ionicons name="alert-circle" size={20} color="#dc3545" />
-              <Text style={styles.errorText}>{error}</Text>
+              <Text testID="admin-login-error-text" style={styles.errorText}>{error}</Text>
             </View>
           ) : null}
 
@@ -108,6 +108,7 @@ export default function AdminLogin() {
             <View style={styles.inputContainer}>
               <Ionicons name="mail-outline" size={20} color="#6c757d" style={styles.inputIcon} />
               <TextInput
+                testID="admin-login-email-input"
                 style={styles.input}
                 placeholder="beheerder@smart-techbv.be"
                 placeholderTextColor="#a0a0a0"
@@ -123,6 +124,7 @@ export default function AdminLogin() {
             <View style={styles.inputContainer}>
               <Ionicons name="lock-closed-outline" size={20} color="#6c757d" style={styles.inputIcon} />
               <TextInput
+                testID="admin-login-password-input"
                 style={styles.input}
                 placeholder="••••••••"
                 placeholderTextColor="#a0a0a0"
@@ -137,6 +139,7 @@ export default function AdminLogin() {
             </View>
 
             <TouchableOpacity
+              testID="admin-login-submit-button"
               style={[styles.loginButton, loading && styles.loginButtonDisabled]}
               onPress={handleLogin}
               disabled={loading}

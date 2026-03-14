@@ -34,6 +34,7 @@ type RatingMap = Record<string, number>;
 
 const WebSignatureCanvas = ({ onEnd, onClear, signatureRef }: any) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const hasDrawnRef = useRef(false);
   const [isDrawing, setIsDrawing] = useState(false);
   const [lastPos, setLastPos] = useState({ x: 0, y: 0 });
 
@@ -61,6 +62,7 @@ const WebSignatureCanvas = ({ onEnd, onClear, signatureRef }: any) => {
 
   const startDrawing = (e: any) => {
     e.preventDefault();
+    hasDrawnRef.current = true;
     setIsDrawing(true);
     setLastPos(getPos(e));
   };
@@ -91,6 +93,7 @@ const WebSignatureCanvas = ({ onEnd, onClear, signatureRef }: any) => {
       clearSignature: () => {
         const canvas = canvasRef.current;
         const ctx = canvas?.getContext('2d');
+        hasDrawnRef.current = false;
         if (canvas && ctx) {
           ctx.fillStyle = '#FFFFFF';
           ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -98,6 +101,7 @@ const WebSignatureCanvas = ({ onEnd, onClear, signatureRef }: any) => {
         onClear?.();
       },
       readSignature: () => canvasRef.current?.toDataURL('image/png') || null,
+      isEmpty: () => !hasDrawnRef.current,
     };
   }, [onClear, signatureRef]);
 
@@ -130,6 +134,7 @@ export default function OpleveringWerkbonScreen() {
   const { user } = useAuth();
   const signatureRef = useRef<any>(null);
   const pendingSubmitRef = useRef(false);
+  const hasSignatureRef = useRef(false);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -232,11 +237,18 @@ export default function OpleveringWerkbonScreen() {
 
   const handleClearSignature = () => {
     signatureRef.current?.clearSignature?.();
+    hasSignatureRef.current = false;
     setHasSignature(false);
     setSignatureValue(null);
   };
 
+  const markSignaturePresent = () => {
+    hasSignatureRef.current = true;
+    setHasSignature(true);
+  };
+
   const handleSignatureCaptured = async (signature: string) => {
+    hasSignatureRef.current = true;
     setSignatureValue(signature);
     setHasSignature(true);
     if (pendingSubmitRef.current) {
@@ -268,6 +280,7 @@ export default function OpleveringWerkbonScreen() {
   );
 
   const runValidation = () => {
+    const hasWebSignature = Platform.OS === 'web' && !signatureRef.current?.isEmpty?.();
     if (!selectedKlant || !selectedWerf) {
       showAlert('Fout', 'Selecteer eerst klant en werf');
       return false;
@@ -276,7 +289,7 @@ export default function OpleveringWerkbonScreen() {
       showAlert('Fout', 'Vul de naam van de klant in');
       return false;
     }
-    if (!hasSignature && !signatureValue) {
+    if (!hasSignatureRef.current && !signatureValue && !hasWebSignature) {
       showAlert('Fout', 'Plaats eerst de handtekening van de klant');
       return false;
     }
@@ -609,13 +622,16 @@ export default function OpleveringWerkbonScreen() {
             <Text style={styles.signatureLabel}>Klant handtekening</Text>
             <View style={styles.signatureWrapper} testID="oplevering-signature-pad-wrapper">
               {Platform.OS === 'web' ? (
-                <WebSignatureCanvas signatureRef={signatureRef} onEnd={() => setHasSignature(true)} onClear={handleClearSignature} />
+                <WebSignatureCanvas signatureRef={signatureRef} onEnd={markSignaturePresent} onClear={handleClearSignature} />
               ) : (
                 <SignatureScreen
                   ref={signatureRef}
-                  onBegin={() => setHasSignature(true)}
+                  onBegin={markSignaturePresent}
                   onOK={handleSignatureCaptured}
-                  onEmpty={() => setHasSignature(false)}
+                  onEmpty={() => {
+                    hasSignatureRef.current = false;
+                    setHasSignature(false);
+                  }}
                   webStyle={signaturePadStyle}
                   descriptionText=""
                   backgroundColor="#FFFFFF"
