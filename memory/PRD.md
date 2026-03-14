@@ -1,66 +1,89 @@
-# Smart-TS (Smart Timesheet) - Product Requirements Document
+# Smart-TS - PRD / Handoff
 
-## Original Problem Statement
-Digitale werkbon (timesheet) applicatie voor een bouwbedrijf. Werknemers kunnen werkbonnen aanmaken, invullen, laten ondertekenen en als PDF versturen naar de klant.
+## Probleemstelling
+Mevcut timesheet uygulaması, planlama, mesajlaşma, çoklu werkbon tipleri ve mobil kullanım odaklı tam operasyon yönetim sistemine dönüştürüldü. Son turda özellikle **Oplevering werkbon** akışı gerçek kullanıma uygun hale getirildi ve mobil APK test build’i tekrar hazırlandı.
 
-## User Personas
-- **Beheerder (Admin)**: info@smart-techbv.be - beheert klanten, werven, werknemers, bekijkt rapporten
-- **Werknemer**: logt in, maakt werkbonnen aan, vult uren in, laat ondertekenen
+## Mimari
+- **Frontend:** Expo React Native (SDK 54), Expo Router, TypeScript
+- **Backend:** FastAPI + MongoDB
+- **PDF:** ReportLab
+- **Mail:** Resend
+- **Preview URL:** `https://ops-manager-15.preview.emergentagent.com`
+- **Admin web panel:** `https://ops-manager-15.preview.emergentagent.com/admin/login`
 
-## Core Requirements
-1. Werkbon aanmaken met weeknummer, klant, werf, uren per teamlid per dag
-2. Km-afstand registratie
-3. Digitale handtekening
-4. PDF generatie en e-mail verzending
-5. Admin beheer (klanten, werven, werknemers, teams)
-6. Rapport/overzicht per werknemer
+## Uygulamada Olan Ana Modüller
+1. Standart uren werkbon
+2. Oplevering werkbon
+3. Project werkbon
+4. Planning / dispatch
+5. Messaging / berichten
+6. Dynamic theme + push notifications
+7. Admin exportleri (CSV/PDF)
 
-## Architecture
-- **Frontend**: Expo (React Native) + TypeScript + Zustand store
-- **Backend**: FastAPI (Python) - Port 8001
-- **Database**: MongoDB
-- **PDF**: ReportLab
-- **Email**: Resend.com
-- **URL**: https://ops-manager-15.preview.emergentagent.com
+## Bu Forkta Doğrulanan Çalışan Loginler
+- **Worker preview/app:** `davy@smart-techbv.be / Smart1234-`
+- **Admin web panel:** `hr@smart-techbv.be / Smart1234-`
+- **Ekrem hesabı:** `ekremkocabas@live.be / cf5ef946ba`
 
-## File Structure
-```
-/app/backend/server.py          # All API endpoints, PDF gen, email
-/app/frontend/
-  app/
-    (auth)/login.tsx            # Login screen
-    (tabs)/index.tsx            # Werkbonnen lijst
-    (tabs)/beheer.tsx           # Admin beheer
-    (tabs)/rapport.tsx          # Uren rapport
-    (tabs)/profiel.tsx          # Profiel
-    werkbon/[id].tsx            # Werkbon detail
-    werkbon/bewerken/[id].tsx   # Werkbon bewerken
-    werkbon/nieuw.tsx           # Nieuwe werkbon
-    handtekening/[id].tsx       # Handtekening scherm
-  store/appStore.ts             # Zustand state management
-  utils/alerts.ts               # Cross-platform alert helper
-```
+## Bu Turda Yapılanlar
 
-## What's Been Implemented (CHANGELOG summary)
-See CHANGELOG.md for full history.
+### 1. Oplevering werkbon yeniden tasarlandı
+- `Geen schade` / `Schade aanwezig` net butonları eklendi
+- `Schade aanwezig` seçilirse foto zorunlu doğrulaması eklendi
+- 5 adet yıldız değerlendirme alanı eklendi:
+  - Kwaliteit van afwerking
+  - Netheid werkplek
+  - Communicatie
+  - Stiptheid
+  - Algemene tevredenheid
+- Müşteri imza alanı eklendi
+- İmza alanında opsiyonel `Ook naar klant mailen` seçeneği eklendi
+- İstenirse müşteri e-mail alanı doldurulabiliyor
 
-## Prioritized Backlog
+### 2. Backend Oplevering PDF + mail akışı eklendi
+- Oplevering werkbon create endpoint’i zengin payload kabul edecek şekilde genişletildi
+- Oplevering için ayrı PDF üretimi eklendi
+- Oplevering PDF mail servisi eklendi
+- PDF varsayılan olarak beheerder / şirket mailine gidiyor
+- Toggle açıksa müşteri mailine de gönderiliyor
 
-### P0 - Critical
-- [ ] User's real werf data restoration (still partially missing)
-- [ ] Delete Worker feature - needs final testing
+### 3. APK build ayarı düzeltildi
+- `frontend/eas.json` preview profili artık çalışan preview backend’e bakıyor:
+  - `https://ops-manager-15.preview.emergentagent.com`
+- Bu önemliydi çünkü eski APK / build profili bozuk Railway backend’e bakıyordu
 
-### P1 - Important  
-- [ ] Twilio SMS verificatie (infrastructure gebouwd, UI aanwezig, niet actief)
-- [ ] PWA manifest voor betere home screen installatie
-- [ ] Werf data herstel voor echte gebruiker
+## Teknik Olarak Güncellenen Dosyalar
+- `/app/frontend/app/werkbon/oplevering.tsx`
+- `/app/backend/server.py`
+- `/app/frontend/app/admin/login.tsx`
+- `/app/frontend/eas.json`
+- `/app/.github/workflows/android-build.yml`
 
-### P2 - Nice to have
-- [ ] AI-gestuurde factuurkoppeling
-- [ ] Bulk PDF export voor meerdere werkbonnen
-- [ ] Push notificaties
+## Test Özeti
+- Worker login backend ve preview üzerinde çalışıyor
+- Admin web panel login çalışıyor
+- Oplevering form render test başarılı
+- Oplevering create backend test başarılı
+- Oplevering PDF mail gönderimi backend test başarılı
+- Browser üzerinden end-to-end oplevering submit başarılı
+- Test raporu: `/app/test_reports/iteration_7.json`
 
-## Key Credentials / Config
-- Admin login: info@smart-techbv.be / smart123
-- Backend: port 8001
-- App URL: https://ops-manager-15.preview.emergentagent.com
+## Build Durumu
+- Yeni Android preview APK build başlatıldı
+- EAS build URL:
+  - `https://expo.dev/accounts/smarttechbv/projects/smart-ts/builds/4f05938f-d0f4-4d1f-a947-5d11905762fd`
+- Build ID:
+  - `4f05938f-d0f4-4d1f-a947-5d11905762fd`
+
+## P0 Backlog
+- [ ] Railway canlı backend’i güncelle
+- [ ] Final APK’yı Railway backend’e bağla
+- [ ] GitHub Actions Android build akışındaki kalan CI hatalarını stabilize et
+
+## P1 Backlog
+- [ ] Oplevering / project werkbon admin görüntüleme ekranlarını genişlet
+- [ ] Müşteri e-mail toggle davranışını admin ayarlarına bağla
+
+## P2 Backlog
+- [ ] Multi-tenant / company_id mimarisi
+- [ ] EAS Update uyumluluğunu tamamlama
