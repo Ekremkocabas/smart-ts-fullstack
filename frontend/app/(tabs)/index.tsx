@@ -300,6 +300,16 @@ export default function WerkbonnenScreen() {
               </View>
               <Ionicons name="chevron-forward" size={20} color="#6c757d" />
             </TouchableOpacity>
+            <TouchableOpacity style={styles.typeOption} onPress={() => { setShowTypeModal(false); router.push('/werkbon/productie'); }}>
+              <View style={[styles.typeIcon, { backgroundColor: '#9b59b615' }]}>
+                <Ionicons name="layers-outline" size={24} color="#9b59b6" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.typeOptionTitle}>Productie</Text>
+                <Text style={styles.typeOptionDesc}>PUR isolatie & productieregistratie</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#6c757d" />
+            </TouchableOpacity>
           </View>
         </TouchableOpacity>
       </Modal>

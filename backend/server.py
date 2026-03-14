@@ -349,12 +349,14 @@ class OpleveringWerkbon(BaseModel):
     fotos: List[str] = []  # List of base64 encoded images
     foto_labels: List[str] = []  # Label for each photo
     
-    # Signatures
+    # Signatures & Page 2
     handtekening_klant: Optional[str] = None  # Client signature base64
     handtekening_klant_naam: str = ""
     handtekening_monteur: Optional[str] = None  # Technician signature base64
     handtekening_monteur_naam: str = ""
     handtekening_datum: Optional[datetime] = None
+    selfie_foto: Optional[str] = None
+    gps_locatie: Optional[str] = None
     verstuur_naar_klant: bool = False
     klant_email_override: Optional[str] = None
     email_error: Optional[str] = None
@@ -387,6 +389,9 @@ class OpleveringWerkbonCreate(BaseModel):
     handtekening_klant_naam: str = ""
     handtekening_monteur: Optional[str] = None
     handtekening_monteur_naam: str = ""
+    selfie_foto: Optional[str] = None
+    gps_locatie: Optional[str] = None
+    handtekening_datum_str: Optional[str] = None
     verstuur_naar_klant: bool = False
     klant_email_override: Optional[str] = None
 
@@ -407,6 +412,8 @@ class OpleveringWerkbonUpdate(BaseModel):
     handtekening_klant_naam: Optional[str] = None
     handtekening_monteur: Optional[str] = None
     handtekening_monteur_naam: Optional[str] = None
+    selfie_foto: Optional[str] = None
+    gps_locatie: Optional[str] = None
     verstuur_naar_klant: Optional[bool] = None
     klant_email_override: Optional[str] = None
     status: Optional[str] = None
@@ -502,6 +509,90 @@ class ProjectWerkbonUpdate(BaseModel):
     klant_email_override: Optional[str] = None
     status: Optional[str] = None
 
+# ==================== PRODUCTIE WERKBON (PUR Insulation) ====================
+
+class ProductieFoto(BaseModel):
+    base64: str = ""
+    timestamp: str = ""
+    werknemer_id: str = ""
+    gps: str = ""
+
+class ProductieWerkbon(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    type: str = "productie"
+    datum: str
+    werknemer_naam: str = ""
+    werknemer_id: str = ""
+    klant_id: str
+    klant_naam: str
+    werf_id: str
+    werf_naam: str
+    werf_adres: Optional[str] = None
+    start_uur: str = ""
+    eind_uur: str = ""
+    voorziene_uur: str = ""
+    uit_te_voeren_werk: str = ""
+    nodige_materiaal: str = ""
+    gelijkvloers_m2: float = 0
+    gelijkvloers_cm: float = 0
+    eerste_verdiep_m2: float = 0
+    eerste_verdiep_cm: float = 0
+    tweede_verdiep_m2: float = 0
+    tweede_verdiep_cm: float = 0
+    totaal_m2: float = 0
+    schuurwerken: bool = False
+    schuurwerken_m2: float = 0
+    stofzuigen: bool = False
+    stofzuigen_m2: float = 0
+    fotos: List[dict] = Field(default_factory=list)
+    opmerking: str = ""
+    gps_locatie: Optional[str] = None
+    handtekening: Optional[str] = None
+    handtekening_naam: str = ""
+    handtekening_datum: Optional[str] = None
+    selfie_foto: Optional[str] = None
+    verstuur_naar_klant: bool = False
+    klant_email_override: Optional[str] = None
+    ingevuld_door_id: str
+    ingevuld_door_naam: str
+    status: str = "concept"
+    email_verzonden: bool = False
+    pdf_bestandsnaam: Optional[str] = None
+    email_error: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class ProductieWerkbonCreate(BaseModel):
+    datum: str
+    werknemer_naam: str = ""
+    werknemer_id: str = ""
+    klant_id: str
+    werf_id: str
+    start_uur: str = ""
+    eind_uur: str = ""
+    voorziene_uur: str = ""
+    uit_te_voeren_werk: str = ""
+    nodige_materiaal: str = ""
+    gelijkvloers_m2: float = 0
+    gelijkvloers_cm: float = 0
+    eerste_verdiep_m2: float = 0
+    eerste_verdiep_cm: float = 0
+    tweede_verdiep_m2: float = 0
+    tweede_verdiep_cm: float = 0
+    schuurwerken: bool = False
+    schuurwerken_m2: float = 0
+    stofzuigen: bool = False
+    stofzuigen_m2: float = 0
+    fotos: List[dict] = Field(default_factory=list)
+    opmerking: str = ""
+    gps_locatie: Optional[str] = None
+    handtekening: Optional[str] = None
+    handtekening_naam: str = ""
+    handtekening_datum: Optional[str] = None
+    selfie_foto: Optional[str] = None
+    verstuur_naar_klant: bool = False
+    klant_email_override: Optional[str] = None
+
 # ==================== PLANNING SYSTEM ====================
 
 class PlanningItem(BaseModel):
@@ -535,6 +626,7 @@ class PlanningItem(BaseModel):
     
     # Worker acknowledgment
     bevestigd_door: List[str] = []  # Worker IDs who pressed OK
+    bevestigingen: List[dict] = Field(default_factory=list)  # [{worker_id, worker_naam, timestamp}]
     
     notities: str = ""  # Additional notes
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -1478,6 +1570,252 @@ def generate_oplevering_pdf(werkbon: dict, instellingen: dict) -> tuple[bytes, s
     pdf_bytes = buffer.getvalue()
     buffer.close()
     return pdf_bytes, build_oplevering_pdf_filename(werkbon)
+
+
+# ==================== PRODUCTIE WERKBON PDF ====================
+
+def build_productie_pdf_filename(werkbon: dict) -> str:
+    safe_werf = (werkbon.get("werf_naam") or "werf").replace(" ", "-").lower()[:20]
+    return f"productie-werkbon-{safe_werf}-{werkbon.get('datum', 'datum')}.pdf"
+
+
+def generate_productie_pdf(werkbon: dict, instellingen: dict) -> tuple[bytes, str]:
+    from reportlab.platypus import PageBreak
+    buffer = io.BytesIO()
+    pdf = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=14 * mm, rightMargin=14 * mm, topMargin=12 * mm, bottomMargin=12 * mm)
+
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(name="PSec", parent=styles["Heading2"], fontSize=11, textColor=colors.HexColor("#1a1a2e"), spaceAfter=5, spaceBefore=4))
+    styles.add(ParagraphStyle(name="PBody", parent=styles["BodyText"], fontSize=9, leading=12))
+    styles.add(ParagraphStyle(name="PSmall", parent=styles["BodyText"], fontSize=8, leading=10, textColor=colors.HexColor("#555555")))
+
+    story = []
+    logo_bytes = decode_base64_data(instellingen.get("logo_base64"))
+    logo = make_safe_reportlab_image(logo_bytes, 24 * mm, 18 * mm)
+    bedrijfsnaam = instellingen.get("bedrijfsnaam") or "Smart-Tech BV"
+
+    left_cell: list = []
+    if logo:
+        left_cell.append(logo)
+    left_cell.extend([
+        Spacer(1, 2),
+        Paragraph(f"<b>{bedrijfsnaam}</b>", ParagraphStyle("PComp", fontName="Helvetica-Bold", fontSize=14, textColor=colors.HexColor("#1a1a2e"))),
+        Paragraph(instellingen.get("email") or COMPANY_EMAIL, styles["PSmall"]),
+    ])
+    title_box = [
+        Paragraph("<b>PRODUCTIE WERKBON</b>", ParagraphStyle("PTitle", fontName="Helvetica-Bold", fontSize=16, textColor=colors.HexColor("#1a1a2e"), alignment=2)),
+        Paragraph(f"Datum: {werkbon.get('datum') or '-'}", styles["PBody"]),
+        Paragraph(f"Status: {(werkbon.get('status') or 'ondertekend').capitalize()}", styles["PBody"]),
+    ]
+    header_table = Table([[left_cell, title_box]], colWidths=[85 * mm, 85 * mm])
+    header_table.setStyle(TableStyle([
+        ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#F5A623")),
+        ("BACKGROUND", (0, 0), (-1, -1), colors.white),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    story.extend([header_table, Spacer(1, 8)])
+
+    # Planning info
+    info_rows = [
+        ["Monteur", werkbon.get("werknemer_naam") or werkbon.get("ingevuld_door_naam") or "-"],
+        ["Klant", werkbon.get("klant_naam") or "-"],
+        ["Werf", werkbon.get("werf_naam") or "-"],
+        ["Adres", werkbon.get("werf_adres") or "-"],
+        ["Start uur", werkbon.get("start_uur") or "-"],
+        ["Eind uur", werkbon.get("eind_uur") or "-"],
+        ["Voorziene uur", werkbon.get("voorziene_uur") or "-"],
+    ]
+    if werkbon.get("gps_locatie"):
+        info_rows.append(["GPS Locatie", werkbon.get("gps_locatie")])
+    info_table = Table(info_rows, colWidths=[40 * mm, 130 * mm])
+    info_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#f5f5f5")),
+        ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#cccccc")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#dddddd")),
+        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    story.extend([Paragraph("Planning info", styles["PSec"]), info_table, Spacer(1, 8)])
+
+    # Work description
+    werk_text = werkbon.get("uit_te_voeren_werk") or "-"
+    materiaal_text = werkbon.get("nodige_materiaal") or "-"
+    detail_table = Table([
+        [Paragraph("<b>Uit te voeren werk</b>", styles["PBody"]), Paragraph("<b>Nodige materiaal</b>", styles["PBody"])],
+        [Paragraph(werk_text.replace("\n", "<br/>"), styles["PBody"]), Paragraph(materiaal_text.replace("\n", "<br/>"), styles["PBody"])],
+    ], colWidths=[85 * mm, 85 * mm])
+    detail_table.setStyle(TableStyle([
+        ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#cccccc")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#dddddd")),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f8f9fa")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    story.extend([Paragraph("Werk details", styles["PSec"]), detail_table, Spacer(1, 8)])
+
+    # PUR Production table
+    totaal_m2 = werkbon.get("totaal_m2") or round(
+        float(werkbon.get("gelijkvloers_m2") or 0) +
+        float(werkbon.get("eerste_verdiep_m2") or 0) +
+        float(werkbon.get("tweede_verdiep_m2") or 0), 2
+    )
+    pur_rows = [
+        ["Verdiep", "M²", "CM Dikte"],
+        ["Gelijkvloers", f"{werkbon.get('gelijkvloers_m2', 0)} m²", f"{werkbon.get('gelijkvloers_cm', 0)} cm"],
+        ["1ste Verdiep", f"{werkbon.get('eerste_verdiep_m2', 0)} m²", f"{werkbon.get('eerste_verdiep_cm', 0)} cm"],
+        ["2de Verdiep", f"{werkbon.get('tweede_verdiep_m2', 0)} m²", f"{werkbon.get('tweede_verdiep_cm', 0)} cm"],
+        ["TOTAAL", f"{totaal_m2} m²", ""],
+    ]
+    pur_table = Table(pur_rows, colWidths=[60 * mm, 55 * mm, 55 * mm])
+    pur_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#FFF3CD")),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTNAME", (0, -1), (0, -1), "Helvetica-Bold"),
+        ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#cccccc")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#dddddd")),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    story.extend([Paragraph("PUR Productie", styles["PSec"]), pur_table, Spacer(1, 8)])
+
+    # Schuurwerken / Stofzuigen
+    schuurwerken = werkbon.get("schuurwerken", False)
+    stofzuigen = werkbon.get("stofzuigen", False)
+    extra_rows = [["Type", "Status", "M²"],
+        ["Schuurwerken", "Ja" if schuurwerken else "Nee", f"{werkbon.get('schuurwerken_m2', 0)} m²" if schuurwerken else "-"],
+        ["Stofzuigen", "Ja" if stofzuigen else "Nee", f"{werkbon.get('stofzuigen_m2', 0)} m²" if stofzuigen else "-"],
+    ]
+    extra_table = Table(extra_rows, colWidths=[60 * mm, 55 * mm, 55 * mm])
+    extra_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#cccccc")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#dddddd")),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    story.extend([Paragraph("Extra werkzaamheden", styles["PSec"]), extra_table, Spacer(1, 6)])
+
+    if werkbon.get("opmerking"):
+        story.append(Paragraph(f"<b>Opmerking:</b> {werkbon.get('opmerking', '').replace(chr(10), '<br/>')}", styles["PBody"]))
+        story.append(Spacer(1, 8))
+
+    # Work photos - LARGE, max 2 per page
+    fotos = werkbon.get("fotos") or []
+    if fotos:
+        story.append(Paragraph("Werkfoto's", styles["PSec"]))
+        for i, foto in enumerate(fotos[:4]):
+            if i > 0 and i % 2 == 0:
+                story.append(PageBreak())
+                story.append(Paragraph("Werkfoto's (vervolg)", styles["PSec"]))
+            base64_data = foto.get("base64") if isinstance(foto, dict) else foto
+            foto_ts = foto.get("timestamp", "") if isinstance(foto, dict) else ""
+            foto_gps = foto.get("gps", "") if isinstance(foto, dict) else ""
+            image = make_safe_reportlab_image(decode_base64_data(base64_data), 160 * mm, 110 * mm)
+            if image:
+                caption_parts = [f"Foto {i + 1}"]
+                if foto_ts:
+                    caption_parts.append(foto_ts)
+                if foto_gps:
+                    caption_parts.append(f"GPS: {foto_gps}")
+                story.extend([image, Paragraph(" | ".join(caption_parts), styles["PSmall"]), Spacer(1, 8)])
+
+    # Signature section
+    signer_name = werkbon.get("handtekening_naam") or "-"
+    sign_date = werkbon.get("handtekening_datum") or "-"
+    signature_bytes = decode_base64_data(werkbon.get("handtekening"))
+    signature_image = make_safe_reportlab_image(signature_bytes, 80 * mm, 28 * mm)
+    sig_content: list = [
+        Paragraph(f"<b>Naam:</b> {signer_name}", styles["PBody"]),
+        Paragraph(f"<b>Datum:</b> {str(sign_date)[:16]}", styles["PBody"]),
+        Spacer(1, 4),
+    ]
+    if signature_image:
+        sig_content.append(signature_image)
+
+    selfie_bytes = decode_base64_data(werkbon.get("selfie_foto"))
+    selfie_img = make_safe_reportlab_image(selfie_bytes, 30 * mm, 30 * mm)
+    if selfie_img:
+        selfie_col: list = [Paragraph("<b>Selfie</b>", styles["PSmall"]), selfie_img]
+        sig_table = Table([[sig_content, selfie_col]], colWidths=[130 * mm, 40 * mm])
+    else:
+        sig_table = Table([[sig_content]], colWidths=[170 * mm])
+    sig_table.setStyle(TableStyle([
+        ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#cccccc")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    confirmation_text = instellingen.get("uren_confirmation_text") or "Hierbij bevestigt de klant dat deze ingevulde werkbon juist is ingevuld."
+    story.extend([
+        Paragraph("Handtekening", styles["PSec"]),
+        Paragraph(confirmation_text.replace("\n", "<br/>"), styles["PBody"]),
+        Spacer(1, 4),
+        sig_table,
+        Spacer(1, 8),
+    ])
+    privacy_text = "Persoonsgegevens worden verwerkt conform de AVG. Foto's en handtekening worden uitsluitend gebruikt voor administratieve doeleinden."
+    story.extend([
+        Paragraph(f"<i>{privacy_text}</i>", styles["PSmall"]),
+        Spacer(1, 4),
+        Paragraph((instellingen.get("pdf_voettekst") or "Digitale productie werkbon").replace("\n", "<br/>"), styles["PSmall"]),
+    ])
+    pdf.build(story)
+    pdf_bytes = buffer.getvalue()
+    buffer.close()
+    return pdf_bytes, build_productie_pdf_filename(werkbon)
+
+
+async def send_productie_werkbon_email(werkbon: dict, instellingen: dict, pdf_bytes: bytes, pdf_filename: str, klant_email: Optional[str] = None):
+    bedrijfsnaam = instellingen.get("bedrijfsnaam") or "Smart-Tech BV"
+    company_email = instellingen.get("email") or COMPANY_EMAIL
+    admin_emails = instellingen.get("admin_emails") or [COMPANY_EMAIL]
+    recipients = list(set([company_email] + admin_emails))
+    if klant_email:
+        recipients.append(klant_email)
+    recipients = [r for r in recipients if r and "@" in r]
+    try:
+        subject = f"Productie Werkbon - {werkbon.get('werf_naam')} - {werkbon.get('datum')}"
+        html_body = f"""
+        <h2>Productie Werkbon</h2>
+        <p><b>Monteur:</b> {werkbon.get('werknemer_naam') or werkbon.get('ingevuld_door_naam', '-')}</p>
+        <p><b>Klant:</b> {werkbon.get('klant_naam', '-')}</p>
+        <p><b>Werf:</b> {werkbon.get('werf_naam', '-')}</p>
+        <p><b>Datum:</b> {werkbon.get('datum', '-')}</p>
+        <p><b>Totaal M&sup2;:</b> {werkbon.get('totaal_m2', 0)} m&sup2;</p>
+        <p>De volledige details vindt u in de bijgevoegde PDF.</p>
+        <hr><p style="font-size:12px;color:#888">{bedrijfsnaam}</p>
+        """
+        params = {
+            "from": f"{bedrijfsnaam} <{SENDER_EMAIL}>",
+            "to": recipients,
+            "subject": subject,
+            "html": html_body,
+            "attachments": [{"filename": pdf_filename, "content": base64.b64encode(pdf_bytes).decode(), "contentType": "application/pdf"}],
+        }
+        resend.Emails.send(params)
+        return {"success": True, "recipients": recipients}
+    except Exception as exc:
+        logging.error(f"Productie email error: {exc}")
+        return {"success": False, "error": str(exc), "recipients": recipients}
 
 
 PROJECT_FEEDBACK_DEFAULTS = [
@@ -2979,6 +3317,114 @@ async def delete_project_werkbon(werkbon_id: str):
         raise HTTPException(status_code=404, detail="Project werkbon niet gevonden")
     return {"message": "Project werkbon verwijderd"}
 
+# ==================== PRODUCTIE WERKBON ROUTES ====================
+
+@api_router.get("/productie-werkbonnen")
+async def get_productie_werkbonnen(user_id: str):
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
+    query = {} if user.get("rol") in ("admin", "beheerder") else {"ingevuld_door_id": user_id}
+    items = await db.productie_werkbonnen.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    return items
+
+@api_router.get("/productie-werkbonnen/{werkbon_id}")
+async def get_productie_werkbon(werkbon_id: str):
+    item = await db.productie_werkbonnen.find_one({"id": werkbon_id}, {"_id": 0})
+    if not item:
+        raise HTTPException(status_code=404, detail="Productie werkbon niet gevonden")
+    return item
+
+@api_router.post("/productie-werkbonnen")
+async def create_productie_werkbon(data: ProductieWerkbonCreate, user_id: str, user_naam: str):
+    klant = await db.klanten.find_one({"id": data.klant_id})
+    werf = await db.werven.find_one({"id": data.werf_id})
+    if not klant:
+        raise HTTPException(status_code=404, detail="Klant niet gevonden")
+    if not werf:
+        raise HTTPException(status_code=404, detail="Werf niet gevonden")
+
+    totaal_m2 = round(float(data.gelijkvloers_m2) + float(data.eerste_verdiep_m2) + float(data.tweede_verdiep_m2), 2)
+    werkbon = ProductieWerkbon(
+        datum=data.datum,
+        werknemer_naam=data.werknemer_naam or user_naam,
+        werknemer_id=data.werknemer_id or user_id,
+        klant_id=data.klant_id,
+        klant_naam=klant["naam"],
+        werf_id=data.werf_id,
+        werf_naam=werf["naam"],
+        werf_adres=werf.get("adres", ""),
+        start_uur=data.start_uur,
+        eind_uur=data.eind_uur,
+        voorziene_uur=data.voorziene_uur,
+        uit_te_voeren_werk=data.uit_te_voeren_werk,
+        nodige_materiaal=data.nodige_materiaal,
+        gelijkvloers_m2=data.gelijkvloers_m2,
+        gelijkvloers_cm=data.gelijkvloers_cm,
+        eerste_verdiep_m2=data.eerste_verdiep_m2,
+        eerste_verdiep_cm=data.eerste_verdiep_cm,
+        tweede_verdiep_m2=data.tweede_verdiep_m2,
+        tweede_verdiep_cm=data.tweede_verdiep_cm,
+        totaal_m2=totaal_m2,
+        schuurwerken=data.schuurwerken,
+        schuurwerken_m2=data.schuurwerken_m2,
+        stofzuigen=data.stofzuigen,
+        stofzuigen_m2=data.stofzuigen_m2,
+        fotos=data.fotos,
+        opmerking=data.opmerking,
+        gps_locatie=data.gps_locatie,
+        handtekening=data.handtekening,
+        handtekening_naam=data.handtekening_naam,
+        handtekening_datum=data.handtekening_datum,
+        selfie_foto=data.selfie_foto,
+        verstuur_naar_klant=data.verstuur_naar_klant,
+        klant_email_override=(data.klant_email_override or klant.get("email") or "").strip(),
+        ingevuld_door_id=user_id,
+        ingevuld_door_naam=user_naam,
+        status="ondertekend",
+    )
+    await db.productie_werkbonnen.insert_one(werkbon.dict())
+    return werkbon.dict()
+
+@api_router.post("/productie-werkbonnen/{werkbon_id}/verzenden")
+async def verzend_productie_werkbon(werkbon_id: str, klant_email: Optional[str] = Query(None)):
+    werkbon = await db.productie_werkbonnen.find_one({"id": werkbon_id}, {"_id": 0})
+    if not werkbon:
+        raise HTTPException(status_code=404, detail="Productie werkbon niet gevonden")
+    instellingen = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0}) or {}
+    try:
+        pdf_bytes, pdf_filename = generate_productie_pdf(werkbon, instellingen)
+    except Exception as exc:
+        logging.exception("Productie PDF generation failed for %s", werkbon_id)
+        raise HTTPException(status_code=500, detail=f"PDF genereren mislukt: {str(exc)}")
+
+    override_email = (klant_email or werkbon.get("klant_email_override") or "").strip()
+    email_result = await send_productie_werkbon_email(werkbon, instellingen, pdf_bytes, pdf_filename, klant_email=override_email)
+    await db.productie_werkbonnen.update_one(
+        {"id": werkbon_id},
+        {"$set": {
+            "status": "verzonden" if email_result.get("success") else werkbon.get("status", "ondertekend"),
+            "email_verzonden": email_result.get("success", False),
+            "email_error": email_result.get("error"),
+            "pdf_bestandsnaam": pdf_filename,
+            "updated_at": datetime.now(timezone.utc),
+        }}
+    )
+    return {
+        "success": True,
+        "email_sent": email_result.get("success", False),
+        "email_error": email_result.get("error"),
+        "pdf_filename": pdf_filename,
+        "recipients": email_result.get("recipients", []),
+    }
+
+@api_router.delete("/productie-werkbonnen/{werkbon_id}")
+async def delete_productie_werkbon(werkbon_id: str):
+    result = await db.productie_werkbonnen.delete_one({"id": werkbon_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Productie werkbon niet gevonden")
+    return {"message": "Productie werkbon verwijderd"}
+
 # ==================== PLANNING ROUTES ====================
 
 @api_router.get("/planning")
@@ -3117,20 +3563,30 @@ async def delete_planning(planning_id: str):
     return {"message": "Planning item verwijderd"}
 
 @api_router.post("/planning/{planning_id}/bevestig")
-async def bevestig_planning(planning_id: str, werknemer_id: str):
+async def bevestig_planning(planning_id: str, werknemer_id: str, werknemer_naam: Optional[str] = Query(None)):
     """Worker confirms/acknowledges a planning item"""
     item = await db.planning.find_one({"id": planning_id})
     if not item:
         raise HTTPException(status_code=404, detail="Planning item niet gevonden")
-    
+
     bevestigd = item.get("bevestigd_door", [])
+    bevestigingen = item.get("bevestigingen", [])
+    timestamp_now = datetime.now(timezone.utc).isoformat()
+
     if werknemer_id not in bevestigd:
         bevestigd.append(werknemer_id)
+        # Store detailed confirmation with timestamp
+        bevestigingen = [b for b in bevestigingen if b.get("worker_id") != werknemer_id]
+        bevestigingen.append({
+            "worker_id": werknemer_id,
+            "worker_naam": werknemer_naam or werknemer_id,
+            "timestamp": timestamp_now,
+        })
         await db.planning.update_one(
             {"id": planning_id},
-            {"$set": {"bevestigd_door": bevestigd}}
+            {"$set": {"bevestigd_door": bevestigd, "bevestigingen": bevestigingen}}
         )
-    return {"message": "Planning bevestigd", "bevestigd_door": bevestigd}
+    return {"message": "Planning bevestigd", "bevestigd_door": bevestigd, "bevestigingen": bevestigingen}
 
 # ==================== BERICHTEN (MESSAGES) ROUTES ====================
 

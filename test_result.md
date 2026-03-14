@@ -11,6 +11,30 @@ backend:
         agent: "testing"
         comment: "✅ Login API working with correct credentials (info@smart-techbv.be / Smart1988-). GET /api/auth/users returns 10 users correctly."
 
+  - task: "Productie Werkbon API"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "New endpoints added: GET/POST /api/productie-werkbonnen, GET/POST /api/productie-werkbonnen/{id}/verzenden, DELETE /api/productie-werkbonnen/{id}. Backend model includes PUR production, GPS, selfie, schuurwerken, stofzuigen fields."
+
+  - task: "Planning Confirmation with Timestamp"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Updated bevestig_planning endpoint to store {worker_id, worker_naam, timestamp} in bevestigingen array. Admin planning view updated to show BEVESTIGD with timestamp."
+
   - task: "Dashboard Statistics API"
     implemented: true
     working: true

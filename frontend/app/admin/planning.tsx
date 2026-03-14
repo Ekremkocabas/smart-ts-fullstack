@@ -44,6 +44,7 @@ interface PlanningItem {
   prioriteit: string;
   status: string;
   bevestigd_door: string[];
+  bevestigingen?: { worker_id: string; worker_naam: string; timestamp: string }[];
   notities: string;
 }
 
@@ -710,13 +711,23 @@ export default function PlanningAdmin() {
                     {selectedItem.werknemer_namen.map((naam, i) => {
                       const wId = selectedItem.werknemer_ids[i];
                       const bevestigd = selectedItem.bevestigd_door.includes(wId);
+                      const bevestiging = (selectedItem.bevestigingen || []).find((b: any) => b.worker_id === wId);
+                      const tsLabel = bevestiging?.timestamp
+                        ? new Date(bevestiging.timestamp).toLocaleString('nl-BE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                        : null;
+                      const naamLabel = bevestiging?.worker_naam || wNaam;
                       return (
                         <View key={i} style={styles.workerDetailRow}>
                           <View style={styles.workerAvatarSmall}><Text style={styles.workerAvatarTextSmall}>{naam?.charAt(0)}</Text></View>
                           <Text style={styles.workerDetailName}>{naam}</Text>
                           <View style={[styles.bevestigBadge, { backgroundColor: bevestigd ? '#28a74520' : '#F5A62320' }]}>
                             <Ionicons name={bevestigd ? 'checkmark-circle' : 'time'} size={14} color={bevestigd ? '#28a745' : '#F5A623'} />
-                            <Text style={{ fontSize: 11, color: bevestigd ? '#28a745' : '#F5A623', fontWeight: '600' }}>{bevestigd ? 'Bevestigd' : 'Wacht'}</Text>
+                            <Text style={{ fontSize: 11, color: bevestigd ? '#28a745' : '#F5A623', fontWeight: '600' }}>
+                              {bevestigd ? `BEVESTIGD` : 'Wacht'}
+                            </Text>
+                            {bevestigd && tsLabel && (
+                              <Text style={{ fontSize: 9, color: '#28a745', marginTop: 1 }}>{tsLabel}</Text>
+                            )}
                           </View>
                         </View>
                       );

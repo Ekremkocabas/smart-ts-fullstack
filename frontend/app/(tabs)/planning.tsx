@@ -94,7 +94,7 @@ export default function PlanningTab() {
   const bevestigPlanning = async (itemId: string) => {
     if (!user?.id) return;
     try {
-      await fetch(`${API_URL}/api/planning/${itemId}/bevestig?werknemer_id=${user.id}`, { method: 'POST' });
+      await fetch(`${API_URL}/api/planning/${itemId}/bevestig?werknemer_id=${user.id}&werknemer_naam=${encodeURIComponent(user.naam || user.id)}`, { method: 'POST' });
       fetchPlanning();
     } catch (e) { console.error(e); }
   };

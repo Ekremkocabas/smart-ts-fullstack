@@ -16,9 +16,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import SignatureScreen from 'react-native-signature-canvas';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { showAlert } from '../../utils/alerts';
+
+const PRIVACY_TEXT = 'Persoonsgegevens worden verwerkt conform de AVG. Foto\'s en handtekening worden uitsluitend gebruikt voor administratieve doeleinden en worden niet gedeeld met derden.';
 
 const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
@@ -132,9 +136,14 @@ const WebSignatureCanvas = ({ onEnd, onClear, signatureRef }: any) => {
 export default function OpleveringWerkbonScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { theme } = useTheme();
+  const primary = theme.primaryColor || '#F5A623';
   const signatureRef = useRef<any>(null);
   const pendingSubmitRef = useRef(false);
   const hasSignatureRef = useRef(false);
+
+  // Page navigation
+  const [page, setPage] = useState<1 | 2>(1);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -149,15 +158,20 @@ export default function OpleveringWerkbonScreen() {
   const [damageStatus, setDamageStatus] = useState<'geen_schade' | 'schade_aanwezig'>('geen_schade');
   const [damageNote, setDamageNote] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
-  const [sendToCustomer, setSendToCustomer] = useState(false);
-  const [customerEmail, setCustomerEmail] = useState('');
-  const [customerName, setCustomerName] = useState('');
-  const [signatureValue, setSignatureValue] = useState<string | null>(null);
-  const [hasSignature, setHasSignature] = useState(false);
   const [allesOk, setAllesOk] = useState(true);
   const [ratings, setRatings] = useState<RatingMap>(() =>
     RATING_CATEGORIES.reduce((acc, item) => ({ ...acc, [item]: 0 }), {})
   );
+  // Page 2 signature fields
+  const [gpsLocatie, setGpsLocatie] = useState('');
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [signatureValue, setSignatureValue] = useState<string | null>(null);
+  const [hasSignature, setHasSignature] = useState(false);
+  const [customerName, setCustomerName] = useState(''); // NOT auto-filled
+  const [handtekeningDatum, setHandtekeningDatum] = useState(new Date().toISOString().slice(0, 10));
+  const [selfieFoto, setSelfieFoto] = useState<string | null>(null);
+  const [sendToCustomer, setSendToCustomer] = useState(false);
+  const [customerEmail, setCustomerEmail] = useState('');
 
   const filteredWerven = useMemo(
     () => werven.filter((item) => item.klant_id === selectedKlant?.id),
@@ -247,6 +261,34 @@ export default function OpleveringWerkbonScreen() {
     setHasSignature(true);
   };
 
+  const getGPS = async () => {
+    setGpsLoading(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') { showAlert('Toegang nodig', 'Locatietoegang is vereist'); return; }
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      setGpsLocatie(`${loc.coords.latitude.toFixed(6)}, ${loc.coords.longitude.toFixed(6)}`);
+    } catch (e) { console.error(e); showAlert('Fout', 'Locatie ophalen mislukt'); }
+    finally { setGpsLoading(false); }
+  };
+
+  const takeSelfie = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') { showAlert('Toegang nodig', 'Camera is nodig voor selfie'); return; }
+      const result = await ImagePicker.launchCameraAsync({ quality: 0.6, base64: true, cameraType: ImagePicker.CameraType.front });
+      if (!result.canceled && result.assets?.[0]?.base64) {
+        setSelfieFoto(`data:image/jpeg;base64,${result.assets[0].base64}`);
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  const validatePage1 = () => {
+    if (!selectedKlant || !selectedWerf) { showAlert('Fout', 'Selecteer eerst klant en werf'); return false; }
+    if (damageStatus === 'schade_aanwezig' && photos.length === 0) { showAlert('Fout', 'Bij schade is minstens 1 foto verplicht'); return false; }
+    return true;
+  };
+
   const handleSignatureCaptured = async (signature: string) => {
     hasSignatureRef.current = true;
     setSignatureValue(signature);
@@ -271,7 +313,7 @@ export default function OpleveringWerkbonScreen() {
             <Ionicons
               name={star <= ratings[label] ? 'star' : 'star-outline'}
               size={28}
-              color={star <= ratings[label] ? '#F5A623' : '#CDD3DA'}
+              color={star <= ratings[label] ? primary : '#CDD3DA'}
             />
           </TouchableOpacity>
         ))}
@@ -281,10 +323,6 @@ export default function OpleveringWerkbonScreen() {
 
   const runValidation = () => {
     const hasWebSignature = Platform.OS === 'web' && !signatureRef.current?.isEmpty?.();
-    if (!selectedKlant || !selectedWerf) {
-      showAlert('Fout', 'Selecteer eerst klant en werf');
-      return false;
-    }
     if (!customerName.trim()) {
       showAlert('Fout', 'Vul de naam van de klant in');
       return false;
@@ -293,12 +331,12 @@ export default function OpleveringWerkbonScreen() {
       showAlert('Fout', 'Plaats eerst de handtekening van de klant');
       return false;
     }
-    if (Object.values(ratings).some((score) => score < 1)) {
-      showAlert('Fout', 'Geef alle 5 beoordelingen een score');
+    if (!selfieFoto) {
+      showAlert('Fout', 'Selfie foto is verplicht');
       return false;
     }
-    if (damageStatus === 'schade_aanwezig' && photos.length === 0) {
-      showAlert('Fout', 'Bij schade is minstens 1 foto verplicht');
+    if (Object.values(ratings).some((score) => score < 1)) {
+      showAlert('Fout', 'Geef alle 5 beoordelingen een score');
       return false;
     }
     if (sendToCustomer && !validateEmail(customerEmail)) {
@@ -309,11 +347,7 @@ export default function OpleveringWerkbonScreen() {
   };
 
   const submit = async (signature: string) => {
-    if (!user?.id || !user?.naam) {
-      showAlert('Fout', 'Gebruiker niet gevonden');
-      return;
-    }
-
+    if (!user?.id || !user?.naam) { showAlert('Fout', 'Gebruiker niet gevonden'); return; }
     setSaving(true);
     try {
       const payload = {
@@ -333,42 +367,26 @@ export default function OpleveringWerkbonScreen() {
         alles_ok: allesOk,
         beoordelingen: RATING_CATEGORIES.map((categorie) => ({ categorie, score: ratings[categorie], opmerking: '' })),
         fotos: photos,
-        foto_labels: photos.map((_, index) => `Schade foto ${index + 1}`),
+        foto_labels: photos.map((_, i) => `Schade foto ${i + 1}`),
         handtekening_klant: signature,
         handtekening_klant_naam: customerName.trim(),
         handtekening_monteur_naam: user.naam,
+        selfie_foto: selfieFoto,
+        gps_locatie: gpsLocatie || null,
+        handtekening_datum_str: handtekeningDatum,
         verstuur_naar_klant: sendToCustomer,
         klant_email_override: sendToCustomer ? customerEmail.trim() : '',
       };
-
       const createResponse = await fetch(
         `${API_URL}/api/oplevering-werkbonnen?user_id=${encodeURIComponent(user.id)}&user_naam=${encodeURIComponent(user.naam)}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        }
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
       );
       const createData = await createResponse.json();
-      if (!createResponse.ok) {
-        throw new Error(createData.detail || 'Oplevering werkbon opslaan mislukt');
-      }
-
+      if (!createResponse.ok) throw new Error(createData.detail || 'Oplevering werkbon opslaan mislukt');
       const query = sendToCustomer ? `?klant_email=${encodeURIComponent(customerEmail.trim())}` : '';
-      const sendResponse = await fetch(`${API_URL}/api/oplevering-werkbonnen/${createData.id}/verzenden${query}`, {
-        method: 'POST',
-      });
+      const sendResponse = await fetch(`${API_URL}/api/oplevering-werkbonnen/${createData.id}/verzenden${query}`, { method: 'POST' });
       const sendData = await sendResponse.json();
-      if (!sendResponse.ok) {
-        throw new Error(sendData.detail || 'PDF verzenden mislukt');
-      }
-
-      showAlert(
-        'Gelukt',
-        sendData.email_sent
-          ? `Oplevering werkbon opgeslagen en PDF verzonden naar: ${(sendData.recipients || []).join(', ')}`
-          : 'Werkbon opgeslagen, maar e-mail verzending mislukte'
-      );
+      showAlert('Gelukt', sendData.email_sent ? `Werkbon opgeslagen en PDF verzonden` : 'Werkbon opgeslagen (e-mail niet verzonden)');
       router.back();
     } catch (error: any) {
       console.error(error);
@@ -402,7 +420,7 @@ export default function OpleveringWerkbonScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.loaderScreen}>
-        <ActivityIndicator testID="oplevering-loading-indicator" size="large" color="#F5A623" />
+        <ActivityIndicator testID="oplevering-loading-indicator" size="large" color={primary} />
       </SafeAreaView>
     );
   }
@@ -418,18 +436,32 @@ export default function OpleveringWerkbonScreen() {
     <SafeAreaView style={styles.container} edges={['top']} testID="oplevering-screen">
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <View style={styles.header}>
-          <TouchableOpacity testID="oplevering-back-button" style={styles.headerIconButton} onPress={() => router.back()}>
+          <TouchableOpacity testID="oplevering-back-button" style={styles.headerIconButton} onPress={() => { if (page === 2) { setPage(1); } else { router.back(); } }}>
             <Ionicons name="arrow-back" size={22} color="#1A1A2E" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle} testID="oplevering-header-title">Oplevering Werkbon</Text>
+          <View style={{ alignItems: 'center', flex: 1 }}>
+            <Text style={styles.headerTitle} testID="oplevering-header-title">Oplevering Werkbon</Text>
+            <View style={{ flexDirection: 'row', gap: 6, marginTop: 4 }}>
+              <View style={[{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#E8E9ED' }, page === 1 && { backgroundColor: primary }]} />
+              <View style={[{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#E8E9ED' }, page === 2 && { backgroundColor: primary }]} />
+            </View>
+          </View>
           <View style={styles.headerSpacer} />
         </View>
 
         <ScrollView style={styles.flex} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <View style={styles.infoBanner} testID="oplevering-info-banner">
-            <Ionicons name="document-text-outline" size={20} color="#F5A623" />
-            <Text style={styles.infoBannerText}>Na ondertekenen wordt de PDF naar beheerder gestuurd en optioneel ook naar de klant.</Text>
-          </View>
+          {page === 1 && (
+            <View style={[styles.infoBanner, { backgroundColor: primary + '15', borderColor: primary + '35' }]} testID="oplevering-info-banner">
+              <Ionicons name="construct-outline" size={20} color={primary} />
+              <Text style={[styles.infoBannerText, { color: primary }]}>Pagina 1 van 2 — Werkgegevens</Text>
+            </View>
+          )}
+          {page === 2 && (
+            <View style={[styles.infoBanner, { backgroundColor: '#28a74515', borderColor: '#28a74535' }]}>
+              <Ionicons name="pen-outline" size={20} color="#28a745" />
+              <Text style={[styles.infoBannerText, { color: '#28a745' }]}>Pagina 2 van 2 — Handtekening & Bevestiging</Text>
+            </View>
+          )}
 
           <Text style={styles.sectionTitle}>Klant</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
@@ -579,111 +611,130 @@ export default function OpleveringWerkbonScreen() {
             {RATING_CATEGORIES.map(renderStars)}
           </View>
 
-          <View style={styles.card} testID="oplevering-signature-card">
-            <Text style={styles.sectionTitle}>Klant handtekening & mail</Text>
-            <TextInput
-              testID="oplevering-customer-name-input"
-              style={styles.input}
-              value={customerName}
-              onChangeText={setCustomerName}
-              placeholder="Naam klant / contactpersoon"
-              placeholderTextColor="#8C9199"
-            />
-
-            <TouchableOpacity
-              testID="oplevering-send-customer-toggle"
-              style={[styles.checkboxRow, sendToCustomer && styles.checkboxRowActive]}
-              onPress={() => {
-                setSendToCustomer((prev) => !prev);
-                if (!customerEmail.trim() && selectedKlant?.email) {
-                  setCustomerEmail(selectedKlant.email);
-                }
-              }}
-            >
-              <View style={[styles.checkbox, sendToCustomer && styles.checkboxChecked]}>
-                {sendToCustomer ? <Ionicons name="checkmark" size={14} color="#fff" /> : null}
+          {page === 1 && (
+            <>
+              <View style={styles.card} testID="oplevering-notes-card">
+                <Text style={styles.sectionTitle}>Extra opmerkingen</Text>
+                <TextInput testID="oplevering-notes-input" style={[styles.input, styles.largeInput]} value={notes} onChangeText={setNotes}
+                  placeholder="Extra opmerkingen voor klant of beheerder" placeholderTextColor="#8C9199" multiline textAlignVertical="top" />
               </View>
-              <Text style={styles.checkboxText}>Ook naar klant mailen</Text>
-            </TouchableOpacity>
-
-            {sendToCustomer ? (
-              <TextInput
-                testID="oplevering-customer-email-input"
-                style={styles.input}
-                value={customerEmail}
-                onChangeText={setCustomerEmail}
-                placeholder="klant@email.com"
-                placeholderTextColor="#8C9199"
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-            ) : null}
-
-            <Text style={styles.signatureLabel}>Klant handtekening</Text>
-            <View style={styles.signatureWrapper} testID="oplevering-signature-pad-wrapper">
-              {Platform.OS === 'web' ? (
-                <WebSignatureCanvas signatureRef={signatureRef} onEnd={markSignaturePresent} onClear={handleClearSignature} />
-              ) : (
-                <SignatureScreen
-                  ref={signatureRef}
-                  onBegin={markSignaturePresent}
-                  onOK={handleSignatureCaptured}
-                  onEmpty={() => {
-                    hasSignatureRef.current = false;
-                    setHasSignature(false);
-                  }}
-                  webStyle={signaturePadStyle}
-                  descriptionText=""
-                  backgroundColor="#FFFFFF"
-                  penColor="#1A1A2E"
-                  imageType="image/png"
-                />
-              )}
-            </View>
-
-            <View style={styles.signatureButtonsRow}>
-              <TouchableOpacity testID="oplevering-clear-signature-button" style={styles.secondaryButton} onPress={handleClearSignature}>
-                <Ionicons name="refresh" size={18} color="#1A1A2E" />
-                <Text style={styles.secondaryButtonText}>Leegmaken</Text>
+              <TouchableOpacity style={[styles.primaryButton, { backgroundColor: primary }]}
+                onPress={() => { if (validatePage1()) setPage(2); }}>
+                <Text style={styles.primaryButtonText}>Volgende — Handtekening</Text>
+                <Ionicons name="arrow-forward" size={20} color="#fff" />
               </TouchableOpacity>
-            </View>
-          </View>
+            </>
+          )}
 
-          <View style={styles.card} testID="oplevering-notes-card">
-            <Text style={styles.sectionTitle}>Extra opmerkingen</Text>
-            <TextInput
-              testID="oplevering-notes-input"
-              style={[styles.input, styles.largeInput]}
-              value={notes}
-              onChangeText={setNotes}
-              placeholder="Extra opmerkingen voor klant of beheerder"
-              placeholderTextColor="#8C9199"
-              multiline
-              textAlignVertical="top"
-            />
-          </View>
+          {page === 2 && (
+            <>
+              {/* GPS */}
+              <View style={styles.card}>
+                <Text style={styles.sectionTitle}>Locatie</Text>
+                <TouchableOpacity style={[styles.gpsButton, { borderColor: gpsLocatie ? '#28a745' : primary }]} onPress={getGPS} disabled={gpsLoading}>
+                  {gpsLoading ? <ActivityIndicator size="small" color={primary} /> : <Ionicons name="navigate" size={20} color={gpsLocatie ? '#28a745' : primary} />}
+                  <Text style={[styles.gpsButtonText, { color: gpsLocatie ? '#28a745' : primary }]}>
+                    {gpsLocatie ? `GPS: ${gpsLocatie}` : 'Locatie openen (GPS vastleggen)'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
 
-          <TouchableOpacity
-            testID="oplevering-save-send-button"
-            style={[styles.primaryButton, saving && styles.primaryButtonDisabled]}
-            onPress={handleSave}
-            disabled={saving}
-          >
-            {saving ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <>
-                <Ionicons name="send" size={20} color="#FFFFFF" />
-                <Text style={styles.primaryButtonText}>Opslaan & PDF versturen</Text>
-              </>
-            )}
-          </TouchableOpacity>
+              {/* Signature card */}
+              <View style={styles.card} testID="oplevering-signature-card">
+                <Text style={styles.sectionTitle}>Klant handtekening *</Text>
+                <Text style={styles.signatureLabel}>Naam (verplicht — niet automatisch ingevuld)</Text>
+                <TextInput testID="oplevering-customer-name-input" style={styles.input} value={customerName} onChangeText={setCustomerName}
+                  placeholder="Volledige naam klant" placeholderTextColor="#8C9199" autoCapitalize="words" />
+                <Text style={styles.signatureLabel}>Datum</Text>
+                <TextInput style={styles.input} value={handtekeningDatum} onChangeText={setHandtekeningDatum} placeholder="YYYY-MM-DD" placeholderTextColor="#8C9199" />
+                <Text style={[styles.signatureLabel, { marginTop: 8 }]}>Handtekening</Text>
+                <View style={styles.signatureWrapper} testID="oplevering-signature-pad-wrapper">
+                  {Platform.OS === 'web' ? (
+                    <WebSignatureCanvas signatureRef={signatureRef} onEnd={markSignaturePresent} onClear={handleClearSignature} />
+                  ) : (
+                    <SignatureScreen ref={signatureRef} onBegin={markSignaturePresent} onOK={handleSignatureCaptured}
+                      onEmpty={() => { hasSignatureRef.current = false; setHasSignature(false); }}
+                      webStyle={signaturePadStyle} descriptionText="" backgroundColor="#FFFFFF" penColor="#1A1A2E" imageType="image/png" />
+                  )}
+                </View>
+                <View style={styles.signatureButtonsRow}>
+                  <TouchableOpacity testID="oplevering-clear-signature-button" style={styles.secondaryButton} onPress={handleClearSignature}>
+                    <Ionicons name="refresh" size={18} color="#1A1A2E" />
+                    <Text style={styles.secondaryButtonText}>Leegmaken</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Selfie */}
+              <View style={styles.card}>
+                <Text style={styles.sectionTitle}>Selfie foto *</Text>
+                <Text style={[styles.signatureLabel, { color: '#6c757d' }]}>Neem een selfie ter bevestiging van aanwezigheid.</Text>
+                {selfieFoto ? (
+                  <View style={{ alignItems: 'center', gap: 10 }}>
+                    <Image source={{ uri: selfieFoto }} style={{ width: 120, height: 120, borderRadius: 60, borderWidth: 2, borderColor: '#E8E9ED' }} />
+                    <TouchableOpacity style={styles.secondaryButton} onPress={takeSelfie}>
+                      <Ionicons name="camera-reverse" size={18} color="#6c757d" />
+                      <Text style={[styles.secondaryButtonText, { color: '#6c757d' }]}>Opnieuw nemen</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity style={[styles.photoBtn, { minHeight: 90, borderRadius: 14, borderWidth: 2, borderStyle: 'dashed', borderColor: primary }]} onPress={takeSelfie}>
+                    <Ionicons name="person-circle-outline" size={32} color={primary} />
+                    <Text style={[styles.photoBtnText, { color: primary, fontSize: 15, fontWeight: '700' }]}>Selfie maken</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Send to client */}
+              <View style={styles.card}>
+                <Text style={styles.sectionTitle}>Sturen naar klant</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#1A1A2E', flex: 1 }}>PDF versturen naar klant</Text>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <TouchableOpacity testID="oplevering-send-customer-toggle"
+                      style={[styles.toggleBtn, sendToCustomer && { backgroundColor: '#28a745', borderColor: '#28a745' }]}
+                      onPress={() => { setSendToCustomer(true); if (!customerEmail.trim() && selectedKlant?.email) setCustomerEmail(selectedKlant.email); }}>
+                      <Text style={[{ fontSize: 13, fontWeight: '700', color: '#4D5560' }, sendToCustomer && { color: '#fff' }]}>JA</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.toggleBtn, !sendToCustomer && { backgroundColor: '#dc3545', borderColor: '#dc3545' }]} onPress={() => setSendToCustomer(false)}>
+                      <Text style={[{ fontSize: 13, fontWeight: '700', color: '#4D5560' }, !sendToCustomer && { color: '#fff' }]}>NEE</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+                {sendToCustomer && (
+                  <TextInput testID="oplevering-customer-email-input" style={[styles.input, { marginTop: 8 }]} value={customerEmail} onChangeText={setCustomerEmail}
+                    placeholder="klant@email.com" placeholderTextColor="#8C9199" keyboardType="email-address" autoCapitalize="none" />
+                )}
+              </View>
+
+              {/* Privacy notice */}
+              <View style={{ flexDirection: 'row', gap: 10, padding: 14, backgroundColor: '#F5F6FA', borderRadius: 12, borderWidth: 1, borderColor: '#E8E9ED', marginBottom: 16 }}>
+                <Ionicons name="shield-checkmark-outline" size={18} color="#6c757d" />
+                <Text style={{ flex: 1, fontSize: 12, color: '#6c757d', lineHeight: 17 }}>{PRIVACY_TEXT}</Text>
+              </View>
+
+              {/* Save */}
+              <TouchableOpacity testID="oplevering-save-send-button"
+                style={[styles.primaryButton, { backgroundColor: primary }, saving && styles.primaryButtonDisabled]}
+                onPress={handleSave} disabled={saving}>
+                {saving ? <ActivityIndicator color="#FFFFFF" /> : (
+                  <>
+                    <Ionicons name="send" size={20} color="#FFFFFF" />
+                    <Text style={styles.primaryButtonText}>Opslaan & PDF versturen</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </>
+          )}
+
           <View style={styles.bottomSpacer} />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
+
+const PRIVACY_NOTICE = PRIVACY_TEXT;
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
@@ -837,6 +888,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   secondaryButtonText: { color: '#1A1A2E', fontWeight: '700', fontSize: 14 },
+  gpsButton: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 52, borderRadius: 12, borderWidth: 1.5, paddingHorizontal: 14, backgroundColor: '#FAFBFC' },
+  gpsButtonText: { flex: 1, fontSize: 14, fontWeight: '600' },
+  toggleBtn: { minWidth: 52, minHeight: 40, borderRadius: 10, borderWidth: 1.5, borderColor: '#E1E6EC', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  photoBtn: { flex: 1, minHeight: 56, borderRadius: 12, borderWidth: 1, borderColor: '#E1E6EC', borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
+  photoBtnText: { fontSize: 13, fontWeight: '600', color: '#4D5560' },
   primaryButton: {
     minHeight: 54,
     marginTop: 24,
