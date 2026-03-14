@@ -5,6 +5,7 @@
   },
   "build": {
     "preview": {
+      "channel": "preview",
       "android": {
         "buildType": "apk",
         "credentialsSource": "local"
@@ -15,6 +16,7 @@
       "distribution": "internal"
     },
     "production": {
+      "channel": "production",
       "android": {
         "buildType": "apk",
         "credentialsSource": "local"

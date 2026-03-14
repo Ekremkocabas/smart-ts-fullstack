@@ -24,6 +24,7 @@ from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Tabl
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
+APP_URL = os.environ.get('APP_URL', 'https://ops-manager-15.preview.emergentagent.com').strip()
 
 # Resend configuration
 resend.api_key = os.environ.get('RESEND_API_KEY', '')
@@ -640,7 +641,7 @@ async def send_welcome_email(user_email: str, user_naam: str, temp_password: str
             <div style="background: #1a1a2e; border-radius: 8px; padding: 20px; margin: 20px 0; text-align: center;">
                 <p style="color: #F5A623; font-weight: bold; margin: 0 0 10px 0;">📱 Smart-TS App</p>
                 <p style="color: #aaa; margin: 0 0 15px 0;">Open de link hieronder op je telefoon en voeg toe aan het beginscherm</p>
-                <a href="https://ops-manager-15.preview.emergentagent.com" style="background: #F5A623; color: #1a1a2e; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; display: inline-block;">
+                <a href="{APP_URL}" style="background: #F5A623; color: #1a1a2e; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; display: inline-block;">
                     🔗 Open Smart-TS App
                 </a>
                 <p style="color: #666; font-size: 11px; margin: 10px 0 0 0;">Tip: In je browser → "Toevoegen aan beginscherm" voor een app-pictogram</p>
@@ -1398,6 +1399,9 @@ async def delete_user(user_id: str):
         raise HTTPException(status_code=400, detail="Admin gebruikers kunnen niet worden verwijderd")
     
     result = await db.users.delete_one({"id": user_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
+    return {"message": "Gebruiker verwijderd"}
 
 @api_router.post("/auth/users/{user_id}/push-token")
 async def save_push_token(user_id: str, data: dict):
@@ -1430,10 +1434,6 @@ async def send_push_notifications(user_ids: list, title: str, body: str, data: d
             )
     except Exception as e:
         logging.error(f"Push notification error: {e}")
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
-    
-    return {"message": "Gebruiker verwijderd"}
 
 # ==================== TEAM ROUTES ====================
 
@@ -2482,7 +2482,6 @@ async def send_bericht_email(data: dict):
     """Send a bericht also via email"""
     try:
         to_email = data.get("to_email")
-        to_naam = data.get("to_naam", "")
         onderwerp = data.get("onderwerp", "Nieuw bericht")
         inhoud = data.get("inhoud", "")
         van_naam = data.get("van_naam", "Admin")
@@ -2567,7 +2566,6 @@ async def get_dashboard_stats():
     
     # Oplevering stats
     oplevering_total = await db.oplevering_werkbonnen.count_documents({})
-    oplevering_week = await db.oplevering_werkbonnen.count_documents({"datum": {"$regex": f".*"}})
     
     # Project werkbon stats
     project_total = await db.project_werkbonnen.count_documents({})
@@ -2601,7 +2599,7 @@ async def root():
     return {"message": "Werkbon API is actief", "version": "2.0.0"}
 
 @api_router.get("/health")
-async def health_check():
+async def api_health_check():
     return {"status": "healthy", "database": "connected"}
 
 # Include the router in the main app
@@ -2667,7 +2665,7 @@ async def startup_migrate():
 # ══════════════════════════════════════════════════════════════════════════════
 
 @app.get("/api/health")
-async def health_check():
+async def app_health_check():
     """Health check endpoint for deployment platforms."""
     try:
         # Test database connection
