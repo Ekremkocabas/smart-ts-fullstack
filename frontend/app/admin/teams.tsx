@@ -227,7 +227,7 @@ export default function TeamsAdmin() {
 
               <Text style={styles.label}>Teamleden ({formData.leden.length})</Text>
               <View style={styles.werknemersList}>
-                {werknemers.filter(w => w.rol === 'werknemer' || w.rol === 'ploegbaas').map((w) => {
+                {werknemers.filter(w => w.rol === 'worker' || w.rol === 'werknemer' || w.rol === 'onderaannemer' || w.rol === 'ploegbaas').map((w) => {
                   const isSelected = formData.leden.includes(w.naam);
                   return (
                     <TouchableOpacity key={w.id} style={styles.werknemerRow} onPress={() => toggleLid(w.naam)}>
@@ -235,10 +235,15 @@ export default function TeamsAdmin() {
                         {isSelected && <Ionicons name="checkmark" size={18} color="#fff" />}
                       </View>
                       <Text style={styles.werknemerNaam}>{w.naam}</Text>
-                      <Text style={styles.werknemerRol}>{w.rol}</Text>
+                      <View style={[styles.rolBadge, { backgroundColor: w.rol === 'onderaannemer' ? '#e67e2220' : '#27ae6020' }]}>
+                        <Text style={[styles.werknemerRol, { color: w.rol === 'onderaannemer' ? '#e67e22' : '#27ae60' }]}>{w.rol}</Text>
+                      </View>
                     </TouchableOpacity>
                   );
                 })}
+                {werknemers.filter(w => w.rol === 'worker' || w.rol === 'werknemer' || w.rol === 'onderaannemer' || w.rol === 'ploegbaas').length === 0 && (
+                  <Text style={styles.noWerknemers}>Geen werknemers beschikbaar</Text>
+                )}
               </View>
             </ScrollView>
             <TouchableOpacity style={styles.saveBtn} onPress={saveTeam} disabled={saving}>
