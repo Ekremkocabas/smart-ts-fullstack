@@ -265,51 +265,63 @@ export default function WerkbonnenScreen() {
           }
         />
       )}
-      {/* Werkbon Type Selection Modal */}
+      {/* Werkbon Type Selection Modal - filtered by user's werkbon_types permission */}
       <Modal visible={showTypeModal} transparent animationType="fade">
         <TouchableOpacity style={styles.typeModalOverlay} activeOpacity={1} onPress={() => setShowTypeModal(false)}>
           <View style={styles.typeModalContent}>
             <Text style={styles.typeModalTitle}>Werkbon type kiezen</Text>
-            <TouchableOpacity style={styles.typeOption} onPress={() => { setShowTypeModal(false); router.push('/werkbon/nieuw'); }}>
-              <View style={[styles.typeIcon, { backgroundColor: '#3498db15' }]}>
-                <Ionicons name="time-outline" size={24} color="#3498db" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.typeOptionTitle}>Uren Werkbon</Text>
-                <Text style={styles.typeOptionDesc}>Standaard urenregistratie</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color="#6c757d" />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.typeOption} onPress={() => { setShowTypeModal(false); router.push('/werkbon/oplevering'); }}>
-              <View style={[styles.typeIcon, { backgroundColor: '#28a74515' }]}>
-                <Ionicons name="checkmark-done-outline" size={24} color="#28a745" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.typeOptionTitle}>Oplevering</Text>
-                <Text style={styles.typeOptionDesc}>Klanttevredenheid & overdracht</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color="#6c757d" />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.typeOption} onPress={() => { setShowTypeModal(false); router.push('/werkbon/project'); }}>
-              <View style={[styles.typeIcon, { backgroundColor: '#F5A62315' }]}>
-                <Ionicons name="location-outline" size={24} color="#F5A623" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.typeOptionTitle}>Project</Text>
-                <Text style={styles.typeOptionDesc}>Locatie & urenregistratie</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color="#6c757d" />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.typeOption} onPress={() => { setShowTypeModal(false); router.push('/werkbon/productie'); }}>
-              <View style={[styles.typeIcon, { backgroundColor: '#9b59b615' }]}>
-                <Ionicons name="layers-outline" size={24} color="#9b59b6" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.typeOptionTitle}>Productie</Text>
-                <Text style={styles.typeOptionDesc}>PUR isolatie & productieregistratie</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color="#6c757d" />
-            </TouchableOpacity>
+            {/* Uren Werkbon */}
+            {(user?.werkbon_types?.includes('uren') || isAdmin) && (
+              <TouchableOpacity style={styles.typeOption} onPress={() => { setShowTypeModal(false); router.push('/werkbon/nieuw'); }}>
+                <View style={[styles.typeIcon, { backgroundColor: '#3498db15' }]}>
+                  <Ionicons name="time-outline" size={24} color="#3498db" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.typeOptionTitle}>Uren Werkbon</Text>
+                  <Text style={styles.typeOptionDesc}>Standaard urenregistratie</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#6c757d" />
+              </TouchableOpacity>
+            )}
+            {/* Oplevering Werkbon */}
+            {(user?.werkbon_types?.includes('oplevering') || isAdmin) && (
+              <TouchableOpacity style={styles.typeOption} onPress={() => { setShowTypeModal(false); router.push('/werkbon/oplevering'); }}>
+                <View style={[styles.typeIcon, { backgroundColor: '#28a74515' }]}>
+                  <Ionicons name="checkmark-done-outline" size={24} color="#28a745" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.typeOptionTitle}>Oplevering</Text>
+                  <Text style={styles.typeOptionDesc}>Klanttevredenheid & overdracht</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#6c757d" />
+              </TouchableOpacity>
+            )}
+            {/* Project Werkbon */}
+            {(user?.werkbon_types?.includes('project') || isAdmin) && (
+              <TouchableOpacity style={styles.typeOption} onPress={() => { setShowTypeModal(false); router.push('/werkbon/project'); }}>
+                <View style={[styles.typeIcon, { backgroundColor: '#F5A62315' }]}>
+                  <Ionicons name="location-outline" size={24} color="#F5A623" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.typeOptionTitle}>Project</Text>
+                  <Text style={styles.typeOptionDesc}>Locatie & urenregistratie</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#6c757d" />
+              </TouchableOpacity>
+            )}
+            {/* Productie/Prestatie Werkbon */}
+            {(user?.werkbon_types?.includes('productie') || isAdmin) && (
+              <TouchableOpacity style={styles.typeOption} onPress={() => { setShowTypeModal(false); router.push('/werkbon/productie'); }}>
+                <View style={[styles.typeIcon, { backgroundColor: '#9b59b615' }]}>
+                  <Ionicons name="layers-outline" size={24} color="#9b59b6" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.typeOptionTitle}>Prestatie</Text>
+                  <Text style={styles.typeOptionDesc}>PUR isolatie & productieregistratie</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#6c757d" />
+              </TouchableOpacity>
+            )}
           </View>
         </TouchableOpacity>
       </Modal>

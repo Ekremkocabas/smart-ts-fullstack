@@ -40,6 +40,7 @@ const WERKBON_TYPES = [
   { key: 'uren', label: 'Uren Werkbon', icon: 'time-outline', color: '#3498db' },
   { key: 'oplevering', label: 'Oplevering Werkbon', icon: 'checkmark-done-outline', color: '#27ae60' },
   { key: 'project', label: 'Project Werkbon', icon: 'briefcase-outline', color: '#9b59b6' },
+  { key: 'productie', label: 'Prestatie Werkbon', icon: 'construct-outline', color: '#e67e22' },
 ];
 
 export default function WerknemersAdmin() {
