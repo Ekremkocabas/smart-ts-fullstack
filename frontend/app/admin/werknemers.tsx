@@ -56,6 +56,11 @@ export default function WerknemersAdmin() {
   const [formData, setFormData] = useState({ naam: '', email: '', rol: 'werknemer', password: '', telefoon: '', werkbon_types: ['uren'] as string[], mag_wachtwoord_wijzigen: false });
   const [saving, setSaving] = useState(false);
   const [sendingEmail, setSendingEmail] = useState<string | null>(null);
+  const [visiblePasswords, setVisiblePasswords] = useState<Record<string, string>>({});
+  const [loadingPassword, setLoadingPassword] = useState<string | null>(null);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordUser, setPasswordUser] = useState<Werknemer | null>(null);
+  const [newPassword, setNewPassword] = useState('');
 
   useEffect(() => { 
     if (Platform.OS === 'web' && (user?.rol === 'beheerder' || user?.rol === 'admin')) {
@@ -213,6 +218,72 @@ export default function WerknemersAdmin() {
       fetchData();
     } catch (error) {
       console.error('Error:', error);
+    }
+  };
+
+  const showPassword = async (w: Werknemer) => {
+    if (visiblePasswords[w.id]) {
+      // Hide password
+      setVisiblePasswords(prev => {
+        const copy = { ...prev };
+        delete copy[w.id];
+        return copy;
+      });
+      return;
+    }
+    
+    setLoadingPassword(w.id);
+    try {
+      const res = await fetch(`${API_URL}/api/auth/user-password/${w.id}`);
+      const data = await res.json();
+      setVisiblePasswords(prev => ({
+        ...prev,
+        [w.id]: data.wachtwoord || '(niet beschikbaar)'
+      }));
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Kon wachtwoord niet ophalen');
+    } finally {
+      setLoadingPassword(null);
+    }
+  };
+
+  const openPasswordModal = (w: Werknemer) => {
+    setPasswordUser(w);
+    setNewPassword('');
+    setShowPasswordModal(true);
+  };
+
+  const changePassword = async () => {
+    if (!passwordUser || !newPassword.trim()) {
+      alert('Vul een nieuw wachtwoord in');
+      return;
+    }
+    if (newPassword.length < 6) {
+      alert('Wachtwoord moet minimaal 6 karakters bevatten');
+      return;
+    }
+    
+    try {
+      const res = await fetch(`${API_URL}/api/auth/admin-reset-password/${passwordUser.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ new_password: newPassword }),
+      });
+      
+      if (res.ok) {
+        alert(`Wachtwoord voor ${passwordUser.naam} is gewijzigd naar: ${newPassword}`);
+        setVisiblePasswords(prev => ({ ...prev, [passwordUser.id]: newPassword }));
+        setShowPasswordModal(false);
+        setPasswordUser(null);
+        setNewPassword('');
+      } else {
+        const data = await res.json();
+        alert(data.detail || 'Fout bij wijzigen wachtwoord');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Fout bij wijzigen wachtwoord');
     }
   };
 
@@ -383,10 +454,10 @@ export default function WerknemersAdmin() {
           <View style={styles.tableHeader}>
             <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Naam</Text>
             <Text style={[styles.tableHeaderCell, { flex: 2 }]}>E-mail</Text>
+            <Text style={styles.tableHeaderCell}>Wachtwoord</Text>
             <Text style={styles.tableHeaderCell}>Rol</Text>
-            <Text style={styles.tableHeaderCell}>Team</Text>
             <Text style={styles.tableHeaderCell}>Status</Text>
-            <Text style={[styles.tableHeaderCell, { flex: 1.2, textAlign: 'center' }]}>Acties</Text>
+            <Text style={[styles.tableHeaderCell, { flex: 1.5, textAlign: 'center' }]}>Acties</Text>
           </View>
 
           {/* Table Rows */}
@@ -412,19 +483,43 @@ export default function WerknemersAdmin() {
                   </View>
                 </View>
                 <Text style={[styles.tableCell, { flex: 2 }]} numberOfLines={1}>{w.email}</Text>
+                <View style={[styles.tableCell, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
+                  {loadingPassword === w.id ? (
+                    <ActivityIndicator size="small" color="#6c757d" />
+                  ) : visiblePasswords[w.id] ? (
+                    <>
+                      <Text style={styles.passwordText}>{visiblePasswords[w.id]}</Text>
+                      <TouchableOpacity onPress={(e: any) => { e.stopPropagation(); showPassword(w); }}>
+                        <Ionicons name="eye-off-outline" size={16} color="#6c757d" />
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={(e: any) => { e.stopPropagation(); openPasswordModal(w); }}>
+                        <Ionicons name="key-outline" size={16} color="#F5A623" />
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={styles.passwordHidden}>••••••</Text>
+                      <TouchableOpacity onPress={(e: any) => { e.stopPropagation(); showPassword(w); }}>
+                        <Ionicons name="eye-outline" size={16} color="#3498db" />
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={(e: any) => { e.stopPropagation(); openPasswordModal(w); }}>
+                        <Ionicons name="key-outline" size={16} color="#F5A623" />
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </View>
                 <View style={styles.tableCell}>
                   <View style={[styles.rolBadge, { backgroundColor: getRolColor(w.rol) + '20' }]}>
                     <Text style={[styles.rolText, { color: getRolColor(w.rol) }]}>{w.rol}</Text>
                   </View>
                 </View>
-                <Text style={styles.tableCell}>{getTeamNaam(w.team_id)}</Text>
                 <View style={styles.tableCell}>
                   <TouchableOpacity style={[styles.statusBadge, { backgroundColor: w.actief ? '#28a74520' : '#dc354520' }]} onPress={(e: any) => { e.stopPropagation(); toggleActief(w); }}>
                     <View style={[styles.statusDot, { backgroundColor: w.actief ? '#28a745' : '#dc3545' }]} />
                     <Text style={[styles.statusText, { color: w.actief ? '#28a745' : '#dc3545' }]}>{w.actief ? 'Actief' : 'Inactief'}</Text>
                   </TouchableOpacity>
                 </View>
-                <View style={[styles.tableCell, { flex: 1.2, flexDirection: 'row', justifyContent: 'center', gap: 4 }]}>
+                <View style={[styles.tableCell, { flex: 1.5, flexDirection: 'row', justifyContent: 'center', gap: 4 }]}>
                   {/* Resend Email Button */}
                   <TouchableOpacity 
                     style={[styles.actionBtn, { backgroundColor: '#27ae6015' }]} 
@@ -567,6 +662,44 @@ export default function WerknemersAdmin() {
           </View>
         </View>
       </Modal>
+
+      {/* Password Change Modal */}
+      <Modal visible={showPasswordModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxWidth: 400 }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Wachtwoord wijzigen</Text>
+              <TouchableOpacity onPress={() => { setShowPasswordModal(false); setPasswordUser(null); setNewPassword(''); }}>
+                <Ionicons name="close" size={24} color="#6c757d" />
+              </TouchableOpacity>
+            </View>
+            
+            {passwordUser && (
+              <>
+                <Text style={styles.passwordModalUser}>{passwordUser.naam}</Text>
+                <Text style={styles.passwordModalEmail}>{passwordUser.email}</Text>
+                
+                <Text style={[styles.label, { marginTop: 20 }]}>Nieuw wachtwoord</Text>
+                <TextInput
+                  style={styles.input}
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  placeholder="Minimaal 6 karakters"
+                  placeholderTextColor="#999"
+                  secureTextEntry={false}
+                />
+                
+                <TouchableOpacity style={[styles.saveBtn, { marginTop: 24 }]} onPress={changePassword}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Ionicons name="key" size={20} color="#fff" />
+                    <Text style={styles.saveBtnText}>Wachtwoord wijzigen</Text>
+                  </View>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -636,4 +769,7 @@ const styles = StyleSheet.create({
   toggleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F5F6FA', padding: 14, borderRadius: 10, borderWidth: 1, borderColor: '#E8E9ED', marginTop: 16 },
   toggleLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
   toggleLabel: { fontSize: 14, color: '#1A1A2E' },
+  passwordHidden: { fontSize: 14, color: '#999', letterSpacing: 2 },
+  passwordModalUser: { fontSize: 18, fontWeight: '600', color: '#1A1A2E', marginTop: 10 },
+  passwordModalEmail: { fontSize: 14, color: '#6c757d', marginTop: 4 },
 });

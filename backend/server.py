@@ -3348,6 +3348,59 @@ async def change_password(user_id: str, password_data: PasswordChangeRequest):
     
     return {"message": "Wachtwoord succesvol gewijzigd", "success": True}
 
+@api_router.post("/auth/admin-reset-password/{user_id}")
+async def admin_reset_password(user_id: str, data: dict):
+    """
+    Admin endpoint to reset user password.
+    Only admins can use this - no current password required.
+    """
+    new_password = data.get("new_password")
+    if not new_password:
+        raise HTTPException(status_code=400, detail="Nieuw wachtwoord is verplicht")
+    
+    if len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="Wachtwoord moet minimaal 6 karakters bevatten")
+    
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
+    
+    # Hash the new password
+    new_hash = hash_password(new_password)
+    
+    await db.users.update_one(
+        {"id": user_id}, 
+        {
+            "$set": {
+                "password_hash": new_hash,
+                "password_changed_at": datetime.utcnow(),
+                "wachtwoord_plain": new_password,  # Store plain for admin viewing (temporary)
+            }
+        }
+    )
+    
+    return {"message": "Wachtwoord succesvol gewijzigd", "success": True, "new_password": new_password}
+
+@api_router.get("/auth/user-password/{user_id}")
+async def get_user_password(user_id: str):
+    """
+    Admin endpoint to get user's plain password (if available).
+    Only works if wachtwoord_plain is stored.
+    """
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
+    
+    plain_password = user.get("wachtwoord_plain")
+    
+    return {
+        "user_id": user_id,
+        "naam": user.get("naam"),
+        "email": user.get("email"),
+        "wachtwoord": plain_password or "(niet beschikbaar - hash only)",
+        "has_plain_password": bool(plain_password)
+    }
+
 # ==================== ROLE INFO ENDPOINT ====================
 
 @api_router.get("/auth/roles")
