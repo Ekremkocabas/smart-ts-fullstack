@@ -4840,6 +4840,26 @@ async def delete_bericht(bericht_id: str):
         raise HTTPException(status_code=404, detail="Bericht niet gevonden")
     return {"message": "Bericht verwijderd"}
 
+@api_router.patch("/berichten/{bericht_id}")
+async def update_bericht(bericht_id: str, data: dict):
+    """Update a bericht (archive, pin, etc.)"""
+    update_fields = {}
+    if "gearchiveerd" in data:
+        update_fields["gearchiveerd"] = data["gearchiveerd"]
+    if "vastgepind" in data:
+        update_fields["vastgepind"] = data["vastgepind"]
+    
+    if not update_fields:
+        raise HTTPException(status_code=400, detail="Geen velden om bij te werken")
+    
+    result = await db.berichten.update_one(
+        {"id": bericht_id},
+        {"$set": update_fields}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Bericht niet gevonden")
+    return {"message": "Bericht bijgewerkt", "updated_fields": list(update_fields.keys())}
+
 @api_router.post("/berichten/send-email")
 async def send_bericht_email(data: dict):
     """Send a bericht also via email"""
