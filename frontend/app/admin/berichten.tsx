@@ -17,7 +17,7 @@ import * as DocumentPicker from 'expo-document-picker';
 
 const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_BACKEND_URL || (typeof window !== 'undefined' ? window.location.origin : '');
 
-type TabType = 'werknemers' | 'onderaannemers' | 'archief';
+type TabType = 'werknemers' | 'onderaannemers' | 'archief' | 'per_werknemer';
 
 interface Bericht {
   id: string;
@@ -61,6 +61,7 @@ export default function BerichtenAdmin() {
   const [selectedBericht, setSelectedBericht] = useState<Bericht | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'alle' | 'vastgepind' | 'ongelezen'>('alle');
+  const [selectedWerknemer, setSelectedWerknemer] = useState<Werknemer | null>(null);
 
   const [form, setForm] = useState({
     naar_ids: [] as string[],
@@ -497,6 +498,16 @@ export default function BerichtenAdmin() {
               Archief
             </Text>
           </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.tab, activeTab === 'per_werknemer' && styles.tabActive]}
+            onPress={() => { setActiveTab('per_werknemer'); setSelectedWerknemer(null); }}
+          >
+            <Ionicons name="folder-open" size={18} color={activeTab === 'per_werknemer' ? '#F5A623' : '#6c757d'} />
+            <Text style={[styles.tabText, activeTab === 'per_werknemer' && styles.tabTextActive]}>
+              Per Werknemer
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -542,7 +553,120 @@ export default function BerichtenAdmin() {
       </View>
 
       {/* Content */}
-      <View style={styles.content}>
+      {activeTab === 'per_werknemer' ? (
+        /* ===== Per Werknemer View ===== */
+        <View style={styles.perWerknemerContainer}>
+          {/* Left: Worker List */}
+          <View style={styles.werknemerListPanel}>
+            <Text style={styles.panelTitle}>Werknemers</Text>
+            <ScrollView style={styles.werknemerScroll}>
+              {werknemers.filter(w => w.actief).map((wn) => {
+                const werknemerBerichten = berichten.filter(
+                  b => b.naar_id === wn.id || b.van_id === wn.id || b.is_broadcast
+                );
+                const unreadCount = werknemerBerichten.filter(
+                  b => !b.gelezen_door?.includes(wn.id)
+                ).length;
+                
+                return (
+                  <TouchableOpacity
+                    key={wn.id}
+                    style={[
+                      styles.werknemerItem,
+                      selectedWerknemer?.id === wn.id && styles.werknemerItemActive
+                    ]}
+                    onPress={() => setSelectedWerknemer(wn)}
+                  >
+                    <View style={styles.werknemerAvatar}>
+                      <Text style={styles.werknemerAvatarText}>{wn.naam.charAt(0).toUpperCase()}</Text>
+                    </View>
+                    <View style={styles.werknemerInfo}>
+                      <Text style={styles.werknemerName}>{wn.naam}</Text>
+                      <Text style={styles.werknemerRole}>{wn.rol}</Text>
+                    </View>
+                    {unreadCount > 0 && (
+                      <View style={styles.unreadBadge}>
+                        <Text style={styles.unreadBadgeText}>{unreadCount}</Text>
+                      </View>
+                    )}
+                    <View style={styles.messageCountBadge}>
+                      <Text style={styles.messageCountText}>{werknemerBerichten.length}</Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          {/* Right: Messages for selected worker */}
+          <View style={styles.werknemerMessagesPanel}>
+            {selectedWerknemer ? (
+              <>
+                <View style={styles.selectedWerknemerHeader}>
+                  <Text style={styles.selectedWerknemerName}>{selectedWerknemer.naam}</Text>
+                  <TouchableOpacity 
+                    style={styles.sendToWerknemerBtn}
+                    onPress={() => {
+                      setForm(prev => ({ ...prev, naar_ids: [selectedWerknemer.id], is_broadcast: false }));
+                      setShowModal(true);
+                    }}
+                  >
+                    <Ionicons name="add" size={18} color="#fff" />
+                    <Text style={styles.sendToWerknemerBtnText}>Nieuw bericht</Text>
+                  </TouchableOpacity>
+                </View>
+                <ScrollView style={styles.werknemerMessagesScroll}>
+                  {berichten
+                    .filter(b => b.naar_id === selectedWerknemer.id || b.van_id === selectedWerknemer.id || b.is_broadcast)
+                    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                    .map((bericht) => (
+                      <TouchableOpacity
+                        key={bericht.id}
+                        style={[styles.messageCard, selectedBericht?.id === bericht.id && styles.messageCardSelected]}
+                        onPress={() => setSelectedBericht(bericht)}
+                      >
+                        <View style={styles.messageHeader}>
+                          <View style={styles.messageFrom}>
+                            <View style={styles.avatar}>
+                              <Text style={styles.avatarText}>{bericht.van_naam.charAt(0).toUpperCase()}</Text>
+                            </View>
+                            <View>
+                              <Text style={styles.senderName}>{bericht.van_naam}</Text>
+                              <Text style={styles.messageTime}>{formatDate(bericht.created_at)}</Text>
+                            </View>
+                          </View>
+                          {bericht.is_broadcast && (
+                            <View style={styles.broadcastBadge}>
+                              <Ionicons name="megaphone" size={12} color="#3498db" />
+                            </View>
+                          )}
+                        </View>
+                        <Text style={styles.messageSubject}>{bericht.onderwerp}</Text>
+                        <Text style={styles.messagePreview} numberOfLines={2}>{bericht.inhoud}</Text>
+                      </TouchableOpacity>
+                    ))
+                  }
+                  {berichten.filter(b => b.naar_id === selectedWerknemer.id || b.van_id === selectedWerknemer.id || b.is_broadcast).length === 0 && (
+                    <View style={styles.emptyState}>
+                      <Ionicons name="chatbubble-outline" size={48} color="#E8E9ED" />
+                      <Text style={styles.emptyTitle}>Geen berichten</Text>
+                      <Text style={styles.emptySubtitle}>Nog geen berichten met {selectedWerknemer.naam}</Text>
+                    </View>
+                  )}
+                </ScrollView>
+              </>
+            ) : (
+              <View style={styles.selectWerknemerPrompt}>
+                <Ionicons name="person-circle-outline" size={64} color="#E8E9ED" />
+                <Text style={styles.selectWerknemerText}>Selecteer een werknemer</Text>
+                <Text style={styles.selectWerknemerSubtext}>Kies een werknemer om hun berichten te bekijken</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      ) : (
+        /* ===== Regular View (Werknemers/Onderaannemers/Archief) ===== */
+        <View style={styles.content}>
         {/* Messages List */}
         <View style={styles.messagesList}>
           {loading ? (
@@ -707,6 +831,7 @@ export default function BerichtenAdmin() {
           )}
         </View>
       </View>
+      )}
 
       {/* New Message Modal */}
       <Modal visible={showModal} transparent animationType="fade">
@@ -1003,4 +1128,30 @@ const styles = StyleSheet.create({
   cancelBtnText: { fontSize: 16, color: '#6c757d', fontWeight: '500' },
   sendBtn: { flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#3498db', padding: 14, borderRadius: 10 },
   sendBtnText: { fontSize: 16, color: '#fff', fontWeight: '600' },
+
+  // Per Werknemer View
+  perWerknemerContainer: { flex: 1, flexDirection: 'row' },
+  werknemerListPanel: { width: 280, backgroundColor: '#fff', borderRightWidth: 1, borderRightColor: '#E8E9ED' },
+  panelTitle: { fontSize: 16, fontWeight: '600', color: '#1A1A2E', padding: 16, borderBottomWidth: 1, borderBottomColor: '#E8E9ED' },
+  werknemerScroll: { flex: 1 },
+  werknemerItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: '#F5F6FA' },
+  werknemerItemActive: { backgroundColor: '#F5A62310', borderLeftWidth: 3, borderLeftColor: '#F5A623' },
+  werknemerAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#3498db', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  werknemerAvatarText: { color: '#fff', fontWeight: '600', fontSize: 16 },
+  werknemerInfo: { flex: 1 },
+  werknemerName: { fontSize: 14, fontWeight: '600', color: '#1A1A2E' },
+  werknemerRole: { fontSize: 12, color: '#6c757d', marginTop: 2 },
+  unreadBadge: { backgroundColor: '#dc3545', borderRadius: 10, minWidth: 20, height: 20, alignItems: 'center', justifyContent: 'center', marginRight: 8 },
+  unreadBadgeText: { color: '#fff', fontSize: 11, fontWeight: '600' },
+  messageCountBadge: { backgroundColor: '#E8E9ED', borderRadius: 10, minWidth: 24, height: 20, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
+  messageCountText: { color: '#6c757d', fontSize: 11, fontWeight: '500' },
+  werknemerMessagesPanel: { flex: 1, backgroundColor: '#F5F6FA' },
+  selectedWerknemerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E8E9ED' },
+  selectedWerknemerName: { fontSize: 18, fontWeight: '600', color: '#1A1A2E' },
+  sendToWerknemerBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#3498db', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
+  sendToWerknemerBtnText: { color: '#fff', fontSize: 14, fontWeight: '500' },
+  werknemerMessagesScroll: { flex: 1, padding: 16 },
+  selectWerknemerPrompt: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
+  selectWerknemerText: { fontSize: 18, fontWeight: '600', color: '#6c757d', marginTop: 16 },
+  selectWerknemerSubtext: { fontSize: 14, color: '#999', marginTop: 8, textAlign: 'center' },
 });

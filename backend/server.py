@@ -5341,10 +5341,11 @@ async def get_dashboard_stats():
     current_week = now.isocalendar()[1]
     current_year = now.isocalendar()[0]
     
-    total_werknemers = await db.users.count_documents({"actief": True, "rol": "werknemer"})
-    total_teams = await db.teams.count_documents({"actief": True})
-    total_klanten = await db.klanten.count_documents({"actief": True})
-    total_werven = await db.werven.count_documents({"actief": True})
+    # Count all active users (workers, onderaannemers, etc.) - excluding admin
+    total_werknemers = await db.users.count_documents({"actief": True, "rol": {"$in": ["worker", "werknemer", "onderaannemer"]}})
+    total_teams = await db.teams.count_documents({})  # Count all teams, not just actief=True
+    total_klanten = await db.klanten.count_documents({})  # Count all klanten
+    total_werven = await db.werven.count_documents({})  # Count all werven
     
     # Werkbonnen stats
     werkbonnen_week = await db.werkbonnen.count_documents({"week_nummer": current_week, "jaar": current_year})

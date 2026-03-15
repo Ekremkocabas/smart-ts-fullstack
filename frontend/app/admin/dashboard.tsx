@@ -83,7 +83,7 @@ export default function AdminDashboard() {
 
       // Separate werknemers and onderaannemers
       const actieveWerknemers = werknemersList.filter((w: any) => w.actief !== false);
-      const werknemerCount = actieveWerknemers.filter((w: any) => w.rol !== 'onderaannemer').length;
+      const werknemerCount = actieveWerknemers.filter((w: any) => w.rol === 'worker' || w.rol === 'werknemer').length;
       const onderaannemerCount = actieveWerknemers.filter((w: any) => w.rol === 'onderaannemer').length;
 
       const werkbonnenDezeWeek = werkbonnenList.filter(
