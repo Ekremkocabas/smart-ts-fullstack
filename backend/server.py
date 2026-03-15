@@ -731,9 +731,31 @@ async def generate_klantnummer(db) -> str:
     
     return f"{prefix}{new_num:04d}"
 
+# Helper to serialize MongoDB documents for JSON response
+def serialize_mongo_doc(doc: dict) -> dict:
+    """Convert MongoDB-specific types to JSON-serializable types"""
+    if doc is None:
+        return doc
+    result = {}
+    for key, value in doc.items():
+        if key == '_id':
+            result[key] = str(value)  # Convert ObjectId to string
+        elif isinstance(value, datetime):
+            result[key] = value.isoformat()  # Convert datetime to ISO string
+        elif isinstance(value, dict):
+            result[key] = serialize_mongo_doc(value)
+        elif isinstance(value, list):
+            result[key] = [serialize_mongo_doc(item) if isinstance(item, dict) else item for item in value]
+        else:
+            result[key] = value
+    return result
+
 # Helper to migrate old klant data to new structure
 def migrate_klant_data(klant_dict: dict) -> dict:
     """Migrate old klant format to new professional structure"""
+    # First serialize MongoDB types
+    klant_dict = serialize_mongo_doc(klant_dict)
+    
     # Map legacy fields to new fields
     if not klant_dict.get("bedrijfsnaam") and klant_dict.get("naam"):
         klant_dict["bedrijfsnaam"] = klant_dict["naam"]
@@ -1355,6 +1377,11 @@ class PlanningItemUpdate(BaseModel):
 
 # ==================== MESSAGES / BERICHTEN ====================
 
+class BerichtAttachment(BaseModel):
+    naam: str
+    type: str
+    data: str
+
 class Bericht(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     company_id: str = "default_company"       # NEW: Company scoping
@@ -1370,6 +1397,8 @@ class Bericht(BaseModel):
     vastgepind: bool = False  # Pinned message
     gelezen_door: List[str] = []  # User IDs who read it
     
+    bijlagen: List[BerichtAttachment] = []  # Attachments
+    
     planning_id: Optional[str] = None  # Linked planning item
     
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -1381,6 +1410,7 @@ class BerichtCreate(BaseModel):
     inhoud: str = ""
     vastgepind: bool = False
     planning_id: Optional[str] = None
+    bijlagen: List[BerichtAttachment] = []
 
 # ==================== HELPER FUNCTIONS ====================
 
@@ -4763,6 +4793,7 @@ async def create_bericht(data: BerichtCreate, van_id: str, van_naam: str):
         inhoud=data.inhoud,
         vastgepind=data.vastgepind,
         planning_id=data.planning_id,
+        bijlagen=[att.dict() for att in data.bijlagen] if data.bijlagen else [],
     )
     
     # Resolve recipient name

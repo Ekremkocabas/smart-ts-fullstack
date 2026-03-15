@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import Constants from 'expo-constants';
+import * as DocumentPicker from 'expo-document-picker';
 
 const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_BACKEND_URL || (typeof window !== 'undefined' ? window.location.origin : '');
 
@@ -28,6 +29,13 @@ interface Bericht {
   vastgepind: boolean;
   gelezen_door: string[];
   created_at: string;
+  bijlagen?: Array<{ naam: string; type: string; data: string }>;
+}
+
+interface BerichtAttachment {
+  naam: string;
+  type: string;
+  data: string;
 }
 
 interface Werknemer {
@@ -55,7 +63,68 @@ export default function BerichtenAdmin() {
     vastgepind: false,
     ook_email: false,
     ook_sms: false,
+    bijlagen: [] as BerichtAttachment[],
   });
+
+  const handlePickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'image/*'],
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled || !result.assets?.length) return;
+
+      const file = result.assets[0];
+      
+      // Read file as base64
+      if (Platform.OS === 'web') {
+        const reader = new FileReader();
+        const response = await fetch(file.uri);
+        const blob = await response.blob();
+        
+        reader.onloadend = () => {
+          const base64Data = reader.result as string;
+          const base64Content = base64Data.split(',')[1] || base64Data;
+          
+          setForm(prev => ({
+            ...prev,
+            bijlagen: [...prev.bijlagen, {
+              naam: file.name,
+              type: file.mimeType || 'application/pdf',
+              data: base64Content,
+            }],
+          }));
+        };
+        reader.readAsDataURL(blob);
+      } else {
+        // Mobile: Use FileSystem
+        const FileSystem = await import('expo-file-system');
+        const base64Data = await FileSystem.readAsStringAsync(file.uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        
+        setForm(prev => ({
+          ...prev,
+          bijlagen: [...prev.bijlagen, {
+            naam: file.name,
+            type: file.mimeType || 'application/pdf',
+            data: base64Data,
+          }],
+        }));
+      }
+    } catch (error) {
+      console.error('Document pick error:', error);
+      alert('Fout bij het laden van het bestand');
+    }
+  };
+
+  const removeAttachment = (index: number) => {
+    setForm(prev => ({
+      ...prev,
+      bijlagen: prev.bijlagen.filter((_, i) => i !== index),
+    }));
+  };
 
   const fetchData = useCallback(async () => {
     try {
@@ -83,7 +152,7 @@ export default function BerichtenAdmin() {
   };
 
   const openNewMessage = () => {
-    setForm({ naar_ids: [], is_broadcast: false, onderwerp: '', inhoud: '', vastgepind: false, ook_email: false, ook_sms: false });
+    setForm({ naar_ids: [], is_broadcast: false, onderwerp: '', inhoud: '', vastgepind: false, ook_email: false, ook_sms: false, bijlagen: [] });
     setSelectedBericht(null);
     setShowModal(true);
   };
@@ -133,13 +202,13 @@ export default function BerichtenAdmin() {
       }
 
       if (form.is_broadcast) {
-        const body = { naar_id: null, is_broadcast: true, onderwerp: form.onderwerp, inhoud: form.inhoud, vastgepind: form.vastgepind };
+        const body = { naar_id: null, is_broadcast: true, onderwerp: form.onderwerp, inhoud: form.inhoud, vastgepind: form.vastgepind, bijlagen: form.bijlagen };
         await fetch(`${API_URL}/api/berichten?van_id=${userId}&van_naam=${encodeURIComponent(userName)}`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
         });
       } else {
         for (const naarId of form.naar_ids) {
-          const body = { naar_id: naarId, is_broadcast: false, onderwerp: form.onderwerp, inhoud: form.inhoud, vastgepind: form.vastgepind };
+          const body = { naar_id: naarId, is_broadcast: false, onderwerp: form.onderwerp, inhoud: form.inhoud, vastgepind: form.vastgepind, bijlagen: form.bijlagen };
           await fetch(`${API_URL}/api/berichten?van_id=${userId}&van_naam=${encodeURIComponent(userName)}`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
           });
@@ -375,6 +444,31 @@ export default function BerichtenAdmin() {
               <TextInput style={[styles.input, { minHeight: 120 }]} value={form.inhoud} onChangeText={v => setForm({ ...form, inhoud: v })}
                 placeholder="Schrijf uw bericht..." placeholderTextColor="#999" multiline textAlignVertical="top" />
 
+              {/* Bijlagen / Attachments section */}
+              <Text style={styles.label}>Bijlagen</Text>
+              <TouchableOpacity style={styles.uploadBtn} onPress={handlePickDocument}>
+                <Ionicons name="attach-outline" size={20} color="#3498db" />
+                <Text style={styles.uploadBtnText}>PDF of afbeelding toevoegen</Text>
+              </TouchableOpacity>
+              
+              {form.bijlagen.length > 0 && (
+                <View style={styles.attachmentList}>
+                  {form.bijlagen.map((bijlage, index) => (
+                    <View key={index} style={styles.attachmentItem}>
+                      <Ionicons 
+                        name={bijlage.type.includes('pdf') ? 'document-text-outline' : 'image-outline'} 
+                        size={18} 
+                        color="#3498db" 
+                      />
+                      <Text style={styles.attachmentName} numberOfLines={1}>{bijlage.naam}</Text>
+                      <TouchableOpacity onPress={() => removeAttachment(index)}>
+                        <Ionicons name="close-circle" size={18} color="#dc3545" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              )}
+
               {/* Pin toggle */}
               <TouchableOpacity style={styles.pinToggle} activeOpacity={0.7}
                 onPress={() => setForm({ ...form, vastgepind: !form.vastgepind })}>
@@ -496,4 +590,9 @@ const styles = StyleSheet.create({
 
   detailActions: { flexDirection: 'row', gap: 10, marginTop: 16 },
   actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 10 },
+  uploadBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#3498db15', padding: 14, borderRadius: 10, borderWidth: 1, borderStyle: 'dashed', borderColor: '#3498db50' },
+  uploadBtnText: { fontSize: 14, color: '#3498db', fontWeight: '500' },
+  attachmentList: { marginTop: 8, gap: 6 },
+  attachmentItem: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#F5F6FA', padding: 10, borderRadius: 8 },
+  attachmentName: { flex: 1, fontSize: 13, color: '#1A1A2E' },
 });

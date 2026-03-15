@@ -10,8 +10,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
+  ScrollView,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import SignatureScreen from 'react-native-signature-canvas';
@@ -131,6 +132,7 @@ export default function HandtekeningScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { updateWerkbon } = useAppStore();
+  const insets = useSafeAreaInsets();
   
   const signatureRef = useRef<any>(null);
   const [naam, setNaam] = useState('');
@@ -259,7 +261,12 @@ export default function HandtekeningScreen() {
           <View style={{ width: 28 }} />
         </View>
 
-        <View style={styles.content}>
+        <ScrollView 
+          style={styles.content} 
+          contentContainerStyle={{ flexGrow: 1 }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={styles.formGroup}>
             <Text style={styles.label}>Naam ondertekenaar</Text>
             <TextInput
@@ -329,20 +336,20 @@ export default function HandtekeningScreen() {
               <Text style={styles.clearText}>Wissen</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </ScrollView>
 
-        <View style={styles.footer}>
+        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom + 8, 20) }]}>
           <TouchableOpacity 
             testID="signature-save-button"
-            style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+            style={styles.saveButton}
             onPress={handleSave}
             disabled={isSaving}
           >
             {isSaving ? (
-              <ActivityIndicator color="#000" />
+              <ActivityIndicator color="#FFFFFF" />
             ) : (
               <>
-                <Ionicons name="checkmark" size={24} color="#000" />
+                <Ionicons name="checkmark" size={24} color="#FFFFFF" />
                 <Text style={styles.saveButtonText}>Bevestigen</Text>
               </>
             )}
@@ -365,41 +372,42 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E8E9ED',
   },
   title: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '600',
     color: '#1A1A2E',
   },
   content: {
     flex: 1,
-    padding: 20,
+    padding: 16,
   },
   formGroup: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
   label: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#6c757d',
-    marginBottom: 8,
+    marginBottom: 6,
     fontWeight: '500',
   },
   input: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 10,
+    padding: 14,
     color: '#1A1A2E',
-    fontSize: 16,
+    fontSize: 15,
     borderWidth: 1,
     borderColor: '#E8E9ED',
   },
   signatureContainer: {
     flex: 1,
+    minHeight: 180,
   },
   canvasWrapper: {
     backgroundColor: '#FFFFFF',
@@ -407,27 +415,29 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 220,
-    padding: 10,
+    minHeight: 180,
+    maxHeight: 220,
+    padding: 8,
     borderWidth: 1,
     borderColor: '#E8E9ED',
   },
-  errorText: { color: '#dc3545', fontSize: 14, marginBottom: 12 },
+  errorText: { color: '#dc3545', fontSize: 13, marginBottom: 10 },
   clearButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 12,
-    gap: 8,
+    marginTop: 10,
+    gap: 6,
+    paddingVertical: 8,
   },
   clearText: {
     color: '#6c757d',
-    fontSize: 14,
+    fontSize: 13,
   },
   securityRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
+    gap: 10,
+    marginBottom: 12,
   },
   securityBtn: {
     flex: 1,
@@ -438,10 +448,11 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#F5A62350',
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    gap: 4,
     position: 'relative',
+    minHeight: 60,
   },
   securityBtnDisabled: {
     borderColor: '#E8E9ED',
@@ -449,23 +460,23 @@ const styles = StyleSheet.create({
   },
   securityBtnText: {
     color: '#F5A623',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
   },
   securityBtnTextDisabled: {
     color: '#6c757d',
   },
   selfieThumbnail: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     borderWidth: 2,
     borderColor: '#28a745',
   },
   comingSoonBadge: {
     position: 'absolute',
-    top: 4,
-    right: 4,
+    top: 2,
+    right: 2,
     backgroundColor: '#E8E9ED',
     borderRadius: 4,
     paddingHorizontal: 4,
@@ -473,10 +484,11 @@ const styles = StyleSheet.create({
   },
   comingSoonText: {
     color: '#6c757d',
-    fontSize: 9,
+    fontSize: 8,
   },
   footer: {
-    padding: 20,
+    padding: 16,
+    paddingBottom: Platform.OS === 'android' ? 24 : 16,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#E8E9ED',
@@ -489,13 +501,14 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     gap: 8,
+    minHeight: 56,
   },
   saveButtonDisabled: {
     opacity: 0.6,
   },
   saveButtonText: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '600',
   },
 });

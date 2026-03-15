@@ -150,8 +150,11 @@ export default function NieuweWerkbonScreen() {
         const regels = userTeam.leden.map(naam => createEmptyUrenRegel(naam));
         setUrenRegels(regels);
       }
+    } else if (urenRegels.length === 0 && user?.naam) {
+      // Start with user's own name pre-filled
+      setUrenRegels([createEmptyUrenRegel(user.naam)]);
     } else if (urenRegels.length === 0) {
-      // Start with one empty row
+      // Fallback: Start with one empty row
       setUrenRegels([createEmptyUrenRegel()]);
     }
   }, [teams, user]);

@@ -483,8 +483,8 @@ export default function KlantenAdmin() {
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>Bedrijfsgegevens</Text>
                   
-                  <Text style={styles.label}>Bedrijfsnaam *</Text>
-                  <TextInput style={styles.input} value={formData.bedrijfsnaam} onChangeText={(v) => setFormData({ ...formData, bedrijfsnaam: v })} placeholder="Bedrijfsnaam" placeholderTextColor="#6c757d" />
+                  <Text style={styles.label}>{formData.type_klant === 'particulier' ? 'Naam *' : 'Bedrijfsnaam *'}</Text>
+                  <TextInput style={styles.input} value={formData.bedrijfsnaam} onChangeText={(v) => setFormData({ ...formData, bedrijfsnaam: v })} placeholder={formData.type_klant === 'particulier' ? 'Volledige naam' : 'Bedrijfsnaam'} placeholderTextColor="#6c757d" />
                   
                   <Text style={styles.label}>Type klant</Text>
                   <View style={styles.typeToggle}>
@@ -498,16 +498,19 @@ export default function KlantenAdmin() {
                     </TouchableOpacity>
                   </View>
                   
-                  <View style={[styles.row, isCompact && styles.rowCompact]}>
-                    <View style={styles.halfField}>
-                      <Text style={styles.label}>BTW-nummer</Text>
-                      <TextInput style={styles.input} value={formData.btw_nummer} onChangeText={(v) => setFormData({ ...formData, btw_nummer: v })} placeholder="BE0123456789" placeholderTextColor="#6c757d" />
+                  {/* Only show company fields for bedrijf type */}
+                  {formData.type_klant === 'bedrijf' && (
+                    <View style={[styles.row, isCompact && styles.rowCompact]}>
+                      <View style={styles.halfField}>
+                        <Text style={styles.label}>BTW-nummer</Text>
+                        <TextInput style={styles.input} value={formData.btw_nummer} onChangeText={(v) => setFormData({ ...formData, btw_nummer: v })} placeholder="BE0123456789" placeholderTextColor="#6c757d" />
+                      </View>
+                      <View style={styles.halfField}>
+                        <Text style={styles.label}>Ondernemingsnummer</Text>
+                        <TextInput style={styles.input} value={formData.ondernemingsnummer} onChangeText={(v) => setFormData({ ...formData, ondernemingsnummer: v })} placeholder="0123.456.789" placeholderTextColor="#6c757d" />
+                      </View>
                     </View>
-                    <View style={styles.halfField}>
-                      <Text style={styles.label}>Ondernemingsnummer</Text>
-                      <TextInput style={styles.input} value={formData.ondernemingsnummer} onChangeText={(v) => setFormData({ ...formData, ondernemingsnummer: v })} placeholder="0123.456.789" placeholderTextColor="#6c757d" />
-                    </View>
-                  </View>
+                  )}
                   
                   <Text style={styles.label}>Algemeen e-mailadres</Text>
                   <TextInput style={styles.input} value={formData.algemeen_email} onChangeText={(v) => setFormData({ ...formData, algemeen_email: v })} placeholder="info@bedrijf.be" placeholderTextColor="#6c757d" keyboardType="email-address" />
@@ -515,8 +518,12 @@ export default function KlantenAdmin() {
                   <Text style={styles.label}>Algemeen telefoonnummer</Text>
                   <TextInput style={styles.input} value={formData.algemeen_telefoon} onChangeText={(v) => setFormData({ ...formData, algemeen_telefoon: v })} placeholder="+32 ..." placeholderTextColor="#6c757d" keyboardType="phone-pad" />
                   
-                  <Text style={styles.label}>Website</Text>
-                  <TextInput style={styles.input} value={formData.website} onChangeText={(v) => setFormData({ ...formData, website: v })} placeholder="https://www.bedrijf.be" placeholderTextColor="#6c757d" />
+                  {formData.type_klant === 'bedrijf' && (
+                    <>
+                      <Text style={styles.label}>Website</Text>
+                      <TextInput style={styles.input} value={formData.website} onChangeText={(v) => setFormData({ ...formData, website: v })} placeholder="https://www.bedrijf.be" placeholderTextColor="#6c757d" />
+                    </>
+                  )}
                 </View>
               )}
 

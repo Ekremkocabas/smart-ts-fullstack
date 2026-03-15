@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   ActivityIndicator,
   ScrollView,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,6 +21,13 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '../../context/ThemeContext';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+
+// Helper for responsive design
+const getScreenType = () => {
+  const { width, height } = Dimensions.get('window');
+  const isSmallScreen = height < 700; // Samsung Galaxy S21 and similar
+  return { width, height, isSmallScreen };
+};
 
 export default function ProfielScreen() {
   const { user, logout, changePassword, isLoading: isAuthLoading } = useAuth();
@@ -34,6 +42,15 @@ export default function ProfielScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
+  const [screenInfo, setScreenInfo] = useState(getScreenType());
+
+  // Handle screen resize
+  useEffect(() => {
+    const subscription = Dimensions.addEventListener('change', () => {
+      setScreenInfo(getScreenType());
+    });
+    return () => subscription?.remove();
+  }, []);
 
   // Show loading state while auth context is initializing
   if (isAuthLoading) {
@@ -96,8 +113,8 @@ export default function ProfielScreen() {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-    } catch (error: any) {
-      const message = error.response?.data?.detail || 'Kon wachtwoord niet wijzigen';
+    } catch (error) {
+      const message = (error as any).response?.data?.detail || 'Kon wachtwoord niet wijzigen';
       showAlert('Fout', message);
     } finally {
       setIsLoading(false);
@@ -113,65 +130,74 @@ export default function ProfielScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Profiel</Text>
-      </View>
-
-      <View style={styles.content}>
-        <View style={styles.avatarContainer}>
-          <View style={styles.avatar}>
-            <Ionicons name="person" size={48} color="#F5A623" />
-          </View>
-          <Text style={styles.userName}>{user?.naam}</Text>
-          <Text style={styles.userEmail}>{user?.email}</Text>
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: Math.max(insets.bottom + 20, 40) }
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <Text style={styles.title}>Profiel</Text>
         </View>
 
-        <View style={styles.infoSection}>
-          <View style={styles.infoItem}>
-            <Ionicons name="shield-checkmark" size={24} color={theme.primaryColor || "#F5A623"} />
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Rol</Text>
-              <Text style={styles.infoValue}>{roleLabel}</Text>
+        <View style={styles.content}>
+          <View style={[styles.avatarContainer, screenInfo.isSmallScreen && styles.avatarContainerCompact]}>
+            <View style={[styles.avatar, screenInfo.isSmallScreen && styles.avatarCompact]}>
+              <Ionicons name="person" size={screenInfo.isSmallScreen ? 36 : 48} color="#F5A623" />
+            </View>
+            <Text style={[styles.userName, screenInfo.isSmallScreen && styles.userNameCompact]}>{user?.naam}</Text>
+            <Text style={styles.userEmail}>{user?.email}</Text>
+          </View>
+
+          <View style={styles.infoSection}>
+            <View style={styles.infoItem}>
+              <Ionicons name="shield-checkmark" size={24} color={theme.primaryColor || "#F5A623"} />
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Rol</Text>
+                <Text style={styles.infoValue}>{roleLabel}</Text>
+              </View>
+            </View>
+            <View style={styles.infoItem}>
+              <Ionicons name="checkmark-circle" size={24} color="#28a745" />
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Status</Text>
+                <Text style={styles.infoValue}>Actief</Text>
+              </View>
+            </View>
+            <View style={styles.infoItem}>
+              <Ionicons name="laptop-outline" size={24} color={hasWebAccess ? "#28a745" : "#6c757d"} />
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Webpaneel Toegang</Text>
+                <Text style={styles.infoValue}>{hasWebAccess ? 'Ja' : 'Nee'}</Text>
+              </View>
+            </View>
+            <View style={styles.infoItem}>
+              <Ionicons name="phone-portrait-outline" size={24} color={hasAppAccess ? "#28a745" : "#6c757d"} />
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>App Toegang</Text>
+                <Text style={styles.infoValue}>{hasAppAccess ? 'Ja' : 'Nee'}</Text>
+              </View>
             </View>
           </View>
-          <View style={styles.infoItem}>
-            <Ionicons name="checkmark-circle" size={24} color="#28a745" />
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Status</Text>
-              <Text style={styles.infoValue}>Actief</Text>
-            </View>
-          </View>
-          <View style={styles.infoItem}>
-            <Ionicons name="laptop-outline" size={24} color={hasWebAccess ? "#28a745" : "#6c757d"} />
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Webpaneel Toegang</Text>
-              <Text style={styles.infoValue}>{hasWebAccess ? 'Ja' : 'Nee'}</Text>
-            </View>
-          </View>
-          <View style={styles.infoItem}>
-            <Ionicons name="phone-portrait-outline" size={24} color={hasAppAccess ? "#28a745" : "#6c757d"} />
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>App Toegang</Text>
-              <Text style={styles.infoValue}>{hasAppAccess ? 'Ja' : 'Nee'}</Text>
-            </View>
-          </View>
+
+          <TouchableOpacity 
+            testID="change-password-open-button"
+            style={styles.actionButton} 
+            onPress={() => setPasswordModalVisible(true)}
+          >
+            <Ionicons name="key-outline" size={24} color="#F5A623" />
+            <Text style={styles.actionButtonText}>Wachtwoord wijzigen</Text>
+            <Ionicons name="chevron-forward" size={20} color="#6c757d" />
+          </TouchableOpacity>
+
+          <TouchableOpacity testID="logout-button" style={styles.logoutButton} onPress={handleLogout}>
+            <Ionicons name="log-out-outline" size={24} color="#dc3545" />
+            <Text style={styles.logoutText}>Uitloggen</Text>
+          </TouchableOpacity>
         </View>
-
-        <TouchableOpacity 
-          testID="change-password-open-button"
-          style={styles.actionButton} 
-          onPress={() => setPasswordModalVisible(true)}
-        >
-          <Ionicons name="key-outline" size={24} color="#F5A623" />
-          <Text style={styles.actionButtonText}>Wachtwoord wijzigen</Text>
-          <Ionicons name="chevron-forward" size={20} color="#6c757d" />
-        </TouchableOpacity>
-
-        <TouchableOpacity testID="logout-button" style={styles.logoutButton} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={24} color="#dc3545" />
-          <Text style={styles.logoutText}>Uitloggen</Text>
-        </TouchableOpacity>
-      </View>
+      </ScrollView>
 
       {/* Password Change Modal */}
       <Modal
@@ -275,34 +301,43 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F5F6FA',
   },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
   header: {
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 14,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E8E9ED',
   },
   title: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#1A1A2E',
   },
   content: {
     flex: 1,
-    padding: 20,
+    padding: 16,
   },
   avatarContainer: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 24,
+  },
+  avatarContainerCompact: {
+    marginBottom: 16,
   },
   avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#E8E9ED',
     shadowColor: '#000',
@@ -311,38 +346,47 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
+  avatarCompact: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    marginBottom: 8,
+  },
   userName: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '600',
     color: '#1A1A2E',
     marginBottom: 4,
   },
+  userNameCompact: {
+    fontSize: 18,
+  },
   userEmail: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#6c757d',
   },
   infoSection: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 24,
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: '#E8E9ED',
   },
   infoItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 10,
   },
   infoContent: {
-    marginLeft: 16,
+    marginLeft: 14,
   },
   infoLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#6c757d',
   },
   infoValue: {
-    fontSize: 16,
+    fontSize: 15,
     color: '#1A1A2E',
     fontWeight: '500',
   },
@@ -351,15 +395,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    padding: 14,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#E8E9ED',
+    minHeight: 52,
   },
   actionButtonText: {
     flex: 1,
     color: '#1A1A2E',
-    fontSize: 16,
+    fontSize: 15,
     marginLeft: 12,
   },
   logoutButton: {
@@ -369,9 +414,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(220, 53, 69, 0.1)',
     borderRadius: 12,
     padding: 16,
-    marginTop: 32,
+    marginTop: 16,
     borderWidth: 1,
     borderColor: 'rgba(220, 53, 69, 0.3)',
+    minHeight: 56,
   },
   logoutText: {
     color: '#dc3545',
