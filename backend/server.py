@@ -2172,8 +2172,8 @@ async def register_user(user_data: UserCreate):
     return UserResponse(**user.dict())
 
 @api_router.post("/auth/register-worker")
-async def register_worker_with_email(email: str, naam: str, password: str, rol: str = "werknemer", team_id: Optional[str] = None, telefoon: Optional[str] = None, werkbon_types: Optional[str] = None):
-    """Register a new worker and optionally send welcome email"""
+async def register_worker_with_email(email: str, naam: str, password: str, rol: str = "werknemer", team_id: Optional[str] = None, telefoon: Optional[str] = None, werkbon_types: Optional[str] = None, send_email: bool = False):
+    """Register a new worker. Email only sent if send_email=True."""
     existing = await db.users.find_one({"email": email})
     if existing:
         raise HTTPException(status_code=400, detail="E-mailadres is al geregistreerd")
@@ -2195,13 +2195,10 @@ async def register_worker_with_email(email: str, naam: str, password: str, rol: 
     )
     await db.users.insert_one(user.dict())
     
-    # Get company settings for email
-    instellingen = await db.instellingen.find_one({"id": "company_settings"})
-    if not instellingen:
-        instellingen = {}
-    
-    # Send welcome email
-    email_result = await send_welcome_email(email, naam, password, instellingen)
+    email_result = {"success": False, "error": "E-mail verzenden staat uitgeschakeld"}
+    if send_email:
+        instellingen = await db.instellingen.find_one({"id": "company_settings"}) or {}
+        email_result = await send_welcome_email(email, naam, password, instellingen)
     
     return {
         "user": UserResponse(**user.dict()),

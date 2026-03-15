@@ -143,6 +143,7 @@ export default function WerknemersAdmin() {
           naam: formData.naam,
           password: password,
           rol: formData.rol,
+          send_email: 'false',  // Email standaard UITGESCHAKELD — gebruik resend knop als je wil versturen
         });
         if (formData.telefoon) params.append('telefoon', formData.telefoon);
         if (formData.werkbon_types.length > 0) params.append('werkbon_types', formData.werkbon_types.join(','));
@@ -159,11 +160,8 @@ export default function WerknemersAdmin() {
         }
         const result = await res.json();
         
-        if (result.email_sent) {
-          alert(`✅ Werknemer aangemaakt als ${formData.rol}!\n\nInloggegevens zijn per e-mail verstuurd naar:\n${formData.email}\n\nWachtwoord: ${password}`);
-        } else {
-          alert(`⚠️ Werknemer aangemaakt als ${formData.rol}, maar e-mail kon niet worden verzonden.\n\nWachtwoord: ${password}\n\nGebruik de mail-knop om later opnieuw te versturen.`);
-        }
+        // Toon altijd het wachtwoord — email is uitgeschakeld tot bewust ingeschakeld
+        alert(`✅ Werknemer aangemaakt als ${formData.rol}!\n\nInloggegevens:\nE-mail: ${formData.email}\nWachtwoord: ${password}\n\n📋 Sla dit wachtwoord op — e-mail is uitgeschakeld.\nGebruik de mail-knop (✉️) om later zelf te versturen.`);
       }
       setShowModal(false);
       fetchData();
