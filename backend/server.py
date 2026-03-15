@@ -507,9 +507,9 @@ class UserResponse(BaseModel):
     werkbon_types: List[str] = Field(default_factory=lambda: ["uren"])
     mag_wachtwoord_wijzigen: bool = True
     must_change_password: bool = False
-    # Platform access info
-    web_access: bool = False
-    app_access: bool = False
+    # Platform access info - Optional to handle None values from DB
+    web_access: Optional[bool] = False
+    app_access: Optional[bool] = True
 
 class UserUpdate(BaseModel):
     naam: Optional[str] = None
