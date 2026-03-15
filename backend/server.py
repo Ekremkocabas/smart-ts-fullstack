@@ -1659,6 +1659,14 @@ def get_email_brand_name(instellingen: dict) -> str:
 
 
 def get_company_recipient(instellingen: dict) -> str:
+    """Get the company email for werkbon receipts - prefer inkomend_werkbon, fallback to general email"""
+    emails = instellingen.get("emails")
+    if emails and isinstance(emails, dict):
+        # Prefer inkomend_werkbon for werkbon notifications
+        werkbon_email = emails.get("inkomend_werkbon")
+        if werkbon_email:
+            return werkbon_email
+    # Fallback to legacy email
     return instellingen.get("email") or COMPANY_EMAIL
 
 
