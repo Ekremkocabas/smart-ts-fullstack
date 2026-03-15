@@ -59,19 +59,38 @@ export default function AdminLogin() {
         return;
       }
 
-      if (data.rol !== 'beheerder' && data.rol !== 'admin') {
+      // New JWT API returns user object inside data.user
+      const userFromResponse = data.user || data;
+      const userRole = userFromResponse.rol;
+      const hasWebAccess = userFromResponse.web_access !== false;
+
+      // Check if user has admin role and web access
+      if (!['beheerder', 'admin', 'master_admin', 'planner'].includes(userRole)) {
         setError('Alleen beheerders hebben toegang tot dit portaal');
+        return;
+      }
+
+      if (!hasWebAccess) {
+        setError('U heeft geen toegang tot het webportaal');
         return;
       }
 
       // Set user in store and AsyncStorage
       const userData = {
-        id: data.id,
-        naam: data.naam,
-        email: data.email,
-        rol: data.rol === 'admin' ? 'beheerder' : data.rol,
-        actief: data.actief,
+        id: userFromResponse.id,
+        naam: userFromResponse.naam,
+        email: userFromResponse.email,
+        rol: userFromResponse.rol,
+        actief: userFromResponse.actief,
+        web_access: userFromResponse.web_access,
+        app_access: userFromResponse.app_access,
+        company_id: userFromResponse.company_id,
       };
+      
+      // Also store the JWT token
+      if (data.token) {
+        await AsyncStorage.setItem('token', data.token);
+      }
       
       await AsyncStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
