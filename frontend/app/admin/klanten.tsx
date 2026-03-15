@@ -138,7 +138,7 @@ const emptyKlant: Klant = {
 };
 
 export default function KlantenAdmin() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const [klanten, setKlanten] = useState<Klant[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -164,6 +164,8 @@ export default function KlantenAdmin() {
   }, []);
 
   useEffect(() => { 
+    // Debug: Log user info for troubleshooting
+    console.log('[KlantenAdmin] User:', user?.email, 'Role:', user?.rol);
     if (Platform.OS === 'web' && ['beheerder', 'admin', 'manager', 'master_admin'].includes(user?.rol || '')) {
       fetchKlanten(); 
     }
@@ -307,6 +309,18 @@ export default function KlantenAdmin() {
   };
 
   if (Platform.OS !== 'web') return null;
+  
+  // Show loading while auth state is being resolved
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#F5A623" />
+          <Text style={styles.loadingText}>Laden...</Text>
+        </View>
+      </View>
+    );
+  }
   
   if (!['beheerder', 'admin', 'manager', 'master_admin'].includes(user?.rol || '')) {
     return (
@@ -985,4 +999,8 @@ const styles = StyleSheet.create({
   cancelBtnText: { fontSize: 16, color: '#6c757d', fontWeight: '500' },
   saveBtn: { flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#28a745', padding: 14, borderRadius: 10 },
   saveBtnText: { fontSize: 16, color: '#fff', fontWeight: '600' },
+  
+  // Loading state
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { marginTop: 12, fontSize: 16, color: '#6c757d' },
 });

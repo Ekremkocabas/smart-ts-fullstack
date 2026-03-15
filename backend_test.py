@@ -93,7 +93,7 @@ class BackendTester:
             
             planning_item = response.json()
             self.test_planning_id = planning_item["id"]
-            self.log_test("Planning POST", True, f"Created planning item for {test_klant['naam']} at {test_werf['naam']}")
+            self.log_test("Planning POST", True, f"Created planning item for {test_klant['bedrijfsnaam']} at {test_werf['naam']}")  # Use correct field name
             
             # 2. GET /api/planning?week_nummer=11&jaar=2026 - Get weekly planning
             params = {"week_nummer": 11, "jaar": 2026}
@@ -232,9 +232,16 @@ class BackendTester:
                 self.log_test("Auth Login (Specific)", False, f"Status: {response.status_code}, Response: {response.text}")
                 return False
             
-            user_data = response.json()
+            response_data = response.json()
+            
+            # The login response now returns a nested structure with user, token, etc.
+            if "user" not in response_data:
+                self.log_test("Auth Login (Specific)", False, f"Response missing user data: {response_data.keys()}")
+                return False
+            
+            user_data = response_data["user"]
             if not user_data.get("id"):
-                self.log_test("Auth Login (Specific)", False, "Response missing user ID")
+                self.log_test("Auth Login (Specific)", False, "User response missing user ID")
                 return False
             
             # Set admin user for subsequent tests if not already set
@@ -376,8 +383,14 @@ class BackendTester:
             response = self.session.post(f"{BASE_URL}/auth/login", json=login_data, timeout=10)
             
             if response.status_code == 200:
-                user_data = response.json()
-                self.admin_user = user_data
+                response_data = response.json()
+                # Handle the new login response format
+                if "user" in response_data:
+                    user_data = response_data["user"]
+                    self.admin_user = user_data
+                else:
+                    user_data = response_data
+                    self.admin_user = user_data
                 
                 # Verify required fields
                 required_fields = ["id", "email", "naam", "rol", "actief"]
@@ -509,7 +522,7 @@ class BackendTester:
             
             new_team = response.json()
             team_id = new_team["id"]
-            self.log_test("Teams POST", True, f"Created team: {new_team['naam']} with ploegbaas: Jan Janssen")
+            self.log_test("Teams POST", True, f"Created team: {new_team['naam']} with members: {new_team.get('leden', [])}")  # Changed message
             
             # PUT /api/teams/{id} - Update team
             update_data = {"naam": "Updated Test Team", "leden": ["Jan Janssen", "Piet de Vries"]}
@@ -541,11 +554,17 @@ class BackendTester:
             
             # POST /api/klanten - Create new client
             new_klant_data = {
-                "naam": "Test Construction Client BV",
-                "email": "test@testclient.nl",
-                "telefoon": "0123456789",
-                "uurtarief": 75.0,
-                "adres": "Bouwstraat 123, Amsterdam"
+                "bedrijfsnaam": "Test Construction Client BV",  # Changed from "naam" to "bedrijfsnaam"
+                "algemeen_email": "test@testclient.nl",  # Changed from "email" to "algemeen_email"
+                "algemeen_telefoon": "0123456789",  # Changed from "telefoon" to "algemeen_telefoon"
+                "standaard_uurtarief": 75.0,  # Changed from "uurtarief" to "standaard_uurtarief"
+                "adres_structured": {
+                    "straat": "Bouwstraat 123",
+                    "huisnummer": "",
+                    "postcode": "1234AB", 
+                    "stad": "Amsterdam",
+                    "land": "Nederland"
+                }
             }
             
             response = self.session.post(f"{BASE_URL}/klanten", json=new_klant_data, timeout=10)
@@ -560,9 +579,9 @@ class BackendTester:
             
             # PUT /api/klanten/{id} - Update client
             update_data = {
-                "naam": "Updated Test Construction Client BV",
-                "email": "updated@testclient.nl",
-                "uurtarief": 80.0
+                "bedrijfsnaam": "Updated Test Construction Client BV",  # Changed from "naam"
+                "algemeen_email": "updated@testclient.nl",  # Changed from "email"
+                "standaard_uurtarief": 80.0  # Changed from "uurtarief"
             }
             response = self.session.put(f"{BASE_URL}/klanten/{klant_id}", json=update_data, timeout=10)
             if response.status_code != 200:

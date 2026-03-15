@@ -32,7 +32,7 @@ interface Werknemer {
 }
 
 export default function TeamsAdmin() {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [teams, setTeams] = useState<Team[]>([]);
   const [werknemers, setWerknemers] = useState<Werknemer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,7 +42,7 @@ export default function TeamsAdmin() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { 
-    if (Platform.OS === 'web' && (user?.rol === 'beheerder' || user?.rol === 'admin')) {
+    if (Platform.OS === 'web' && ['beheerder', 'admin', 'manager', 'master_admin'].includes(user?.rol || '')) {
       fetchData(); 
     }
   }, [user]);
@@ -116,7 +116,19 @@ export default function TeamsAdmin() {
 
   if (Platform.OS !== 'web') return null;
   
-  if (user?.rol !== 'beheerder' && user?.rol !== 'admin') {
+  // Show loading while auth state is being resolved
+  if (authLoading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#F5A623" />
+          <Text style={styles.loadingText}>Laden...</Text>
+        </View>
+      </View>
+    );
+  }
+  
+  if (!['beheerder', 'admin', 'manager', 'master_admin'].includes(user?.rol || '')) {
     return (
       <View style={styles.container}>
         <View style={styles.noAccess}>
@@ -283,6 +295,8 @@ const styles = StyleSheet.create({
   emptySubtext: { fontSize: 13, color: '#6c757d', marginTop: 4 },
   noAccess: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   noAccessText: { fontSize: 20, color: '#1A1A2E', marginTop: 16 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { marginTop: 12, fontSize: 16, color: '#6c757d' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   modalContent: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 24, width: '100%', maxWidth: 500, maxHeight: '90%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },

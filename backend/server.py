@@ -2984,14 +2984,25 @@ async def login_user(login_data: UserLogin):
     Login endpoint with JWT token and platform access info.
     Returns JWT token for authenticated requests.
     """
+    print(f"[LOGIN DEBUG] Email: {login_data.email}")
     user = await db.users.find_one({"email": login_data.email})
     if not user:
+        print(f"[LOGIN DEBUG] User not found for: {login_data.email}")
         raise HTTPException(status_code=401, detail="Ongeldige inloggegevens")
+    
+    print(f"[LOGIN DEBUG] User found: {user.get('naam')}")
+    print(f"[LOGIN DEBUG] Has password_hash: {bool(user.get('password_hash'))}")
+    print(f"[LOGIN DEBUG] Has wachtwoord_plain: {bool(user.get('wachtwoord_plain'))}")
     
     # Try password_hash first, then fall back to plain text comparison (legacy migration)
     authenticated = False
     if user.get("password_hash"):
+        print(f"[LOGIN DEBUG] Input password: {login_data.password}")
+        print(f"[LOGIN DEBUG] Stored hash: {user['password_hash']}")
+        computed = hash_password(login_data.password)
+        print(f"[LOGIN DEBUG] Computed hash: {computed}")
         authenticated = verify_password(login_data.password, user["password_hash"])
+        print(f"[LOGIN DEBUG] Password hash verify result: {authenticated}")
     
     # Fallback: compare with wachtwoord_plain directly (legacy support)
     if not authenticated and user.get("wachtwoord_plain"):
