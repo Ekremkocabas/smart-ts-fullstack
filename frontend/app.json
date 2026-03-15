@@ -17,7 +17,7 @@
       "package": "be.smarttech.smartts",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#1a1a2e"
+        "backgroundColor": "#28a745"
       },
       "edgeToEdgeEnabled": true,
       "permissions": [
