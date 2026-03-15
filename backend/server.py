@@ -2315,36 +2315,74 @@ def generate_productie_pdf(werkbon: dict, instellingen: dict) -> tuple[bytes, st
 
 
 async def send_productie_werkbon_email(werkbon: dict, instellingen: dict, pdf_bytes: bytes, pdf_filename: str, klant_email: Optional[str] = None):
-    bedrijfsnaam = instellingen.get("bedrijfsnaam") or "Smart-Tech BV"
-    company_email = instellingen.get("email") or COMPANY_EMAIL
-    admin_emails = instellingen.get("admin_emails") or [COMPANY_EMAIL]
-    recipients = list(set([company_email] + admin_emails))
-    if klant_email:
-        recipients.append(klant_email)
-    recipients = [r for r in recipients if r and "@" in r]
+    """Send productie werkbon PDF email. Uses same async pattern as other mail functions."""
+    # API key check - same as other mail functions
+    if not resend.api_key:
+        logging.warning("RESEND_API_KEY not configured, skipping productie email")
+        return {"success": False, "error": "Email not configured", "recipients": []}
+    
+    bedrijfsnaam = get_email_brand_name(instellingen)
+    company_recipient = get_company_recipient(instellingen)
+    klant_recipient = klant_email or werkbon.get("klant_email_override")
+    
+    # Build recipients list - same pattern as other functions
+    recipients = [company_recipient] if company_recipient else []
+    if werkbon.get("verstuur_naar_klant") and klant_recipient:
+        recipients = get_unique_recipients(company_recipient, klant_recipient)
+    
+    if not recipients:
+        return {"success": False, "error": "Geen ontvangers geconfigureerd", "recipients": []}
+    
     try:
-        subject = f"Productie Werkbon - {werkbon.get('werf_naam')} - {werkbon.get('datum')}"
+        subject = f"Productie Werkbon PDF - {werkbon.get('werf_naam', 'Werf')} - {werkbon.get('datum', '')}"
         html_body = f"""
-        <h2>Productie Werkbon</h2>
-        <p><b>Monteur:</b> {werkbon.get('werknemer_naam') or werkbon.get('ingevuld_door_naam', '-')}</p>
-        <p><b>Klant:</b> {werkbon.get('klant_naam', '-')}</p>
-        <p><b>Werf:</b> {werkbon.get('werf_naam', '-')}</p>
-        <p><b>Datum:</b> {werkbon.get('datum', '-')}</p>
-        <p><b>Totaal M&sup2;:</b> {werkbon.get('totaal_m2', 0)} m&sup2;</p>
-        <p>De volledige details vindt u in de bijgevoegde PDF.</p>
-        <hr><p style="font-size:12px;color:#888">{bedrijfsnaam}</p>
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <style>
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 640px; margin: 0 auto; }}
+                .header {{ background: #1a1a2e; color: white; padding: 24px; text-align: center; border-bottom: 4px solid #F5A623; }}
+                .header h1 {{ color: #F5A623; margin: 0; }}
+                .content {{ padding: 24px; }}
+                .info {{ background: #f8f9fa; border-left: 4px solid #F5A623; padding: 16px; margin: 18px 0; }}
+                .footer {{ background: #f4f4f4; padding: 16px; font-size: 12px; color: #666; text-align: center; }}
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>{bedrijfsnaam}</h1>
+                <p>Productie Werkbon</p>
+            </div>
+            <div class="content">
+                <p>In bijlage vindt u de productie werkbon als PDF.</p>
+                <div class="info">
+                    <strong>Monteur:</strong> {werkbon.get('werknemer_naam') or werkbon.get('ingevuld_door_naam', '-')}<br/>
+                    <strong>Klant:</strong> {werkbon.get('klant_naam', '-')}<br/>
+                    <strong>Werf:</strong> {werkbon.get('werf_naam', '-')}<br/>
+                    <strong>Datum:</strong> {werkbon.get('datum', '-')}<br/>
+                    <strong>Totaal M²:</strong> {werkbon.get('totaal_m2', 0)} m²
+                </div>
+                <p>De volledige details vindt u in de bijgevoegde PDF.</p>
+                <p>Met vriendelijke groeten,<br/><strong>{bedrijfsnaam}</strong></p>
+            </div>
+            <div class="footer">Dit is een automatisch gegenereerde e-mail van {bedrijfsnaam}.</div>
+        </body>
+        </html>
         """
         params = {
-            "from": f"{bedrijfsnaam} <{SENDER_EMAIL}>",
+            "from": get_sender_email(instellingen),
             "to": recipients,
             "subject": subject,
             "html": html_body,
             "attachments": [{"filename": pdf_filename, "content": base64.b64encode(pdf_bytes).decode(), "contentType": "application/pdf"}],
         }
-        resend.Emails.send(params)
-        return {"success": True, "recipients": recipients}
+        # Use async pattern - same as other mail functions
+        result = await asyncio.to_thread(resend.Emails.send, params)
+        logging.info("Productie email sent successfully: %s", result)
+        return {"success": True, "email_id": result.get("id"), "recipients": recipients}
     except Exception as exc:
-        logging.error(f"Productie email error: {exc}")
+        logging.error("Failed to send productie email: %s", str(exc))
         return {"success": False, "error": str(exc), "recipients": recipients}
 
 

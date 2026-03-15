@@ -22,7 +22,7 @@ import { useTheme } from '../../context/ThemeContext';
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 export default function ProfielScreen() {
-  const { user, logout, changePassword } = useAuth();
+  const { user, logout, changePassword, isLoading: isAuthLoading } = useAuth();
   const { theme } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -34,6 +34,18 @@ export default function ProfielScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
+
+  // Show loading state while auth context is initializing
+  if (isAuthLoading) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme?.primaryColor || '#F5A623'} />
+          <Text style={styles.loadingText}>Profiel laden...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const handleLogout = () => {
     if (Platform.OS === 'web') {
@@ -366,6 +378,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F5F6FA',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#6c757d',
   },
   // Modal styles
   modalContainer: {

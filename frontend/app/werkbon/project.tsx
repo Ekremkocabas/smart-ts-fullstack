@@ -272,6 +272,10 @@ export default function ProjectWerkbonScreen() {
   const submit = async (signature: string) => {
     if (!user?.id || !user?.naam) { showAlert('Fout', 'Gebruiker niet gevonden'); return; }
     setSaving(true);
+    
+    let werkbonSaved = false;
+    let werkbonId = '';
+    
     try {
       const payload = {
         klant_id: selectedKlant.id,
@@ -298,20 +302,62 @@ export default function ProjectWerkbonScreen() {
         verstuur_naar_klant: sendToCustomer,
         klant_email_override: sendToCustomer ? customerEmail.trim() : '',
       };
+      
+      // STEP 1: Save werkbon first
       const createResponse = await fetch(
         `${API_URL}/api/project-werkbonnen?user_id=${encodeURIComponent(user.id)}&user_naam=${encodeURIComponent(user.naam)}`,
         { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
       );
       const createData = await createResponse.json();
-      if (!createResponse.ok) throw new Error(createData.detail || 'Project werkbon opslaan mislukt');
+      
+      if (!createResponse.ok) {
+        throw new Error(createData.detail || 'Project werkbon opslaan mislukt');
+      }
+      
+      // Mark werkbon as saved successfully
+      werkbonSaved = true;
+      werkbonId = createData.id;
+      
+      // STEP 2: Try to send email (werkbon already saved)
       const sendQuery = sendToCustomer ? `?klant_email=${encodeURIComponent(customerEmail.trim())}` : '';
-      const sendResponse = await fetch(`${API_URL}/api/project-werkbonnen/${createData.id}/verzenden${sendQuery}`, { method: 'POST' });
+      const sendResponse = await fetch(`${API_URL}/api/project-werkbonnen/${werkbonId}/verzenden${sendQuery}`, { method: 'POST' });
+      
+      // Check send response properly
+      if (!sendResponse.ok) {
+        const sendError = await sendResponse.json().catch(() => ({ detail: 'Mail verzenden mislukt' }));
+        showAlert(
+          'Werkbon Opgeslagen',
+          `De project werkbon is succesvol opgeslagen, maar de e-mail kon niet worden verzonden: ${sendError.detail || 'Onbekende fout'}`
+        );
+        router.back();
+        return;
+      }
+      
       const sendData = await sendResponse.json();
-      showAlert('Gelukt', sendData.email_sent ? `PDF verzonden` : 'Werkbon opgeslagen (e-mail niet verzonden)');
+      
+      // Show appropriate success message
+      if (sendData.email_sent) {
+        showAlert('Gelukt', 'Project werkbon opgeslagen en PDF verzonden naar: ' + (sendData.recipients?.join(', ') || 'ontvangers'));
+      } else {
+        showAlert(
+          'Werkbon Opgeslagen',
+          `De werkbon is opgeslagen, maar de e-mail kon niet worden verzonden${sendData.email_error ? `: ${sendData.email_error}` : '.'}`
+        );
+      }
       router.back();
+      
     } catch (error: any) {
-      console.error(error);
-      showAlert('Fout', error?.message || 'Project werkbon kon niet worden verwerkt');
+      console.error('Project werkbon error:', error);
+      
+      if (werkbonSaved) {
+        showAlert(
+          'Werkbon Opgeslagen',
+          `De werkbon is opgeslagen, maar er ging iets mis bij het verzenden: ${error?.message || 'Onbekende fout'}`
+        );
+        router.back();
+      } else {
+        showAlert('Fout', `Werkbon kon niet worden opgeslagen: ${error?.message || 'Onbekende fout'}`);
+      }
     } finally {
       setSaving(false);
     }

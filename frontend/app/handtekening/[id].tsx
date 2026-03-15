@@ -32,9 +32,9 @@ const WebSignatureCanvas = ({ onEnd, onClear, signatureRef }: any) => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
-    ctx.fillStyle = '#16213e';
+    ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.strokeStyle = '#F5A623';
+    ctx.strokeStyle = '#1A1A2E';
     ctx.lineWidth = 3;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -88,7 +88,7 @@ const WebSignatureCanvas = ({ onEnd, onClear, signatureRef }: any) => {
           const canvas = canvasRef.current;
           const ctx = canvas?.getContext('2d');
           if (ctx && canvas) {
-            ctx.fillStyle = '#16213e';
+            ctx.fillStyle = '#FFFFFF';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
           }
           onClear?.();
@@ -110,10 +110,11 @@ const WebSignatureCanvas = ({ onEnd, onClear, signatureRef }: any) => {
       width={350}
       height={200}
       style={{
-        border: '2px solid #2d3a5f',
+        border: '2px solid #E8E9ED',
         borderRadius: 12,
         touchAction: 'none',
         cursor: 'crosshair',
+        backgroundColor: '#FFFFFF',
       }}
       onMouseDown={startDrawing}
       onMouseMove={draw}
@@ -140,10 +141,10 @@ export default function HandtekeningScreen() {
   const [selfieBase64, setSelfieBase64] = useState<string | null>(null);
 
   const signaturePadStyle = `
-    .m-signature-pad {box-shadow: none; border: none; background: #16213e;}
-    .m-signature-pad--body {border: 2px solid #2d3a5f; border-radius: 12px; overflow: hidden; background: #16213e;}
+    .m-signature-pad {box-shadow: none; border: none; background: #FFFFFF;}
+    .m-signature-pad--body {border: 2px solid #E8E9ED; border-radius: 12px; overflow: hidden; background: #FFFFFF;}
     .m-signature-pad--footer {display: none; margin: 0;}
-    body, html {background: #16213e;}
+    body, html {background: #F5F6FA;}
   `;
 
   const handleClear = () => {
@@ -252,7 +253,7 @@ export default function HandtekeningScreen() {
       >
         <View style={styles.header}>
           <TouchableOpacity testID="signature-close-button" onPress={() => router.back()}>
-            <Ionicons name="close" size={28} color="#fff" />
+            <Ionicons name="close" size={28} color="#1A1A2E" />
           </TouchableOpacity>
           <Text style={styles.title}>Handtekening</Text>
           <View style={{ width: 28 }} />
@@ -317,8 +318,8 @@ export default function HandtekeningScreen() {
                   onEmpty={() => setHasSignature(false)}
                   descriptionText=""
                   webStyle={signaturePadStyle}
-                  backgroundColor="#16213e"
-                  penColor="#F5A623"
+                  backgroundColor="#FFFFFF"
+                  penColor="#1A1A2E"
                   autoClear={false}
                 />
               )}
@@ -355,7 +356,7 @@ export default function HandtekeningScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#F5F6FA',
   },
   keyboardView: {
     flex: 1,
@@ -366,11 +367,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E8E9ED',
   },
   title: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#fff',
+    color: '#1A1A2E',
   },
   content: {
     flex: 1,
@@ -381,29 +385,32 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    color: '#a0a0a0',
+    color: '#6c757d',
     marginBottom: 8,
+    fontWeight: '500',
   },
   input: {
-    backgroundColor: '#16213e',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
-    color: '#fff',
+    color: '#1A1A2E',
     fontSize: 16,
     borderWidth: 1,
-    borderColor: '#2d3a5f',
+    borderColor: '#E8E9ED',
   },
   signatureContainer: {
     flex: 1,
   },
   canvasWrapper: {
-    backgroundColor: '#16213e',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 220,
     padding: 10,
+    borderWidth: 1,
+    borderColor: '#E8E9ED',
   },
   errorText: { color: '#dc3545', fontSize: 14, marginBottom: 12 },
   clearButton: {
@@ -427,7 +434,7 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#16213e',
+    backgroundColor: '#FFFFFF',
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#F5A62350',
@@ -437,7 +444,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   securityBtnDisabled: {
-    borderColor: '#2d3a5f',
+    borderColor: '#E8E9ED',
     opacity: 0.55,
   },
   securityBtnText: {
@@ -446,7 +453,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   securityBtnTextDisabled: {
-    color: '#555',
+    color: '#6c757d',
   },
   selfieThumbnail: {
     width: 40,
@@ -459,7 +466,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 4,
     right: 4,
-    backgroundColor: '#2d3a5f',
+    backgroundColor: '#E8E9ED',
     borderRadius: 4,
     paddingHorizontal: 4,
     paddingVertical: 2,
@@ -470,6 +477,9 @@ const styles = StyleSheet.create({
   },
   footer: {
     padding: 20,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E8E9ED',
   },
   saveButton: {
     backgroundColor: '#28a745',
@@ -484,7 +494,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   saveButtonText: {
-    color: '#000',
+    color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '600',
   },
