@@ -4179,6 +4179,33 @@ async def verzend_werkbon(werkbon_id: str, klant_email: Optional[str] = Query(No
         "success": True
     }
 
+@api_router.get("/werkbonnen/{werkbon_id}/pdf")
+async def get_werkbon_pdf(werkbon_id: str):
+    """Generate and return werkbon PDF as base64 (for download without sending email)"""
+    werkbon = await db.werkbonnen.find_one({"id": werkbon_id}, {"_id": 0})
+    if not werkbon:
+        raise HTTPException(status_code=404, detail="Werkbon niet gevonden")
+    
+    # Get klant for hourly rate
+    klant = await db.klanten.find_one({"id": werkbon["klant_id"]}, {"_id": 0}) or {}
+    uurtarief = klant.get("uurtarief", 0)
+    werf = await db.werven.find_one({"id": werkbon["werf_id"]}, {"_id": 0}) or {}
+    
+    # Get company settings
+    instellingen = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0}) or {}
+    
+    total_uren = calculate_total_uren(werkbon)
+    totaal_bedrag = total_uren * uurtarief
+
+    try:
+        pdf_bytes, pdf_filename = generate_werkbon_pdf(werkbon, klant, werf, instellingen, total_uren, totaal_bedrag)
+    except Exception as exc:
+        logging.exception("PDF generation failed for werkbon %s", werkbon_id)
+        raise HTTPException(status_code=500, detail=f"PDF genereren mislukt: {str(exc)}")
+    
+    pdf_base64 = base64.b64encode(pdf_bytes).decode("utf-8")
+    return {"pdf_base64": pdf_base64, "pdf_filename": pdf_filename}
+
 # ==================== RAPPORT ROUTES ====================
 
 @api_router.get("/rapporten/uren")

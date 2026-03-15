@@ -37,6 +37,8 @@ export default function RapportenAdmin() {
   const [statusOverzicht, setStatusOverzicht] = useState<StatusData[]>([]);
   const [totaalUren, setTotaalUren] = useState(0);
   const [totaalWerkbonnen, setTotaalWerkbonnen] = useState(0);
+  const [actieveWerknemers, setActieveWerknemers] = useState(0);
+  const [actieveWerven, setActieveWerven] = useState(0);
 
   const allowedRoles = ['beheerder', 'admin', 'manager', 'master_admin'];
 
@@ -49,19 +51,31 @@ export default function RapportenAdmin() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [werkbonnenRes, werknemersRes, teamsRes] = await Promise.all([
+      const [werkbonnenRes, werknemersRes, teamsRes, wervenRes] = await Promise.all([
         fetch(`${API_URL}/api/werkbonnen?user_id=admin-001&is_admin=true`),
         fetch(`${API_URL}/api/auth/users`),
         fetch(`${API_URL}/api/teams`),
+        fetch(`${API_URL}/api/werven`),
       ]);
 
       const werkbonnen = await werkbonnenRes.json();
       const werknemers = await werknemersRes.json();
       const teams = await teamsRes.json();
+      const werven = await wervenRes.json();
 
       const werkbonnenList = Array.isArray(werkbonnen) ? werkbonnen : [];
       const werknemersList = Array.isArray(werknemers) ? werknemers : [];
       const teamsList = Array.isArray(teams) ? teams : [];
+      const wervenList = Array.isArray(werven) ? werven : [];
+
+      // Count active werknemers (workers and onderaannemers, excluding admins)
+      const activeWorkers = werknemersList.filter((w: any) => 
+        w.actief !== false && (w.rol === 'worker' || w.rol === 'werknemer' || w.rol === 'onderaannemer')
+      ).length;
+      setActieveWerknemers(activeWorkers);
+
+      // Count all werven
+      setActieveWerven(wervenList.length);
 
       setTotaalWerkbonnen(werkbonnenList.length);
 
@@ -353,12 +367,12 @@ export default function RapportenAdmin() {
             </View>
             <View style={styles.summaryCard}>
               <Ionicons name="people-outline" size={28} color="#9b59b6" />
-              <Text style={styles.summaryValue}>{urenPerWerknemer.length}</Text>
+              <Text style={styles.summaryValue}>{actieveWerknemers}</Text>
               <Text style={styles.summaryLabel}>Actieve werknemers</Text>
             </View>
             <View style={styles.summaryCard}>
               <Ionicons name="business-outline" size={28} color="#e67e22" />
-              <Text style={styles.summaryValue}>{urenPerWerf.length}</Text>
+              <Text style={styles.summaryValue}>{actieveWerven}</Text>
               <Text style={styles.summaryLabel}>Actieve werven</Text>
             </View>
           </View>
