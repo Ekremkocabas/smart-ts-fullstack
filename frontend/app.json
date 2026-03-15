@@ -75,9 +75,6 @@
     "experiments": {
       "typedRoutes": true
     },
-    "updates": {
-      "enabled": false
-    },
     "extra": {
       "router": {},
       "apiUrl": "https://expo-fastapi-1.preview.emergentagent.com",
