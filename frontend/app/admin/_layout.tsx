@@ -96,6 +96,10 @@ function Sidebar() {
             </View>
           </View>
         )}
+        <TouchableOpacity style={styles.passwordBtn} onPress={() => router.push('/admin/account' as any)}>
+          <Ionicons name="key-outline" size={22} color="#6c757d" />
+          {!collapsed && <Text style={styles.passwordText}>Wachtwoord</Text>}
+        </TouchableOpacity>
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
           <Ionicons name="log-out-outline" size={22} color="#dc3545" />
           {!collapsed && <Text style={styles.logoutText}>Uitloggen</Text>}
@@ -185,6 +189,7 @@ export default function AdminLayout() {
             <Stack.Screen name="berichten" />
             <Stack.Screen name="rapporten" />
             <Stack.Screen name="instellingen" />
+            <Stack.Screen name="account" />
           </Stack>
         </View>
       </View>
@@ -211,6 +216,7 @@ export default function AdminLayout() {
           <Stack.Screen name="berichten" />
           <Stack.Screen name="rapporten" />
           <Stack.Screen name="instellingen" />
+          <Stack.Screen name="account" />
         </Stack>
       </View>
     </View>
@@ -417,6 +423,21 @@ const styles = StyleSheet.create({
   logoutText: {
     fontSize: 14,
     color: '#dc3545',
+    fontWeight: '500',
+  },
+  passwordBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#F5F6FA',
+    marginBottom: 8,
+  },
+  passwordText: {
+    fontSize: 14,
+    color: '#6c757d',
     fontWeight: '500',
   },
   mainContent: {

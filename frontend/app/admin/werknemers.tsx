@@ -35,7 +35,7 @@ interface Team {
   naam: string;
 }
 
-const ROLLEN = ['werknemer', 'ploegbaas', 'onderaannemer', 'beheerder'];
+const ROLLEN = ['worker', 'onderaannemer', 'planner', 'manager', 'admin'];
 const WERKBON_TYPES = [
   { key: 'uren', label: 'Uren Werkbon', icon: 'time-outline', color: '#3498db' },
   { key: 'oplevering', label: 'Oplevering Werkbon', icon: 'checkmark-done-outline', color: '#27ae60' },
@@ -258,8 +258,10 @@ export default function WerknemersAdmin() {
 
   const getRolColor = (rol: string) => {
     switch (rol) {
-      case 'beheerder': case 'admin': return '#F5A623';
-      case 'ploegbaas': return '#3498db';
+      case 'admin': case 'master_admin': return '#F5A623';
+      case 'manager': return '#9b59b6';
+      case 'planner': return '#3498db';
+      case 'worker': return '#27ae60';
       case 'onderaannemer': return '#e67e22';
       default: return '#6c757d';
     }
