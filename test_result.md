@@ -394,3 +394,27 @@ agent_communication:
     ✅ Authentication Flow - Admin credentials (info@smart-techbv.be / Smart1988-) working
     
     BACKEND STATUS: ✅ FULLY FUNCTIONAL - Ready for production use"
+  - agent: "testing"
+    message: "🎯 SMART-TS WERKBON PDF/EMAIL COMPREHENSIVE TESTING COMPLETED - 2026-03-15:
+    
+    ✅ CORE REQUIREMENTS VERIFIED:
+    1. Settings Check: emails.inkomend_werkbon = ts@smart-techbv.be ✅ VERIFIED
+    2. Login System: info@smart-techbv.be / SmartTech2025! ✅ WORKING
+    3. API Base URL: https://expo-fastapi-1.preview.emergentagent.com/api ✅ ACCESSIBLE
+    
+    ✅ WERKBON TYPES TESTED (4/4):
+    🏭 PRODUCTIE WERKBON: ✅ FULL SUCCESS - PDF generation + Email sending to ts@smart-techbv.be
+    ⏰ UREN WERKBON: ⚠️  PARTIAL - Creation successful, PDF requires proper signature format
+    🚚 OPLEVERING WERKBON: ❌ CRITICAL BUG - PDF generation fails with signature_table error
+    🏗️  PROJECT WERKBON: ⚠️  PARTIAL - Requires specific werkdagen data structure
+    
+    ✅ SCENARIOS TESTED: 6 successful scenarios including multiple Productie PDF/Email tests
+    ✅ EMAIL DELIVERY: Confirmed emails sent to ts@smart-techbv.be with proper PDF attachments
+    ✅ CUSTOMER DATA: Successfully tested customer signature, selfie photos, assessments
+    
+    🚨 CRITICAL ISSUES IDENTIFIED:
+    1. OPLEVERING PDF BUG: NameError 'signature_table' not defined in generate_oplevering_pdf() at line 2304
+    2. UREN WERKBON: Signature validation preventing PDF generation despite handtekening_data present
+    3. PROJECT WERKBON: Validation requiring specific werkdagen array structure
+    
+    📊 SUCCESS RATE: 6/10 scenarios (60%) - Productie Werkbon fully functional, others need fixes"

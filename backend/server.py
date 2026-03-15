@@ -2298,9 +2298,9 @@ def generate_oplevering_pdf(werkbon: dict, instellingen: dict) -> tuple[bytes, s
     selfie_img = make_safe_reportlab_image(selfie_bytes, 30 * mm, 30 * mm)
     if selfie_img:
         selfie_col: list = [Paragraph("<b>Selfie</b>", styles["OVSmall"]), selfie_img]
-        sig_table = Table([[sig_content, selfie_col]], colWidths=[130 * mm, 40 * mm])
+        signature_table = Table([[sig_content, selfie_col]], colWidths=[130 * mm, 40 * mm])
     else:
-        sig_table = Table([[sig_content]], colWidths=[170 * mm])
+        signature_table = Table([[sig_content]], colWidths=[170 * mm])
     signature_table.setStyle(TableStyle([
         ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#cccccc")),
         ("LEFTPADDING", (0, 0), (-1, -1), 8),
