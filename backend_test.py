@@ -1,916 +1,312 @@
 #!/usr/bin/env python3
-"""
-Backend API Test Suite for Admin Web Portal
-Tests all API endpoints as specified in the review request
-"""
 
 import requests
+import base64
 import json
+import uuid
+from datetime import datetime
 import sys
-from typing import Dict, Any, Optional
 
-# Backend URL Configuration
+# Base URL from frontend environment
 BASE_URL = "https://expo-fastapi-1.preview.emergentagent.com/api"
 
-# Admin credentials for testing  
-ADMIN_EMAIL = "info@smart-techbv.be"
-ADMIN_PASSWORD = "SmartTech2025!"
+# Test credentials
+TEST_EMAIL = "info@smart-techbv.be"
+TEST_PASSWORD = "SmartTech2025!"
 
-class BackendTester:
-    def __init__(self):
-        self.session = requests.Session()
-        self.admin_user = None
-        self.test_results = []
-        self.test_klant_id = None
-        self.test_werf_id = None
-        self.test_planning_id = None
-        self.test_bericht_id = None
-        
-    def log_test(self, test_name: str, success: bool, details: str = ""):
-        """Log test results"""
-        status = "✅ PASS" if success else "❌ FAIL"
-        self.test_results.append({
-            "test": test_name,
-            "status": status,
-            "success": success,
-            "details": details
+# Small test image data (1x1 PNG)
+TEST_IMAGE_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+
+def test_health_check():
+    """Test basic health endpoint"""
+    print("🏥 Testing Health Check...")
+    try:
+        response = requests.get(f"{BASE_URL}/health")
+        print(f"   Status: {response.status_code}")
+        if response.status_code == 200:
+            data = response.json()
+            print(f"   Response: {data}")
+            return data.get("status") == "healthy"
+        return False
+    except Exception as e:
+        print(f"   ❌ Error: {e}")
+        return False
+
+def test_auth_login():
+    """Test authentication and get JWT token"""
+    print("🔑 Testing Authentication...")
+    try:
+        response = requests.post(f"{BASE_URL}/auth/login", json={
+            "email": TEST_EMAIL,
+            "password": TEST_PASSWORD
         })
-        print(f"{status} - {test_name}")
-        if details:
-            print(f"    Details: {details}")
-    
-    # ==================== REVIEW REQUEST SPECIFIC TESTS ====================
-    
-    def test_planning_api_complete(self) -> bool:
-        """Test complete Planning API as specified in review request"""
-        try:
-            # First get required data for planning creation
-            if not self.admin_user:
-                self.log_test("Planning API - Setup", False, "No admin user available")
-                return False
-            
-            # Get klanten and werven for planning
-            klanten_response = self.session.get(f"{BASE_URL}/klanten", timeout=10)
-            werven_response = self.session.get(f"{BASE_URL}/werven", timeout=10)
-            
-            if klanten_response.status_code != 200 or werven_response.status_code != 200:
-                self.log_test("Planning API - Data Setup", False, "Could not get klanten/werven data")
-                return False
-            
-            klanten = klanten_response.json()
-            werven = werven_response.json()
-            
-            if not klanten or not werven:
-                self.log_test("Planning API - Data Setup", False, "No klanten or werven available")
-                return False
-            
-            test_klant = klanten[0]
-            test_werf = werven[0]
-            self.test_klant_id = test_klant["id"]
-            self.test_werf_id = test_werf["id"]
-            
-            # 1. POST /api/planning - Create a planning item
-            planning_data = {
-                "week_nummer": 12,
-                "jaar": 2026,
-                "dag": "dinsdag",
-                "datum": "17-03-2026",
-                "werknemer_ids": ["test-worker-1"],
-                "werknemer_namen": [],
-                "klant_id": test_klant["id"],
-                "werf_id": test_werf["id"],
-                "omschrijving": "Test taak",
-                "materiaallijst": ["Verf", "Kwasten"],
-                "geschatte_duur": "4 uur",
-                "prioriteit": "normaal",
-                "notities": "Test notitie"
-            }
-            
-            response = self.session.post(f"{BASE_URL}/planning", json=planning_data, timeout=10)
-            if response.status_code != 200:
-                self.log_test("Planning POST", False, f"Status: {response.status_code}, Response: {response.text}")
-                return False
-            
-            planning_item = response.json()
-            self.test_planning_id = planning_item["id"]
-            self.log_test("Planning POST", True, f"Created planning item for {test_klant['bedrijfsnaam']} at {test_werf['naam']}")  # Use correct field name
-            
-            # 2. GET /api/planning?week_nummer=11&jaar=2026 - Get weekly planning
-            params = {"week_nummer": 11, "jaar": 2026}
-            response = self.session.get(f"{BASE_URL}/planning", params=params, timeout=10)
-            if response.status_code != 200:
-                self.log_test("Planning GET Weekly", False, f"Status: {response.status_code}")
-                return False
-            
-            weekly_planning = response.json()
-            self.log_test("Planning GET Weekly", True, f"Found {len(weekly_planning)} planning items for week 11/2026")
-            
-            # 3. GET /api/planning/werknemer/{id} - Get worker planning
-            response = self.session.get(f"{BASE_URL}/planning/werknemer/{self.admin_user['id']}", timeout=10)
-            if response.status_code != 200:
-                self.log_test("Planning GET Worker", False, f"Status: {response.status_code}")
-                return False
-            
-            worker_planning = response.json()
-            self.log_test("Planning GET Worker", True, f"Found {len(worker_planning)} planning items for worker")
-            
-            # 4. PUT /api/planning/{id} - Update status to "afgerond"
-            update_data = {"status": "afgerond"}
-            response = self.session.put(f"{BASE_URL}/planning/{self.test_planning_id}", json=update_data, timeout=10)
-            if response.status_code != 200:
-                self.log_test("Planning PUT", False, f"Status: {response.status_code}")
-                return False
-            
-            updated_planning = response.json()
-            if updated_planning.get("status") != "afgerond":
-                self.log_test("Planning PUT", False, f"Status not updated correctly: {updated_planning.get('status')}")
-                return False
-            
-            self.log_test("Planning PUT", True, "Successfully updated planning status to 'afgerond'")
-            
-            # 5. DELETE /api/planning/{id} - Delete planning item
-            response = self.session.delete(f"{BASE_URL}/planning/{self.test_planning_id}", timeout=10)
-            if response.status_code != 200:
-                self.log_test("Planning DELETE", False, f"Status: {response.status_code}")
-                return False
-            
-            result = response.json()
-            self.log_test("Planning DELETE", True, f"Successfully deleted planning item: {result.get('message', '')}")
-            
-            return True
-            
-        except Exception as e:
-            self.log_test("Planning API Complete", False, f"Error: {str(e)}")
-            return False
-    
-    def test_berichten_api_complete(self) -> bool:
-        """Test complete Berichten (Messages) API as specified in review request"""
-        try:
-            if not self.admin_user:
-                self.log_test("Berichten API - Setup", False, "No admin user available")
-                return False
-            
-            admin_id = self.admin_user["id"]
-            admin_naam = self.admin_user["naam"]
-            
-            # 1. POST /api/berichten?van_id=admin-001&van_naam=Admin - Create message
-            message_data = {
-                "naar_id": None,
-                "is_broadcast": True,
-                "onderwerp": "Test bericht",
-                "inhoud": "Dit is een test bericht",
-                "vastgepind": False
-            }
-            
-            params = {"van_id": admin_id, "van_naam": admin_naam}
-            response = self.session.post(f"{BASE_URL}/berichten", json=message_data, params=params, timeout=10)
-            if response.status_code != 200:
-                self.log_test("Berichten POST", False, f"Status: {response.status_code}, Response: {response.text}")
-                return False
-            
-            bericht = response.json()
-            self.test_bericht_id = bericht["id"]
-            self.log_test("Berichten POST", True, f"Created broadcast message: {bericht['onderwerp']}")
-            
-            # 2. GET /api/berichten?user_id=admin-001 - Get messages
-            params = {"user_id": admin_id}
-            response = self.session.get(f"{BASE_URL}/berichten", params=params, timeout=10)
-            if response.status_code != 200:
-                self.log_test("Berichten GET", False, f"Status: {response.status_code}")
-                return False
-            
-            berichten = response.json()
-            self.log_test("Berichten GET", True, f"Found {len(berichten)} messages for user")
-            
-            # 3. GET /api/berichten/ongelezen?user_id=admin-001 - Get unread count
-            params = {"user_id": admin_id}
-            response = self.session.get(f"{BASE_URL}/berichten/ongelezen", params=params, timeout=10)
-            if response.status_code != 200:
-                self.log_test("Berichten GET Unread", False, f"Status: {response.status_code}")
-                return False
-            
-            unread_data = response.json()
-            unread_count = unread_data.get("ongelezen", 0)
-            self.log_test("Berichten GET Unread", True, f"Found {unread_count} unread messages")
-            
-            # 4. POST /api/berichten/{id}/gelezen?user_id=admin-001 - Mark as read
-            params = {"user_id": admin_id}
-            response = self.session.post(f"{BASE_URL}/berichten/{self.test_bericht_id}/gelezen", params=params, timeout=10)
-            if response.status_code != 200:
-                self.log_test("Berichten Mark Read", False, f"Status: {response.status_code}")
-                return False
-            
-            read_result = response.json()
-            self.log_test("Berichten Mark Read", True, f"Marked message as read: {read_result.get('message', '')}")
-            
-            # 5. DELETE /api/berichten/{id} - Delete message
-            response = self.session.delete(f"{BASE_URL}/berichten/{self.test_bericht_id}", timeout=10)
-            if response.status_code != 200:
-                self.log_test("Berichten DELETE", False, f"Status: {response.status_code}")
-                return False
-            
-            delete_result = response.json()
-            self.log_test("Berichten DELETE", True, f"Successfully deleted message: {delete_result.get('message', '')}")
-            
-            return True
-            
-        except Exception as e:
-            self.log_test("Berichten API Complete", False, f"Error: {str(e)}")
-            return False
-    
-    def test_auth_api_specific(self) -> bool:
-        """Test Auth API as specified in review request"""
-        try:
-            # POST /api/auth/login with specific credentials
-            login_data = {
-                "email": "info@smart-techbv.be",
-                "password": "Smart1988-"
-            }
-            response = self.session.post(f"{BASE_URL}/auth/login", json=login_data, timeout=10)
-            
-            if response.status_code != 200:
-                self.log_test("Auth Login (Specific)", False, f"Status: {response.status_code}, Response: {response.text}")
-                return False
-            
-            response_data = response.json()
-            
-            # The login response now returns a nested structure with user, token, etc.
-            if "user" not in response_data:
-                self.log_test("Auth Login (Specific)", False, f"Response missing user data: {response_data.keys()}")
-                return False
-            
-            user_data = response_data["user"]
-            if not user_data.get("id"):
-                self.log_test("Auth Login (Specific)", False, "User response missing user ID")
-                return False
-            
-            # Set admin user for subsequent tests if not already set
-            if not self.admin_user:
-                self.admin_user = user_data
-            
-            self.log_test("Auth Login (Specific)", True, f"Login successful - User ID: {user_data['id']}")
-            
-            # GET /api/auth/users - Should return all users
-            response = self.session.get(f"{BASE_URL}/auth/users", timeout=10)
-            if response.status_code != 200:
-                self.log_test("Auth Get All Users (Specific)", False, f"Status: {response.status_code}")
-                return False
-            
-            users = response.json()
-            if not isinstance(users, list):
-                self.log_test("Auth Get All Users (Specific)", False, "Response is not a list")
-                return False
-            
-            self.log_test("Auth Get All Users (Specific)", True, f"Found {len(users)} users")
-            return True
-            
-        except Exception as e:
-            self.log_test("Auth API Specific", False, f"Error: {str(e)}")
-            return False
-    
-    def test_dashboard_stats_specific(self) -> bool:
-        """Test Dashboard Stats as specified in review request"""
-        try:
-            # GET /api/dashboard/stats - Should return comprehensive statistics
-            response = self.session.get(f"{BASE_URL}/dashboard/stats", timeout=10)
-            
-            if response.status_code != 200:
-                self.log_test("Dashboard Stats (Specific)", False, f"Status: {response.status_code}")
-                return False
-            
-            stats = response.json()
-            
-            # Check for required fields as per backend implementation
-            required_fields = [
-                "werknemers", "teams", "klanten", "werven",
-                "werkbonnen_deze_week", "werkbonnen_ondertekend", "werkbonnen_concept",
-                "oplevering_werkbonnen", "project_werkbonnen",
-                "planning_deze_week", "planning_afgerond", "ongelezen_berichten",
-                "week_nummer", "jaar"
-            ]
-            
-            missing_fields = [field for field in required_fields if field not in stats]
-            if missing_fields:
-                self.log_test("Dashboard Stats (Specific)", False, f"Missing fields: {missing_fields}")
-                return False
-            
-            # Verify data types
-            for field in required_fields:
-                if not isinstance(stats[field], int):
-                    self.log_test("Dashboard Stats (Specific)", False, f"Field {field} is not integer: {type(stats[field])}")
-                    return False
-            
-            self.log_test("Dashboard Stats (Specific)", True, 
-                         f"Comprehensive stats - Week {stats['week_nummer']}/{stats['jaar']}, " +
-                         f"{stats['werknemers']} workers, {stats['klanten']} clients")
-            return True
-            
-        except Exception as e:
-            self.log_test("Dashboard Stats (Specific)", False, f"Error: {str(e)}")
-            return False
-    
-    def test_existing_apis_regression(self) -> bool:
-        """Test existing APIs for regression as specified in review request"""
-        try:
-            if not self.admin_user:
-                self.log_test("Existing APIs Regression", False, "No admin user available")
-                return False
-            
-            # GET /api/werkbonnen?user_id=admin-001&is_admin=true
-            params = {"user_id": self.admin_user["id"], "is_admin": "true"}
-            response = self.session.get(f"{BASE_URL}/werkbonnen", params=params, timeout=10)
-            if response.status_code != 200:
-                self.log_test("Existing APIs - Werkbonnen", False, f"Status: {response.status_code}")
-                return False
-            
-            werkbonnen = response.json()
-            self.log_test("Existing APIs - Werkbonnen", True, f"Found {len(werkbonnen)} werkbonnen")
-            
-            # GET /api/klanten
-            response = self.session.get(f"{BASE_URL}/klanten", timeout=10)
-            if response.status_code != 200:
-                self.log_test("Existing APIs - Klanten", False, f"Status: {response.status_code}")
-                return False
-            
-            klanten = response.json()
-            self.log_test("Existing APIs - Klanten", True, f"Found {len(klanten)} klanten")
-            
-            # GET /api/werven
-            response = self.session.get(f"{BASE_URL}/werven", timeout=10)
-            if response.status_code != 200:
-                self.log_test("Existing APIs - Werven", False, f"Status: {response.status_code}")
-                return False
-            
-            werven = response.json()
-            self.log_test("Existing APIs - Werven", True, f"Found {len(werven)} werven")
-            
-            # GET /api/teams
-            response = self.session.get(f"{BASE_URL}/teams", timeout=10)
-            if response.status_code != 200:
-                self.log_test("Existing APIs - Teams", False, f"Status: {response.status_code}")
-                return False
-            
-            teams = response.json()
-            self.log_test("Existing APIs - Teams", True, f"Found {len(teams)} teams")
-            
-            return True
-            
-        except Exception as e:
-            self.log_test("Existing APIs Regression", False, f"Error: {str(e)}")
-            return False
-
-    def test_health_check(self) -> bool:
-        """Test GET /api/health - Check if backend is healthy"""
-        try:
-            response = self.session.get(f"{BASE_URL}/health", timeout=10)
-            if response.status_code == 200:
-                self.log_test("Health Check", True, f"Status: {response.status_code}")
-                return True
-            else:
-                self.log_test("Health Check", False, f"Status: {response.status_code}")
-                return False
-        except Exception as e:
-            self.log_test("Health Check", False, f"Error: {str(e)}")
-            return False
-    
-    def test_admin_login(self) -> bool:
-        """Test POST /api/auth/login - Login with admin credentials"""
-        try:
-            login_data = {
-                "email": ADMIN_EMAIL,
-                "password": ADMIN_PASSWORD
-            }
-            response = self.session.post(f"{BASE_URL}/auth/login", json=login_data, timeout=10)
-            
-            if response.status_code == 200:
-                response_data = response.json()
-                # Handle the new login response format
-                if "user" in response_data:
-                    user_data = response_data["user"]
-                    self.admin_user = user_data
-                else:
-                    user_data = response_data
-                    self.admin_user = user_data
-                
-                # Verify required fields
-                required_fields = ["id", "email", "naam", "rol", "actief"]
-                missing_fields = [field for field in required_fields if field not in user_data]
-                
-                if missing_fields:
-                    self.log_test("Admin Login - Fields Check", False, f"Missing fields: {missing_fields}")
-                    return False
-                
-                if user_data.get("rol") != "admin":
-                    self.log_test("Admin Login - Role Check", False, f"Expected role 'admin', got '{user_data.get('rol')}'")
-                    return False
-                
-                if user_data.get("email") != ADMIN_EMAIL:
-                    self.log_test("Admin Login - Email Check", False, f"Expected email '{ADMIN_EMAIL}', got '{user_data.get('email')}'")
-                    return False
-                
-                self.log_test("Admin Login", True, f"Admin user: {user_data['naam']}, Role: {user_data['rol']}")
-                return True
-            else:
-                self.log_test("Admin Login", False, f"Status: {response.status_code}, Response: {response.text}")
-                return False
-                
-        except Exception as e:
-            self.log_test("Admin Login", False, f"Error: {str(e)}")
-            return False
-    
-    def test_get_users(self) -> bool:
-        """Test GET /api/auth/users - Get all users"""
-        try:
-            response = self.session.get(f"{BASE_URL}/auth/users", timeout=10)
-            
-            if response.status_code == 200:
-                users = response.json()
-                if isinstance(users, list) and len(users) > 0:
-                    admin_found = any(user.get("email") == ADMIN_EMAIL and user.get("rol") == "admin" for user in users)
-                    if admin_found:
-                        self.log_test("Get Users", True, f"Found {len(users)} users including admin")
-                        return True
-                    else:
-                        self.log_test("Get Users", False, "Admin user not found in user list")
-                        return False
-                else:
-                    self.log_test("Get Users", False, "Empty user list or invalid format")
-                    return False
-            else:
-                self.log_test("Get Users", False, f"Status: {response.status_code}, Response: {response.text}")
-                return False
-                
-        except Exception as e:
-            self.log_test("Get Users", False, f"Error: {str(e)}")
-            return False
-    
-    def test_update_user(self) -> bool:
-        """Test PUT /api/auth/users/{id} - Update user (test with one of the test users)"""
-        try:
-            # First get all users to find a test user
-            response = self.session.get(f"{BASE_URL}/auth/users", timeout=10)
-            if response.status_code != 200:
-                self.log_test("Update User - Get Users Failed", False, f"Status: {response.status_code}")
-                return False
-            
-            users = response.json()
-            test_user = None
-            
-            # Find a non-admin user to update (preferably named Jan Janssen as mentioned in the request)
-            for user in users:
-                if user.get("rol") == "werknemer" and user.get("email") != ADMIN_EMAIL:
-                    if "Jan" in user.get("naam", "") or "Janssen" in user.get("naam", ""):
-                        test_user = user
-                        break
-            
-            # If no Jan found, use any werknemer
-            if not test_user:
-                for user in users:
-                    if user.get("rol") == "werknemer" and user.get("email") != ADMIN_EMAIL:
-                        test_user = user
-                        break
-            
-            if not test_user:
-                self.log_test("Update User", False, "No werknemer user found to update")
-                return False
-            
-            # Update the user (change name slightly to test update)
-            original_naam = test_user.get("naam", "")
-            update_data = {"naam": f"{original_naam} (Updated)"}
-            
-            response = self.session.put(f"{BASE_URL}/auth/users/{test_user['id']}", json=update_data, timeout=10)
-            
-            if response.status_code == 200:
-                updated_user = response.json()
-                
-                # Restore original name
-                restore_data = {"naam": original_naam}
-                self.session.put(f"{BASE_URL}/auth/users/{test_user['id']}", json=restore_data, timeout=10)
-                
-                self.log_test("Update User", True, f"Updated user: {updated_user['naam']}")
-                return True
-            else:
-                self.log_test("Update User", False, f"Status: {response.status_code}, Response: {response.text}")
-                return False
-                
-        except Exception as e:
-            self.log_test("Update User", False, f"Error: {str(e)}")
-            return False
-    
-    def test_teams_crud(self) -> bool:
-        """Test Teams CRUD operations"""
-        try:
-            # GET /api/teams
-            response = self.session.get(f"{BASE_URL}/teams", timeout=10)
-            if response.status_code != 200:
-                self.log_test("Teams GET", False, f"Status: {response.status_code}")
-                return False
-            
-            teams = response.json()
-            self.log_test("Teams GET", True, f"Found {len(teams)} teams")
-            
-            # POST /api/teams - Create new team with specified data
-            new_team_data = {
-                "naam": "Test Team",
-                "leden": ["Jan Janssen"]
-            }
-            
-            response = self.session.post(f"{BASE_URL}/teams", json=new_team_data, timeout=10)
-            if response.status_code != 200:
-                self.log_test("Teams POST", False, f"Status: {response.status_code}, Response: {response.text}")
-                return False
-            
-            new_team = response.json()
-            team_id = new_team["id"]
-            self.log_test("Teams POST", True, f"Created team: {new_team['naam']} with members: {new_team.get('leden', [])}")  # Changed message
-            
-            # PUT /api/teams/{id} - Update team
-            update_data = {"naam": "Updated Test Team", "leden": ["Jan Janssen", "Piet de Vries"]}
-            response = self.session.put(f"{BASE_URL}/teams/{team_id}", json=update_data, timeout=10)
-            if response.status_code != 200:
-                self.log_test("Teams PUT", False, f"Status: {response.status_code}")
-                return False
-            
-            updated_team = response.json()
-            self.log_test("Teams PUT", True, f"Updated team: {updated_team['naam']}")
-            
-            return True
-            
-        except Exception as e:
-            self.log_test("Teams CRUD", False, f"Error: {str(e)}")
-            return False
-    
-    def test_klanten_crud(self) -> bool:
-        """Test Klanten (Clients) CRUD operations"""
-        try:
-            # GET /api/klanten
-            response = self.session.get(f"{BASE_URL}/klanten", timeout=10)
-            if response.status_code != 200:
-                self.log_test("Klanten GET", False, f"Status: {response.status_code}")
-                return False
-            
-            klanten = response.json()
-            self.log_test("Klanten GET", True, f"Found {len(klanten)} clients")
-            
-            # POST /api/klanten - Create new client
-            new_klant_data = {
-                "bedrijfsnaam": "Test Construction Client BV",  # Changed from "naam" to "bedrijfsnaam"
-                "algemeen_email": "test@testclient.nl",  # Changed from "email" to "algemeen_email"
-                "algemeen_telefoon": "0123456789",  # Changed from "telefoon" to "algemeen_telefoon"
-                "standaard_uurtarief": 75.0,  # Changed from "uurtarief" to "standaard_uurtarief"
-                "adres_structured": {
-                    "straat": "Bouwstraat 123",
-                    "huisnummer": "",
-                    "postcode": "1234AB", 
-                    "stad": "Amsterdam",
-                    "land": "Nederland"
-                }
-            }
-            
-            response = self.session.post(f"{BASE_URL}/klanten", json=new_klant_data, timeout=10)
-            if response.status_code != 200:
-                self.log_test("Klanten POST", False, f"Status: {response.status_code}, Response: {response.text}")
-                return False
-            
-            new_klant = response.json()
-            klant_id = new_klant["id"]
-            self.test_klant_id = klant_id  # Store for werven testing
-            self.log_test("Klanten POST", True, f"Created client: {new_klant['naam']}")
-            
-            # PUT /api/klanten/{id} - Update client
-            update_data = {
-                "bedrijfsnaam": "Updated Test Construction Client BV",  # Changed from "naam"
-                "algemeen_email": "updated@testclient.nl",  # Changed from "email"
-                "standaard_uurtarief": 80.0  # Changed from "uurtarief"
-            }
-            response = self.session.put(f"{BASE_URL}/klanten/{klant_id}", json=update_data, timeout=10)
-            if response.status_code != 200:
-                self.log_test("Klanten PUT", False, f"Status: {response.status_code}")
-                return False
-            
-            updated_klant = response.json()
-            self.log_test("Klanten PUT", True, f"Updated client: {updated_klant['naam']}")
-            
-            return True
-            
-        except Exception as e:
-            self.log_test("Klanten CRUD", False, f"Error: {str(e)}")
-            return False
-    
-    def test_werven_crud(self) -> bool:
-        """Test Werven (Sites) CRUD operations"""
-        try:
-            # GET /api/werven
-            response = self.session.get(f"{BASE_URL}/werven", timeout=10)
-            if response.status_code != 200:
-                self.log_test("Werven GET", False, f"Status: {response.status_code}")
-                return False
-            
-            werven = response.json()
-            self.log_test("Werven GET", True, f"Found {len(werven)} sites")
-            
-            # POST /api/werven - Create new site (need valid klant_id)
-            if not self.test_klant_id:
-                self.log_test("Werven POST", False, "No test client available")
-                return False
-            
-            new_werf_data = {
-                "naam": "Test Construction Site",
-                "klant_id": self.test_klant_id,
-                "adres": "Bouwterrein 456, Rotterdam"
-            }
-            
-            response = self.session.post(f"{BASE_URL}/werven", json=new_werf_data, timeout=10)
-            if response.status_code != 200:
-                self.log_test("Werven POST", False, f"Status: {response.status_code}, Response: {response.text}")
-                return False
-            
-            new_werf = response.json()
-            werf_id = new_werf["id"]
-            self.log_test("Werven POST", True, f"Created site: {new_werf['naam']}")
-            
-            # PUT /api/werven/{id} - Update site
-            update_data = {
-                "naam": "Updated Test Construction Site",
-                "klant_id": self.test_klant_id,
-                "adres": "Updated Bouwterrein 789, Utrecht"
-            }
-            response = self.session.put(f"{BASE_URL}/werven/{werf_id}", json=update_data, timeout=10)
-            if response.status_code != 200:
-                self.log_test("Werven PUT", False, f"Status: {response.status_code}")
-                return False
-            
-            updated_werf = response.json()
-            self.log_test("Werven PUT", True, f"Updated site: {updated_werf['naam']}")
-            
-            return True
-            
-        except Exception as e:
-            self.log_test("Werven CRUD", False, f"Error: {str(e)}")
-            return False
-    
-    def test_werkbonnen_operations(self) -> bool:
-        """Test Werkbonnen (Timesheets) operations"""
-        try:
-            if not self.admin_user:
-                self.log_test("Werkbonnen GET", False, "No admin user available")
-                return False
-            
-            # GET /api/werkbonnen?user_id=admin-001&is_admin=true - Get all timesheets
-            params = {"user_id": self.admin_user["id"], "is_admin": "true"}
-            response = self.session.get(f"{BASE_URL}/werkbonnen", params=params, timeout=10)
-            if response.status_code != 200:
-                self.log_test("Werkbonnen GET", False, f"Status: {response.status_code}")
-                return False
-            
-            werkbonnen = response.json()
-            self.log_test("Werkbonnen GET", True, f"Found {len(werkbonnen)} timesheets")
-            
-            # Test PDF generation if we have any werkbonnen
-            pdf_tested = False
-            if werkbonnen:
-                # Try to find a signed werkbon first, then try any werkbon
-                test_werkbon = None
-                for wb in werkbonnen:
-                    if wb.get("status") == "ondertekend":
-                        test_werkbon = wb
-                        break
-                
-                # If no signed werkbon, try with any werkbon
-                if not test_werkbon and werkbonnen:
-                    test_werkbon = werkbonnen[0]
-                
-                if test_werkbon:
-                    werkbon_id = test_werkbon["id"]
-                    
-                    # Test the verzenden endpoint which generates PDF and emails it
-                    # This is the actual PDF-related endpoint as per the backend code
-                    response = self.session.post(f"{BASE_URL}/werkbonnen/{werkbon_id}/verzenden", timeout=15)
-                    pdf_tested = True
-                    
-                    if response.status_code == 200:
-                        result = response.json()
-                        if result.get("success"):
-                            self.log_test("Werkbon PDF Generation (via verzenden)", True, f"PDF generated and email attempted for werkbon {werkbon_id}")
-                        else:
-                            # PDF generated but email failed (expected due to no RESEND setup)
-                            if "PDF gemaakt" in result.get("message", ""):
-                                self.log_test("Werkbon PDF Generation (via verzenden)", True, f"PDF generated successfully (email failed as expected)")
-                            else:
-                                self.log_test("Werkbon PDF Generation (via verzenden)", False, f"Unexpected response: {result}")
-                    elif response.status_code == 400:
-                        # Expected for unsigned werkbon
-                        error_msg = response.json().get("detail", "")
-                        if "ondertekend" in error_msg:
-                            self.log_test("Werkbon PDF Generation (via verzenden)", True, f"PDF endpoint working (requires signed werkbon)")
-                        else:
-                            self.log_test("Werkbon PDF Generation (via verzenden)", False, f"Unexpected error: {error_msg}")
-                    else:
-                        self.log_test("Werkbon PDF Generation (via verzenden)", False, f"Status: {response.status_code}, Response: {response.text[:200]}")
-            
-            if not pdf_tested:
-                self.log_test("Werkbon PDF Generation (via verzenden)", False, "No werkbonnen available for PDF test")
-            
-            return True
-            
-        except Exception as e:
-            self.log_test("Werkbonnen Operations", False, f"Error: {str(e)}")
-            return False
-    
-    def test_instellingen_operations(self) -> bool:
-        """Test Instellingen (Settings) operations"""
-        try:
-            # GET /api/instellingen - Get company settings
-            response = self.session.get(f"{BASE_URL}/instellingen", timeout=10)
-            if response.status_code != 200:
-                self.log_test("Instellingen GET", False, f"Status: {response.status_code}")
-                return False
-            
-            settings = response.json()
-            company_name = settings.get('bedrijfsnaam', 'Unknown')
-            self.log_test("Instellingen GET", True, f"Company: {company_name}")
-            
-            # PUT /api/instellingen - Update company settings
-            original_voettekst = settings.get("pdf_voettekst", "")
-            update_data = {
-                "pdf_voettekst": "Test footer update via API test"
-            }
-            
-            response = self.session.put(f"{BASE_URL}/instellingen", json=update_data, timeout=10)
-            if response.status_code != 200:
-                self.log_test("Instellingen PUT", False, f"Status: {response.status_code}")
-                return False
-            
-            updated_settings = response.json()
-            
-            # Restore original setting
-            if original_voettekst:
-                restore_data = {"pdf_voettekst": original_voettekst}
-                self.session.put(f"{BASE_URL}/instellingen", json=restore_data, timeout=10)
-            
-            self.log_test("Instellingen PUT", True, "Settings updated and restored successfully")
-            return True
-            
-        except Exception as e:
-            self.log_test("Instellingen Operations", False, f"Error: {str(e)}")
-            return False
-    
-    def test_user_deletion(self) -> bool:
-        """Test DELETE /api/auth/users/{id} - Delete user (werknemer only)"""
-        try:
-            # Create a temporary user first for deletion test
-            import time
-            temp_user_data = {
-                "email": f"temp_test_user_{int(time.time())}@smart-techbv.be",
-                "password": "temp123",
-                "naam": "Temp Test User",
-                "rol": "werknemer"
-            }
-            
-            create_response = self.session.post(f"{BASE_URL}/auth/register", json=temp_user_data, timeout=10)
-            if create_response.status_code != 200:
-                self.log_test("User Deletion - Create Temp User Failed", False, f"Status: {create_response.status_code}")
-                return False
-            
-            temp_user = create_response.json()
-            
-            # Now delete the temporary user
-            response = self.session.delete(f"{BASE_URL}/auth/users/{temp_user['id']}", timeout=10)
-            
-            if response.status_code == 200:
-                # Verify user is actually deleted
-                verify_response = self.session.get(f"{BASE_URL}/auth/users", timeout=10)
-                if verify_response.status_code == 200:
-                    users = verify_response.json()
-                    deleted_user_exists = any(user.get("id") == temp_user['id'] for user in users)
-                    if not deleted_user_exists:
-                        self.log_test("User Deletion", True, f"Successfully deleted temp user: {temp_user['naam']}")
-                        return True
-                    else:
-                        self.log_test("User Deletion", False, "User still exists after deletion")
-                        return False
-                else:
-                    self.log_test("User Deletion", True, f"Deletion request successful: {temp_user['naam']}")
-                    return True
-            else:
-                self.log_test("User Deletion", False, f"Status: {response.status_code}, Response: {response.text}")
-                return False
-                
-        except Exception as e:
-            self.log_test("User Deletion", False, f"Error: {str(e)}")
-            return False
-    
-    def test_uren_rapport_endpoint(self) -> bool:
-        """Test GET /api/rapporten/uren - New hours report endpoint"""
-        try:
-            # Test with current year and a recent week
-            import datetime
-            current_year = datetime.datetime.now().year
-            current_week = datetime.datetime.now().isocalendar()[1]
-            
-            params = {"jaar": current_year, "week": current_week}
-            response = self.session.get(f"{BASE_URL}/rapporten/uren", params=params, timeout=10)
-            
-            if response.status_code == 200:
-                rapport_data = response.json()
-                if isinstance(rapport_data, list):
-                    self.log_test("Uren Rapport Endpoint", True, f"Retrieved hours report with {len(rapport_data)} worker entries")
-                    return True
-                else:
-                    self.log_test("Uren Rapport Endpoint", False, "Invalid response format")
-                    return False
-            else:
-                self.log_test("Uren Rapport Endpoint", False, f"Status: {response.status_code}, Response: {response.text}")
-                return False
-                
-        except Exception as e:
-            self.log_test("Uren Rapport Endpoint", False, f"Error: {str(e)}")
-            return False
-    
-    def run_all_tests(self) -> Dict[str, Any]:
-        """Run all backend API tests as specified in the review request"""
-        print("=" * 70)
-        print("BACKEND API TEST SUITE - ADMIN WEB PORTAL")
-        print("Testing as specified in the review request")
-        print("=" * 70)
-        print(f"Backend URL: {BASE_URL}")
-        print(f"Admin Credentials: {ADMIN_EMAIL} / {ADMIN_PASSWORD}")
-        print()
-        
-        # Test sequence following the review request order
-        # Priority 1: Review Request Specific Tests
-        tests = [
-            ("Health Check", self.test_health_check),
-            ("🔑 Auth API (POST /api/auth/login, GET /api/auth/users)", self.test_auth_api_specific),
-            ("📊 Dashboard Stats (GET /api/dashboard/stats)", self.test_dashboard_stats_specific),
-            ("📅 Planning APIs Complete CRUD", self.test_planning_api_complete),
-            ("💬 Berichten (Messages) APIs Complete CRUD", self.test_berichten_api_complete),
-            ("🔄 Existing APIs Regression Test", self.test_existing_apis_regression),
-            # Secondary tests from original suite
-            ("Admin Authentication (POST /api/auth/login)", self.test_admin_login),
-            ("Get All Users (GET /api/auth/users)", self.test_get_users),
-            ("Update User (PUT /api/auth/users/{id})", self.test_update_user),
-            ("Delete User (DELETE /api/auth/users/{id})", self.test_user_deletion),
-            ("Teams CRUD Operations (GET/POST/PUT /api/teams)", self.test_teams_crud),
-            ("Klanten CRUD Operations (GET/POST/PUT /api/klanten)", self.test_klanten_crud),
-            ("Werven CRUD Operations (GET/POST/PUT /api/werven)", self.test_werven_crud),
-            ("Werkbonnen Operations (GET /api/werkbonnen, PDF generation)", self.test_werkbonnen_operations),
-            ("Company Settings (GET/PUT /api/instellingen)", self.test_instellingen_operations),
-            ("Uren Rapport Endpoint (GET /api/rapporten/uren)", self.test_uren_rapport_endpoint),
-        ]
-        
-        passed_tests = 0
-        total_tests = len(tests)
-        
-        for test_name, test_func in tests:
-            print(f"\n--- Running: {test_name} ---")
-            if test_func():
-                passed_tests += 1
-        
-        print("\n" + "=" * 70)
-        print("TEST SUMMARY")
-        print("=" * 70)
-        
-        failed_tests = []
-        for result in self.test_results:
-            print(f"{result['status']} - {result['test']}")
-            if result['details']:
-                print(f"    {result['details']}")
-            if not result['success']:
-                failed_tests.append(result['test'])
-        
-        print("\n" + "-" * 70)
-        print(f"TOTAL: {passed_tests}/{total_tests} tests passed")
-        
-        success_rate = (passed_tests / total_tests) * 100
-        print(f"SUCCESS RATE: {success_rate:.1f}%")
-        
-        if passed_tests == total_tests:
-            print("🎉 ALL BACKEND API TESTS PASSED!")
-            print("All CRUD operations work correctly and return proper data.")
+        print(f"   Status: {response.status_code}")
+        if response.status_code == 200:
+            data = response.json()
+            token = data.get("token")
+            print(f"   Token length: {len(token) if token else 0}")
+            print(f"   User: {data.get('user', {}).get('naam', 'Unknown')}")
+            return token
         else:
-            print(f"⚠️  {total_tests - passed_tests} tests failed")
-            print("Failed tests:")
-            for test in failed_tests:
-                print(f"  - {test}")
-        
-        return {
-            "total_tests": total_tests,
-            "passed_tests": passed_tests,
-            "failed_tests": total_tests - passed_tests,
-            "success_rate": success_rate,
-            "all_passed": passed_tests == total_tests,
-            "test_results": self.test_results,
-            "failed_test_names": failed_tests
-        }
+            print(f"   ❌ Error: {response.text}")
+            return None
+    except Exception as e:
+        print(f"   ❌ Error: {e}")
+        return None
 
-def main():
-    """Main test runner"""
-    tester = BackendTester()
-    results = tester.run_all_tests()
+def test_gridfs_file_upload(token):
+    """Test GridFS file upload endpoint"""
+    print("📁 Testing GridFS File Upload...")
+    try:
+        headers = {"Authorization": f"Bearer {token}"}
+        payload = {
+            "data": TEST_IMAGE_BASE64,
+            "filename": "test_image.png",
+            "content_type": "image/png"
+        }
+        
+        response = requests.post(f"{BASE_URL}/files/upload", 
+                               json=payload, headers=headers)
+        print(f"   Status: {response.status_code}")
+        
+        if response.status_code == 200:
+            data = response.json()
+            file_id = data.get("file_id")
+            print(f"   File ID: {file_id}")
+            print(f"   Filename: {data.get('filename')}")
+            return file_id
+        else:
+            print(f"   ❌ Error: {response.text}")
+            return None
+    except Exception as e:
+        print(f"   ❌ Error: {e}")
+        return None
+
+def test_gridfs_file_download(file_id, token):
+    """Test GridFS file download endpoint"""
+    print("📥 Testing GridFS File Download...")
+    try:
+        headers = {"Authorization": f"Bearer {token}"}
+        
+        # Test direct file download
+        response = requests.get(f"{BASE_URL}/files/{file_id}", headers=headers)
+        print(f"   Direct download status: {response.status_code}")
+        print(f"   Content-Type: {response.headers.get('Content-Type')}")
+        print(f"   Content-Length: {len(response.content)} bytes")
+        
+        # Test base64 download
+        response = requests.get(f"{BASE_URL}/files/{file_id}/base64", headers=headers)
+        print(f"   Base64 download status: {response.status_code}")
+        
+        if response.status_code == 200:
+            data = response.json()
+            retrieved_data = data.get("data")
+            print(f"   Base64 data length: {len(retrieved_data) if retrieved_data else 0}")
+            print(f"   Content type: {data.get('content_type')}")
+            print(f"   Filename: {data.get('filename')}")
+            
+            # Verify data matches original
+            return retrieved_data == TEST_IMAGE_BASE64
+        
+        return response.status_code == 200
+    except Exception as e:
+        print(f"   ❌ Error: {e}")
+        return False
+
+def test_productie_werkbon_with_photos(token):
+    """Test Productie Werkbon creation with photos stored in GridFS"""
+    print("🏭 Testing Productie Werkbon with GridFS Photos...")
+    try:
+        headers = {
+            "Authorization": f"Bearer {token}",
+        }
+        
+        # Create a productie werkbon with photos
+        werkbon_data = {
+            "klant_id": "b3dbf862-2ece-43f6-ab35-31366f99effb",
+            "werf_id": "12ad7b78-ff5a-415f-a39b-9f19aa93138b", 
+            "omschrijving": "GridFS Test Werkbon",
+            "m_kwadraat": 50.5,
+            "datum": datetime.now().isoformat(),
+            "fotos": [
+                {
+                    "base64": f"data:image/png;base64,{TEST_IMAGE_BASE64}",
+                    "timestamp": datetime.now().isoformat(),
+                    "werknemer_id": "64fa6af4-630e-4f90-9452-fb3b74b4b432",
+                    "gps": "51.2211,4.4051"
+                }
+            ],
+            "handtekening": f"data:image/png;base64,{TEST_IMAGE_BASE64}",
+            "team_leden": ["64fa6af4-630e-4f90-9452-fb3b74b4b432"],
+            "pur_schuimwerk": True,
+            "gps_locatie": "51.2211,4.4051",
+            "selfie_base64": f"data:image/png;base64,{TEST_IMAGE_BASE64}",
+            "schuurwerken": True,
+            "stofzuigen": True,
+            "status": "voltooid"
+        }
+        
+        # Use query parameters as expected by the API
+        response = requests.post(f"{BASE_URL}/productie-werkbonnen?user_id=admin-001&user_naam=Test%20User", 
+                               json=werkbon_data, headers=headers)
+        print(f"   Status: {response.status_code}")
+        
+        if response.status_code == 200:
+            data = response.json()
+            werkbon_id = data.get("id")
+            print(f"   Werkbon ID: {werkbon_id}")
+            
+            # Check if fotos array contains file_id instead of base64
+            fotos = data.get("fotos", [])
+            if fotos and len(fotos) > 0:
+                first_foto = fotos[0]
+                has_file_id = "file_id" in first_foto
+                no_base64 = "base64" not in first_foto
+                print(f"   Photo stored as file_id: {has_file_id}")
+                print(f"   No base64 in response: {no_base64}")
+                
+                # Check handtekening field
+                handtekening = data.get("handtekening")
+                handtekening_is_file_id = handtekening and len(handtekening) == 24  # ObjectId length
+                print(f"   Handtekening as file_id: {handtekening_is_file_id}")
+                
+                return has_file_id and no_base64 and handtekening_is_file_id
+            
+            return True
+        else:
+            print(f"   ❌ Error: {response.text}")
+            return False
+    except Exception as e:
+        print(f"   ❌ Error: {e}")
+        return False
+
+def test_berichten_with_bijlagen(token):
+    """Test Berichten API with GridFS attachments"""
+    print("💬 Testing Berichten with GridFS Bijlagen...")
+    try:
+        headers = {
+            "Authorization": f"Bearer {token}",
+        }
+        
+        # Create a message with attachment
+        bericht_data = {
+            "naar_id": "2c4998b1-0f65-474d-ba53-196c8d3770c4",
+            "is_broadcast": False,
+            "onderwerp": "GridFS Test Bericht",
+            "inhoud": "Testing GridFS file storage for attachments",
+            "vastgepind": False,
+            "bijlagen": [
+                {
+                    "naam": "test_attachment.png",
+                    "type": "image/png", 
+                    "data": f"data:image/png;base64,{TEST_IMAGE_BASE64}"
+                }
+            ],
+            "planning_id": None
+        }
+        
+        # Use query parameters as expected by the API
+        response = requests.post(f"{BASE_URL}/berichten?van_id=admin-001&van_naam=Test%20User", 
+                               json=bericht_data, headers=headers)
+        print(f"   Status: {response.status_code}")
+        
+        if response.status_code == 200:
+            data = response.json()
+            bericht_id = data.get("id")
+            print(f"   Bericht ID: {bericht_id}")
+            
+            # Check if bijlagen contains file_id
+            bijlagen = data.get("bijlagen", [])
+            if bijlagen and len(bijlagen) > 0:
+                first_bijlage = bijlagen[0]
+                has_file_id = "file_id" in first_bijlage
+                no_data = "data" not in first_bijlage
+                print(f"   Attachment stored as file_id: {has_file_id}")
+                print(f"   No data in response: {no_data}")
+                print(f"   Attachment filename: {first_bijlage.get('naam')}")
+                
+                return has_file_id and no_data
+            
+            return True
+        else:
+            print(f"   ❌ Error: {response.text}")
+            return False
+    except Exception as e:
+        print(f"   ❌ Error: {e}")
+        return False
+
+def test_admin_werkbonnen_access(token):
+    """Test admin access to werkbonnen list"""
+    print("👨‍💼 Testing Admin Werkbonnen Access...")
+    try:
+        headers = {"Authorization": f"Bearer {token}"}
+        
+        # Test admin access to werkbonnen
+        response = requests.get(f"{BASE_URL}/werkbonnen?is_admin=true&user_id=admin-001", 
+                               headers=headers)
+        print(f"   Status: {response.status_code}")
+        
+        if response.status_code == 200:
+            data = response.json()
+            print(f"   Werkbonnen count: {len(data) if isinstance(data, list) else 'Not a list'}")
+            return True
+        else:
+            print(f"   ❌ Error: {response.text}")
+            return False
+    except Exception as e:
+        print(f"   ❌ Error: {e}")
+        return False
+
+def run_gridfs_tests():
+    """Run comprehensive GridFS implementation tests"""
+    print("🚀 SMART-TS WERKBON GRIDFS IMPLEMENTATION TESTS")
+    print("="*60)
     
-    # Exit with appropriate code
-    sys.exit(0 if results["all_passed"] else 1)
+    results = {}
+    
+    # 1. Health Check
+    results["health"] = test_health_check()
+    
+    # 2. Authentication
+    token = test_auth_login()
+    results["auth"] = token is not None
+    
+    if not token:
+        print("\n❌ Cannot proceed without authentication token")
+        return results
+    
+    # 3. GridFS File Upload/Download
+    file_id = test_gridfs_file_upload(token)
+    results["gridfs_upload"] = file_id is not None
+    
+    if file_id:
+        results["gridfs_download"] = test_gridfs_file_download(file_id, token)
+    else:
+        results["gridfs_download"] = False
+    
+    # 4. Productie Werkbon with Photos
+    results["productie_werkbon"] = test_productie_werkbon_with_photos(token)
+    
+    # 5. Berichten with Bijlagen
+    results["berichten_bijlagen"] = test_berichten_with_bijlagen(token)
+    
+    # 6. Admin API Access
+    results["admin_access"] = test_admin_werkbonnen_access(token)
+    
+    print("\n" + "="*60)
+    print("📊 TEST RESULTS SUMMARY:")
+    print("="*60)
+    
+    total_tests = len(results)
+    passed_tests = sum(1 for result in results.values() if result)
+    
+    for test_name, result in results.items():
+        status = "✅ PASS" if result else "❌ FAIL"
+        print(f"{test_name:20}: {status}")
+    
+    print(f"\nSUCCESS RATE: {passed_tests}/{total_tests} ({(passed_tests/total_tests)*100:.1f}%)")
+    
+    return results
 
 if __name__ == "__main__":
-    main()
+    run_gridfs_tests()

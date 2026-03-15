@@ -27,7 +27,7 @@ interface StatusData {
 }
 
 export default function RapportenAdmin() {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'werknemer' | 'team' | 'werf' | 'klant' | 'status'>('werknemer');
   const [urenPerWerknemer, setUrenPerWerknemer] = useState<UrenData[]>([]);
@@ -38,8 +38,10 @@ export default function RapportenAdmin() {
   const [totaalUren, setTotaalUren] = useState(0);
   const [totaalWerkbonnen, setTotaalWerkbonnen] = useState(0);
 
+  const allowedRoles = ['beheerder', 'admin', 'manager', 'master_admin'];
+
   useEffect(() => {
-    if (Platform.OS === 'web' && (user?.rol === 'beheerder' || user?.rol === 'admin')) {
+    if (Platform.OS === 'web' && allowedRoles.includes(user?.rol || '')) {
       fetchData();
     }
   }, [user]);
@@ -223,7 +225,17 @@ export default function RapportenAdmin() {
 
   if (Platform.OS !== 'web') return null;
 
-  if (user?.rol !== 'beheerder' && user?.rol !== 'admin') {
+  // Show loading indicator while auth is loading
+  if (authLoading) {
+    return (
+      <View style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}>
+        <ActivityIndicator size="large" color="#F5A623" />
+        <Text style={{ marginTop: 16, color: '#6c757d' }}>Laden...</Text>
+      </View>
+    );
+  }
+
+  if (!allowedRoles.includes(user?.rol || '')) {
     return (
       <View style={styles.container}>
         <View style={styles.noAccess}>

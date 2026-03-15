@@ -32,13 +32,14 @@ interface Bericht {
   gelezen_door: string[];
   created_at: string;
   gearchiveerd?: boolean;
-  bijlagen?: Array<{ naam: string; type: string; data: string }>;
+  bijlagen?: Array<{ naam: string; type: string; data?: string; file_id?: string }>;
 }
 
 interface BerichtAttachment {
   naam: string;
   type: string;
-  data: string;
+  data?: string;
+  file_id?: string;
 }
 
 interface Werknemer {
@@ -216,6 +217,37 @@ export default function BerichtenAdmin() {
       if (!a.vastgepind && b.vastgepind) return 1;
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
+  };
+
+  const openAttachment = async (bijlage: { naam: string; type: string; data?: string; file_id?: string }) => {
+    try {
+      let url: string;
+      
+      if (bijlage.file_id) {
+        // New GridFS format - open file from server
+        url = `${API_URL}/api/files/${bijlage.file_id}`;
+      } else if (bijlage.data) {
+        // Legacy base64 format
+        const base64Data = bijlage.data.includes(',') ? bijlage.data.split(',')[1] : bijlage.data;
+        const mimeType = bijlage.type || 'application/octet-stream';
+        url = `data:${mimeType};base64,${base64Data}`;
+      } else {
+        alert('Bijlage niet beschikbaar');
+        return;
+      }
+      
+      // Open in new tab (web) or use Linking for native
+      if (Platform.OS === 'web') {
+        window.open(url, '_blank');
+      } else {
+        // For native, we would use Linking or WebBrowser
+        const { Linking } = await import('react-native');
+        Linking.openURL(url);
+      }
+    } catch (error) {
+      console.error('Error opening attachment:', error);
+      alert('Kon bijlage niet openen');
+    }
   };
 
   const openNewMessage = (targetGroup: 'werknemers' | 'onderaannemers' | 'beide' = 'werknemers') => {
@@ -612,14 +644,19 @@ export default function BerichtenAdmin() {
                 <View style={styles.detailAttachments}>
                   <Text style={styles.attachmentsTitle}>Bijlagen ({selectedBericht.bijlagen.length})</Text>
                   {selectedBericht.bijlagen.map((bijlage, idx) => (
-                    <View key={idx} style={styles.attachmentItem}>
+                    <TouchableOpacity 
+                      key={idx} 
+                      style={styles.attachmentItem}
+                      onPress={() => openAttachment(bijlage)}
+                    >
                       <Ionicons 
-                        name={bijlage.type.includes('pdf') ? 'document-text' : 'image'} 
+                        name={bijlage.type?.includes('pdf') ? 'document-text' : 'image'} 
                         size={20} 
                         color="#3498db" 
                       />
                       <Text style={styles.attachmentName}>{bijlage.naam}</Text>
-                    </View>
+                      <Ionicons name="open-outline" size={18} color="#6c757d" />
+                    </TouchableOpacity>
                   ))}
                 </View>
               )}

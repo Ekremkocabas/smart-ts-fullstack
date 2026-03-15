@@ -188,7 +188,19 @@ export default function WerkbonnenAdmin() {
 
   if (Platform.OS !== 'web') return null;
   
-  if (user?.rol !== 'beheerder' && user?.rol !== 'admin') {
+  // Show loading indicator while auth is loading
+  if (authLoading) {
+    return (
+      <View style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}>
+        <ActivityIndicator size="large" color="#F5A623" />
+        <Text style={{ marginTop: 16, color: '#6c757d' }}>Laden...</Text>
+      </View>
+    );
+  }
+  
+  // Allow access for admin roles
+  const allowedRoles = ['beheerder', 'admin', 'manager', 'master_admin'];
+  if (!allowedRoles.includes(user?.rol || '')) {
     return (
       <View style={styles.container}>
         <View style={styles.noAccess}>

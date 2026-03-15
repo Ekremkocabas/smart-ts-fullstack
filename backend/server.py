@@ -2,7 +2,8 @@ from fastapi import FastAPI, APIRouter, HTTPException, Response, Query, Depends,
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorGridFSBucket
+from bson import ObjectId
 import os
 import logging
 import asyncio
@@ -44,8 +45,95 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ.get('DB_NAME', 'werkbon_db')]
 
+# GridFS setup for file storage (bypasses 16MB document limit)
+gridfs_bucket = AsyncIOMotorGridFSBucket(db, bucket_name="files")
+
 # Create the main app without a prefix
 app = FastAPI()
+
+# ==================== GRIDFS HELPER FUNCTIONS ====================
+
+async def store_file_to_gridfs(data: bytes, filename: str, content_type: str = "application/octet-stream") -> str:
+    """Store binary data to GridFS and return the file_id as string"""
+    try:
+        file_id = await gridfs_bucket.upload_from_stream(
+            filename,
+            data,
+            metadata={"content_type": content_type, "uploaded_at": datetime.utcnow().isoformat()}
+        )
+        return str(file_id)
+    except Exception as e:
+        logging.error(f"Failed to store file in GridFS: {e}")
+        raise
+
+async def store_base64_to_gridfs(base64_data: str, filename: str, content_type: str = "image/png") -> str:
+    """Store base64 encoded data to GridFS and return file_id"""
+    try:
+        # Handle data URL format (e.g., "data:image/png;base64,...")
+        if "," in base64_data:
+            base64_data = base64_data.split(",")[1]
+        
+        binary_data = base64.b64decode(base64_data)
+        return await store_file_to_gridfs(binary_data, filename, content_type)
+    except Exception as e:
+        logging.error(f"Failed to decode and store base64 data: {e}")
+        raise
+
+async def get_file_from_gridfs(file_id: str) -> Optional[bytes]:
+    """Retrieve file data from GridFS by file_id"""
+    try:
+        grid_out = await gridfs_bucket.open_download_stream(ObjectId(file_id))
+        data = await grid_out.read()
+        return data
+    except Exception as e:
+        logging.error(f"Failed to retrieve file from GridFS: {e}")
+        return None
+
+async def get_file_as_base64(file_id: str) -> Optional[str]:
+    """Retrieve file from GridFS and return as base64 string"""
+    data = await get_file_from_gridfs(file_id)
+    if data:
+        return base64.b64encode(data).decode('utf-8')
+    return None
+
+async def delete_file_from_gridfs(file_id: str) -> bool:
+    """Delete a file from GridFS"""
+    try:
+        await gridfs_bucket.delete(ObjectId(file_id))
+        return True
+    except Exception as e:
+        logging.error(f"Failed to delete file from GridFS: {e}")
+        return False
+
+def is_gridfs_id(value: str) -> bool:
+    """Check if a string is a valid GridFS ObjectId (24 hex characters)"""
+    if not value or not isinstance(value, str):
+        return False
+    # GridFS IDs are 24 character hex strings
+    if len(value) == 24:
+        try:
+            ObjectId(value)
+            return True
+        except:
+            return False
+    return False
+
+async def get_image_data_for_pdf(value: Optional[str]) -> Optional[bytes]:
+    """Get image data for PDF generation - handles both GridFS IDs and base64"""
+    if not value:
+        return None
+    
+    # Check if it's a GridFS ID
+    if is_gridfs_id(value):
+        return await get_file_from_gridfs(value)
+    
+    # Otherwise treat as base64
+    try:
+        if "," in value:
+            value = value.split(",")[1]
+        return base64.b64decode(value)
+    except:
+        return None
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
@@ -1423,6 +1511,62 @@ def verify_password(password: str, hashed: str) -> bool:
 
 def generate_temp_password(length: int = 10) -> str:
     return uuid.uuid4().hex[:length]
+
+async def prepare_werkbon_for_pdf(werkbon: dict) -> dict:
+    """
+    Prepare werkbon data for PDF generation by resolving GridFS file IDs to base64 data.
+    This converts GridFS references back to base64 for the PDF generator.
+    """
+    werkbon_copy = dict(werkbon)
+    
+    # Process fotos - convert file_ids back to base64 for PDF
+    if werkbon_copy.get("fotos"):
+        processed_fotos = []
+        for foto in werkbon_copy["fotos"]:
+            if isinstance(foto, dict) and foto.get("file_id"):
+                # It's a GridFS reference (productie werkbon format)
+                base64_data = await get_file_as_base64(foto["file_id"])
+                if base64_data:
+                    processed_fotos.append({
+                        "base64": base64_data,
+                        "timestamp": foto.get("timestamp", ""),
+                        "werknemer_id": foto.get("werknemer_id", ""),
+                        "gps": foto.get("gps", ""),
+                    })
+            elif isinstance(foto, dict) and foto.get("base64"):
+                # Already has base64 (legacy format)
+                processed_fotos.append(foto)
+            elif isinstance(foto, str) and is_gridfs_id(foto):
+                # Oplevering format - just file_id string
+                base64_data = await get_file_as_base64(foto)
+                if base64_data:
+                    processed_fotos.append(base64_data)  # Keep as string for oplevering compatibility
+            elif isinstance(foto, str):
+                # Old format - just base64 string
+                processed_fotos.append(foto)
+        werkbon_copy["fotos"] = processed_fotos
+    
+    # Process handtekening - convert file_id to base64
+    if werkbon_copy.get("handtekening") and is_gridfs_id(str(werkbon_copy.get("handtekening", ""))):
+        base64_data = await get_file_as_base64(werkbon_copy["handtekening"])
+        werkbon_copy["handtekening"] = base64_data
+    
+    # Process handtekening_klant - convert file_id to base64
+    if werkbon_copy.get("handtekening_klant") and is_gridfs_id(str(werkbon_copy.get("handtekening_klant", ""))):
+        base64_data = await get_file_as_base64(werkbon_copy["handtekening_klant"])
+        werkbon_copy["handtekening_klant"] = base64_data
+    
+    # Process handtekening_monteur - convert file_id to base64
+    if werkbon_copy.get("handtekening_monteur") and is_gridfs_id(str(werkbon_copy.get("handtekening_monteur", ""))):
+        base64_data = await get_file_as_base64(werkbon_copy["handtekening_monteur"])
+        werkbon_copy["handtekening_monteur"] = base64_data
+    
+    # Process selfie_foto - convert file_id to base64
+    if werkbon_copy.get("selfie_foto") and is_gridfs_id(str(werkbon_copy.get("selfie_foto", ""))):
+        base64_data = await get_file_as_base64(werkbon_copy["selfie_foto"])
+        werkbon_copy["selfie_foto"] = base64_data
+    
+    return werkbon_copy
 
 def get_week_dates(year: int, week: int) -> dict:
     """Calculate dates for each day of the given week"""
@@ -4237,42 +4381,104 @@ async def create_oplevering_werkbon(data: OpleveringWerkbonCreate, user_id: str,
     if not werf:
         raise HTTPException(status_code=404, detail="Werf niet gevonden")
     
-    werkbon = OpleveringWerkbon(
-        klant_id=data.klant_id,
-        klant_naam=klant["naam"],
-        klant_email=klant.get("email", ""),
-        klant_telefoon=klant.get("telefoon", ""),
-        werf_id=data.werf_id,
-        werf_naam=werf["naam"],
-        werf_adres=werf.get("adres", ""),
-        datum=data.datum,
-        installatie_type=data.installatie_type,
-        werk_beschrijving=data.werk_beschrijving,
-        gebruikte_materialen=data.gebruikte_materialen,
-        extra_opmerkingen=data.extra_opmerkingen,
-        schade_status=data.schade_status,
-        schade_opmerking=data.schade_opmerking,
-        schade_checks=data.schade_checks or [
+    # Process photos - store in GridFS and keep only file_ids
+    processed_fotos = []
+    for i, foto in enumerate(data.fotos or []):
+        try:
+            base64_data = foto if isinstance(foto, str) else ""
+            if base64_data and len(base64_data) > 100:  # Has actual image data
+                file_id = await store_base64_to_gridfs(
+                    base64_data, 
+                    f"oplevering_foto_{user_id}_{i}_{uuid.uuid4().hex[:8]}.jpg",
+                    "image/jpeg"
+                )
+                processed_fotos.append(file_id)  # Just store file_id as string
+        except Exception as e:
+            logging.error(f"Failed to store oplevering photo {i} to GridFS: {e}")
+    
+    # Process handtekening_klant - store in GridFS
+    handtekening_klant_file_id = None
+    if data.handtekening_klant and len(data.handtekening_klant) > 100:
+        try:
+            handtekening_klant_file_id = await store_base64_to_gridfs(
+                data.handtekening_klant,
+                f"handtekening_klant_oplevering_{user_id}_{uuid.uuid4().hex[:8]}.png",
+                "image/png"
+            )
+        except Exception as e:
+            logging.error(f"Failed to store client signature to GridFS: {e}")
+    
+    # Process handtekening_monteur - store in GridFS
+    handtekening_monteur_file_id = None
+    if data.handtekening_monteur and len(data.handtekening_monteur) > 100:
+        try:
+            handtekening_monteur_file_id = await store_base64_to_gridfs(
+                data.handtekening_monteur,
+                f"handtekening_monteur_oplevering_{user_id}_{uuid.uuid4().hex[:8]}.png",
+                "image/png"
+            )
+        except Exception as e:
+            logging.error(f"Failed to store technician signature to GridFS: {e}")
+    
+    # Process selfie_foto - store in GridFS
+    selfie_file_id = None
+    if data.selfie_foto and len(data.selfie_foto) > 100:
+        try:
+            selfie_file_id = await store_base64_to_gridfs(
+                data.selfie_foto,
+                f"selfie_oplevering_{user_id}_{uuid.uuid4().hex[:8]}.jpg",
+                "image/jpeg"
+            )
+        except Exception as e:
+            logging.error(f"Failed to store selfie to GridFS: {e}")
+    
+    werkbon_dict = {
+        "id": str(uuid.uuid4()),
+        "company_id": "default_company",
+        "type": "oplevering",
+        "klant_id": data.klant_id,
+        "klant_naam": klant.get("naam") or klant.get("bedrijfsnaam", ""),
+        "klant_email": klant.get("email") or klant.get("algemeen_email", ""),
+        "klant_telefoon": klant.get("telefoon") or klant.get("algemeen_telefoon", ""),
+        "werf_id": data.werf_id,
+        "werf_naam": werf["naam"],
+        "werf_adres": werf.get("adres", ""),
+        "datum": data.datum,
+        "installatie_type": data.installatie_type,
+        "werk_beschrijving": data.werk_beschrijving,
+        "gebruikte_materialen": data.gebruikte_materialen,
+        "extra_opmerkingen": data.extra_opmerkingen,
+        "schade_status": data.schade_status,
+        "schade_opmerking": data.schade_opmerking,
+        "schade_checks": [c.dict() if hasattr(c, 'dict') else c for c in (data.schade_checks or [
             SchadeCheck(label="Geen schade", checked=data.schade_status == "geen_schade"),
             SchadeCheck(label="Schade aanwezig", checked=data.schade_status == "schade_aanwezig", opmerking=data.schade_opmerking),
-        ],
-        alles_ok=data.alles_ok,
-        beoordelingen=data.beoordelingen,
-        fotos=data.fotos,
-        foto_labels=data.foto_labels,
-        handtekening_klant=data.handtekening_klant,
-        handtekening_klant_naam=data.handtekening_klant_naam,
-        handtekening_monteur=data.handtekening_monteur,
-        handtekening_monteur_naam=data.handtekening_monteur_naam or user_naam,
-        handtekening_datum=datetime.now(timezone.utc),
-        verstuur_naar_klant=data.verstuur_naar_klant,
-        klant_email_override=(data.klant_email_override or klant.get("email") or "").strip(),
-        ingevuld_door_id=user_id,
-        ingevuld_door_naam=user_naam,
-        status="ondertekend",
-    )
-    await db.oplevering_werkbonnen.insert_one(werkbon.dict())
-    return werkbon.dict()
+        ])],
+        "alles_ok": data.alles_ok,
+        "beoordelingen": [b.dict() if hasattr(b, 'dict') else b for b in (data.beoordelingen or [])],
+        "fotos": processed_fotos,  # Now contains GridFS file_ids
+        "foto_labels": data.foto_labels,
+        "handtekening_klant": handtekening_klant_file_id,  # GridFS file_id
+        "handtekening_klant_naam": data.handtekening_klant_naam,
+        "handtekening_monteur": handtekening_monteur_file_id,  # GridFS file_id
+        "handtekening_monteur_naam": data.handtekening_monteur_naam or user_naam,
+        "handtekening_datum": datetime.now(timezone.utc),
+        "selfie_foto": selfie_file_id,  # GridFS file_id
+        "gps_locatie": data.gps_locatie,
+        "verstuur_naar_klant": data.verstuur_naar_klant,
+        "klant_email_override": (data.klant_email_override or klant.get("email") or klant.get("algemeen_email") or "").strip(),
+        "ingevuld_door_id": user_id,
+        "ingevuld_door_naam": user_naam,
+        "status": "ondertekend",
+        "email_verzonden": False,
+        "pdf_bestandsnaam": None,
+        "email_error": None,
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow(),
+    }
+    
+    await db.oplevering_werkbonnen.insert_one(werkbon_dict)
+    return werkbon_dict
 
 @api_router.put("/oplevering-werkbonnen/{werkbon_id}")
 async def update_oplevering_werkbon(werkbon_id: str, update_data: OpleveringWerkbonUpdate):
@@ -4308,10 +4514,13 @@ async def verzend_oplevering_werkbon(werkbon_id: str, klant_email: Optional[str]
     if werkbon.get("schade_status") == "schade_aanwezig" and not werkbon.get("fotos"):
         raise HTTPException(status_code=400, detail="Bij schade is minimaal 1 foto verplicht")
 
+    # Prepare werkbon data - resolve GridFS file IDs to base64 for PDF generation
+    werkbon_prepared = await prepare_werkbon_for_pdf(werkbon)
+
     instellingen = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0}) or {}
 
     try:
-        pdf_bytes, pdf_filename = generate_oplevering_pdf(werkbon, instellingen)
+        pdf_bytes, pdf_filename = generate_oplevering_pdf(werkbon_prepared, instellingen)
     except Exception as exc:
         logging.exception("Oplevering PDF generation failed for %s", werkbon_id)
         raise HTTPException(status_code=500, detail=f"PDF genereren mislukt: {str(exc)}")
@@ -4384,7 +4593,7 @@ async def create_project_werkbon(data: ProjectWerkbonCreate, user_id: str, user_
     
     dag_regels, totaal = normalize_project_day_rows(data)
     feedback_items = normalize_project_feedback_items(data.klant_feedback_items)
-    klant_email = (data.klant_email_override or klant.get("email") or "").strip()
+    klant_email = (data.klant_email_override or klant.get("email") or klant.get("algemeen_email") or "").strip()
     if not data.handtekening_klant or not data.handtekening_klant_naam.strip():
         raise HTTPException(status_code=400, detail="Klant handtekening en naam zijn verplicht")
     if data.klant_prestatie_score < 1 or data.klant_prestatie_score > 3:
@@ -4392,35 +4601,61 @@ async def create_project_werkbon(data: ProjectWerkbonCreate, user_id: str, user_
     if data.verstuur_naar_klant and not klant_email:
         raise HTTPException(status_code=400, detail="Klant e-mail is verplicht wanneer u naar de klant wilt sturen")
     
-    werkbon = ProjectWerkbon(
-        klant_id=data.klant_id,
-        klant_naam=klant["naam"],
-        werf_id=data.werf_id,
-        werf_naam=werf["naam"],
-        werf_adres=werf.get("adres", ""),
-        datum=dag_regels[0]["datum"],
-        start_tijd=dag_regels[0]["start_tijd"],
-        stop_tijd=dag_regels[0]["stop_tijd"],
-        pauze_minuten=dag_regels[0]["pauze_minuten"],
-        totaal_uren=round(totaal, 2),
-        werk_beschrijving=data.werk_beschrijving,
-        extra_opmerkingen=data.extra_opmerkingen,
-        dag_regels=dag_regels,
-        klant_feedback_items=feedback_items,
-        klant_feedback_opmerking=data.klant_feedback_opmerking,
-        klant_prestatie_score=data.klant_prestatie_score,
-        handtekening_klant=data.handtekening_klant,
-        handtekening_klant_naam=data.handtekening_klant_naam,
-        handtekening_monteur_naam=data.handtekening_monteur_naam or user_naam,
-        handtekening_datum=datetime.now(timezone.utc),
-        klant_email_override=klant_email,
-        verstuur_naar_klant=data.verstuur_naar_klant,
-        ingevuld_door_id=user_id,
-        ingevuld_door_naam=user_naam,
-        status="ondertekend",
-    )
-    await db.project_werkbonnen.insert_one(werkbon.dict())
-    return werkbon.dict()
+    # Process handtekening_klant - store in GridFS
+    handtekening_klant_file_id = None
+    if data.handtekening_klant and len(data.handtekening_klant) > 100:
+        try:
+            handtekening_klant_file_id = await store_base64_to_gridfs(
+                data.handtekening_klant,
+                f"handtekening_klant_project_{user_id}_{uuid.uuid4().hex[:8]}.png",
+                "image/png"
+            )
+        except Exception as e:
+            logging.error(f"Failed to store project client signature to GridFS: {e}")
+            # Continue with base64 if GridFS fails
+            handtekening_klant_file_id = data.handtekening_klant
+    
+    werkbon_dict = {
+        "id": str(uuid.uuid4()),
+        "company_id": "default_company",
+        "type": "project",
+        "klant_id": data.klant_id,
+        "klant_naam": klant.get("naam") or klant.get("bedrijfsnaam", ""),
+        "werf_id": data.werf_id,
+        "werf_naam": werf["naam"],
+        "werf_adres": werf.get("adres", ""),
+        "datum": dag_regels[0]["datum"],
+        "start_tijd": dag_regels[0]["start_tijd"],
+        "stop_tijd": dag_regels[0]["stop_tijd"],
+        "pauze_minuten": dag_regels[0]["pauze_minuten"],
+        "totaal_uren": round(totaal, 2),
+        "werk_beschrijving": data.werk_beschrijving,
+        "extra_opmerkingen": data.extra_opmerkingen,
+        "dag_regels": dag_regels,
+        "klant_feedback_items": feedback_items,
+        "klant_feedback_opmerking": data.klant_feedback_opmerking,
+        "klant_prestatie_score": data.klant_prestatie_score,
+        "handtekening_klant": handtekening_klant_file_id,  # GridFS file_id
+        "handtekening_klant_naam": data.handtekening_klant_naam,
+        "handtekening_monteur": None,
+        "handtekening_monteur_naam": data.handtekening_monteur_naam or user_naam,
+        "handtekening_datum": datetime.now(timezone.utc),
+        "klant_email_override": klant_email,
+        "verstuur_naar_klant": data.verstuur_naar_klant,
+        "ingevuld_door_id": user_id,
+        "ingevuld_door_naam": user_naam,
+        "status": "ondertekend",
+        "email_verzonden": False,
+        "pdf_bestandsnaam": None,
+        "email_error": None,
+        "locatie_start": None,
+        "locatie_stop": None,
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow(),
+    }
+    
+    await db.project_werkbonnen.insert_one(werkbon_dict)
+    return werkbon_dict
 
 @api_router.put("/project-werkbonnen/{werkbon_id}")
 async def update_project_werkbon(werkbon_id: str, update_data: ProjectWerkbonUpdate):
@@ -4460,8 +4695,11 @@ async def verzend_project_werkbon(werkbon_id: str, klant_email: Optional[str] = 
     if not werkbon.get("handtekening_klant") or not werkbon.get("handtekening_klant_naam"):
         raise HTTPException(status_code=400, detail="Project werkbon moet eerst ondertekend worden")
 
+    # Prepare werkbon data - resolve GridFS file IDs to base64 for PDF generation
+    werkbon_prepared = await prepare_werkbon_for_pdf(werkbon)
+
     instellingen = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0}) or {}
-    pdf_bytes, pdf_filename = generate_project_werkbon_pdf(werkbon, instellingen)
+    pdf_bytes, pdf_filename = generate_project_werkbon_pdf(werkbon_prepared, instellingen)
     override_email = (klant_email or werkbon.get("klant_email_override") or "").strip()
     email_result = await send_project_werkbon_email(werkbon, instellingen, pdf_bytes, pdf_filename, klant_email=override_email)
 
@@ -4522,56 +4760,115 @@ async def create_productie_werkbon(data: ProductieWerkbonCreate, user_id: str, u
     if not werf:
         raise HTTPException(status_code=404, detail="Werf niet gevonden")
 
+    # Process photos - store in GridFS and keep only file_ids
+    processed_fotos = []
+    for i, foto in enumerate(data.fotos or []):
+        try:
+            base64_data = foto.get("base64", "") if isinstance(foto, dict) else str(foto)
+            if base64_data and len(base64_data) > 100:  # Has actual image data
+                file_id = await store_base64_to_gridfs(
+                    base64_data, 
+                    f"productie_foto_{user_id}_{i}_{uuid.uuid4().hex[:8]}.jpg",
+                    "image/jpeg"
+                )
+                processed_fotos.append({
+                    "file_id": file_id,
+                    "timestamp": foto.get("timestamp", "") if isinstance(foto, dict) else "",
+                    "werknemer_id": foto.get("werknemer_id", user_id) if isinstance(foto, dict) else user_id,
+                    "gps": foto.get("gps", "") if isinstance(foto, dict) else "",
+                })
+        except Exception as e:
+            logging.error(f"Failed to store photo {i} to GridFS: {e}")
+            # Continue with other photos
+    
+    # Process signature - store in GridFS
+    handtekening_file_id = None
+    if data.handtekening and len(data.handtekening) > 100:
+        try:
+            handtekening_file_id = await store_base64_to_gridfs(
+                data.handtekening,
+                f"handtekening_productie_{user_id}_{uuid.uuid4().hex[:8]}.png",
+                "image/png"
+            )
+        except Exception as e:
+            logging.error(f"Failed to store signature to GridFS: {e}")
+    
+    # Process selfie - store in GridFS
+    selfie_file_id = None
+    if data.selfie_foto and len(data.selfie_foto) > 100:
+        try:
+            selfie_file_id = await store_base64_to_gridfs(
+                data.selfie_foto,
+                f"selfie_productie_{user_id}_{uuid.uuid4().hex[:8]}.jpg",
+                "image/jpeg"
+            )
+        except Exception as e:
+            logging.error(f"Failed to store selfie to GridFS: {e}")
+
     totaal_m2 = round(float(data.gelijkvloers_m2) + float(data.eerste_verdiep_m2) + float(data.tweede_verdiep_m2), 2)
-    werkbon = ProductieWerkbon(
-        datum=data.datum,
-        werknemer_naam=data.werknemer_naam or user_naam,
-        werknemer_id=data.werknemer_id or user_id,
-        klant_id=data.klant_id,
-        klant_naam=klant["naam"],
-        werf_id=data.werf_id,
-        werf_naam=werf["naam"],
-        werf_adres=werf.get("adres", ""),
-        start_uur=data.start_uur,
-        eind_uur=data.eind_uur,
-        voorziene_uur=data.voorziene_uur,
-        uit_te_voeren_werk=data.uit_te_voeren_werk,
-        nodige_materiaal=data.nodige_materiaal,
-        gelijkvloers_m2=data.gelijkvloers_m2,
-        gelijkvloers_cm=data.gelijkvloers_cm,
-        eerste_verdiep_m2=data.eerste_verdiep_m2,
-        eerste_verdiep_cm=data.eerste_verdiep_cm,
-        tweede_verdiep_m2=data.tweede_verdiep_m2,
-        tweede_verdiep_cm=data.tweede_verdiep_cm,
-        totaal_m2=totaal_m2,
-        schuurwerken=data.schuurwerken,
-        schuurwerken_m2=data.schuurwerken_m2,
-        stofzuigen=data.stofzuigen,
-        stofzuigen_m2=data.stofzuigen_m2,
-        fotos=data.fotos,
-        opmerking=data.opmerking,
-        gps_locatie=data.gps_locatie,
-        handtekening=data.handtekening,
-        handtekening_naam=data.handtekening_naam,
-        handtekening_datum=data.handtekening_datum,
-        selfie_foto=data.selfie_foto,
-        verstuur_naar_klant=data.verstuur_naar_klant,
-        klant_email_override=(data.klant_email_override or klant.get("email") or "").strip(),
-        ingevuld_door_id=user_id,
-        ingevuld_door_naam=user_naam,
-        status="ondertekend",
-    )
-    await db.productie_werkbonnen.insert_one(werkbon.dict())
-    return werkbon.dict()
+    
+    werkbon_dict = {
+        "id": str(uuid.uuid4()),
+        "company_id": "default_company",
+        "type": "productie",
+        "datum": data.datum,
+        "werknemer_naam": data.werknemer_naam or user_naam,
+        "werknemer_id": data.werknemer_id or user_id,
+        "klant_id": data.klant_id,
+        "klant_naam": klant.get("naam") or klant.get("bedrijfsnaam", ""),
+        "werf_id": data.werf_id,
+        "werf_naam": werf["naam"],
+        "werf_adres": werf.get("adres", ""),
+        "start_uur": data.start_uur,
+        "eind_uur": data.eind_uur,
+        "voorziene_uur": data.voorziene_uur,
+        "uit_te_voeren_werk": data.uit_te_voeren_werk,
+        "nodige_materiaal": data.nodige_materiaal,
+        "gelijkvloers_m2": data.gelijkvloers_m2,
+        "gelijkvloers_cm": data.gelijkvloers_cm,
+        "eerste_verdiep_m2": data.eerste_verdiep_m2,
+        "eerste_verdiep_cm": data.eerste_verdiep_cm,
+        "tweede_verdiep_m2": data.tweede_verdiep_m2,
+        "tweede_verdiep_cm": data.tweede_verdiep_cm,
+        "totaal_m2": totaal_m2,
+        "schuurwerken": data.schuurwerken,
+        "schuurwerken_m2": data.schuurwerken_m2,
+        "stofzuigen": data.stofzuigen,
+        "stofzuigen_m2": data.stofzuigen_m2,
+        "fotos": processed_fotos,  # Now contains file_ids instead of base64
+        "opmerking": data.opmerking,
+        "gps_locatie": data.gps_locatie,
+        "handtekening": handtekening_file_id,  # GridFS file_id instead of base64
+        "handtekening_naam": data.handtekening_naam,
+        "handtekening_datum": data.handtekening_datum,
+        "selfie_foto": selfie_file_id,  # GridFS file_id instead of base64
+        "verstuur_naar_klant": data.verstuur_naar_klant,
+        "klant_email_override": (data.klant_email_override or klant.get("email") or klant.get("algemeen_email") or "").strip(),
+        "ingevuld_door_id": user_id,
+        "ingevuld_door_naam": user_naam,
+        "status": "ondertekend",
+        "email_verzonden": False,
+        "pdf_bestandsnaam": None,
+        "email_error": None,
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow(),
+    }
+    
+    await db.productie_werkbonnen.insert_one(werkbon_dict)
+    return serialize_mongo_doc(werkbon_dict)
 
 @api_router.post("/productie-werkbonnen/{werkbon_id}/verzenden")
 async def verzend_productie_werkbon(werkbon_id: str, klant_email: Optional[str] = Query(None)):
     werkbon = await db.productie_werkbonnen.find_one({"id": werkbon_id}, {"_id": 0})
     if not werkbon:
         raise HTTPException(status_code=404, detail="Productie werkbon niet gevonden")
+    
+    # Prepare werkbon data - resolve GridFS file IDs to base64 for PDF generation
+    werkbon_prepared = await prepare_werkbon_for_pdf(werkbon)
+    
     instellingen = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0}) or {}
     try:
-        pdf_bytes, pdf_filename = generate_productie_pdf(werkbon, instellingen)
+        pdf_bytes, pdf_filename = generate_productie_pdf(werkbon_prepared, instellingen)
     except Exception as exc:
         logging.exception("Productie PDF generation failed for %s", werkbon_id)
         raise HTTPException(status_code=500, detail=f"PDF genereren mislukt: {str(exc)}")
@@ -4601,9 +4898,13 @@ async def get_productie_werkbon_pdf(werkbon_id: str):
     werkbon = await db.productie_werkbonnen.find_one({"id": werkbon_id}, {"_id": 0})
     if not werkbon:
         raise HTTPException(status_code=404, detail="Productie werkbon niet gevonden")
+    
+    # Prepare werkbon data - resolve GridFS file IDs to base64 for PDF generation
+    werkbon_prepared = await prepare_werkbon_for_pdf(werkbon)
+    
     instellingen = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0}) or {}
     try:
-        pdf_bytes, pdf_filename = generate_productie_pdf(werkbon, instellingen)
+        pdf_bytes, pdf_filename = generate_productie_pdf(werkbon_prepared, instellingen)
     except Exception as exc:
         logging.exception("Productie PDF generation failed for %s", werkbon_id)
         raise HTTPException(status_code=500, detail=f"PDF genereren mislukt: {str(exc)}")
@@ -4808,26 +5109,54 @@ async def get_ongelezen_berichten(user_id: str):
 
 @api_router.post("/berichten")
 async def create_bericht(data: BerichtCreate, van_id: str, van_naam: str):
-    bericht = Bericht(
-        van_id=van_id,
-        van_naam=van_naam,
-        naar_id=data.naar_id,
-        is_broadcast=data.is_broadcast,
-        onderwerp=data.onderwerp,
-        inhoud=data.inhoud,
-        vastgepind=data.vastgepind,
-        planning_id=data.planning_id,
-        bijlagen=[att.dict() for att in data.bijlagen] if data.bijlagen else [],
-    )
+    # Process bijlagen (attachments) - store in GridFS
+    processed_bijlagen = []
+    for att in (data.bijlagen or []):
+        try:
+            att_dict = att.dict() if hasattr(att, 'dict') else att
+            if att_dict.get("data") and len(att_dict.get("data", "")) > 100:
+                # Store file in GridFS
+                file_id = await store_base64_to_gridfs(
+                    att_dict["data"],
+                    att_dict.get("naam", f"bijlage_{uuid.uuid4().hex[:8]}"),
+                    att_dict.get("type", "application/octet-stream")
+                )
+                processed_bijlagen.append({
+                    "naam": att_dict.get("naam", ""),
+                    "type": att_dict.get("type", "application/octet-stream"),
+                    "file_id": file_id,  # Store GridFS file_id instead of data
+                })
+            else:
+                # Keep small attachments as-is
+                processed_bijlagen.append(att_dict)
+        except Exception as e:
+            logging.error(f"Failed to store attachment to GridFS: {e}")
+    
+    bericht_dict = {
+        "id": str(uuid.uuid4()),
+        "company_id": "default_company",
+        "van_id": van_id,
+        "van_naam": van_naam,
+        "naar_id": data.naar_id,
+        "naar_naam": None,
+        "is_broadcast": data.is_broadcast,
+        "onderwerp": data.onderwerp,
+        "inhoud": data.inhoud,
+        "vastgepind": data.vastgepind,
+        "gelezen_door": [],
+        "bijlagen": processed_bijlagen,
+        "planning_id": data.planning_id,
+        "created_at": datetime.utcnow(),
+    }
     
     # Resolve recipient name
     if data.naar_id:
         user = await db.users.find_one({"id": data.naar_id})
         if user:
-            bericht.naar_naam = user["naam"]
+            bericht_dict["naar_naam"] = user["naam"]
     
-    await db.berichten.insert_one(bericht.dict())
-    return bericht.dict()
+    await db.berichten.insert_one(bericht_dict)
+    return serialize_mongo_doc(bericht_dict)
 
 @api_router.post("/berichten/{bericht_id}/gelezen")
 async def markeer_gelezen(bericht_id: str, user_id: str):
@@ -4916,6 +5245,72 @@ async def send_bericht_email(data: dict):
     except Exception as e:
         logging.error(f"Bericht email error: {e}")
         return {"success": False, "error": str(e)}
+
+# ==================== FILE STORAGE / GRIDFS ROUTES ====================
+
+@api_router.get("/files/{file_id}")
+async def get_file(file_id: str):
+    """Serve a file from GridFS by file_id"""
+    try:
+        grid_out = await gridfs_bucket.open_download_stream(ObjectId(file_id))
+        data = await grid_out.read()
+        content_type = grid_out.metadata.get("content_type", "application/octet-stream") if grid_out.metadata else "application/octet-stream"
+        filename = grid_out.filename or "file"
+        
+        return Response(
+            content=data,
+            media_type=content_type,
+            headers={
+                "Content-Disposition": f'inline; filename="{filename}"',
+                "Cache-Control": "public, max-age=31536000"  # Cache for 1 year
+            }
+        )
+    except Exception as e:
+        logging.error(f"Failed to retrieve file {file_id}: {e}")
+        raise HTTPException(status_code=404, detail="Bestand niet gevonden")
+
+@api_router.get("/files/{file_id}/base64")
+async def get_file_base64(file_id: str):
+    """Get file from GridFS as base64 string"""
+    try:
+        grid_out = await gridfs_bucket.open_download_stream(ObjectId(file_id))
+        data = await grid_out.read()
+        content_type = grid_out.metadata.get("content_type", "application/octet-stream") if grid_out.metadata else "application/octet-stream"
+        base64_data = base64.b64encode(data).decode('utf-8')
+        
+        return {
+            "data": base64_data,
+            "content_type": content_type,
+            "filename": grid_out.filename
+        }
+    except Exception as e:
+        logging.error(f"Failed to retrieve file {file_id}: {e}")
+        raise HTTPException(status_code=404, detail="Bestand niet gevonden")
+
+@api_router.post("/files/upload")
+async def upload_file(data: dict):
+    """Upload a file (base64) to GridFS and return file_id"""
+    try:
+        base64_data = data.get("data")
+        filename = data.get("filename", f"file_{uuid.uuid4().hex[:8]}")
+        content_type = data.get("content_type", "application/octet-stream")
+        
+        if not base64_data:
+            raise HTTPException(status_code=400, detail="Geen data ontvangen")
+        
+        file_id = await store_base64_to_gridfs(base64_data, filename, content_type)
+        return {"file_id": file_id, "filename": filename}
+    except Exception as e:
+        logging.error(f"Failed to upload file: {e}")
+        raise HTTPException(status_code=500, detail=f"Upload mislukt: {str(e)}")
+
+@api_router.delete("/files/{file_id}")
+async def delete_file(file_id: str):
+    """Delete a file from GridFS"""
+    success = await delete_file_from_gridfs(file_id)
+    if success:
+        return {"message": "Bestand verwijderd"}
+    raise HTTPException(status_code=404, detail="Bestand niet gevonden")
 
 # ==================== THEME / APP SETTINGS ROUTE ====================
 
