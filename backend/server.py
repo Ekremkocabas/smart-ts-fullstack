@@ -474,6 +474,10 @@ class User(BaseModel):
     mag_wachtwoord_wijzigen: bool = True      # NEW: Default True
     push_token: Optional[str] = None
     
+    # Platform access fields
+    web_access: Optional[bool] = None         # None = calculate from role
+    app_access: Optional[bool] = None         # None = calculate from role
+    
     # NEW: Password management fields
     password_changed_at: Optional[datetime] = None
     must_change_password: bool = False
@@ -2797,9 +2801,13 @@ async def login_user(login_data: UserLogin):
         user["rol"] = "admin"
         normalized_role = "admin"
     
-    # Determine platform access
-    web_access = has_web_access(normalized_role)
-    app_access = has_app_access(normalized_role)
+    # Determine platform access - use database values if set, otherwise calculate from role
+    db_web_access = user.get("web_access")
+    db_app_access = user.get("app_access")
+    
+    # If explicitly set in database, use those values; otherwise fall back to role-based calculation
+    web_access = db_web_access if db_web_access is not None else has_web_access(normalized_role)
+    app_access = db_app_access if db_app_access is not None else has_app_access(normalized_role)
     
     if web_access and app_access:
         platform = "both"

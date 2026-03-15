@@ -54,20 +54,21 @@ export default function LoginScreen() {
       
       // Check platform access based on where we're running
       const isWeb = Platform.OS === 'web';
-      const userRole = userData.rol;
       
-      // Determine if user can access this platform
-      const canAccessWeb = WEB_PANEL_ROLES.includes(userRole);
-      const canAccessApp = MOBILE_APP_ROLES.includes(userRole);
+      // Use actual web_access and app_access from user response (from database)
+      // Fall back to role-based check if not specified
+      const userRole = userData.rol;
+      const canAccessWeb = userData.web_access ?? WEB_PANEL_ROLES.includes(userRole);
+      const canAccessApp = userData.app_access ?? MOBILE_APP_ROLES.includes(userRole);
       
       if (isWeb && !canAccessWeb) {
-        // Worker/onderaannemer trying to use web panel
+        // Worker/onderaannemer trying to use web panel without web_access
         setErrorMessage('Uw account heeft alleen toegang tot de mobiele app. Download de Smart-TS app.');
         return;
       }
       
-      if (!isWeb && !canAccessApp && canAccessWeb) {
-        // Admin/manager/planner trying to use mobile app
+      if (!isWeb && !canAccessApp) {
+        // User trying to use mobile app without app_access
         setErrorMessage('Uw account heeft alleen toegang tot het webpaneel. Gebruik de browser versie.');
         return;
       }
