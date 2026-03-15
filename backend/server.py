@@ -559,28 +559,227 @@ class TeamUpdate(BaseModel):
     naam: Optional[str] = None
     leden: Optional[List[str]] = None
 
-# Klant (Customer) Model
-class Klant(BaseModel):
+# ============================================
+# Klant (Customer) Model - Professional B2B
+# ============================================
+
+class KlantAdres(BaseModel):
+    """Structured address for klant"""
+    straat: str = ""
+    huisnummer: str = ""
+    bus: str = ""
+    postcode: str = ""
+    stad: str = ""
+    land: str = "België"
+
+class ContactPersoon(BaseModel):
+    """Contact person within a klant organization"""
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str = "default_company"       # NEW: Company scoping
-    naam: str
-    email: str
-    telefoon: Optional[str] = None
-    adres: Optional[str] = None
-    uurtarief: float = 0  # Hourly rate
-    prijsafspraak: Optional[str] = None
-    btw_nummer: Optional[str] = None
+    naam: str = ""
+    functie: str = ""  # Predefined: electricien, hulp_electricien, werfleider, projectleider, or custom
+    email: str = ""
+    telefoon: str = ""
+    gsm: str = ""
+    opmerkingen: str = ""
+    is_primair: bool = False
+
+# Predefined contact roles for UI suggestions
+CONTACT_FUNCTIE_SUGGESTIONS = [
+    "electricien",
+    "hulp_electricien", 
+    "werfleider",
+    "projectleider",
+    "aankoper",
+    "boekhouder",
+    "zaakvoerder",
+]
+
+# Pricing models
+PRIJS_MODELLEN = ["uurtarief", "vaste_prijs", "regie", "nog_te_bepalen"]
+
+class Klant(BaseModel):
+    """
+    Professional B2B Customer Model
+    Supports company identity, contacts, pricing, billing, and communication settings
+    """
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    company_id: str = "default_company"
+    
+    # A. BEDRIJFSGEGEVENS
+    bedrijfsnaam: str = ""                    # Primary name field
+    naam: str = ""                            # Legacy field (backward compat) - maps to bedrijfsnaam
+    btw_nummer: str = ""
+    ondernemingsnummer: str = ""
+    type_klant: str = "bedrijf"               # bedrijf / particulier
+    algemeen_email: str = ""                  # Optional - validate in UI where needed
+    email: str = ""                           # Legacy field (backward compat) - maps to algemeen_email
+    algemeen_telefoon: str = ""
+    telefoon: Optional[str] = None            # Legacy field
+    website: str = ""
+    
+    # B. GESTRUCTUREERD ADRES
+    adres: Optional[str] = None               # Legacy string field (backward compat)
+    adres_structured: KlantAdres = Field(default_factory=KlantAdres)
+    
+    # C. CONTACTPERSONEN (multiple)
+    contactpersonen: List[ContactPersoon] = Field(default_factory=list)
+    
+    # D. COMMUNICATIE / MAIL
+    klant_mail_sturen: bool = True            # Whether to send mail to this klant
+    primary_mail_recipient: str = ""          # Primary email for werkbon mails
+    cc_mail_recipient: str = ""               # CC email
+    
+    # E. COMMERCIEEL / PRIJSAFSPRAKEN
+    prijsmodel: str = "uurtarief"             # uurtarief / vaste_prijs / regie / nog_te_bepalen
+    standaard_uurtarief: float = 0.0
+    uurtarief: float = 0.0                    # Legacy field - maps to standaard_uurtarief
+    standaard_dagtarief: float = 0.0
+    standaard_vaste_prijs: float = 0.0
+    betaaltermijn: int = 30                   # Payment terms in days: 30 / 45 / 60
+    interne_opmerking_prijsafspraak: str = ""
+    prijsafspraak: Optional[str] = None       # Legacy field
+    
+    # F. FACTURATIE
+    facturatie_email: str = ""
+    facturatie_telefoon: str = ""
+    facturatie_contactpersoon: str = ""
+    facturatie_adres_zelfde: bool = True      # If True, use main address
+    facturatie_adres: Optional[KlantAdres] = None  # Optional - only if facturatie_adres_zelfde=False
+    
+    # G. EXTRA / ADMIN
+    klantnummer: str = ""                     # Auto-generated: KL-YYYY-NNNN
+    interne_referentie: str = ""
+    opmerkingen: str = ""
+    
+    # Status - actief is the primary field (backward compat)
     actief: bool = True
+    
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: Optional[datetime] = None
 
 class KlantCreate(BaseModel):
-    naam: str
-    email: str
-    telefoon: Optional[str] = None
-    adres: Optional[str] = None
-    uurtarief: float = 0
-    prijsafspraak: Optional[str] = None
-    btw_nummer: Optional[str] = None
+    """Create payload for new klant - all new fields supported"""
+    # Required
+    bedrijfsnaam: str
+    
+    # Legacy support - if provided, maps to new fields
+    naam: Optional[str] = None                # Maps to bedrijfsnaam if bedrijfsnaam empty
+    email: Optional[str] = None               # Maps to algemeen_email
+    
+    # A. Bedrijfsgegevens
+    btw_nummer: str = ""
+    ondernemingsnummer: str = ""
+    type_klant: str = "bedrijf"
+    algemeen_email: str = ""
+    algemeen_telefoon: str = ""
+    telefoon: Optional[str] = None            # Legacy
+    website: str = ""
+    
+    # B. Adres
+    adres: Optional[str] = None               # Legacy
+    adres_structured: Optional[KlantAdres] = None
+    
+    # C. Contactpersonen
+    contactpersonen: List[ContactPersoon] = Field(default_factory=list)
+    
+    # D. Communicatie
+    klant_mail_sturen: bool = True
+    primary_mail_recipient: str = ""
+    cc_mail_recipient: str = ""
+    
+    # E. Prijsafspraken
+    prijsmodel: str = "uurtarief"
+    standaard_uurtarief: float = 0.0
+    uurtarief: float = 0.0                    # Legacy
+    standaard_dagtarief: float = 0.0
+    standaard_vaste_prijs: float = 0.0
+    betaaltermijn: int = 30
+    interne_opmerking_prijsafspraak: str = ""
+    prijsafspraak: Optional[str] = None       # Legacy
+    
+    # F. Facturatie
+    facturatie_email: str = ""
+    facturatie_telefoon: str = ""
+    facturatie_contactpersoon: str = ""
+    facturatie_adres_zelfde: bool = True
+    facturatie_adres: Optional[KlantAdres] = None
+    
+    # G. Extra
+    interne_referentie: str = ""
+    opmerkingen: str = ""
+
+# Helper function to generate klantnummer
+async def generate_klantnummer(db) -> str:
+    """Generate unique klantnummer in format KL-YYYY-NNNN"""
+    year = datetime.utcnow().year
+    prefix = f"KL-{year}-"
+    
+    # Find highest existing number for this year
+    existing = await db.klanten.find(
+        {"klantnummer": {"$regex": f"^{prefix}"}},
+        {"klantnummer": 1}
+    ).sort("klantnummer", -1).limit(1).to_list(1)
+    
+    if existing and existing[0].get("klantnummer"):
+        try:
+            last_num = int(existing[0]["klantnummer"].split("-")[-1])
+            new_num = last_num + 1
+        except:
+            new_num = 1
+    else:
+        new_num = 1
+    
+    return f"{prefix}{new_num:04d}"
+
+# Helper to migrate old klant data to new structure
+def migrate_klant_data(klant_dict: dict) -> dict:
+    """Migrate old klant format to new professional structure"""
+    # Map legacy fields to new fields
+    if not klant_dict.get("bedrijfsnaam") and klant_dict.get("naam"):
+        klant_dict["bedrijfsnaam"] = klant_dict["naam"]
+    
+    if not klant_dict.get("algemeen_email") and klant_dict.get("email"):
+        klant_dict["algemeen_email"] = klant_dict["email"]
+    
+    if not klant_dict.get("algemeen_telefoon") and klant_dict.get("telefoon"):
+        klant_dict["algemeen_telefoon"] = klant_dict["telefoon"]
+    
+    if not klant_dict.get("standaard_uurtarief") and klant_dict.get("uurtarief"):
+        klant_dict["standaard_uurtarief"] = klant_dict["uurtarief"]
+    
+    if not klant_dict.get("interne_opmerking_prijsafspraak") and klant_dict.get("prijsafspraak"):
+        klant_dict["interne_opmerking_prijsafspraak"] = klant_dict["prijsafspraak"]
+    
+    # Ensure adres_structured exists
+    if not klant_dict.get("adres_structured"):
+        klant_dict["adres_structured"] = {
+            "straat": "", "huisnummer": "", "bus": "",
+            "postcode": "", "stad": "", "land": "België"
+        }
+    
+    # Ensure contactpersonen is a list
+    if not klant_dict.get("contactpersonen"):
+        klant_dict["contactpersonen"] = []
+    
+    # Ensure defaults for new fields
+    klant_dict.setdefault("type_klant", "bedrijf")
+    klant_dict.setdefault("website", "")
+    klant_dict.setdefault("klant_mail_sturen", True)
+    klant_dict.setdefault("primary_mail_recipient", "")
+    klant_dict.setdefault("cc_mail_recipient", "")
+    klant_dict.setdefault("prijsmodel", "uurtarief")
+    klant_dict.setdefault("standaard_dagtarief", 0.0)
+    klant_dict.setdefault("standaard_vaste_prijs", 0.0)
+    klant_dict.setdefault("betaaltermijn", 30)
+    klant_dict.setdefault("facturatie_email", "")
+    klant_dict.setdefault("facturatie_telefoon", "")
+    klant_dict.setdefault("facturatie_contactpersoon", "")
+    klant_dict.setdefault("facturatie_adres_zelfde", True)
+    klant_dict.setdefault("klantnummer", "")
+    klant_dict.setdefault("interne_referentie", "")
+    klant_dict.setdefault("opmerkingen", "")
+    
+    return klant_dict
 
 # Werf (Worksite) Model
 class Werf(BaseModel):
@@ -3177,24 +3376,83 @@ async def delete_team(team_id: str):
 
 # ==================== KLANT ROUTES ====================
 
-@api_router.get("/klanten", response_model=List[Klant])
-async def get_klanten():
-    klanten = await db.klanten.find({"actief": True}).to_list(1000)
-    return [Klant(**klant) for klant in klanten]
+@api_router.get("/klanten", response_model=List[dict])
+async def get_klanten(include_inactive: bool = Query(False)):
+    """Get all klanten with migration to new structure"""
+    query = {} if include_inactive else {"actief": {"$ne": False}}
+    klanten = await db.klanten.find(query).to_list(1000)
+    # Migrate each klant to new structure
+    return [migrate_klant_data(klant) for klant in klanten]
 
-@api_router.post("/klanten", response_model=Klant)
-async def create_klant(klant_data: KlantCreate):
-    klant = Klant(**klant_data.dict())
-    await db.klanten.insert_one(klant.dict())
-    return klant
-
-@api_router.put("/klanten/{klant_id}", response_model=Klant)
-async def update_klant(klant_id: str, klant_data: KlantCreate):
-    result = await db.klanten.update_one({"id": klant_id}, {"$set": klant_data.dict()})
-    if result.matched_count == 0:
+@api_router.get("/klanten/{klant_id}")
+async def get_klant(klant_id: str):
+    """Get single klant by ID"""
+    klant = await db.klanten.find_one({"id": klant_id})
+    if not klant:
         raise HTTPException(status_code=404, detail="Klant niet gevonden")
-    updated = await db.klanten.find_one({"id": klant_id})
-    return Klant(**updated)
+    return migrate_klant_data(klant)
+
+@api_router.post("/klanten", response_model=dict)
+async def create_klant(klant_data: KlantCreate):
+    """Create new klant with auto-generated klantnummer"""
+    klant_dict = klant_data.dict()
+    
+    # Handle legacy field mapping
+    if klant_dict.get("naam") and not klant_dict.get("bedrijfsnaam"):
+        klant_dict["bedrijfsnaam"] = klant_dict["naam"]
+    if klant_dict.get("email") and not klant_dict.get("algemeen_email"):
+        klant_dict["algemeen_email"] = klant_dict["email"]
+    if klant_dict.get("telefoon") and not klant_dict.get("algemeen_telefoon"):
+        klant_dict["algemeen_telefoon"] = klant_dict["telefoon"]
+    if klant_dict.get("uurtarief") and not klant_dict.get("standaard_uurtarief"):
+        klant_dict["standaard_uurtarief"] = klant_dict["uurtarief"]
+    
+    # Ensure naam field matches bedrijfsnaam for backward compat
+    klant_dict["naam"] = klant_dict.get("bedrijfsnaam", "")
+    klant_dict["email"] = klant_dict.get("algemeen_email", "")
+    
+    # Generate klantnummer
+    klant_dict["klantnummer"] = await generate_klantnummer(db)
+    
+    # Set defaults
+    klant_dict["id"] = str(uuid.uuid4())
+    klant_dict["company_id"] = "default_company"
+    klant_dict["actief"] = True
+    klant_dict["created_at"] = datetime.utcnow()
+    
+    # Ensure adres_structured exists
+    if not klant_dict.get("adres_structured"):
+        klant_dict["adres_structured"] = {
+            "straat": "", "huisnummer": "", "bus": "",
+            "postcode": "", "stad": "", "land": "België"
+        }
+    
+    await db.klanten.insert_one(klant_dict)
+    return migrate_klant_data(klant_dict)
+
+@api_router.put("/klanten/{klant_id}", response_model=dict)
+async def update_klant(klant_id: str, klant_data: dict):
+    """Update klant - accepts full klant object"""
+    existing = await db.klanten.find_one({"id": klant_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Klant niet gevonden")
+    
+    # Merge with existing data
+    update_dict = {**existing, **klant_data}
+    
+    # Ensure naam/email stay synced with new fields for backward compat
+    if update_dict.get("bedrijfsnaam"):
+        update_dict["naam"] = update_dict["bedrijfsnaam"]
+    if update_dict.get("algemeen_email"):
+        update_dict["email"] = update_dict["algemeen_email"]
+    
+    update_dict["updated_at"] = datetime.utcnow()
+    
+    # Remove MongoDB _id if present
+    update_dict.pop("_id", None)
+    
+    await db.klanten.replace_one({"id": klant_id}, update_dict)
+    return migrate_klant_data(update_dict)
 
 @api_router.delete("/klanten/{klant_id}")
 async def delete_klant(klant_id: str):
@@ -3203,17 +3461,32 @@ async def delete_klant(klant_id: str):
         raise HTTPException(status_code=404, detail="Klant niet gevonden")
     return {"message": "Klant verwijderd"}
 
+@api_router.get("/klanten/contact-functies")
+async def get_contact_functies():
+    """Get predefined contact function suggestions"""
+    return {"functies": CONTACT_FUNCTIE_SUGGESTIONS}
+
+@api_router.get("/klanten/prijs-modellen")
+async def get_prijs_modellen():
+    """Get available pricing models"""
+    return {"modellen": PRIJS_MODELLEN}
+
 @api_router.post("/klanten/{klant_id}/send-welcome-email")
 async def send_klant_welcome(klant_id: str):
     """Send a welcome email to a client"""
     klant = await db.klanten.find_one({"id": klant_id})
     if not klant:
         raise HTTPException(status_code=404, detail="Klant niet gevonden")
-    if not klant.get("email"):
+    
+    # Use new field with fallback to legacy
+    email = klant.get("algemeen_email") or klant.get("email")
+    naam = klant.get("bedrijfsnaam") or klant.get("naam")
+    
+    if not email:
         raise HTTPException(status_code=400, detail="Klant heeft geen e-mailadres")
     
     instellingen = await db.instellingen.find_one({"id": "company_settings"}) or {}
-    result = await send_klant_welcome_email(klant["email"], klant["naam"], instellingen)
+    result = await send_klant_welcome_email(email, naam, instellingen)
     return {"email_sent": result.get("success", False), "error": result.get("error")}
 
 # ==================== WERF ROUTES ====================
