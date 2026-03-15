@@ -223,9 +223,112 @@ frontend:
 
 metadata:
   created_by: "testing_agent"
-  version: "1.0"
-  test_sequence: 1
+  version: "1.1"
+  test_sequence: 2
   run_ui: false
+  phase1_saas_migration: completed
+
+phase1_saas_implementation:
+  status: "COMPLETED"
+  date: "2026-03-15"
+  
+  backend_changes:
+    - task: "Role & Permission System"
+      status: "IMPLEMENTED"
+      details:
+        - Added 6 new roles: master_admin, admin, manager, planner, worker, onderaannemer
+        - Created ROLE_PERMISSIONS dictionary with granular permissions
+        - Created ROLE_ASSIGNMENT_PERMISSIONS (manager cannot assign admin/master_admin)
+        - Added WEB_PANEL_ROLES and MOBILE_APP_ROLES constants
+        - Added role normalization (legacy mapping: werknemer→worker, ploegbaas→worker, beheerder→manager)
+        - Created require_roles() and require_permission() dependencies
+      
+    - task: "JWT Authentication"
+      status: "IMPLEMENTED"
+      details:
+        - Added JWT token generation and validation
+        - Login endpoint returns JWT token + platform_access info
+        - get_current_user() validates token server-side (not just client headers)
+        - Token includes user_id, email, role, company_id
+        
+    - task: "Company Scoping"
+      status: "IMPLEMENTED"
+      details:
+        - Added company_id field to all models (users, klanten, werven, planning, werkbonnen, teams, berichten)
+        - Default company_id = "default_company" for existing data
+        - BedrijfsInstellingen extended with new structured fields
+        
+    - task: "Structured Company Settings"
+      status: "IMPLEMENTED"
+      details:
+        - Added nested AdresGestructureerd (straat, huisnummer, postcode, stad, land)
+        - Added nested EmailConfig (uitgaand_algemeen, inkomend_werkbon)
+        - Added nested BrandingConfig (logo_url, primaire_kleur, accent_kleur)
+        - Added nested PdfTekstenConfig (algemene_voettekst, uren/oplevering/project confirmations)
+        - Legacy fields preserved for backward compatibility
+        - Helper functions prefer new fields, fallback to legacy
+        
+    - task: "Password Security"
+      status: "IMPLEMENTED"
+      details:
+        - REMOVED wachtwoord_plain field completely
+        - Added secure change-password endpoint with validation
+        - Added password_changed_at and must_change_password fields
+        - Admin password reset generates random password
+        - Migration removes all plain passwords from database
+        
+    - task: "Database Migration"
+      status: "COMPLETED"
+      details:
+        - Startup migration adds company_id to all records
+        - Legacy roles automatically mapped to new roles
+        - wachtwoord_plain removed from all users
+        - New structured fields added to settings
+
+  frontend_changes:
+    - task: "AuthContext Enhancement"
+      status: "IMPLEMENTED"
+      details:
+        - Added JWT token storage and management
+        - Added login() function with JWT and platform access
+        - Added changePassword() function
+        - Added hasWebAccess(), hasAppAccess(), canAccessWebPanel() helpers
+        - Added ROLE_LABELS and getRoleLabel() for UI
+        
+    - task: "Login Platform Access Enforcement"
+      status: "IMPLEMENTED"
+      details:
+        - Login checks if user's role allows current platform (web/app)
+        - Worker/onderaannemer blocked from web panel with message
+        - Admin/manager/planner shown message when using app
+        
+    - task: "Safe Area Fix for Samsung"
+      status: "IMPLEMENTED"
+      details:
+        - Tab bar height respects safe area insets
+        - Bottom padding calculated for Samsung gesture navigation
+        - Tab bar elevated above system navigation
+
+    - task: "Profile Page Enhancement"
+      status: "IMPLEMENTED"
+      details:
+        - Shows role label using getRoleLabel()
+        - Shows Webpaneel Toegang (Ja/Nee)
+        - Shows App Toegang (Ja/Nee)
+        - Password change uses new API with confirm_password
+
+  new_api_endpoints:
+    - "GET /api/auth/roles - Get all roles with permissions and access rules"
+    - "PUT /api/auth/users/{id}/role - Assign role with permission validation"
+    - "POST /api/auth/admin-reset-password/{id} - Admin password reset"
+    - "POST /api/auth/change-password - Secure password change with confirm"
+
+  security_improvements:
+    - "JWT-based authentication (not client headers)"
+    - "Server-side role validation on every request"
+    - "Role assignment restrictions (manager cannot elevate to admin)"
+    - "No plain password storage"
+    - "Password minimum 8 characters"
 
 test_plan:
   current_focus:

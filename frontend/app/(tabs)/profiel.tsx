@@ -10,19 +10,22 @@ import {
   TextInput,
   KeyboardAvoidingView,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { showAlert } from '../../utils/alerts';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, getRoleLabel } from '../../context/AuthContext';
 import { useRouter } from 'expo-router';
-import axios from 'axios';
+import { useTheme } from '../../context/ThemeContext';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 export default function ProfielScreen() {
-  const { user, logout } = useAuth();
+  const { user, logout, changePassword } = useAuth();
+  const { theme } = useTheme();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   
   const [passwordModalVisible, setPasswordModalVisible] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
@@ -67,19 +70,14 @@ export default function ProfielScreen() {
       return;
     }
     
-    if (newPassword.length < 6) {
-      showAlert('Fout', 'Nieuw wachtwoord moet minimaal 6 tekens bevatten');
+    if (newPassword.length < 8) {
+      showAlert('Fout', 'Nieuw wachtwoord moet minimaal 8 tekens bevatten');
       return;
     }
     
     setIsLoading(true);
     try {
-      await axios.post(`${BACKEND_URL}/api/auth/change-password`, {
-        current_password: currentPassword,
-        new_password: newPassword,
-      }, {
-        params: { user_id: user?.id }
-      });
+      await changePassword(currentPassword, newPassword, confirmPassword);
       
       showAlert('Succes', 'Wachtwoord is succesvol gewijzigd');
       setPasswordModalVisible(false);
@@ -93,6 +91,13 @@ export default function ProfielScreen() {
       setIsLoading(false);
     }
   };
+
+  // Get role display label
+  const roleLabel = user?.rol ? getRoleLabel(user.rol) : 'Onbekend';
+  
+  // Determine platform access
+  const hasWebAccess = user?.web_access ?? false;
+  const hasAppAccess = user?.app_access ?? true;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -111,12 +116,10 @@ export default function ProfielScreen() {
 
         <View style={styles.infoSection}>
           <View style={styles.infoItem}>
-            <Ionicons name="shield-checkmark" size={24} color="#F5A623" />
+            <Ionicons name="shield-checkmark" size={24} color={theme.primaryColor || "#F5A623"} />
             <View style={styles.infoContent}>
               <Text style={styles.infoLabel}>Rol</Text>
-              <Text style={styles.infoValue}>
-                {user?.rol === 'admin' ? 'Beheerder' : 'Werknemer'}
-              </Text>
+              <Text style={styles.infoValue}>{roleLabel}</Text>
             </View>
           </View>
           <View style={styles.infoItem}>
@@ -124,6 +127,20 @@ export default function ProfielScreen() {
             <View style={styles.infoContent}>
               <Text style={styles.infoLabel}>Status</Text>
               <Text style={styles.infoValue}>Actief</Text>
+            </View>
+          </View>
+          <View style={styles.infoItem}>
+            <Ionicons name="laptop-outline" size={24} color={hasWebAccess ? "#28a745" : "#6c757d"} />
+            <View style={styles.infoContent}>
+              <Text style={styles.infoLabel}>Webpaneel Toegang</Text>
+              <Text style={styles.infoValue}>{hasWebAccess ? 'Ja' : 'Nee'}</Text>
+            </View>
+          </View>
+          <View style={styles.infoItem}>
+            <Ionicons name="phone-portrait-outline" size={24} color={hasAppAccess ? "#28a745" : "#6c757d"} />
+            <View style={styles.infoContent}>
+              <Text style={styles.infoLabel}>App Toegang</Text>
+              <Text style={styles.infoValue}>{hasAppAccess ? 'Ja' : 'Nee'}</Text>
             </View>
           </View>
         </View>

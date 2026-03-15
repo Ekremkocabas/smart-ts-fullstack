@@ -1,4 +1,5 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Response, Query
+from fastapi import FastAPI, APIRouter, HTTPException, Response, Query, Depends, Header
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -7,14 +8,16 @@ import logging
 import asyncio
 import base64
 import io
+import secrets
 from pathlib import Path
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Set
 import uuid
 from datetime import datetime, timedelta, timezone
 import hashlib
 import resend
 import requests
+import jwt
 from PIL import Image as PILImage
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
@@ -25,6 +28,11 @@ from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Tabl
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 APP_URL = os.environ.get('APP_URL', 'https://expo-fastapi-1.preview.emergentagent.com').strip()
+
+# JWT Configuration
+JWT_SECRET = os.environ.get('JWT_SECRET', secrets.token_hex(32))
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRATION_HOURS = 24 * 7  # 7 days
 
 # Resend configuration
 resend.api_key = os.environ.get('RESEND_API_KEY', '')
@@ -42,45 +50,462 @@ app = FastAPI()
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
+# Security
+security = HTTPBearer(auto_error=False)
+
+# ==================== ROLE & PERMISSION SYSTEM ====================
+
+# Valid roles in the system
+VALID_ROLES: Set[str] = {
+    "master_admin",
+    "admin",
+    "manager",
+    "planner",
+    "worker",
+    "onderaannemer"
+}
+
+# Platform access rules
+WEB_PANEL_ROLES: Set[str] = {"master_admin", "admin", "manager", "planner"}
+MOBILE_APP_ROLES: Set[str] = {"worker", "onderaannemer"}
+
+# Legacy role mapping
+LEGACY_ROLE_MAPPING: Dict[str, str] = {
+    "admin": "admin",
+    "beheerder": "manager",
+    "ploegbaas": "worker",  # ploegbaas maps to worker
+    "werknemer": "worker",
+    "onderaannemer": "onderaannemer"
+}
+
+# Roles that each role can assign (for safe role assignment)
+ROLE_ASSIGNMENT_PERMISSIONS: Dict[str, Set[str]] = {
+    "master_admin": {"master_admin", "admin", "manager", "planner", "worker", "onderaannemer"},
+    "admin": {"admin", "manager", "planner", "worker", "onderaannemer"},
+    "manager": {"planner", "worker", "onderaannemer"},  # Manager cannot assign admin or master_admin
+    "planner": set(),  # Planner cannot assign roles
+    "worker": set(),
+    "onderaannemer": set(),
+}
+
+# Permissions per role
+ROLE_PERMISSIONS: Dict[str, Dict[str, bool]] = {
+    "master_admin": {
+        "can_manage_all_companies": True,
+        "can_manage_settings": True,
+        "can_manage_branding": True,
+        "can_manage_users": True,
+        "can_manage_klanten": True,
+        "can_manage_werven": True,
+        "can_manage_planning": True,
+        "can_manage_werkbonnen": True,
+        "can_view_reports": True,
+    },
+    "admin": {
+        "can_manage_settings": True,
+        "can_manage_branding": True,
+        "can_manage_users": True,
+        "can_manage_klanten": True,
+        "can_manage_werven": True,
+        "can_manage_planning": True,
+        "can_manage_werkbonnen": True,
+        "can_view_reports": True,
+    },
+    "manager": {
+        "can_manage_users": True,
+        "can_manage_klanten": True,
+        "can_manage_werven": True,
+        "can_manage_planning": True,
+        "can_manage_werkbonnen": True,
+        "can_view_reports": True,
+    },
+    "planner": {
+        "can_view_users": True,
+        "can_view_klanten": True,
+        "can_view_werven": True,
+        "can_manage_planning": True,
+        "can_view_werkbonnen": True,
+    },
+    "worker": {
+        "can_view_own_planning": True,
+        "can_create_werkbon": True,
+        "can_view_own_werkbonnen": True,
+    },
+    "onderaannemer": {
+        "can_view_own_planning": True,
+        "can_create_werkbon": True,
+        "can_view_own_werkbonnen": True,
+    },
+}
+
+def normalize_role(role: str) -> str:
+    """Map legacy role to new role system"""
+    if role in VALID_ROLES:
+        return role
+    return LEGACY_ROLE_MAPPING.get(role, "worker")
+
+def has_permission(role: str, permission: str) -> bool:
+    """Check if a role has a specific permission"""
+    normalized = normalize_role(role)
+    role_perms = ROLE_PERMISSIONS.get(normalized, {})
+    return role_perms.get(permission, False)
+
+def can_assign_role(assigner_role: str, target_role: str) -> bool:
+    """Check if a role can assign another role"""
+    normalized_assigner = normalize_role(assigner_role)
+    normalized_target = normalize_role(target_role)
+    allowed = ROLE_ASSIGNMENT_PERMISSIONS.get(normalized_assigner, set())
+    return normalized_target in allowed
+
+def has_web_access(role: str) -> bool:
+    """Check if role has web panel access"""
+    return normalize_role(role) in WEB_PANEL_ROLES
+
+def has_app_access(role: str) -> bool:
+    """Check if role has mobile app access"""
+    return normalize_role(role) in MOBILE_APP_ROLES
+
+# ==================== JWT AUTH HELPERS ====================
+
+def create_jwt_token(user_id: str, email: str, role: str, company_id: str) -> str:
+    """Create a JWT token for authenticated user"""
+    payload = {
+        "user_id": user_id,
+        "email": email,
+        "role": normalize_role(role),
+        "company_id": company_id,
+        "exp": datetime.utcnow() + timedelta(hours=JWT_EXPIRATION_HOURS),
+        "iat": datetime.utcnow(),
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+def decode_jwt_token(token: str) -> Optional[Dict]:
+    """Decode and validate JWT token"""
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        return payload
+    except jwt.ExpiredSignatureError:
+        return None
+    except jwt.InvalidTokenError:
+        return None
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    authorization: Optional[str] = Header(None)
+) -> Dict:
+    """
+    Get current authenticated user from JWT token.
+    Validates token server-side and fetches fresh user data from database.
+    """
+    token = None
+    
+    # Try to get token from Bearer auth
+    if credentials:
+        token = credentials.credentials
+    # Fallback to Authorization header
+    elif authorization and authorization.startswith("Bearer "):
+        token = authorization[7:]
+    
+    if not token:
+        raise HTTPException(status_code=401, detail="Authenticatie vereist")
+    
+    payload = decode_jwt_token(token)
+    if not payload:
+        raise HTTPException(status_code=401, detail="Ongeldige of verlopen token")
+    
+    # Fetch fresh user data from database (server-side validation)
+    user = await db.users.find_one({"id": payload["user_id"]}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=401, detail="Gebruiker niet gevonden")
+    
+    if not user.get("actief", True):
+        raise HTTPException(status_code=401, detail="Account is gedeactiveerd")
+    
+    # Return validated user data with normalized role
+    return {
+        "user_id": user["id"],
+        "email": user["email"],
+        "naam": user.get("naam", ""),
+        "role": normalize_role(user.get("rol", "worker")),
+        "company_id": user.get("company_id", "default_company"),
+    }
+
+async def get_optional_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+) -> Optional[Dict]:
+    """Get current user if authenticated, None otherwise"""
+    if not credentials:
+        return None
+    try:
+        return await get_current_user(credentials)
+    except HTTPException:
+        return None
+
+def require_roles(allowed_roles: List[str]):
+    """Dependency factory that requires specific roles"""
+    async def role_checker(current_user: Dict = Depends(get_current_user)) -> Dict:
+        normalized_allowed = {normalize_role(r) for r in allowed_roles}
+        if current_user["role"] not in normalized_allowed:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Geen toegang. Vereiste rol: {', '.join(allowed_roles)}"
+            )
+        return current_user
+    return role_checker
+
+def require_web_access():
+    """Dependency that requires web panel access"""
+    async def checker(current_user: Dict = Depends(get_current_user)) -> Dict:
+        if not has_web_access(current_user["role"]):
+            raise HTTPException(
+                status_code=403,
+                detail="Geen toegang tot webpaneel. Gebruik de mobiele app."
+            )
+        return current_user
+    return checker
+
+def require_permission(permission: str):
+    """Dependency factory that requires a specific permission"""
+    async def permission_checker(current_user: Dict = Depends(get_current_user)) -> Dict:
+        if not has_permission(current_user["role"], permission):
+            raise HTTPException(
+                status_code=403,
+                detail=f"Geen toegang. Vereiste permissie: {permission}"
+            )
+        return current_user
+    return permission_checker
+
 # ==================== MODELS ====================
 
-# User Model (Workers/Employees)
-class User(BaseModel):
+# ==================== COMPANY SETTINGS MODELS (Phase 1) ====================
+
+class AdresGestructureerd(BaseModel):
+    """Structured address fields for company"""
+    straat: Optional[str] = None
+    huisnummer: Optional[str] = None
+    postcode: Optional[str] = None
+    stad: Optional[str] = None
+    land: str = "België"
+
+class EmailConfig(BaseModel):
+    """Email configuration for company"""
+    uitgaand_algemeen: Optional[str] = None   # e.g., info@smart-techbv.be
+    inkomend_werkbon: Optional[str] = None    # e.g., ts@smart-techbv.be
+
+class BrandingConfig(BaseModel):
+    """Branding configuration for company"""
+    logo_url: Optional[str] = None            # URL or file path (NOT base64)
+    primaire_kleur: Optional[str] = None
+    accent_kleur: Optional[str] = None
+
+class PdfTekstenConfig(BaseModel):
+    """PDF text configuration for company"""
+    algemene_voettekst: Optional[str] = None
+    uren_klant_bevestiging: Optional[str] = None
+    oplevering_klant_bevestiging: Optional[str] = None
+    project_werkbon_klant_bevestiging: Optional[str] = None
+
+class CompanySettings(BaseModel):
+    """Company settings - company-based, not singleton"""
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    company_id: str                           # Unique company identifier
+    
+    # Basic info
+    bedrijfsnaam: str = "Smart-Tech BV"
+    btw_nummer: Optional[str] = None
+    telefoon: Optional[str] = None
+    website: Optional[str] = None
+    
+    # === LEGACY FIELDS (backward compatibility) ===
+    email: Optional[str] = None               # Legacy
+    admin_emails: List[str] = Field(default_factory=list)
+    adres: Optional[str] = None               # Legacy address string
+    postcode: Optional[str] = None            # Legacy
+    stad: Optional[str] = None                # Legacy
+    kvk_nummer: Optional[str] = None          # Legacy
+    logo_base64: Optional[str] = None         # Legacy (temporary)
+    pdf_voettekst: Optional[str] = None       # Legacy
+    uren_confirmation_text: Optional[str] = None
+    oplevering_confirmation_text: Optional[str] = None
+    project_confirmation_text: Optional[str] = None
+    primary_color: Optional[str] = None       # Legacy
+    secondary_color: Optional[str] = None     # Legacy
+    accent_color: Optional[str] = None        # Legacy
+    selfie_activeren: bool = False
+    sms_verificatie_activeren: bool = False
+    automatisch_naar_klant: bool = False
+    
+    # === NEW STRUCTURED FIELDS ===
+    adres_gestructureerd: Optional[AdresGestructureerd] = None
+    emails: Optional[EmailConfig] = None
+    branding: Optional[BrandingConfig] = None
+    pdf_teksten: Optional[PdfTekstenConfig] = None
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class CompanySettingsUpdate(BaseModel):
+    """Update model for company settings"""
+    bedrijfsnaam: Optional[str] = None
+    btw_nummer: Optional[str] = None
+    telefoon: Optional[str] = None
+    website: Optional[str] = None
+    
+    # Legacy fields (for backward compatibility)
+    email: Optional[str] = None
+    admin_emails: Optional[List[str]] = None
+    adres: Optional[str] = None
+    postcode: Optional[str] = None
+    stad: Optional[str] = None
+    kvk_nummer: Optional[str] = None
+    logo_base64: Optional[str] = None
+    pdf_voettekst: Optional[str] = None
+    uren_confirmation_text: Optional[str] = None
+    oplevering_confirmation_text: Optional[str] = None
+    project_confirmation_text: Optional[str] = None
+    primary_color: Optional[str] = None
+    secondary_color: Optional[str] = None
+    accent_color: Optional[str] = None
+    selfie_activeren: Optional[bool] = None
+    sms_verificatie_activeren: Optional[bool] = None
+    automatisch_naar_klant: Optional[bool] = None
+    
+    # New structured fields
+    adres_gestructureerd: Optional[AdresGestructureerd] = None
+    emails: Optional[EmailConfig] = None
+    branding: Optional[BrandingConfig] = None
+    pdf_teksten: Optional[PdfTekstenConfig] = None
+
+# ==================== COMPANY SETTINGS HELPERS ====================
+
+def get_company_address(settings: dict) -> str:
+    """Get company address - prefer new structured fields, fallback to legacy"""
+    gestructureerd = settings.get("adres_gestructureerd")
+    if gestructureerd and isinstance(gestructureerd, dict):
+        parts = [
+            gestructureerd.get("straat", ""),
+            gestructureerd.get("huisnummer", ""),
+            gestructureerd.get("postcode", ""),
+            gestructureerd.get("stad", ""),
+        ]
+        full = " ".join(p for p in parts if p).strip()
+        if full:
+            return full
+    # Fallback to legacy fields
+    legacy_parts = [
+        settings.get("adres", ""),
+        settings.get("postcode", ""),
+        settings.get("stad", ""),
+    ]
+    return " ".join(p for p in legacy_parts if p).strip()
+
+def get_company_email(settings: dict, email_type: str = "uitgaand_algemeen") -> str:
+    """Get company email - prefer new structured fields, fallback to legacy"""
+    emails = settings.get("emails")
+    if emails and isinstance(emails, dict):
+        email = emails.get(email_type)
+        if email:
+            return email
+    # Fallback to legacy
+    return settings.get("email") or COMPANY_EMAIL
+
+def get_company_logo(settings: dict) -> Optional[str]:
+    """Get company logo - prefer new URL, fallback to base64"""
+    branding = settings.get("branding")
+    if branding and isinstance(branding, dict):
+        logo_url = branding.get("logo_url")
+        if logo_url:
+            return logo_url
+    # Fallback to legacy base64
+    return settings.get("logo_base64")
+
+def get_company_color(settings: dict, color_type: str = "primary") -> str:
+    """Get company color - prefer new structured fields, fallback to legacy"""
+    branding = settings.get("branding")
+    if branding and isinstance(branding, dict):
+        if color_type == "primary":
+            color = branding.get("primaire_kleur")
+        else:
+            color = branding.get("accent_kleur")
+        if color:
+            return color
+    # Fallback to legacy
+    if color_type == "primary":
+        return settings.get("primary_color") or "#1a1a2e"
+    return settings.get("accent_color") or settings.get("secondary_color") or "#F5A623"
+
+def get_pdf_text(settings: dict, text_type: str) -> str:
+    """Get PDF text - prefer new structured fields, fallback to legacy"""
+    pdf_teksten = settings.get("pdf_teksten")
+    if pdf_teksten and isinstance(pdf_teksten, dict):
+        text = pdf_teksten.get(text_type)
+        if text:
+            return text
+    
+    # Fallback mapping
+    legacy_mapping = {
+        "algemene_voettekst": "pdf_voettekst",
+        "uren_klant_bevestiging": "uren_confirmation_text",
+        "oplevering_klant_bevestiging": "oplevering_confirmation_text",
+        "project_werkbon_klant_bevestiging": "project_confirmation_text",
+    }
+    legacy_key = legacy_mapping.get(text_type)
+    if legacy_key:
+        return settings.get(legacy_key) or ""
+    return ""
+
+# ==================== USER MODEL (Phase 1 - No plain password!) ====================
+
+class User(BaseModel):
+    """User model - updated for Phase 1 SaaS architecture"""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    company_id: str = "default_company"       # NEW: Company scoping
+    
     email: str
     password_hash: str
-    wachtwoord_plain: str = ""  # Admin can see this
+    # wachtwoord_plain: REMOVED - no plain password storage!
+    
     naam: str
-    rol: str = "werknemer"  # werknemer, ploegbaas, onderaannemer, beheerder, admin
+    rol: str = "worker"                       # NEW: Default is now "worker"
     team_id: Optional[str] = None
     telefoon: Optional[str] = None
     actief: bool = True
     werkbon_types: List[str] = Field(default_factory=lambda: ["uren"])
-    mag_wachtwoord_wijzigen: bool = False
+    mag_wachtwoord_wijzigen: bool = True      # NEW: Default True
     push_token: Optional[str] = None
+    
+    # NEW: Password management fields
+    password_changed_at: Optional[datetime] = None
+    must_change_password: bool = False
+    
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 class UserCreate(BaseModel):
     email: str
     password: str
     naam: str
-    rol: str = "werknemer"
+    rol: str = "worker"
 
 class UserLogin(BaseModel):
     email: str
     password: str
 
 class UserResponse(BaseModel):
+    """User response model - no plain password exposed"""
     id: str
     email: str
     naam: str
     rol: str
+    company_id: str = "default_company"
     team_id: Optional[str] = None
     telefoon: Optional[str] = None
     actief: bool
     werkbon_types: List[str] = Field(default_factory=lambda: ["uren"])
-    wachtwoord_plain: str = ""
-    mag_wachtwoord_wijzigen: bool = False
+    mag_wachtwoord_wijzigen: bool = True
+    must_change_password: bool = False
+    # Platform access info
+    web_access: bool = False
+    app_access: bool = False
 
 class UserUpdate(BaseModel):
     naam: Optional[str] = None
@@ -90,8 +515,22 @@ class UserUpdate(BaseModel):
     actief: Optional[bool] = None
     werkbon_types: Optional[List[str]] = None
     mag_wachtwoord_wijzigen: Optional[bool] = None
-    wachtwoord_plain: Optional[str] = None
+    must_change_password: Optional[bool] = None
+    # For admin password reset (generates new hash, no plain storage)
+    new_password: Optional[str] = None
 
+class PasswordChangeRequest(BaseModel):
+    """Request model for password change"""
+    current_password: str
+    new_password: str
+    confirm_password: str
+
+class LoginResponse(BaseModel):
+    """Enhanced login response with JWT and platform access info"""
+    user: UserResponse
+    token: str
+    platform_access: str  # "web", "app", or "both"
+    valid_roles: List[str]
 
 class ResendInfoMailResponse(BaseModel):
     user: UserResponse
@@ -102,6 +541,7 @@ class ResendInfoMailResponse(BaseModel):
 # Team Model (Ekip)
 class Team(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    company_id: str = "default_company"       # NEW: Company scoping
     naam: str
     leden: List[str] = []  # List of team member names
     actief: bool = True
@@ -118,6 +558,7 @@ class TeamUpdate(BaseModel):
 # Klant (Customer) Model
 class Klant(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    company_id: str = "default_company"       # NEW: Company scoping
     naam: str
     email: str
     telefoon: Optional[str] = None
@@ -140,6 +581,7 @@ class KlantCreate(BaseModel):
 # Werf (Worksite) Model
 class Werf(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    company_id: str = "default_company"       # NEW: Company scoping
     naam: str
     klant_id: str
     adres: Optional[str] = None
@@ -181,6 +623,7 @@ class KmRegel(BaseModel):
 
 class Werkbon(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    company_id: str = "default_company"       # NEW: Company scoping
     week_nummer: int
     jaar: int
     # Auto-generated dates based on week number
@@ -245,7 +688,11 @@ class WerkbonUpdate(BaseModel):
 
 # Bedrijfsinstellingen (Company Settings)
 class BedrijfsInstellingen(BaseModel):
+    """Legacy model - maintained for backward compatibility.
+    New code should use CompanySettings model."""
     id: str = "company_settings"
+    company_id: str = "default_company"       # NEW: Company scoping
+    
     bedrijfsnaam: str = "Smart-Tech BV"
     email: str = "info@smart-techbv.be"
     admin_emails: List[str] = ["info@smart-techbv.be"]  # Admin email addresses
@@ -255,20 +702,30 @@ class BedrijfsInstellingen(BaseModel):
     stad: Optional[str] = None
     kvk_nummer: Optional[str] = None
     btw_nummer: Optional[str] = None
+    website: Optional[str] = None             # NEW
+    
     # PDF Settings
-    logo_base64: Optional[str] = None  # Company logo for PDF
+    logo_base64: Optional[str] = None  # Company logo for PDF (legacy)
     pdf_voettekst: str = "Factuur wordt als goedgekeurd beschouwd indien geen klacht wordt ingediend binnen 1 week."
     uren_confirmation_text: str = "Hierbij bevestigt de klant dat deze ingevulde werkbon juist is ingevuld."
     oplevering_confirmation_text: str = "Hierbij bevestigt de klant dat deze ingevulde oplevering bon juist is ingevuld."
     project_confirmation_text: str = "Hierbij bevestigt de klant dat deze ingevulde project werkbon juist is ingevuld."
+    
     # Feature toggles
     selfie_activeren: bool = False
     sms_verificatie_activeren: bool = False
     automatisch_naar_klant: bool = False  # Auto-include client email in werkbon email
+    
     # Theme settings for remote control
     primary_color: str = "#1a1a2e"
     secondary_color: str = "#F5A623"
     accent_color: str = "#16213e"
+    
+    # === NEW STRUCTURED FIELDS (Phase 1) ===
+    adres_gestructureerd: Optional[Dict] = None
+    emails: Optional[Dict] = None
+    branding: Optional[Dict] = None
+    pdf_teksten: Optional[Dict] = None
 
 class BedrijfsInstellingenUpdate(BaseModel):
     bedrijfsnaam: Optional[str] = None
@@ -280,6 +737,7 @@ class BedrijfsInstellingenUpdate(BaseModel):
     stad: Optional[str] = None
     kvk_nummer: Optional[str] = None
     btw_nummer: Optional[str] = None
+    website: Optional[str] = None             # NEW
     logo_base64: Optional[str] = None
     pdf_voettekst: Optional[str] = None
     uren_confirmation_text: Optional[str] = None
@@ -291,6 +749,11 @@ class BedrijfsInstellingenUpdate(BaseModel):
     primary_color: Optional[str] = None
     secondary_color: Optional[str] = None
     accent_color: Optional[str] = None
+    # NEW structured fields
+    adres_gestructureerd: Optional[Dict] = None
+    emails: Optional[Dict] = None
+    branding: Optional[Dict] = None
+    pdf_teksten: Optional[Dict] = None
 
 # ==================== OPLEVERING WERKBON (Customer Satisfaction) ====================
 
@@ -307,6 +770,7 @@ class Beoordeling(BaseModel):
 
 class OpleveringWerkbon(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    company_id: str = "default_company"       # NEW: Company scoping
     type: str = "oplevering"
     
     # Klant & Werf info
@@ -422,6 +886,7 @@ class OpleveringWerkbonUpdate(BaseModel):
 
 class ProjectWerkbon(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    company_id: str = "default_company"       # NEW: Company scoping
     type: str = "project"
     
     # Klant & Werf info
@@ -519,6 +984,7 @@ class ProductieFoto(BaseModel):
 
 class ProductieWerkbon(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    company_id: str = "default_company"       # NEW: Company scoping
     type: str = "productie"
     datum: str
     werknemer_naam: str = ""
@@ -597,6 +1063,7 @@ class ProductieWerkbonCreate(BaseModel):
 
 class PlanningItem(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    company_id: str = "default_company"       # NEW: Company scoping
     week_nummer: int
     jaar: int
     dag: str  # maandag, dinsdag, etc.
@@ -687,6 +1154,7 @@ class PlanningItemUpdate(BaseModel):
 
 class Bericht(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    company_id: str = "default_company"       # NEW: Company scoping
     van_id: str  # Sender user ID
     van_naam: str
     naar_id: Optional[str] = None  # Recipient user ID (None = all workers)
@@ -2239,25 +2707,32 @@ async def resend_worker_info_email(user_id: str):
         temp_password=new_password,
     )
 
-@api_router.post("/auth/login", response_model=UserResponse)
+@api_router.post("/auth/login")
 async def login_user(login_data: UserLogin):
+    """
+    Login endpoint with JWT token and platform access info.
+    Returns JWT token for authenticated requests.
+    """
     user = await db.users.find_one({"email": login_data.email})
     if not user:
         raise HTTPException(status_code=401, detail="Ongeldige inloggegevens")
     
-    # Try password_hash first, then fall back to plain text comparison
+    # Try password_hash first, then fall back to plain text comparison (legacy migration)
     authenticated = False
     if user.get("password_hash"):
         authenticated = verify_password(login_data.password, user["password_hash"])
     
-    # Fallback: compare with wachtwoord_plain directly
+    # Fallback: compare with wachtwoord_plain directly (legacy support)
     if not authenticated and user.get("wachtwoord_plain"):
         authenticated = (login_data.password == user["wachtwoord_plain"])
-        # If matched via plain text, create the hash for future logins
+        # If matched via plain text, create the hash and remove plain password
         if authenticated:
             await db.users.update_one(
                 {"id": user["id"]},
-                {"$set": {"password_hash": hash_password(login_data.password)}}
+                {
+                    "$set": {"password_hash": hash_password(login_data.password)},
+                    "$unset": {"wachtwoord_plain": ""}  # Remove plain password
+                }
             )
     
     if not authenticated:
@@ -2266,56 +2741,310 @@ async def login_user(login_data: UserLogin):
     if not user.get("actief", True):
         raise HTTPException(status_code=401, detail="Account is gedeactiveerd")
     
-    # Update role based on admin_emails setting
+    # Normalize role using new role system
+    normalized_role = normalize_role(user.get("rol", "worker"))
+    
+    # Update role in database if it was mapped
+    if normalized_role != user.get("rol"):
+        await db.users.update_one(
+            {"id": user["id"]}, 
+            {"$set": {"rol": normalized_role}}
+        )
+        user["rol"] = normalized_role
+    
+    # Check admin_emails setting for admin role
     is_admin_user = await is_admin(login_data.email)
-    if is_admin_user and user.get("rol") != "admin":
+    if is_admin_user and normalized_role != "admin" and normalized_role != "master_admin":
         await db.users.update_one({"id": user["id"]}, {"$set": {"rol": "admin"}})
         user["rol"] = "admin"
+        normalized_role = "admin"
     
-    return UserResponse(**user)
+    # Determine platform access
+    web_access = has_web_access(normalized_role)
+    app_access = has_app_access(normalized_role)
+    
+    if web_access and app_access:
+        platform = "both"
+    elif web_access:
+        platform = "web"
+    else:
+        platform = "app"
+    
+    # Create JWT token
+    company_id = user.get("company_id", "default_company")
+    token = create_jwt_token(user["id"], user["email"], normalized_role, company_id)
+    
+    # Build user response
+    user_response = UserResponse(
+        id=user["id"],
+        email=user["email"],
+        naam=user.get("naam", ""),
+        rol=normalized_role,
+        company_id=company_id,
+        team_id=user.get("team_id"),
+        telefoon=user.get("telefoon"),
+        actief=user.get("actief", True),
+        werkbon_types=user.get("werkbon_types", ["uren"]),
+        mag_wachtwoord_wijzigen=user.get("mag_wachtwoord_wijzigen", True),
+        must_change_password=user.get("must_change_password", False),
+        web_access=web_access,
+        app_access=app_access,
+    )
+    
+    return {
+        "user": user_response.dict(),
+        "token": token,
+        "platform_access": platform,
+        "valid_roles": list(VALID_ROLES),
+    }
 
 @api_router.get("/auth/users", response_model=List[UserResponse])
 async def get_all_users():
     users = await db.users.find().to_list(1000)
-    return [UserResponse(**user) for user in users]
+    result = []
+    for user in users:
+        normalized_role = normalize_role(user.get("rol", "worker"))
+        result.append(UserResponse(
+            id=user["id"],
+            email=user["email"],
+            naam=user.get("naam", ""),
+            rol=normalized_role,
+            company_id=user.get("company_id", "default_company"),
+            team_id=user.get("team_id"),
+            telefoon=user.get("telefoon"),
+            actief=user.get("actief", True),
+            werkbon_types=user.get("werkbon_types", ["uren"]),
+            mag_wachtwoord_wijzigen=user.get("mag_wachtwoord_wijzigen", True),
+            must_change_password=user.get("must_change_password", False),
+            web_access=has_web_access(normalized_role),
+            app_access=has_app_access(normalized_role),
+        ))
+    return result
 
 @api_router.put("/auth/users/{user_id}", response_model=UserResponse)
 async def update_user(user_id: str, update_data: UserUpdate):
+    """Update user. Role assignment is restricted based on assigner's role."""
     update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
     if not update_dict:
         raise HTTPException(status_code=400, detail="Geen wijzigingen opgegeven")
     
-    # If admin sets a new password via wachtwoord_plain, also update the hash
-    if "wachtwoord_plain" in update_dict and update_dict["wachtwoord_plain"]:
-        update_dict["password_hash"] = hash_password(update_dict["wachtwoord_plain"])
+    # Handle new_password field (replaces wachtwoord_plain)
+    if "new_password" in update_dict and update_dict["new_password"]:
+        update_dict["password_hash"] = hash_password(update_dict["new_password"])
+        update_dict["password_changed_at"] = datetime.utcnow()
+        del update_dict["new_password"]
+    
+    # Normalize role if being updated
+    if "rol" in update_dict:
+        update_dict["rol"] = normalize_role(update_dict["rol"])
     
     result = await db.users.update_one({"id": user_id}, {"$set": update_dict})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
     
     updated = await db.users.find_one({"id": user_id})
-    return UserResponse(**updated)
+    normalized_role = normalize_role(updated.get("rol", "worker"))
+    return UserResponse(
+        id=updated["id"],
+        email=updated["email"],
+        naam=updated.get("naam", ""),
+        rol=normalized_role,
+        company_id=updated.get("company_id", "default_company"),
+        team_id=updated.get("team_id"),
+        telefoon=updated.get("telefoon"),
+        actief=updated.get("actief", True),
+        werkbon_types=updated.get("werkbon_types", ["uren"]),
+        mag_wachtwoord_wijzigen=updated.get("mag_wachtwoord_wijzigen", True),
+        must_change_password=updated.get("must_change_password", False),
+        web_access=has_web_access(normalized_role),
+        app_access=has_app_access(normalized_role),
+    )
 
 class PasswordChange(BaseModel):
     current_password: str
     new_password: str
 
 @api_router.post("/auth/change-password")
-async def change_password(user_id: str, password_data: PasswordChange):
-    """Change user password"""
+async def change_password(user_id: str, password_data: PasswordChangeRequest):
+    """
+    Secure password change endpoint.
+    Requires current password verification.
+    No plain password storage.
+    """
     user = await db.users.find_one({"id": user_id})
     if not user:
         raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
     
+    # Validate new password matches confirmation
+    if password_data.new_password != password_data.confirm_password:
+        raise HTTPException(status_code=400, detail="Nieuwe wachtwoorden komen niet overeen")
+    
+    # Validate password length
+    if len(password_data.new_password) < 8:
+        raise HTTPException(status_code=400, detail="Wachtwoord moet minimaal 8 karakters bevatten")
+    
     # Verify current password
-    if not verify_password(password_data.current_password, user["password_hash"]):
+    authenticated = False
+    if user.get("password_hash"):
+        authenticated = verify_password(password_data.current_password, user["password_hash"])
+    # Legacy fallback
+    if not authenticated and user.get("wachtwoord_plain"):
+        authenticated = (password_data.current_password == user["wachtwoord_plain"])
+    
+    if not authenticated:
         raise HTTPException(status_code=401, detail="Huidig wachtwoord is onjuist")
     
-    # Update password
+    # Update password hash only, remove any plain password
     new_hash = hash_password(password_data.new_password)
-    await db.users.update_one({"id": user_id}, {"$set": {"password_hash": new_hash}})
+    await db.users.update_one(
+        {"id": user_id}, 
+        {
+            "$set": {
+                "password_hash": new_hash,
+                "password_changed_at": datetime.utcnow(),
+                "must_change_password": False,
+            },
+            "$unset": {"wachtwoord_plain": ""}  # Remove plain password if exists
+        }
+    )
     
-    return {"message": "Wachtwoord succesvol gewijzigd"}
+    return {"message": "Wachtwoord succesvol gewijzigd", "success": True}
+
+# ==================== ROLE INFO ENDPOINT ====================
+
+@api_router.get("/auth/roles")
+async def get_role_info():
+    """
+    Get role information for UI dropdowns and validation.
+    Returns all valid roles, their permissions, and platform access rules.
+    """
+    roles_info = []
+    for role in VALID_ROLES:
+        role_data = {
+            "id": role,
+            "name": role.replace("_", " ").title(),
+            "web_access": role in WEB_PANEL_ROLES,
+            "app_access": role in MOBILE_APP_ROLES,
+            "permissions": ROLE_PERMISSIONS.get(role, {}),
+            "can_assign": list(ROLE_ASSIGNMENT_PERMISSIONS.get(role, set())),
+        }
+        roles_info.append(role_data)
+    
+    return {
+        "roles": roles_info,
+        "web_panel_roles": list(WEB_PANEL_ROLES),
+        "mobile_app_roles": list(MOBILE_APP_ROLES),
+    }
+
+@api_router.put("/auth/users/{user_id}/role")
+async def assign_user_role(
+    user_id: str,
+    role_data: dict,
+    assigner_id: str = Query(..., description="ID of user assigning the role"),
+):
+    """
+    Securely assign a role to a user.
+    Validates that the assigner has permission to assign the requested role.
+    """
+    new_role = role_data.get("role")
+    if not new_role:
+        raise HTTPException(status_code=400, detail="Rol is vereist")
+    
+    # Normalize and validate new role
+    normalized_new_role = normalize_role(new_role)
+    if normalized_new_role not in VALID_ROLES:
+        raise HTTPException(status_code=400, detail=f"Ongeldige rol: {new_role}")
+    
+    # Get assigner user
+    assigner = await db.users.find_one({"id": assigner_id})
+    if not assigner:
+        raise HTTPException(status_code=404, detail="Toewijzer niet gevonden")
+    
+    assigner_role = normalize_role(assigner.get("rol", "worker"))
+    
+    # Check if assigner can assign this role
+    if not can_assign_role(assigner_role, normalized_new_role):
+        raise HTTPException(
+            status_code=403,
+            detail=f"Geen toestemming om rol '{normalized_new_role}' toe te wijzen. "
+                   f"Uw rol ({assigner_role}) kan alleen deze rollen toewijzen: "
+                   f"{', '.join(ROLE_ASSIGNMENT_PERMISSIONS.get(assigner_role, set()))}"
+        )
+    
+    # Get target user
+    target_user = await db.users.find_one({"id": user_id})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
+    
+    # Update role
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": {"rol": normalized_new_role}}
+    )
+    
+    updated = await db.users.find_one({"id": user_id})
+    return UserResponse(
+        id=updated["id"],
+        email=updated["email"],
+        naam=updated.get("naam", ""),
+        rol=normalized_new_role,
+        company_id=updated.get("company_id", "default_company"),
+        team_id=updated.get("team_id"),
+        telefoon=updated.get("telefoon"),
+        actief=updated.get("actief", True),
+        werkbon_types=updated.get("werkbon_types", ["uren"]),
+        mag_wachtwoord_wijzigen=updated.get("mag_wachtwoord_wijzigen", True),
+        must_change_password=updated.get("must_change_password", False),
+        web_access=has_web_access(normalized_new_role),
+        app_access=has_app_access(normalized_new_role),
+    )
+
+@api_router.post("/auth/admin-reset-password/{user_id}")
+async def admin_reset_password(
+    user_id: str,
+    admin_id: str = Query(..., description="Admin user ID performing reset"),
+):
+    """
+    Admin-only endpoint to reset a user's password.
+    Generates a new random password and forces password change on next login.
+    No plain password storage - only returns once.
+    """
+    # Verify admin
+    admin = await db.users.find_one({"id": admin_id})
+    if not admin:
+        raise HTTPException(status_code=404, detail="Admin niet gevonden")
+    
+    admin_role = normalize_role(admin.get("rol", "worker"))
+    if admin_role not in {"master_admin", "admin"}:
+        raise HTTPException(status_code=403, detail="Alleen admins kunnen wachtwoorden resetten")
+    
+    # Get target user
+    target_user = await db.users.find_one({"id": user_id})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
+    
+    # Generate new random password
+    import string
+    new_password = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(12))
+    
+    # Update user with new password hash
+    await db.users.update_one(
+        {"id": user_id},
+        {
+            "$set": {
+                "password_hash": hash_password(new_password),
+                "must_change_password": True,
+                "password_changed_at": datetime.utcnow(),
+            },
+            "$unset": {"wachtwoord_plain": ""}
+        }
+    )
+    
+    return {
+        "message": "Wachtwoord gereset",
+        "temp_password": new_password,  # Return only once
+        "must_change": True,
+    }
 
 @api_router.delete("/auth/users/{user_id}")
 async def delete_user(user_id: str):
@@ -3904,26 +4633,113 @@ async def shutdown_db_client():
 
 @app.on_event("startup")
 async def startup_migrate():
-    """Migrate old users to add new fields automatically"""
+    """
+    Phase 1 SaaS Migration:
+    - Add company_id to all models
+    - Normalize roles (ploegbaas -> worker, werknemer -> worker, etc.)
+    - Remove wachtwoord_plain from database
+    - Add new structured fields to company settings
+    """
     try:
-        # Add missing fields to all users
+        DEFAULT_COMPANY_ID = "default_company"
+        
+        # === PHASE 1: User migrations ===
+        
+        # 1. Add company_id to all users
+        await db.users.update_many(
+            {"company_id": {"$exists": False}},
+            {"$set": {"company_id": DEFAULT_COMPANY_ID}}
+        )
+        
+        # 2. Add missing standard fields
         await db.users.update_many(
             {"werkbon_types": {"$exists": False}},
             {"$set": {"werkbon_types": ["uren"]}}
         )
         await db.users.update_many(
-            {"wachtwoord_plain": {"$exists": False}},
-            {"$set": {"wachtwoord_plain": ""}}
-        )
-        await db.users.update_many(
             {"mag_wachtwoord_wijzigen": {"$exists": False}},
-            {"$set": {"mag_wachtwoord_wijzigen": False}}
+            {"$set": {"mag_wachtwoord_wijzigen": True}}  # Default TRUE now
         )
         await db.users.update_many(
             {"telefoon": {"$exists": False}},
             {"$set": {"telefoon": None}}
         )
-        logging.info("Database migration completed - all users have new fields")
+        await db.users.update_many(
+            {"must_change_password": {"$exists": False}},
+            {"$set": {"must_change_password": False}}
+        )
+        await db.users.update_many(
+            {"password_changed_at": {"$exists": False}},
+            {"$set": {"password_changed_at": None}}
+        )
+        
+        # 3. Normalize legacy roles to new role system
+        role_migrations = [
+            ("werknemer", "worker"),
+            ("ploegbaas", "worker"),  # ploegbaas maps to worker
+            ("beheerder", "manager"),
+        ]
+        for old_role, new_role in role_migrations:
+            result = await db.users.update_many(
+                {"rol": old_role},
+                {"$set": {"rol": new_role}}
+            )
+            if result.modified_count > 0:
+                logging.info(f"Migrated {result.modified_count} users from '{old_role}' to '{new_role}'")
+        
+        # 4. Remove wachtwoord_plain from all users (SECURITY)
+        await db.users.update_many(
+            {"wachtwoord_plain": {"$exists": True}},
+            {"$unset": {"wachtwoord_plain": ""}}
+        )
+        
+        # === PHASE 1: Company Settings migrations ===
+        
+        # Add company_id to settings
+        await db.instellingen.update_many(
+            {"company_id": {"$exists": False}},
+            {"$set": {"company_id": DEFAULT_COMPANY_ID}}
+        )
+        
+        # Add new structured fields to settings
+        await db.instellingen.update_many(
+            {"adres_gestructureerd": {"$exists": False}},
+            {"$set": {"adres_gestructureerd": None}}
+        )
+        await db.instellingen.update_many(
+            {"emails": {"$exists": False}},
+            {"$set": {"emails": None}}
+        )
+        await db.instellingen.update_many(
+            {"branding": {"$exists": False}},
+            {"$set": {"branding": None}}
+        )
+        await db.instellingen.update_many(
+            {"pdf_teksten": {"$exists": False}},
+            {"$set": {"pdf_teksten": None}}
+        )
+        await db.instellingen.update_many(
+            {"website": {"$exists": False}},
+            {"$set": {"website": None}}
+        )
+        
+        # === PHASE 1: Add company_id to all other collections ===
+        collections_to_migrate = [
+            "klanten", "werven", "planning", "werkbonnen",
+            "oplevering_werkbonnen", "project_werkbonnen",
+            "productie_werkbonnen", "teams", "berichten"
+        ]
+        for coll_name in collections_to_migrate:
+            try:
+                await db[coll_name].update_many(
+                    {"company_id": {"$exists": False}},
+                    {"$set": {"company_id": DEFAULT_COMPANY_ID}}
+                )
+            except Exception as coll_err:
+                logging.warning(f"Could not migrate collection {coll_name}: {coll_err}")
+        
+        logging.info("Phase 1 SaaS migration completed successfully")
+        
     except Exception as e:
         logging.error(f"Migration error: {e}")
 

@@ -10,16 +10,13 @@ import {
   ScrollView,
   ActivityIndicator,
   Image,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, WEB_PANEL_ROLES, MOBILE_APP_ROLES } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
-
-const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 const LOGO_DARK = require('../../assets/images/smarttech-logo.png');
 
@@ -30,7 +27,7 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const router = useRouter();
-  const { setUser } = useAuth();
+  const { login, setUser } = useAuth();
   const { theme } = useTheme();
 
   const logoSource = theme.logoBase64
@@ -52,14 +49,28 @@ export default function LoginScreen() {
 
     setIsLoading(true);
     try {
-      const response = await axios.post(`${BACKEND_URL}/api/auth/login`, {
-        email: email.trim().toLowerCase(),
-        password: password,
-      });
+      const response = await login(email, password);
+      const { user: userData, platform_access } = response;
       
-      const userData = response.data;
-      await AsyncStorage.setItem('user', JSON.stringify(userData));
-      setUser(userData);  // Update context
+      // Check platform access based on where we're running
+      const isWeb = Platform.OS === 'web';
+      const userRole = userData.rol;
+      
+      // Determine if user can access this platform
+      const canAccessWeb = WEB_PANEL_ROLES.includes(userRole);
+      const canAccessApp = MOBILE_APP_ROLES.includes(userRole);
+      
+      if (isWeb && !canAccessWeb) {
+        // Worker/onderaannemer trying to use web panel
+        setErrorMessage('Uw account heeft alleen toegang tot de mobiele app. Download de Smart-TS app.');
+        return;
+      }
+      
+      if (!isWeb && !canAccessApp && canAccessWeb) {
+        // Admin/manager/planner trying to use mobile app
+        setErrorMessage('Uw account heeft alleen toegang tot het webpaneel. Gebruik de browser versie.');
+        return;
+      }
       
       // Register push notifications on mobile
       if (Platform.OS !== 'web' && userData.id) {
@@ -69,7 +80,14 @@ export default function LoginScreen() {
         } catch (e) { console.log('Push setup skipped:', e); }
       }
       
-      router.replace('/(tabs)');
+      // Check if user must change password
+      if (userData.must_change_password) {
+        // Redirect to password change screen (we'll handle this in the tabs)
+        router.replace('/(tabs)');
+        // Alert will be shown by the layout
+      } else {
+        router.replace('/(tabs)');
+      }
     } catch (error: any) {
       console.error('Login error:', error);
       if (error.response?.status === 401) {
