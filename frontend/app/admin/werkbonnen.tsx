@@ -51,10 +51,12 @@ interface Klant { id: string; naam: string; }
 interface Werf { id: string; naam: string; }
 
 export default function WerkbonnenAdmin() {
-  const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'werkbonnen' | 'productie'>('werkbonnen');
+  const { user, isLoading: authLoading } = useAuth();
+  const [activeTab, setActiveTab] = useState<'werkbonnen' | 'productie' | 'oplevering' | 'project'>('werkbonnen');
   const [werkbonnen, setWerkbonnen] = useState<Werkbon[]>([]);
   const [productieWerkbonnen, setProductieWerkbonnen] = useState<ProductieWerkbon[]>([]);
+  const [opleveringWerkbonnen, setOpleveringWerkbonnen] = useState<any[]>([]);
+  const [projectWerkbonnen, setProjectWerkbonnen] = useState<any[]>([]);
   const [werknemers, setWerknemers] = useState<Werknemer[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [klanten, setKlanten] = useState<Klant[]>([]);
@@ -69,7 +71,7 @@ export default function WerkbonnenAdmin() {
   const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => { 
-    if (Platform.OS === 'web' && (user?.rol === 'beheerder' || user?.rol === 'admin')) {
+    if (Platform.OS === 'web' && ['beheerder', 'admin', 'manager', 'master_admin'].includes(user?.rol || '')) {
       fetchData(); 
     }
   }, [user]);
@@ -77,13 +79,16 @@ export default function WerkbonnenAdmin() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [werkbonnenRes, werknemersRes, teamsRes, klantenRes, wervenRes, productieRes] = await Promise.all([
-        fetch(`${API_URL}/api/werkbonnen?user_id=admin-001&is_admin=true`),
+      const userId = user?.id || 'admin-001';
+      const [werkbonnenRes, werknemersRes, teamsRes, klantenRes, wervenRes, productieRes, opleveringRes, projectRes] = await Promise.all([
+        fetch(`${API_URL}/api/werkbonnen?user_id=${userId}&is_admin=true`),
         fetch(`${API_URL}/api/auth/users`),
         fetch(`${API_URL}/api/teams`),
         fetch(`${API_URL}/api/klanten`),
         fetch(`${API_URL}/api/werven`),
-        fetch(`${API_URL}/api/productie-werkbonnen?user_id=admin-001&is_admin=true`),
+        fetch(`${API_URL}/api/productie-werkbonnen?user_id=${userId}&is_admin=true`),
+        fetch(`${API_URL}/api/oplevering-werkbonnen?user_id=${userId}&is_admin=true`),
+        fetch(`${API_URL}/api/project-werkbonnen?user_id=${userId}&is_admin=true`),
       ]);
       const data = await werkbonnenRes.json();
       setWerkbonnen(Array.isArray(data) ? data.sort((a: Werkbon, b: Werkbon) => b.week_nummer - a.week_nummer) : []);
@@ -97,6 +102,10 @@ export default function WerkbonnenAdmin() {
       setWerven(Array.isArray(wervenData) ? wervenData : []);
       const productieData = await productieRes.json();
       setProductieWerkbonnen(Array.isArray(productieData) ? productieData.sort((a: ProductieWerkbon, b: ProductieWerkbon) => new Date(b.datum).getTime() - new Date(a.datum).getTime()) : []);
+      const opleveringData = await opleveringRes.json();
+      setOpleveringWerkbonnen(Array.isArray(opleveringData) ? opleveringData : []);
+      const projectData = await projectRes.json();
+      setProjectWerkbonnen(Array.isArray(projectData) ? projectData : []);
     } catch (error) {
       console.error('Error:', error);
     } finally {
