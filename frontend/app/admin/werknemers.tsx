@@ -13,9 +13,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
-import Constants from 'expo-constants';
+import axios from 'axios';
 
-const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_BACKEND_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || (typeof window !== 'undefined' ? window.location.origin : '');
 
 interface Werknemer {
   id: string;
@@ -44,7 +44,7 @@ const WERKBON_TYPES = [
 ];
 
 export default function WerknemersAdmin() {
-  const { user, token } = useAuth();
+  const { user } = useAuth();
   const [werknemers, setWerknemers] = useState<Werknemer[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,44 +63,25 @@ export default function WerknemersAdmin() {
   const [newPassword, setNewPassword] = useState('');
 
   useEffect(() => { 
-    if (Platform.OS === 'web' && (user?.rol === 'beheerder' || user?.rol === 'admin') && token) {
+    if (Platform.OS === 'web' && (user?.rol === 'beheerder' || user?.rol === 'admin')) {
       fetchData(); 
     }
-  }, [user, token]);
+  }, [user]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
       
-      // Use token from AuthContext OR fallback to AsyncStorage for web
-      let authToken = token;
-      if (!authToken && Platform.OS === 'web') {
-        // Try to get from AsyncStorage (which uses localStorage on web)
-        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-        authToken = await AsyncStorage.getItem('token');
-      }
-      
-      const authHeaders: Record<string, string> = {};
-      if (authToken) {
-        authHeaders['Authorization'] = `Bearer ${authToken}`;
-        console.log('[WERKNEMERS] Using token for auth');
-      } else {
-        console.log('[WERKNEMERS] No token available');
-      }
-      
+      // axios automatically includes Authorization header from AuthContext
       const [werknemersRes, teamsRes] = await Promise.all([
-        fetch(`${API_URL}/api/auth/users`, { headers: authHeaders }),
-        fetch(`${API_URL}/api/teams`),
+        axios.get(`${API_URL}/api/auth/users`),
+        axios.get(`${API_URL}/api/teams`),
       ]);
       
-      console.log('[WERKNEMERS] Users response status:', werknemersRes.status);
-      
-      const werknemersData = await werknemersRes.json();
-      const teamsData = await teamsRes.json();
-      setWerknemers(Array.isArray(werknemersData) ? werknemersData : []);
-      setTeams(Array.isArray(teamsData) ? teamsData : []);
+      setWerknemers(Array.isArray(werknemersRes.data) ? werknemersRes.data : []);
+      setTeams(Array.isArray(teamsRes.data) ? teamsRes.data : []);
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
     }
@@ -142,20 +123,6 @@ export default function WerknemersAdmin() {
     }
     setSaving(true);
     
-    // Use token from AuthContext OR fallback to AsyncStorage for web
-    let authToken = token;
-    if (!authToken && Platform.OS === 'web') {
-      const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-      authToken = await AsyncStorage.getItem('token');
-    }
-    
-    const authHeaders: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-    if (authToken) {
-      authHeaders['Authorization'] = `Bearer ${authToken}`;
-    }
-    
     try {
       if (editingWerknemer) {
         // Update existing worker
@@ -167,48 +134,32 @@ export default function WerknemersAdmin() {
           actief: editingWerknemer.actief,
           mag_wachtwoord_wijzigen: formData.mag_wachtwoord_wijzigen,
         };
-        // If password changed by admin
         if (formData.password && formData.password.trim()) {
           updateBody.wachtwoord_plain = formData.password.trim();
         }
-        await fetch(`${API_URL}/api/auth/users/${editingWerknemer.id}`, {
-          method: 'PUT',
-          headers: authHeaders,
-          body: JSON.stringify(updateBody),
-        });
+        await axios.put(`${API_URL}/api/auth/users/${editingWerknemer.id}`, updateBody);
       } else {
-        // Create new worker with ALL parameters including rol
+        // Create new worker
         const password = formData.password || `Smart${Math.floor(1000 + Math.random() * 9000)}`;
         const params = new URLSearchParams({
           email: formData.email,
           naam: formData.naam,
           password: password,
           rol: formData.rol,
-          send_email: 'false',  // Email standaard UITGESCHAKELD — gebruik resend knop als je wil versturen
+          send_email: 'false',
         });
         if (formData.telefoon) params.append('telefoon', formData.telefoon);
         if (formData.werkbon_types.length > 0) params.append('werkbon_types', formData.werkbon_types.join(','));
         
-        const res = await fetch(`${API_URL}/api/auth/register-worker?${params.toString()}`, {
-          method: 'POST',
-          headers: authHeaders,
-        });
-        if (!res.ok) {
-          const err = await res.json();
-          alert(err.detail || 'Fout bij aanmaken');
-          setSaving(false);
-          return;
-        }
-        const result = await res.json();
+        await axios.post(`${API_URL}/api/auth/register-worker?${params.toString()}`);
         
-        // Toon altijd het wachtwoord — email is uitgeschakeld tot bewust ingeschakeld
-        alert(`✅ Werknemer aangemaakt als ${formData.rol}!\n\nInloggegevens:\nE-mail: ${formData.email}\nWachtwoord: ${password}\n\n📋 Sla dit wachtwoord op — e-mail is uitgeschakeld.\nGebruik de mail-knop (✉️) om later zelf te versturen.`);
+        alert(`✅ Werknemer aangemaakt als ${formData.rol}!\n\nInloggegevens:\nE-mail: ${formData.email}\nWachtwoord: ${password}\n\n📋 Sla dit wachtwoord op.`);
       }
       setShowModal(false);
       fetchData();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error:', error);
-      alert('Fout bij opslaan');
+      alert(error.response?.data?.detail || 'Fout bij opslaan');
     } finally {
       setSaving(false);
     }

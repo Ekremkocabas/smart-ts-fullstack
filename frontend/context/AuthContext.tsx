@@ -113,6 +113,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     const { user: userData, token: tokenData, platform_access, valid_roles } = response.data;
     
+    // IMMEDIATELY set axios default header before storing
+    axios.defaults.headers.common['Authorization'] = `Bearer ${tokenData}`;
+    
     // Store all data
     await Promise.all([
       AsyncStorage.setItem('user', JSON.stringify(userData)),
