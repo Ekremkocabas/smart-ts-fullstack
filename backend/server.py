@@ -147,36 +147,38 @@ security = HTTPBearer(auto_error=False)
 VALID_ROLES: Set[str] = {
     "master_admin",
     "admin",
-    "manager",
     "planner",
     "worker",
     "onderaannemer"
 }
 
-# Platform access rules
-WEB_PANEL_ROLES: Set[str] = {"master_admin", "admin", "manager", "planner"}
+# Platform access rules - V1
+# Web panel: master_admin, admin, planner
+# Mobile app: worker, onderaannemer
+WEB_PANEL_ROLES: Set[str] = {"master_admin", "admin", "planner"}
 MOBILE_APP_ROLES: Set[str] = {"worker", "onderaannemer"}
 
-# Legacy role mapping
+# Legacy role mapping - V1
+# All legacy roles map to V1 valid roles
 LEGACY_ROLE_MAPPING: Dict[str, str] = {
     "admin": "admin",
-    "beheerder": "manager",
-    "ploegbaas": "worker",  # ploegbaas maps to worker
-    "werknemer": "worker",
+    "beheerder": "admin",       # beheerder -> admin (was manager)
+    "manager": "planner",       # manager -> planner (manager removed in V1)
+    "ploegbaas": "worker",      # ploegbaas -> worker
+    "werknemer": "worker",      # werknemer -> worker
     "onderaannemer": "onderaannemer"
 }
 
-# Roles that each role can assign (for safe role assignment)
+# Roles that each role can assign (for safe role assignment) - V1
 ROLE_ASSIGNMENT_PERMISSIONS: Dict[str, Set[str]] = {
-    "master_admin": {"master_admin", "admin", "manager", "planner", "worker", "onderaannemer"},
-    "admin": {"admin", "manager", "planner", "worker", "onderaannemer"},
-    "manager": {"planner", "worker", "onderaannemer"},  # Manager cannot assign admin or master_admin
+    "master_admin": {"master_admin", "admin", "planner", "worker", "onderaannemer"},
+    "admin": {"admin", "planner", "worker", "onderaannemer"},
     "planner": set(),  # Planner cannot assign roles
     "worker": set(),
     "onderaannemer": set(),
 }
 
-# Permissions per role
+# Permissions per role - V1
 ROLE_PERMISSIONS: Dict[str, Dict[str, bool]] = {
     "master_admin": {
         "can_manage_all_companies": True,
@@ -199,20 +201,13 @@ ROLE_PERMISSIONS: Dict[str, Dict[str, bool]] = {
         "can_manage_werkbonnen": True,
         "can_view_reports": True,
     },
-    "manager": {
-        "can_manage_users": True,
-        "can_manage_klanten": True,
-        "can_manage_werven": True,
-        "can_manage_planning": True,
-        "can_manage_werkbonnen": True,
-        "can_view_reports": True,
-    },
     "planner": {
         "can_view_users": True,
         "can_view_klanten": True,
         "can_view_werven": True,
         "can_manage_planning": True,
         "can_view_werkbonnen": True,
+        "can_view_reports": True,
     },
     "worker": {
         "can_view_own_planning": True,
@@ -3105,8 +3100,9 @@ async def resend_worker_info_email(user_id: str):
     if not user:
         raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
 
-    if user.get("rol") == "admin":
-        raise HTTPException(status_code=400, detail="Voor beheerders is deze actie niet beschikbaar")
+    # V1: admin check - admins cannot use this action
+    if user.get("rol") == "admin" or user.get("rol") == "master_admin":
+        raise HTTPException(status_code=400, detail="Voor admins is deze actie niet beschikbaar")
 
     # Generate new permanent password
     new_password = generate_temp_password()
@@ -3784,7 +3780,8 @@ async def get_werkbonnen(user_id: str, is_admin: bool = Query(False)):
     if not user:
         raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
 
-    query = {} if user.get("rol") in ["admin", "beheerder", "manager", "master_admin"] else {"ingevuld_door_id": user_id}
+    # V1: Use has_web_access for admin check instead of hardcoded list
+    query = {} if has_web_access(user.get("rol", "")) else {"ingevuld_door_id": user_id}
     werkbonnen = await db.werkbonnen.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
     return [Werkbon(**wb) for wb in werkbonnen]
 
@@ -4820,7 +4817,8 @@ async def get_productie_werkbonnen(user_id: str, is_admin: bool = False):
     user = await db.users.find_one({"id": user_id})
     if not user:
         raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
-    query = {} if user.get("rol") in ("admin", "beheerder") else {"ingevuld_door_id": user_id}
+    # V1: Use has_web_access for admin check instead of hardcoded list
+    query = {} if has_web_access(user.get("rol", "")) else {"ingevuld_door_id": user_id}
     items = await db.productie_werkbonnen.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
     return items
 
@@ -5543,11 +5541,12 @@ async def startup_migrate():
             {"$set": {"password_changed_at": None}}
         )
         
-        # 3. Normalize legacy roles to new role system
+        # 3. Normalize legacy roles to V1 role system
         role_migrations = [
             ("werknemer", "worker"),
-            ("ploegbaas", "worker"),  # ploegbaas maps to worker
-            ("beheerder", "manager"),
+            ("ploegbaas", "worker"),      # ploegbaas -> worker
+            ("beheerder", "admin"),       # beheerder -> admin (V1)
+            ("manager", "planner"),       # manager -> planner (V1: manager removed)
         ]
         for old_role, new_role in role_migrations:
             result = await db.users.update_many(
@@ -5555,7 +5554,7 @@ async def startup_migrate():
                 {"$set": {"rol": new_role}}
             )
             if result.modified_count > 0:
-                logging.info(f"Migrated {result.modified_count} users from '{old_role}' to '{new_role}'")
+                logging.info(f"V1 Migration: Migrated {result.modified_count} users from '{old_role}' to '{new_role}'")
         
         # 4. Remove wachtwoord_plain from all users (SECURITY)
         await db.users.update_many(
