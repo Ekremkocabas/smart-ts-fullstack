@@ -3650,8 +3650,8 @@ async def get_klant(klant_id: str):
     return migrate_klant_data(klant)
 
 @api_router.post("/klanten", response_model=dict)
-async def create_klant(klant_data: KlantCreate):
-    """Create new klant with auto-generated klantnummer"""
+async def create_klant(klant_data: KlantCreate, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
+    """Create new klant with auto-generated klantnummer - Admin/Master Admin only"""
     klant_dict = klant_data.dict()
     
     # Handle legacy field mapping
@@ -3688,8 +3688,8 @@ async def create_klant(klant_data: KlantCreate):
     return migrate_klant_data(klant_dict)
 
 @api_router.put("/klanten/{klant_id}", response_model=dict)
-async def update_klant(klant_id: str, klant_data: dict):
-    """Update klant - accepts full klant object"""
+async def update_klant(klant_id: str, klant_data: dict, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
+    """Update klant - accepts full klant object - Admin/Master Admin only"""
     existing = await db.klanten.find_one({"id": klant_id})
     if not existing:
         raise HTTPException(status_code=404, detail="Klant niet gevonden")
@@ -3712,7 +3712,8 @@ async def update_klant(klant_id: str, klant_data: dict):
     return migrate_klant_data(update_dict)
 
 @api_router.delete("/klanten/{klant_id}")
-async def delete_klant(klant_id: str):
+async def delete_klant(klant_id: str, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
+    """Delete (deactivate) klant - Admin/Master Admin only"""
     result = await db.klanten.update_one({"id": klant_id}, {"$set": {"actief": False}})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Klant niet gevonden")
@@ -3729,8 +3730,8 @@ async def get_prijs_modellen():
     return {"modellen": PRIJS_MODELLEN}
 
 @api_router.post("/klanten/{klant_id}/send-welcome-email")
-async def send_klant_welcome(klant_id: str):
-    """Send a welcome email to a client"""
+async def send_klant_welcome(klant_id: str, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
+    """Send a welcome email to a client - Admin/Master Admin only"""
     klant = await db.klanten.find_one({"id": klant_id})
     if not klant:
         raise HTTPException(status_code=404, detail="Klant niet gevonden")
@@ -3759,7 +3760,8 @@ async def get_werven_by_klant(klant_id: str):
     return [Werf(**werf) for werf in werven]
 
 @api_router.post("/werven", response_model=Werf)
-async def create_werf(werf_data: WerfCreate):
+async def create_werf(werf_data: WerfCreate, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
+    """Create new werf - Admin/Master Admin only"""
     klant = await db.klanten.find_one({"id": werf_data.klant_id, "actief": True})
     if not klant:
         raise HTTPException(status_code=404, detail="Klant niet gevonden")
@@ -3768,7 +3770,8 @@ async def create_werf(werf_data: WerfCreate):
     return werf
 
 @api_router.put("/werven/{werf_id}", response_model=Werf)
-async def update_werf(werf_id: str, werf_data: WerfCreate):
+async def update_werf(werf_id: str, werf_data: WerfCreate, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
+    """Update werf - Admin/Master Admin only"""
     result = await db.werven.update_one({"id": werf_id}, {"$set": werf_data.dict()})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Werf niet gevonden")
@@ -3776,7 +3779,8 @@ async def update_werf(werf_id: str, werf_data: WerfCreate):
     return Werf(**updated)
 
 @api_router.delete("/werven/{werf_id}")
-async def delete_werf(werf_id: str):
+async def delete_werf(werf_id: str, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
+    """Delete (deactivate) werf - Admin/Master Admin only"""
     result = await db.werven.update_one({"id": werf_id}, {"$set": {"actief": False}})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Werf niet gevonden")
@@ -3821,7 +3825,8 @@ async def get_week_dates_api(year: int, week: int):
     return get_week_dates(year, week)
 
 @api_router.post("/werkbonnen", response_model=Werkbon)
-async def create_werkbon(werkbon_data: WerkbonCreate, user_id: str, user_naam: str):
+async def create_werkbon(werkbon_data: WerkbonCreate, current_user: Dict = Depends(get_current_user)):
+    """Create werkbon - uses authenticated user's identity from JWT"""
     klant = await db.klanten.find_one({"id": werkbon_data.klant_id})
     werf = await db.werven.find_one({"id": werkbon_data.werf_id})
     
@@ -3832,6 +3837,10 @@ async def create_werkbon(werkbon_data: WerkbonCreate, user_id: str, user_naam: s
     
     # Get week dates
     week_dates = get_week_dates(werkbon_data.jaar, werkbon_data.week_nummer)
+    
+    # Use authenticated user's identity from JWT (NOT from request parameters)
+    user_id = current_user["user_id"]
+    user_naam = current_user["naam"]
     
     werkbon_dict = werkbon_data.dict()
     werkbon_dict.update({
@@ -3902,11 +3911,15 @@ async def delete_werkbon(werkbon_id: str):
     return {"message": "Werkbon verwijderd"}
 
 @api_router.post("/werkbonnen/{werkbon_id}/dupliceer", response_model=Werkbon)
-async def dupliceer_werkbon(werkbon_id: str, user_id: str, user_naam: str):
-    """Create a copy of an existing werkbon with current week number"""
+async def dupliceer_werkbon(werkbon_id: str, current_user: Dict = Depends(get_current_user)):
+    """Create a copy of an existing werkbon with current week number - uses authenticated user's identity from JWT"""
     original = await db.werkbonnen.find_one({"id": werkbon_id}, {"_id": 0})
     if not original:
         raise HTTPException(status_code=404, detail="Werkbon niet gevonden")
+
+    # Use authenticated user's identity from JWT
+    user_id = current_user["user_id"]
+    user_naam = current_user["naam"]
 
     now = datetime.utcnow()
     iso = now.isocalendar()
@@ -4467,7 +4480,12 @@ async def get_oplevering_werkbon(werkbon_id: str):
     return item
 
 @api_router.post("/oplevering-werkbonnen")
-async def create_oplevering_werkbon(data: OpleveringWerkbonCreate, user_id: str, user_naam: str):
+async def create_oplevering_werkbon(data: OpleveringWerkbonCreate, current_user: Dict = Depends(get_current_user)):
+    """Create oplevering werkbon - uses authenticated user's identity from JWT"""
+    # Use authenticated user's identity from JWT
+    user_id = current_user["user_id"]
+    user_naam = current_user["naam"]
+    
     validate_oplevering_payload(data)
     klant = await db.klanten.find_one({"id": data.klant_id})
     werf = await db.werven.find_one({"id": data.werf_id})
@@ -4679,7 +4697,12 @@ async def get_project_werkbon(werkbon_id: str):
     return item
 
 @api_router.post("/project-werkbonnen")
-async def create_project_werkbon(data: ProjectWerkbonCreate, user_id: str, user_naam: str):
+async def create_project_werkbon(data: ProjectWerkbonCreate, current_user: Dict = Depends(get_current_user)):
+    """Create project werkbon - uses authenticated user's identity from JWT"""
+    # Use authenticated user's identity from JWT
+    user_id = current_user["user_id"]
+    user_naam = current_user["naam"]
+    
     klant = await db.klanten.find_one({"id": data.klant_id})
     werf = await db.werven.find_one({"id": data.werf_id})
     if not klant:
@@ -4849,7 +4872,12 @@ async def get_productie_werkbon(werkbon_id: str):
     return item
 
 @api_router.post("/productie-werkbonnen")
-async def create_productie_werkbon(data: ProductieWerkbonCreate, user_id: str, user_naam: str):
+async def create_productie_werkbon(data: ProductieWerkbonCreate, current_user: Dict = Depends(get_current_user)):
+    """Create productie werkbon - uses authenticated user's identity from JWT"""
+    # Use authenticated user's identity from JWT
+    user_id = current_user["user_id"]
+    user_naam = current_user["naam"]
+    
     klant = await db.klanten.find_one({"id": data.klant_id})
     werf = await db.werven.find_one({"id": data.werf_id})
     if not klant:
@@ -5040,7 +5068,8 @@ async def get_planning_item(planning_id: str):
     return item
 
 @api_router.post("/planning")
-async def create_planning(data: PlanningItemCreate):
+async def create_planning(data: PlanningItemCreate, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
+    """Create planning item - Admin/Master Admin only"""
     # Resolve names
     klant = await db.klanten.find_one({"id": data.klant_id})
     werf = await db.werven.find_one({"id": data.werf_id})
@@ -5123,7 +5152,8 @@ async def create_planning(data: PlanningItemCreate):
     return result
 
 @api_router.put("/planning/{planning_id}")
-async def update_planning(planning_id: str, update_data: PlanningItemUpdate):
+async def update_planning(planning_id: str, update_data: PlanningItemUpdate, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
+    """Update planning item - Admin/Master Admin only"""
     update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
     update_dict["updated_at"] = datetime.utcnow()
     
@@ -5152,7 +5182,8 @@ async def update_planning(planning_id: str, update_data: PlanningItemUpdate):
     return updated
 
 @api_router.delete("/planning/{planning_id}")
-async def delete_planning(planning_id: str):
+async def delete_planning(planning_id: str, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
+    """Delete planning item - Admin/Master Admin only"""
     result = await db.planning.delete_one({"id": planning_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Planning item niet gevonden")
@@ -5205,7 +5236,12 @@ async def get_ongelezen_berichten(user_id: str):
     return {"ongelezen": count}
 
 @api_router.post("/berichten")
-async def create_bericht(data: BerichtCreate, van_id: str, van_naam: str):
+async def create_bericht(data: BerichtCreate, current_user: Dict = Depends(get_current_user)):
+    """Create bericht - uses authenticated user's identity from JWT"""
+    # Use authenticated user's identity from JWT (NOT from request parameters)
+    van_id = current_user["user_id"]
+    van_naam = current_user["naam"]
+    
     # Process bijlagen (attachments) - store in GridFS
     processed_bijlagen = []
     for att in (data.bijlagen or []):
