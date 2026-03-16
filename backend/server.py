@@ -3540,7 +3540,8 @@ async def delete_user(user_id: str):
     if not user:
         raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
     
-    if user.get("rol") == "admin":
+    # V1: Protect admin and master_admin from deletion
+    if user.get("rol") in ("admin", "master_admin"):
         raise HTTPException(status_code=400, detail="Admin gebruikers kunnen niet worden verwijderd")
     
     result = await db.users.delete_one({"id": user_id})
@@ -4437,7 +4438,8 @@ async def get_oplevering_werkbonnen(user_id: str):
     user = await db.users.find_one({"id": user_id})
     if not user:
         raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
-    query = {} if user.get("rol") == "admin" else {"ingevuld_door_id": user_id}
+    # V1: Web panel users see all, mobile users see only their own
+    query = {} if has_web_access(user.get("rol", "")) else {"ingevuld_door_id": user_id}
     items = await db.oplevering_werkbonnen.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
     return items
 
@@ -4648,7 +4650,8 @@ async def get_project_werkbonnen(user_id: str):
     user = await db.users.find_one({"id": user_id})
     if not user:
         raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
-    query = {} if user.get("rol") == "admin" else {"ingevuld_door_id": user_id}
+    # V1: Web panel users see all, mobile users see only their own
+    query = {} if has_web_access(user.get("rol", "")) else {"ingevuld_door_id": user_id}
     items = await db.project_werkbonnen.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
     return items
 
@@ -5419,8 +5422,8 @@ async def get_dashboard_stats():
     current_week = now.isocalendar()[1]
     current_year = now.isocalendar()[0]
     
-    # Count all active users (workers, onderaannemers, etc.) - excluding admin
-    total_werknemers = await db.users.count_documents({"actief": True, "rol": {"$in": ["worker", "werknemer", "onderaannemer"]}})
+    # V1: Count active mobile users (worker, onderaannemer) - excluding web panel roles
+    total_werknemers = await db.users.count_documents({"actief": True, "rol": {"$in": ["worker", "onderaannemer"]}})
     total_teams = await db.teams.count_documents({})  # Count all teams, not just actief=True
     total_klanten = await db.klanten.count_documents({})  # Count all klanten
     total_werven = await db.werven.count_documents({})  # Count all werven
