@@ -9,6 +9,38 @@ export const apiClient = axios.create({
   baseURL: BACKEND_URL,
 });
 
+// INTERCEPTOR: Automatically add token to EVERY request
+axios.interceptors.request.use(
+  async (config) => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    } catch (error) {
+      console.error('Error getting token:', error);
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Also add interceptor to apiClient
+apiClient.interceptors.request.use(
+  async (config) => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    } catch (error) {
+      console.error('Error getting token:', error);
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
 // ==================== TYPES ====================
 
 interface User {
