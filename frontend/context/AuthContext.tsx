@@ -4,6 +4,11 @@ import axios from 'axios';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
+// Create a configured axios instance
+export const apiClient = axios.create({
+  baseURL: BACKEND_URL,
+});
+
 // ==================== TYPES ====================
 
 interface User {
@@ -72,12 +77,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loadUser();
   }, []);
 
-  // Configure axios to include token in all requests
+  // Configure BOTH axios instances to include token in all requests
   useEffect(() => {
     if (token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     } else {
       delete axios.defaults.headers.common['Authorization'];
+      delete apiClient.defaults.headers.common['Authorization'];
     }
   }, [token]);
 

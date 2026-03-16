@@ -200,10 +200,11 @@ export default function WerknemersAdmin() {
   const deleteWerknemer = async (id: string) => {
     if (!confirm('Weet u zeker dat u deze werknemer wilt verwijderen?')) return;
     try {
-      await fetch(`${API_URL}/api/auth/users/${id}`, { method: 'DELETE' });
+      await axios.delete(`${API_URL}/api/auth/users/${id}`);
       fetchData();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error:', error);
+      alert(error.response?.data?.detail || 'Fout bij verwijderen');
     }
   };
 
