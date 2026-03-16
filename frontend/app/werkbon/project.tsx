@@ -18,6 +18,7 @@ import Constants from 'expo-constants';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import SignatureScreen from 'react-native-signature-canvas';
+import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { showAlert } from '../../utils/alerts';
@@ -303,16 +304,13 @@ export default function ProjectWerkbonScreen() {
         klant_email_override: sendToCustomer ? customerEmail.trim() : '',
       };
       
-      // STEP 1: Save werkbon first
-      const createResponse = await fetch(
-        `${API_URL}/api/project-werkbonnen?user_id=${encodeURIComponent(user.id)}&user_naam=${encodeURIComponent(user.naam)}`,
-        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
+      // STEP 1: Save werkbon first (axios automatically sends JWT token)
+      const createResponse = await axios.post(
+        `${API_URL}/api/project-werkbonnen`,
+        payload,
+        { headers: { 'Content-Type': 'application/json' } }
       );
-      const createData = await createResponse.json();
-      
-      if (!createResponse.ok) {
-        throw new Error(createData.detail || 'Project werkbon opslaan mislukt');
-      }
+      const createData = createResponse.data;
       
       // Mark werkbon as saved successfully
       werkbonSaved = true;
@@ -320,20 +318,8 @@ export default function ProjectWerkbonScreen() {
       
       // STEP 2: Try to send email (werkbon already saved)
       const sendQuery = sendToCustomer ? `?klant_email=${encodeURIComponent(customerEmail.trim())}` : '';
-      const sendResponse = await fetch(`${API_URL}/api/project-werkbonnen/${werkbonId}/verzenden${sendQuery}`, { method: 'POST' });
-      
-      // Check send response properly
-      if (!sendResponse.ok) {
-        const sendError = await sendResponse.json().catch(() => ({ detail: 'Mail verzenden mislukt' }));
-        showAlert(
-          'Werkbon Opgeslagen',
-          `De project werkbon is succesvol opgeslagen, maar de e-mail kon niet worden verzonden: ${sendError.detail || 'Onbekende fout'}`
-        );
-        router.back();
-        return;
-      }
-      
-      const sendData = await sendResponse.json();
+      const sendResponse = await axios.post(`${API_URL}/api/project-werkbonnen/${werkbonId}/verzenden${sendQuery}`);
+      const sendData = sendResponse.data;
       
       // Show appropriate success message
       if (sendData.email_sent) {
