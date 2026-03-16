@@ -3058,8 +3058,18 @@ async def register_user(user_data: UserCreate):
     return UserResponse(**user.dict())
 
 @api_router.post("/auth/register-worker")
-async def register_worker_with_email(email: str, naam: str, password: str, rol: str = "werknemer", team_id: Optional[str] = None, telefoon: Optional[str] = None, werkbon_types: Optional[str] = None, send_email: bool = False):
-    """Register a new worker. Email only sent if send_email=True."""
+async def register_worker_with_email(
+    email: str, 
+    naam: str, 
+    password: str, 
+    rol: str = "werknemer", 
+    team_id: Optional[str] = None, 
+    telefoon: Optional[str] = None, 
+    werkbon_types: Optional[str] = None, 
+    send_email: bool = False,
+    current_user: Dict = Depends(require_roles(["admin", "master_admin"]))
+):
+    """Register a new worker. Only admin/master_admin can create users."""
     existing = await db.users.find_one({"email": email})
     if existing:
         raise HTTPException(status_code=400, detail="E-mailadres is al geregistreerd")
@@ -3233,7 +3243,8 @@ async def login_user(login_data: UserLogin):
     }
 
 @api_router.get("/auth/users", response_model=List[UserResponse])
-async def get_all_users():
+async def get_all_users(current_user: Dict = Depends(require_web_access())):
+    """Get all users. Only web panel users can access."""
     users = await db.users.find().to_list(1000)
     result = []
     for user in users:
@@ -3534,8 +3545,8 @@ async def admin_reset_password(
     }
 
 @api_router.delete("/auth/users/{user_id}")
-async def delete_user(user_id: str):
-    """Delete a user (werknemer only, not admin)"""
+async def delete_user(user_id: str, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
+    """Delete a user. Only admin/master_admin can delete users."""
     user = await db.users.find_one({"id": user_id})
     if not user:
         raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
@@ -3596,13 +3607,15 @@ async def get_team(team_id: str):
     return Team(**team)
 
 @api_router.post("/teams", response_model=Team)
-async def create_team(team_data: TeamCreate):
+async def create_team(team_data: TeamCreate, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
+    """Create a new team. Only admin/master_admin can create teams."""
     team = Team(**team_data.dict())
     await db.teams.insert_one(team.dict())
     return team
 
 @api_router.put("/teams/{team_id}", response_model=Team)
-async def update_team(team_id: str, team_data: TeamUpdate):
+async def update_team(team_id: str, team_data: TeamUpdate, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
+    """Update a team. Only admin/master_admin can update teams."""
     update_dict = {k: v for k, v in team_data.dict().items() if v is not None}
     result = await db.teams.update_one({"id": team_id}, {"$set": update_dict})
     if result.matched_count == 0:
@@ -3611,7 +3624,8 @@ async def update_team(team_id: str, team_data: TeamUpdate):
     return Team(**updated)
 
 @api_router.delete("/teams/{team_id}")
-async def delete_team(team_id: str):
+async def delete_team(team_id: str, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
+    """Delete a team. Only admin/master_admin can delete teams."""
     result = await db.teams.update_one({"id": team_id}, {"$set": {"actief": False}})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Team niet gevonden")
@@ -3922,7 +3936,8 @@ async def dupliceer_werkbon(werkbon_id: str, user_id: str, user_naam: str):
 # ==================== BEDRIJFSINSTELLINGEN ROUTES ====================
 
 @api_router.get("/instellingen", response_model=BedrijfsInstellingen)
-async def get_instellingen():
+async def get_instellingen(current_user: Dict = Depends(require_web_access())):
+    """Get company settings. Web panel users can read."""
     settings = await db.instellingen.find_one({"id": "company_settings"})
     if not settings:
         default = BedrijfsInstellingen()
@@ -3931,7 +3946,8 @@ async def get_instellingen():
     return BedrijfsInstellingen(**settings)
 
 @api_router.put("/instellingen", response_model=BedrijfsInstellingen)
-async def update_instellingen(update_data: BedrijfsInstellingenUpdate):
+async def update_instellingen(update_data: BedrijfsInstellingenUpdate, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
+    """Update company settings. Only admin/master_admin can modify."""
     update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
     
     await db.instellingen.update_one(
