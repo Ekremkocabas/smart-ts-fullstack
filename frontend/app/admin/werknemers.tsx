@@ -44,7 +44,7 @@ const WERKBON_TYPES = [
 ];
 
 export default function WerknemersAdmin() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const [werknemers, setWerknemers] = useState<Werknemer[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,18 +63,38 @@ export default function WerknemersAdmin() {
   const [newPassword, setNewPassword] = useState('');
 
   useEffect(() => { 
-    if (Platform.OS === 'web' && (user?.rol === 'beheerder' || user?.rol === 'admin')) {
+    if (Platform.OS === 'web' && (user?.rol === 'beheerder' || user?.rol === 'admin') && token) {
       fetchData(); 
     }
-  }, [user]);
+  }, [user, token]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
+      
+      // Use token from AuthContext OR fallback to AsyncStorage for web
+      let authToken = token;
+      if (!authToken && Platform.OS === 'web') {
+        // Try to get from AsyncStorage (which uses localStorage on web)
+        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+        authToken = await AsyncStorage.getItem('token');
+      }
+      
+      const authHeaders: Record<string, string> = {};
+      if (authToken) {
+        authHeaders['Authorization'] = `Bearer ${authToken}`;
+        console.log('[WERKNEMERS] Using token for auth');
+      } else {
+        console.log('[WERKNEMERS] No token available');
+      }
+      
       const [werknemersRes, teamsRes] = await Promise.all([
-        fetch(`${API_URL}/api/auth/users`),
+        fetch(`${API_URL}/api/auth/users`, { headers: authHeaders }),
         fetch(`${API_URL}/api/teams`),
       ]);
+      
+      console.log('[WERKNEMERS] Users response status:', werknemersRes.status);
+      
       const werknemersData = await werknemersRes.json();
       const teamsData = await teamsRes.json();
       setWerknemers(Array.isArray(werknemersData) ? werknemersData : []);
@@ -121,6 +141,21 @@ export default function WerknemersAdmin() {
       return;
     }
     setSaving(true);
+    
+    // Use token from AuthContext OR fallback to AsyncStorage for web
+    let authToken = token;
+    if (!authToken && Platform.OS === 'web') {
+      const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+      authToken = await AsyncStorage.getItem('token');
+    }
+    
+    const authHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (authToken) {
+      authHeaders['Authorization'] = `Bearer ${authToken}`;
+    }
+    
     try {
       if (editingWerknemer) {
         // Update existing worker
@@ -138,7 +173,7 @@ export default function WerknemersAdmin() {
         }
         await fetch(`${API_URL}/api/auth/users/${editingWerknemer.id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authHeaders,
           body: JSON.stringify(updateBody),
         });
       } else {
@@ -156,7 +191,7 @@ export default function WerknemersAdmin() {
         
         const res = await fetch(`${API_URL}/api/auth/register-worker?${params.toString()}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authHeaders,
         });
         if (!res.ok) {
           const err = await res.json();
