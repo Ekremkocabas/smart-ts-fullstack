@@ -4480,11 +4480,22 @@ async def get_oplevering_werkbon(werkbon_id: str):
     return item
 
 @api_router.post("/oplevering-werkbonnen")
-async def create_oplevering_werkbon(data: OpleveringWerkbonCreate, current_user: Dict = Depends(get_current_user)):
-    """Create oplevering werkbon - uses authenticated user's identity from JWT"""
-    # Use authenticated user's identity from JWT
-    user_id = current_user["user_id"]
-    user_naam = current_user["naam"]
+async def create_oplevering_werkbon(
+    data: OpleveringWerkbonCreate, 
+    user_id: Optional[str] = Query(None),
+    user_naam: Optional[str] = Query(None),
+    current_user: Optional[Dict] = Depends(get_optional_user)
+):
+    """Create oplevering werkbon - supports both JWT auth and legacy query params"""
+    # Use JWT if available, otherwise fall back to query params (legacy support)
+    if current_user:
+        final_user_id = current_user["user_id"]
+        final_user_naam = current_user["naam"]
+    elif user_id and user_naam:
+        final_user_id = user_id
+        final_user_naam = user_naam
+    else:
+        raise HTTPException(status_code=401, detail="Authenticatie vereist")
     
     validate_oplevering_payload(data)
     klant = await db.klanten.find_one({"id": data.klant_id})
@@ -4502,7 +4513,7 @@ async def create_oplevering_werkbon(data: OpleveringWerkbonCreate, current_user:
             if base64_data and len(base64_data) > 100:  # Has actual image data
                 file_id = await store_base64_to_gridfs(
                     base64_data, 
-                    f"oplevering_foto_{user_id}_{i}_{uuid.uuid4().hex[:8]}.jpg",
+                    f"oplevering_foto_{final_user_id}_{i}_{uuid.uuid4().hex[:8]}.jpg",
                     "image/jpeg"
                 )
                 processed_fotos.append(file_id)  # Just store file_id as string
@@ -4515,7 +4526,7 @@ async def create_oplevering_werkbon(data: OpleveringWerkbonCreate, current_user:
         try:
             handtekening_klant_file_id = await store_base64_to_gridfs(
                 data.handtekening_klant,
-                f"handtekening_klant_oplevering_{user_id}_{uuid.uuid4().hex[:8]}.png",
+                f"handtekening_klant_oplevering_{final_user_id}_{uuid.uuid4().hex[:8]}.png",
                 "image/png"
             )
         except Exception as e:
@@ -4527,7 +4538,7 @@ async def create_oplevering_werkbon(data: OpleveringWerkbonCreate, current_user:
         try:
             handtekening_monteur_file_id = await store_base64_to_gridfs(
                 data.handtekening_monteur,
-                f"handtekening_monteur_oplevering_{user_id}_{uuid.uuid4().hex[:8]}.png",
+                f"handtekening_monteur_oplevering_{final_user_id}_{uuid.uuid4().hex[:8]}.png",
                 "image/png"
             )
         except Exception as e:
@@ -4539,7 +4550,7 @@ async def create_oplevering_werkbon(data: OpleveringWerkbonCreate, current_user:
         try:
             selfie_file_id = await store_base64_to_gridfs(
                 data.selfie_foto,
-                f"selfie_oplevering_{user_id}_{uuid.uuid4().hex[:8]}.jpg",
+                f"selfie_oplevering_{final_user_id}_{uuid.uuid4().hex[:8]}.jpg",
                 "image/jpeg"
             )
         except Exception as e:
@@ -4574,14 +4585,14 @@ async def create_oplevering_werkbon(data: OpleveringWerkbonCreate, current_user:
         "handtekening_klant": handtekening_klant_file_id,  # GridFS file_id
         "handtekening_klant_naam": data.handtekening_klant_naam,
         "handtekening_monteur": handtekening_monteur_file_id,  # GridFS file_id
-        "handtekening_monteur_naam": data.handtekening_monteur_naam or user_naam,
+        "handtekening_monteur_naam": data.handtekening_monteur_naam or final_user_naam,
         "handtekening_datum": datetime.now(timezone.utc),
         "selfie_foto": selfie_file_id,  # GridFS file_id
         "gps_locatie": data.gps_locatie,
         "verstuur_naar_klant": data.verstuur_naar_klant,
         "klant_email_override": (data.klant_email_override or klant.get("email") or klant.get("algemeen_email") or "").strip(),
-        "ingevuld_door_id": user_id,
-        "ingevuld_door_naam": user_naam,
+        "ingevuld_door_id": final_user_id,
+        "ingevuld_door_naam": final_user_naam,
         "status": "ondertekend",
         "email_verzonden": False,
         "pdf_bestandsnaam": None,
@@ -4697,11 +4708,22 @@ async def get_project_werkbon(werkbon_id: str):
     return item
 
 @api_router.post("/project-werkbonnen")
-async def create_project_werkbon(data: ProjectWerkbonCreate, current_user: Dict = Depends(get_current_user)):
-    """Create project werkbon - uses authenticated user's identity from JWT"""
-    # Use authenticated user's identity from JWT
-    user_id = current_user["user_id"]
-    user_naam = current_user["naam"]
+async def create_project_werkbon(
+    data: ProjectWerkbonCreate, 
+    user_id: Optional[str] = Query(None),
+    user_naam: Optional[str] = Query(None),
+    current_user: Optional[Dict] = Depends(get_optional_user)
+):
+    """Create project werkbon - supports both JWT auth and legacy query params"""
+    # Use JWT if available, otherwise fall back to query params (legacy support)
+    if current_user:
+        final_user_id = current_user["user_id"]
+        final_user_naam = current_user["naam"]
+    elif user_id and user_naam:
+        final_user_id = user_id
+        final_user_naam = user_naam
+    else:
+        raise HTTPException(status_code=401, detail="Authenticatie vereist")
     
     klant = await db.klanten.find_one({"id": data.klant_id})
     werf = await db.werven.find_one({"id": data.werf_id})
@@ -4726,7 +4748,7 @@ async def create_project_werkbon(data: ProjectWerkbonCreate, current_user: Dict 
         try:
             handtekening_klant_file_id = await store_base64_to_gridfs(
                 data.handtekening_klant,
-                f"handtekening_klant_project_{user_id}_{uuid.uuid4().hex[:8]}.png",
+                f"handtekening_klant_project_{final_user_id}_{uuid.uuid4().hex[:8]}.png",
                 "image/png"
             )
         except Exception as e:
@@ -4757,12 +4779,12 @@ async def create_project_werkbon(data: ProjectWerkbonCreate, current_user: Dict 
         "handtekening_klant": handtekening_klant_file_id,  # GridFS file_id
         "handtekening_klant_naam": data.handtekening_klant_naam,
         "handtekening_monteur": None,
-        "handtekening_monteur_naam": data.handtekening_monteur_naam or user_naam,
+        "handtekening_monteur_naam": data.handtekening_monteur_naam or final_user_naam,
         "handtekening_datum": datetime.now(timezone.utc),
         "klant_email_override": klant_email,
         "verstuur_naar_klant": data.verstuur_naar_klant,
-        "ingevuld_door_id": user_id,
-        "ingevuld_door_naam": user_naam,
+        "ingevuld_door_id": final_user_id,
+        "ingevuld_door_naam": final_user_naam,
         "status": "ondertekend",
         "email_verzonden": False,
         "pdf_bestandsnaam": None,
@@ -4872,11 +4894,22 @@ async def get_productie_werkbon(werkbon_id: str):
     return item
 
 @api_router.post("/productie-werkbonnen")
-async def create_productie_werkbon(data: ProductieWerkbonCreate, current_user: Dict = Depends(get_current_user)):
-    """Create productie werkbon - uses authenticated user's identity from JWT"""
-    # Use authenticated user's identity from JWT
-    user_id = current_user["user_id"]
-    user_naam = current_user["naam"]
+async def create_productie_werkbon(
+    data: ProductieWerkbonCreate, 
+    user_id: Optional[str] = Query(None),
+    user_naam: Optional[str] = Query(None),
+    current_user: Optional[Dict] = Depends(get_optional_user)
+):
+    """Create productie werkbon - supports both JWT auth and legacy query params for backward compatibility"""
+    # Use JWT if available, otherwise fall back to query params (legacy support)
+    if current_user:
+        final_user_id = current_user["user_id"]
+        final_user_naam = current_user["naam"]
+    elif user_id and user_naam:
+        final_user_id = user_id
+        final_user_naam = user_naam
+    else:
+        raise HTTPException(status_code=401, detail="Authenticatie vereist")
     
     klant = await db.klanten.find_one({"id": data.klant_id})
     werf = await db.werven.find_one({"id": data.werf_id})
@@ -4893,13 +4926,13 @@ async def create_productie_werkbon(data: ProductieWerkbonCreate, current_user: D
             if base64_data and len(base64_data) > 100:  # Has actual image data
                 file_id = await store_base64_to_gridfs(
                     base64_data, 
-                    f"productie_foto_{user_id}_{i}_{uuid.uuid4().hex[:8]}.jpg",
+                    f"productie_foto_{final_user_id}_{i}_{uuid.uuid4().hex[:8]}.jpg",
                     "image/jpeg"
                 )
                 processed_fotos.append({
                     "file_id": file_id,
                     "timestamp": foto.get("timestamp", "") if isinstance(foto, dict) else "",
-                    "werknemer_id": foto.get("werknemer_id", user_id) if isinstance(foto, dict) else user_id,
+                    "werknemer_id": foto.get("werknemer_id", final_user_id) if isinstance(foto, dict) else user_id,
                     "gps": foto.get("gps", "") if isinstance(foto, dict) else "",
                 })
         except Exception as e:
@@ -4912,7 +4945,7 @@ async def create_productie_werkbon(data: ProductieWerkbonCreate, current_user: D
         try:
             handtekening_file_id = await store_base64_to_gridfs(
                 data.handtekening,
-                f"handtekening_productie_{user_id}_{uuid.uuid4().hex[:8]}.png",
+                f"handtekening_productie_{final_user_id}_{uuid.uuid4().hex[:8]}.png",
                 "image/png"
             )
         except Exception as e:
@@ -4924,7 +4957,7 @@ async def create_productie_werkbon(data: ProductieWerkbonCreate, current_user: D
         try:
             selfie_file_id = await store_base64_to_gridfs(
                 data.selfie_foto,
-                f"selfie_productie_{user_id}_{uuid.uuid4().hex[:8]}.jpg",
+                f"selfie_productie_{final_user_id}_{uuid.uuid4().hex[:8]}.jpg",
                 "image/jpeg"
             )
         except Exception as e:
@@ -4937,8 +4970,8 @@ async def create_productie_werkbon(data: ProductieWerkbonCreate, current_user: D
         "company_id": "default_company",
         "type": "productie",
         "datum": data.datum,
-        "werknemer_naam": data.werknemer_naam or user_naam,
-        "werknemer_id": data.werknemer_id or user_id,
+        "werknemer_naam": data.werknemer_naam or final_user_naam,
+        "werknemer_id": data.werknemer_id or final_user_id,
         "klant_id": data.klant_id,
         "klant_naam": klant.get("naam") or klant.get("bedrijfsnaam", ""),
         "werf_id": data.werf_id,
