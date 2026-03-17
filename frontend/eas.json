@@ -11,7 +11,7 @@
         "credentialsSource": "local"
       },
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://expo-fastapi-1.preview.emergentagent.com"
+        "EXPO_PUBLIC_BACKEND_URL": "https://web-production-7bce.up.railway.app"
       },
       "distribution": "internal"
     },
