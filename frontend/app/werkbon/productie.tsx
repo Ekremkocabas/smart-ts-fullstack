@@ -178,6 +178,24 @@ export default function ProductieWerkbonScreen() {
   // Page 1 fields
   const [datum, setDatum] = useState(new Date().toISOString().slice(0, 10));
   const [werknemerNaam, setWerknemerNaam] = useState(user?.naam || '');
+  // Auto-format hour input: "6" → "6:00", "14" → "14:00"
+  const formatHourInput = (value: string, setter: (v: string) => void) => {
+    // Remove non-numeric and non-colon characters
+    let cleaned = value.replace(/[^\d:]/g, '');
+    
+    // If user types just a number (1-24), auto-add :00
+    if (/^\d{1,2}$/.test(cleaned) && !cleaned.includes(':')) {
+      const num = parseInt(cleaned, 10);
+      if (num >= 0 && num <= 24) {
+        // Don't auto-format while typing - only format when it looks complete
+        if (cleaned.length === 2 || (cleaned.length === 1 && num > 2)) {
+          cleaned = `${cleaned}:00`;
+        }
+      }
+    }
+    setter(cleaned);
+  };
+
   const [startUur, setStartUur] = useState('');
   const [eindUur, setEindUur] = useState('');
   const [voorzienUur, setVoorzienUur] = useState('');
@@ -367,7 +385,6 @@ export default function ProductieWerkbonScreen() {
           showAlert('Fout', 'Selfie kon niet worden verwerkt');
         }
       }
-      }
     } catch (e) { console.error(e); }
   };
 
@@ -553,15 +570,15 @@ export default function ProductieWerkbonScreen() {
               <View style={styles.timeRow}>
                 <View style={styles.timeCell}>
                   <Text style={styles.fieldLabel}>Start uur</Text>
-                  <TextInput style={styles.input} value={startUur} onChangeText={setStartUur} placeholder="07:00" placeholderTextColor="#8C9199" />
+                  <TextInput style={styles.input} value={startUur} onChangeText={(v) => formatHourInput(v, setStartUur)} placeholder="07:00" placeholderTextColor="#8C9199" keyboardType="numeric" />
                 </View>
                 <View style={styles.timeCell}>
                   <Text style={styles.fieldLabel}>Eind uur</Text>
-                  <TextInput style={styles.input} value={eindUur} onChangeText={setEindUur} placeholder="16:00" placeholderTextColor="#8C9199" />
+                  <TextInput style={styles.input} value={eindUur} onChangeText={(v) => formatHourInput(v, setEindUur)} placeholder="16:00" placeholderTextColor="#8C9199" keyboardType="numeric" />
                 </View>
                 <View style={styles.timeCell}>
                   <Text style={styles.fieldLabel}>Voorziene uur</Text>
-                  <TextInput style={styles.input} value={voorzienUur} onChangeText={setVoorzienUur} placeholder="8u" placeholderTextColor="#8C9199" />
+                  <TextInput style={styles.input} value={voorzienUur} onChangeText={(v) => formatHourInput(v, setVoorzienUur)} placeholder="8:00" placeholderTextColor="#8C9199" keyboardType="numeric" />
                 </View>
               </View>
             </View>
