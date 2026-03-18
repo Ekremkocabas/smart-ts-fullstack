@@ -683,13 +683,13 @@ const styles = StyleSheet.create({
   tableHeader: { flexDirection: 'row', backgroundColor: '#F1F3F6', borderRadius: 10, padding: 8, marginBottom: 8, borderWidth: 1, borderColor: '#E8E9ED' },
   headerText: { color: '#4D5560', fontSize: 11, fontWeight: '600', textAlign: 'center' },
   tableRow: { flexDirection: 'row', backgroundColor: '#FFFFFF', borderRadius: 10, padding: 8, marginBottom: 8, alignItems: 'center', borderWidth: 1, borderColor: '#E8E9ED' },
-  nameColumnWide: { width: 140, flexDirection: 'row', alignItems: 'center', gap: 4 },
-  dayColumnSmall: { width: 42, alignItems: 'center' },
-  totalColumn: { width: 48, alignItems: 'center' },
-  nameInput: { flex: 1, color: '#1A1A2E', fontSize: 15, padding: 6, minHeight: 40 },
-  removeButton: { padding: 4 },
+  nameColumnWide: { width: 160, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  dayColumnSmall: { width: 48, alignItems: 'center' },
+  totalColumn: { width: 52, alignItems: 'center' },
+  nameInput: { flex: 1, color: '#1A1A2E', fontSize: 16, padding: 8, minHeight: 44, backgroundColor: '#F7F8FA', borderRadius: 8, borderWidth: 1, borderColor: '#E8E9ED' },
+  removeButton: { padding: 6 },
   urenInputContainer: { position: 'relative' },
-  urenInput: { color: '#1A1A2E', fontSize: 14, textAlign: 'center', backgroundColor: '#F7F8FA', borderRadius: 6, width: 36, height: 36, padding: 4, borderWidth: 1, borderColor: '#E8E9ED' },
+  urenInput: { color: '#1A1A2E', fontSize: 16, textAlign: 'center', backgroundColor: '#F7F8FA', borderRadius: 8, width: 44, height: 44, padding: 4, borderWidth: 1, borderColor: '#E8E9ED' },
   afkortingTrigger: { position: 'absolute', bottom: -2, right: -2 },
   afkortingBadge: { backgroundColor: '#F5A623', borderRadius: 4, width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
   afkortingText: { color: '#000', fontSize: 10, fontWeight: '700' },
@@ -718,10 +718,11 @@ const styles = StyleSheet.create({
   pickerCancelText: { color: '#dc3545', fontSize: 16, textAlign: 'center' },
   footer: { 
     padding: 16, 
-    paddingBottom: 24,
+    paddingBottom: 32,  // Extra padding for phone navigation
     borderTopWidth: 1, 
     borderTopColor: '#E8E9ED', 
     backgroundColor: '#FFFFFF',
+    marginBottom: 20,  // Safe margin for bottom navigation
   },
   saveButton: { 
     flexDirection: 'row', 

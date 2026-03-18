@@ -668,7 +668,7 @@ const styles = StyleSheet.create({
   headerIconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 20, fontWeight: '700', color: '#1A1A2E' },
   headerSpacer: { width: 44 },
-  content: { padding: 18, paddingBottom: 40 },
+  content: { padding: 18, paddingBottom: 80 },  // Extra padding for phone navigation
   infoBanner: { flexDirection: 'row', gap: 10, padding: 14, backgroundColor: '#FFF8E8', borderRadius: 14, borderWidth: 1, borderColor: '#F5E2B8', marginBottom: 18 },
   infoBannerText: { flex: 1, fontSize: 13, color: '#6B5A2A', lineHeight: 19 },
   sectionTitle: { fontSize: 17, fontWeight: '700', color: '#1A1A2E', marginBottom: 12 },

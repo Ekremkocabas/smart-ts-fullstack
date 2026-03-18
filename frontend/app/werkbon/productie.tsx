@@ -1083,5 +1083,5 @@ const styles = StyleSheet.create({
   },
   primaryButtonDisabled: { opacity: 0.7 },
   primaryButtonText: { color: '#fff', fontSize: 18, fontWeight: '700' },
-  bottomSpacer: { height: 50 },
+  bottomSpacer: { height: 80 },  // Extra space for phone navigation
 });
