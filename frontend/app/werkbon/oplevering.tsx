@@ -198,6 +198,7 @@ export default function OpleveringWerkbonScreen() {
   // Page 2 signature fields
   const [gpsLocatie, setGpsLocatie] = useState('');
   const [gpsLoading, setGpsLoading] = useState(false);
+  const [gpsAdres, setGpsAdres] = useState('');  // Human-readable address
   const [signatureValue, setSignatureValue] = useState<string | null>(null);
   const [hasSignature, setHasSignature] = useState(false);
   const [customerName, setCustomerName] = useState(''); // NOT auto-filled
@@ -306,7 +307,27 @@ export default function OpleveringWerkbonScreen() {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') { showAlert('Toegang nodig', 'Locatietoegang is vereist'); return; }
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-      setGpsLocatie(`${loc.coords.latitude.toFixed(6)}, ${loc.coords.longitude.toFixed(6)}`);
+      const coords = `${loc.coords.latitude.toFixed(6)}, ${loc.coords.longitude.toFixed(6)}`;
+      setGpsLocatie(coords);
+      
+      // Try to get human-readable address
+      try {
+        const [address] = await Location.reverseGeocodeAsync({
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+        });
+        if (address) {
+          const parts = [];
+          if (address.street) parts.push(address.street);
+          if (address.streetNumber) parts[0] = `${address.street} ${address.streetNumber}`;
+          if (address.postalCode) parts.push(address.postalCode);
+          if (address.city) parts.push(address.city);
+          const formattedAddress = parts.join(', ');
+          if (formattedAddress) setGpsAdres(formattedAddress);
+        }
+      } catch (geocodeError) {
+        console.log('Reverse geocoding not available:', geocodeError);
+      }
     } catch (e) { console.error(e); showAlert('Fout', 'Locatie ophalen mislukt'); }
     finally { setGpsLoading(false); }
   };

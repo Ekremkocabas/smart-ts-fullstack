@@ -204,6 +204,7 @@ export default function ProductieWerkbonScreen() {
 
   // Page 2 fields
   const [gpsLocatie, setGpsLocatie] = useState('');
+  const [gpsAdres, setGpsAdres] = useState('');  // Human-readable address
   const [gpsLoading, setGpsLoading] = useState(false);
   const [signatureValue, setSignatureValue] = useState<string | null>(null);
   const [handtekeningNaam, setHandtekeningNaam] = useState('');
@@ -265,7 +266,30 @@ export default function ProductieWerkbonScreen() {
         return;
       }
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-      setGpsLocatie(`${loc.coords.latitude.toFixed(6)}, ${loc.coords.longitude.toFixed(6)}`);
+      const coords = `${loc.coords.latitude.toFixed(6)}, ${loc.coords.longitude.toFixed(6)}`;
+      setGpsLocatie(coords);
+      
+      // Try to get human-readable address using reverse geocoding
+      try {
+        const [address] = await Location.reverseGeocodeAsync({
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+        });
+        if (address) {
+          const parts = [];
+          if (address.street) parts.push(address.street);
+          if (address.streetNumber) parts[0] = `${address.street} ${address.streetNumber}`;
+          if (address.postalCode) parts.push(address.postalCode);
+          if (address.city) parts.push(address.city);
+          const formattedAddress = parts.join(', ');
+          if (formattedAddress) {
+            setGpsAdres(formattedAddress);
+          }
+        }
+      } catch (geocodeError) {
+        console.log('Reverse geocoding not available:', geocodeError);
+        // Keep coordinates as fallback
+      }
     } catch (e) {
       console.error(e);
       showAlert('Fout', 'Locatie ophalen mislukt');
@@ -411,6 +435,7 @@ export default function ProductieWerkbonScreen() {
         fotos,
         opmerking: opmerking.trim(),
         gps_locatie: gpsLocatie || null,
+        gps_adres: gpsAdres || null,
         handtekening: sig,
         handtekening_naam: handtekeningNaam.trim(),
         handtekening_datum: handtekeningDatum,
@@ -783,9 +808,12 @@ export default function ProductieWerkbonScreen() {
                   <Ionicons name="navigate" size={20} color={gpsLocatie ? '#28a745' : primary} />
                 )}
                 <Text style={[styles.gpsButtonText, { color: gpsLocatie ? '#28a745' : primary }]}>
-                  {gpsLocatie ? `GPS: ${gpsLocatie}` : 'Locatie openen (GPS vastleggen)'}
+                  {gpsAdres ? gpsAdres : (gpsLocatie ? `GPS: ${gpsLocatie}` : 'Locatie openen (GPS vastleggen)')}
                 </Text>
               </TouchableOpacity>
+              {gpsAdres && gpsLocatie && (
+                <Text style={{ fontSize: 12, color: '#6c757d', marginTop: 4 }}>Coördinaten: {gpsLocatie}</Text>
+              )}
             </View>
 
             {/* Signature */}
