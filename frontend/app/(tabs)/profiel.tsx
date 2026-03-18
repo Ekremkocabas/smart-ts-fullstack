@@ -127,6 +127,9 @@ export default function ProfielScreen() {
   // Determine platform access
   const hasWebAccess = user?.web_access ?? false;
   const hasAppAccess = user?.app_access ?? true;
+  
+  // Check if user is a field worker (werknemer or onderaannemer)
+  const isFieldWorker = user?.rol === 'werknemer' || user?.rol === 'onderaannemer';
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -166,20 +169,25 @@ export default function ProfielScreen() {
                 <Text style={styles.infoValue}>Actief</Text>
               </View>
             </View>
-            <View style={styles.infoItem}>
-              <Ionicons name="laptop-outline" size={24} color={hasWebAccess ? "#28a745" : "#6c757d"} />
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Webpaneel Toegang</Text>
-                <Text style={styles.infoValue}>{hasWebAccess ? 'Ja' : 'Nee'}</Text>
-              </View>
-            </View>
-            <View style={styles.infoItem}>
-              <Ionicons name="phone-portrait-outline" size={24} color={hasAppAccess ? "#28a745" : "#6c757d"} />
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>App Toegang</Text>
-                <Text style={styles.infoValue}>{hasAppAccess ? 'Ja' : 'Nee'}</Text>
-              </View>
-            </View>
+            {/* Only show web/app access for admin roles, not for field workers */}
+            {!isFieldWorker && (
+              <>
+                <View style={styles.infoItem}>
+                  <Ionicons name="laptop-outline" size={24} color={hasWebAccess ? "#28a745" : "#6c757d"} />
+                  <View style={styles.infoContent}>
+                    <Text style={styles.infoLabel}>Webpaneel Toegang</Text>
+                    <Text style={styles.infoValue}>{hasWebAccess ? 'Ja' : 'Nee'}</Text>
+                  </View>
+                </View>
+                <View style={styles.infoItem}>
+                  <Ionicons name="phone-portrait-outline" size={24} color={hasAppAccess ? "#28a745" : "#6c757d"} />
+                  <View style={styles.infoContent}>
+                    <Text style={styles.infoLabel}>App Toegang</Text>
+                    <Text style={styles.infoValue}>{hasAppAccess ? 'Ja' : 'Nee'}</Text>
+                  </View>
+                </View>
+              </>
+            )}
           </View>
 
           <TouchableOpacity 

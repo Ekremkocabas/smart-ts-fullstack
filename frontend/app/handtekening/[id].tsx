@@ -10,7 +10,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
-  ScrollView,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -261,12 +260,8 @@ export default function HandtekeningScreen() {
           <View style={{ width: 28 }} />
         </View>
 
-        <ScrollView 
-          style={styles.content} 
-          contentContainerStyle={{ flexGrow: 1 }}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
+        {/* Top section with form fields - scrollable */}
+        <View style={styles.topSection}>
           <View style={styles.formGroup}>
             <Text style={styles.label}>Naam ondertekenaar</Text>
             <TextInput
@@ -307,36 +302,37 @@ export default function HandtekeningScreen() {
           </View>
 
           {!!errorMessage && <Text testID="signature-error-text" style={styles.errorText}>{errorMessage}</Text>}
+        </View>
 
-          <View style={styles.signatureContainer}>
-            <Text style={styles.label}>Handtekening</Text>
-            <View style={styles.canvasWrapper}>
-              {Platform.OS === 'web' ? (
-                <WebSignatureCanvas 
-                  signatureRef={signatureRef}
-                  onEnd={handleSignatureEnd}
-                  onClear={() => setHasSignature(false)}
-                />
-              ) : (
-                <SignatureScreen
-                  ref={signatureRef}
-                  onOK={handleSignatureData}
-                  onBegin={handleSignatureEnd}
-                  onEmpty={() => setHasSignature(false)}
-                  descriptionText=""
-                  webStyle={signaturePadStyle}
-                  backgroundColor="#FFFFFF"
-                  penColor="#1A1A2E"
-                  autoClear={false}
-                />
-              )}
-            </View>
-            <TouchableOpacity testID="signature-clear-button" style={styles.clearButton} onPress={handleClear}>
-              <Ionicons name="refresh" size={18} color="#6c757d" />
-              <Text style={styles.clearText}>Wissen</Text>
-            </TouchableOpacity>
+        {/* Signature area - FIXED, not inside ScrollView */}
+        <View style={styles.signatureSection}>
+          <Text style={styles.label}>Handtekening</Text>
+          <View style={styles.canvasWrapper}>
+            {Platform.OS === 'web' ? (
+              <WebSignatureCanvas 
+                signatureRef={signatureRef}
+                onEnd={handleSignatureEnd}
+                onClear={() => setHasSignature(false)}
+              />
+            ) : (
+              <SignatureScreen
+                ref={signatureRef}
+                onOK={handleSignatureData}
+                onBegin={handleSignatureEnd}
+                onEmpty={() => setHasSignature(false)}
+                descriptionText=""
+                webStyle={signaturePadStyle}
+                backgroundColor="#FFFFFF"
+                penColor="#1A1A2E"
+                autoClear={false}
+              />
+            )}
           </View>
-        </ScrollView>
+          <TouchableOpacity testID="signature-clear-button" style={styles.clearButton} onPress={handleClear}>
+            <Ionicons name="refresh" size={18} color="#6c757d" />
+            <Text style={styles.clearText}>Wissen</Text>
+          </TouchableOpacity>
+        </View>
 
         <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom + 8, 20) }]}>
           <TouchableOpacity 
@@ -383,56 +379,59 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1A1A2E',
   },
-  content: {
-    flex: 1,
+  topSection: {
     padding: 16,
+    backgroundColor: '#F5F6FA',
   },
   formGroup: {
     marginBottom: 16,
   },
   label: {
-    fontSize: 13,
+    fontSize: 14,
     color: '#6c757d',
-    marginBottom: 6,
+    marginBottom: 8,
     fontWeight: '500',
   },
   input: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    padding: 14,
+    borderRadius: 12,
+    padding: 16,
     color: '#1A1A2E',
-    fontSize: 15,
+    fontSize: 17,
     borderWidth: 1,
     borderColor: '#E8E9ED',
+    minHeight: 52,
   },
-  signatureContainer: {
+  signatureSection: {
     flex: 1,
-    minHeight: 180,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
   },
   canvasWrapper: {
+    flex: 1,
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 180,
-    maxHeight: 220,
+    minHeight: 200,
     padding: 8,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: '#E8E9ED',
+    borderStyle: 'dashed',
   },
-  errorText: { color: '#dc3545', fontSize: 13, marginBottom: 10 },
+  errorText: { color: '#dc3545', fontSize: 14, marginBottom: 10, fontWeight: '500' },
   clearButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 10,
+    marginTop: 12,
     gap: 6,
-    paddingVertical: 8,
+    paddingVertical: 10,
   },
   clearText: {
     color: '#6c757d',
-    fontSize: 13,
+    fontSize: 14,
   },
   securityRow: {
     flexDirection: 'row',

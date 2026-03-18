@@ -40,9 +40,16 @@ function getCurrentWeekNumber(): number {
   return Math.ceil((diff + start.getDay() * 24 * 60 * 60 * 1000) / oneWeek);
 }
 
-const createEmptyUrenRegel = (naam: string = ''): UrenRegel => ({
+// Default 8 hours for weekdays (Mon-Fri), 0 for weekends
+const createEmptyUrenRegel = (naam: string = '', withDefaultHours: boolean = true): UrenRegel => ({
   teamlid_naam: naam,
-  maandag: 0, dinsdag: 0, woensdag: 0, donderdag: 0, vrijdag: 0, zaterdag: 0, zondag: 0,
+  maandag: withDefaultHours ? 8 : 0,
+  dinsdag: withDefaultHours ? 8 : 0,
+  woensdag: withDefaultHours ? 8 : 0,
+  donderdag: withDefaultHours ? 8 : 0,
+  vrijdag: withDefaultHours ? 8 : 0,
+  zaterdag: 0,  // Weekend always 0
+  zondag: 0,    // Weekend always 0
   afkorting_ma: '', afkorting_di: '', afkorting_wo: '', afkorting_do: '',
   afkorting_vr: '', afkorting_za: '', afkorting_zo: '',
 });
@@ -676,13 +683,13 @@ const styles = StyleSheet.create({
   tableHeader: { flexDirection: 'row', backgroundColor: '#F1F3F6', borderRadius: 10, padding: 8, marginBottom: 8, borderWidth: 1, borderColor: '#E8E9ED' },
   headerText: { color: '#4D5560', fontSize: 11, fontWeight: '600', textAlign: 'center' },
   tableRow: { flexDirection: 'row', backgroundColor: '#FFFFFF', borderRadius: 10, padding: 8, marginBottom: 8, alignItems: 'center', borderWidth: 1, borderColor: '#E8E9ED' },
-  nameColumnWide: { width: 120, flexDirection: 'row', alignItems: 'center', gap: 4 },
-  dayColumnSmall: { width: 40, alignItems: 'center' },
-  totalColumn: { width: 45, alignItems: 'center' },
-  nameInput: { flex: 1, color: '#1A1A2E', fontSize: 12, padding: 2 },
+  nameColumnWide: { width: 140, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  dayColumnSmall: { width: 42, alignItems: 'center' },
+  totalColumn: { width: 48, alignItems: 'center' },
+  nameInput: { flex: 1, color: '#1A1A2E', fontSize: 15, padding: 6, minHeight: 40 },
   removeButton: { padding: 4 },
   urenInputContainer: { position: 'relative' },
-  urenInput: { color: '#1A1A2E', fontSize: 12, textAlign: 'center', backgroundColor: '#F7F8FA', borderRadius: 4, width: 32, height: 32, padding: 4, borderWidth: 1, borderColor: '#E8E9ED' },
+  urenInput: { color: '#1A1A2E', fontSize: 14, textAlign: 'center', backgroundColor: '#F7F8FA', borderRadius: 6, width: 36, height: 36, padding: 4, borderWidth: 1, borderColor: '#E8E9ED' },
   afkortingTrigger: { position: 'absolute', bottom: -2, right: -2 },
   afkortingBadge: { backgroundColor: '#F5A623', borderRadius: 4, width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
   afkortingText: { color: '#000', fontSize: 10, fontWeight: '700' },
@@ -709,10 +716,26 @@ const styles = StyleSheet.create({
   pickerOptionText: { color: '#1A1A2E', fontSize: 16 },
   pickerCancel: { padding: 16, marginTop: 8 },
   pickerCancelText: { color: '#dc3545', fontSize: 16, textAlign: 'center' },
-  footer: { padding: 16, borderTopWidth: 1, borderTopColor: '#E8E9ED', backgroundColor: '#FFFFFF' },
-  saveButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#F5A623', padding: 16, borderRadius: 12 },
+  footer: { 
+    padding: 16, 
+    paddingBottom: 24,
+    borderTopWidth: 1, 
+    borderTopColor: '#E8E9ED', 
+    backgroundColor: '#FFFFFF',
+  },
+  saveButton: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    gap: 8, 
+    backgroundColor: '#F5A623', 
+    paddingVertical: 16,
+    paddingHorizontal: 24, 
+    borderRadius: 12,
+    minHeight: 56,  // Minimum touch target
+  },
   saveButtonDisabled: { opacity: 0.7 },
-  saveButtonText: { color: '#000', fontSize: 16, fontWeight: '600' },
+  saveButtonText: { color: '#000', fontSize: 18, fontWeight: '600' },
   // Planning suggestions
   planningBanner: { backgroundColor: '#EBF5FB', borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1.5, borderColor: '#3498db30' },
   planningBannerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
