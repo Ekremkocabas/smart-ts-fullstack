@@ -17,6 +17,7 @@ import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
+import * as ImageManipulator from 'expo-image-manipulator';
 import SignatureScreen from 'react-native-signature-canvas';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
@@ -25,8 +26,45 @@ import { showAlert } from '../../utils/alerts';
 
 const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
-const PRIVACY_TEXT =
-  'Persoonsgegevens worden verwerkt conform de AVG. Foto\'s en handtekening worden uitsluitend gebruikt voor administratieve doeleinden en worden niet gedeeld met derden.';
+// Legal text for signature
+const LEGAL_TEXT = 
+  'De ondertekenaar bevestigt met zijn handtekening dat de ingevulde gegevens correct zijn en dat de werkzaamheden naar tevredenheid zijn uitgevoerd. ' +
+  'Deze werkbon mag worden gebruikt voor administratieve verwerking en facturatie. ' +
+  'De ondertekenaar geeft toestemming voor het maken en gebruiken van foto\'s indien deze nodig zijn voor werkrapportage of technische documentatie.';
+
+// Max photo size: 5MB, max dimensions: 1920px
+const MAX_PHOTO_SIZE_MB = 5;
+const MAX_PHOTO_DIMENSION = 1920;
+
+// Compress and resize photo to max 5MB
+const compressPhoto = async (uri: string): Promise<string | null> => {
+  try {
+    // First resize to max dimensions
+    const resized = await ImageManipulator.manipulateAsync(
+      uri,
+      [{ resize: { width: MAX_PHOTO_DIMENSION } }],
+      { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+    );
+    
+    // Check size (base64 is ~33% larger than binary)
+    const estimatedSizeMB = (resized.base64?.length || 0) * 0.75 / (1024 * 1024);
+    
+    if (estimatedSizeMB > MAX_PHOTO_SIZE_MB) {
+      // Further compress if still too large
+      const moreCompressed = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: 1280 } }],
+        { compress: 0.5, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+      );
+      return moreCompressed.base64 || null;
+    }
+    
+    return resized.base64 || null;
+  } catch (error) {
+    console.error('Photo compression failed:', error);
+    return null;
+  }
+};
 
 const WebSignatureCanvas = ({ onEnd, onClear, signatureRef }: any) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -242,9 +280,14 @@ export default function ProductieWerkbonScreen() {
       return;
     }
     try {
-      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.6, base64: true });
-      if (!result.canceled && result.assets?.[0]?.base64) {
-        addFoto(result.assets[0].base64!);
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 1 });
+      if (!result.canceled && result.assets?.[0]?.uri) {
+        const compressed = await compressPhoto(result.assets[0].uri);
+        if (compressed) {
+          addFoto(compressed);
+        } else {
+          showAlert('Fout', 'Foto kon niet worden verwerkt');
+        }
       }
     } catch (e) { console.error(e); }
   };
@@ -260,9 +303,14 @@ export default function ProductieWerkbonScreen() {
         showAlert('Toegang nodig', 'Camera toegang is nodig');
         return;
       }
-      const result = await ImagePicker.launchCameraAsync({ quality: 0.6, base64: true });
-      if (!result.canceled && result.assets?.[0]?.base64) {
-        addFoto(result.assets[0].base64!);
+      const result = await ImagePicker.launchCameraAsync({ quality: 1 });
+      if (!result.canceled && result.assets?.[0]?.uri) {
+        const compressed = await compressPhoto(result.assets[0].uri);
+        if (compressed) {
+          addFoto(compressed);
+        } else {
+          showAlert('Fout', 'Foto kon niet worden verwerkt');
+        }
       }
     } catch (e) { console.error(e); }
   };
@@ -286,9 +334,15 @@ export default function ProductieWerkbonScreen() {
         showAlert('Toegang nodig', 'Camera toegang is nodig voor selfie');
         return;
       }
-      const result = await ImagePicker.launchCameraAsync({ quality: 0.6, base64: true, cameraType: ImagePicker.CameraType.front });
-      if (!result.canceled && result.assets?.[0]?.base64) {
-        setSelfieFoto(`data:image/jpeg;base64,${result.assets[0].base64}`);
+      const result = await ImagePicker.launchCameraAsync({ quality: 1, cameraType: ImagePicker.CameraType.front });
+      if (!result.canceled && result.assets?.[0]?.uri) {
+        const compressed = await compressPhoto(result.assets[0].uri);
+        if (compressed) {
+          setSelfieFoto(`data:image/jpeg;base64,${compressed}`);
+        } else {
+          showAlert('Fout', 'Selfie kon niet worden verwerkt');
+        }
+      }
       }
     } catch (e) { console.error(e); }
   };
@@ -736,7 +790,7 @@ export default function ProductieWerkbonScreen() {
 
             {/* Signature */}
             <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Handtekening *</Text>
+              <Text style={styles.sectionTitle}>Klanthandtekening *</Text>
               <Text style={styles.fieldLabel}>Naam (verplicht — niet automatisch ingevuld)</Text>
               <TextInput
                 style={styles.input}
@@ -834,10 +888,10 @@ export default function ProductieWerkbonScreen() {
               )}
             </View>
 
-            {/* Privacy notice */}
+            {/* Legal notice */}
             <View style={styles.privacyBox}>
-              <Ionicons name="shield-checkmark-outline" size={18} color="#6c757d" />
-              <Text style={styles.privacyText}>{PRIVACY_TEXT}</Text>
+              <Ionicons name="document-text-outline" size={18} color="#6c757d" />
+              <Text style={styles.privacyText}>{LEGAL_TEXT}</Text>
             </View>
 
             {/* Submit */}

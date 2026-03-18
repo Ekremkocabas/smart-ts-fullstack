@@ -17,13 +17,45 @@ import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
+import * as ImageManipulator from 'expo-image-manipulator';
 import SignatureScreen from 'react-native-signature-canvas';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { showAlert } from '../../utils/alerts';
 
-const PRIVACY_TEXT = 'Persoonsgegevens worden verwerkt conform de AVG. Foto\'s en handtekening worden uitsluitend gebruikt voor administratieve doeleinden.';
+// Legal text for signature
+const LEGAL_TEXT = 
+  'De ondertekenaar bevestigt met zijn handtekening dat de ingevulde gegevens correct zijn en dat de werkzaamheden naar tevredenheid zijn uitgevoerd. ' +
+  'Deze werkbon mag worden gebruikt voor administratieve verwerking en facturatie. ' +
+  'De ondertekenaar geeft toestemming voor het maken en gebruiken van foto\'s indien deze nodig zijn voor werkrapportage of technische documentatie.';
+
+// Max photo size: 5MB, max dimensions: 1920px
+const MAX_PHOTO_DIMENSION = 1920;
+
+// Compress and resize photo to max 5MB
+const compressPhoto = async (uri: string): Promise<string | null> => {
+  try {
+    const resized = await ImageManipulator.manipulateAsync(
+      uri,
+      [{ resize: { width: MAX_PHOTO_DIMENSION } }],
+      { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+    );
+    const estimatedSizeMB = (resized.base64?.length || 0) * 0.75 / (1024 * 1024);
+    if (estimatedSizeMB > 5) {
+      const moreCompressed = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: 1280 } }],
+        { compress: 0.5, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+      );
+      return moreCompressed.base64 || null;
+    }
+    return resized.base64 || null;
+  } catch (error) {
+    console.error('Photo compression failed:', error);
+    return null;
+  }
+};
 
 const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
@@ -238,8 +270,13 @@ export default function ProjectWerkbonScreen() {
     try {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') { showAlert('Toegang nodig', 'Camera is nodig voor selfie'); return; }
-      const result = await ImagePicker.launchCameraAsync({ quality: 0.6, base64: true, cameraType: ImagePicker.CameraType.front });
-      if (!result.canceled && result.assets?.[0]?.base64) setSelfieFoto(`data:image/jpeg;base64,${result.assets[0].base64}`);
+      const result = await ImagePicker.launchCameraAsync({ quality: 1, cameraType: ImagePicker.CameraType.front });
+      if (!result.canceled && result.assets?.[0]?.uri) {
+        const compressed = await compressPhoto(result.assets[0].uri);
+        if (compressed) {
+          setSelfieFoto(`data:image/jpeg;base64,${compressed}`);
+        }
+      }
     } catch (e) { console.error(e); }
   };
 
@@ -514,7 +551,7 @@ export default function ProjectWerkbonScreen() {
 
               {/* Signature card */}
               <View style={styles.card} testID="project-signature-card">
-                <Text style={styles.sectionTitle}>Klant handtekening *</Text>
+                <Text style={styles.sectionTitle}>Klanthandtekening *</Text>
                 <Text style={{ fontSize: 13, color: '#6c757d' }}>Naam (verplicht — niet automatisch ingevuld)</Text>
                 <TextInput testID="project-customer-name-input" style={styles.input} value={customerName} onChangeText={setCustomerName} placeholder="Volledige naam klant" placeholderTextColor="#8C9199" autoCapitalize="words" />
                 <Text style={{ fontSize: 13, color: '#6c757d' }}>Datum</Text>
@@ -576,10 +613,10 @@ export default function ProjectWerkbonScreen() {
                 )}
               </View>
 
-              {/* Privacy notice */}
+              {/* Legal notice */}
               <View style={{ flexDirection: 'row', gap: 10, padding: 14, backgroundColor: '#F5F6FA', borderRadius: 12, borderWidth: 1, borderColor: '#E8E9ED', marginBottom: 16 }}>
-                <Ionicons name="shield-checkmark-outline" size={18} color="#6c757d" />
-                <Text style={{ flex: 1, fontSize: 12, color: '#6c757d', lineHeight: 17 }}>{PRIVACY_TEXT}</Text>
+                <Ionicons name="document-text-outline" size={18} color="#6c757d" />
+                <Text style={{ flex: 1, fontSize: 12, color: '#6c757d', lineHeight: 17 }}>{LEGAL_TEXT}</Text>
               </View>
 
               {/* Save */}
