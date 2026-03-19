@@ -149,7 +149,7 @@ function CompactTopNav() {
 
 export default function AdminLayout() {
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const { width } = useWindowDimensions();
 
   if (Platform.OS !== 'web') {
@@ -159,6 +159,31 @@ export default function AdminLayout() {
   // Don't show sidebar on login page
   const isLoginPage = pathname === '/admin/login';
   const isCompactWeb = width < 1024;
+
+  // Auth check - redirect to login if not authenticated (except on login page)
+  useEffect(() => {
+    if (!isLoading && !user && !isLoginPage) {
+      router.replace('/admin/login');
+    }
+  }, [user, isLoading, isLoginPage]);
+
+  // Show loading while checking auth
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F5F6FA' }}>
+        <Text style={{ fontSize: 16, color: '#6c757d' }}>Laden...</Text>
+      </View>
+    );
+  }
+
+  // If not logged in and not on login page, don't render anything (will redirect)
+  if (!user && !isLoginPage) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F5F6FA' }}>
+        <Text style={{ fontSize: 16, color: '#6c757d' }}>Doorverwijzen naar login...</Text>
+      </View>
+    );
+  }
 
   if (isLoginPage) {
     return (
