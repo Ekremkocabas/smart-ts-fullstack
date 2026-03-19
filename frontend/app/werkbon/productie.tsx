@@ -11,7 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
@@ -90,7 +90,13 @@ const WebSignatureCanvas = ({ onEnd, onClear, signatureRef }: any) => {
     const rect = canvas.getBoundingClientRect();
     const cx = e.touches ? e.touches[0].clientX : e.clientX;
     const cy = e.touches ? e.touches[0].clientY : e.clientY;
-    return { x: cx - rect.left, y: cy - rect.top };
+    // Account for scaling between canvas internal size and displayed size
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+      x: (cx - rect.left) * scaleX,
+      y: (cy - rect.top) * scaleY,
+    };
   };
 
   const startDraw = (e: any) => {
@@ -159,6 +165,7 @@ export default function ProductieWerkbonScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();  // For responsive bottom padding
   const signatureRef = useRef<any>(null);
   const pendingSubmitRef = useRef(false);
   const hasSignatureRef = useRef(false);
@@ -793,14 +800,6 @@ export default function ProductieWerkbonScreen() {
               />
             </View>
 
-            {/* Next button */}
-            <TouchableOpacity
-              style={[styles.primaryButton, { backgroundColor: primary }]}
-              onPress={() => { if (validatePage1()) setPage(2); }}
-            >
-              <Text style={styles.primaryButtonText}>Volgende — Handtekening</Text>
-              <Ionicons name="arrow-forward" size={20} color="#fff" />
-            </TouchableOpacity>
             <View style={styles.bottomSpacer} />
           </ScrollView>
         ) : (
@@ -939,25 +938,37 @@ export default function ProductieWerkbonScreen() {
               <Text style={styles.privacyText}>{LEGAL_TEXT}</Text>
             </View>
 
-            {/* Submit */}
-            <TouchableOpacity
-              style={[styles.primaryButton, { backgroundColor: primary }, saving && styles.primaryButtonDisabled]}
-              onPress={handleSave}
-              disabled={saving}
-            >
-              {saving ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <>
-                  <Ionicons name="send" size={20} color="#fff" />
-                  <Text style={styles.primaryButtonText}>Opslaan & PDF versturen</Text>
-                </>
-              )}
-            </TouchableOpacity>
             <View style={styles.bottomSpacer} />
           </ScrollView>
         )}
       </KeyboardAvoidingView>
+      {/* Fixed footer with safe area padding */}
+      <View style={[styles.fixedFooter, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        {page === 1 ? (
+          <TouchableOpacity
+            style={[styles.primaryButton, { backgroundColor: primary }]}
+            onPress={() => { if (validatePage1()) setPage(2); }}
+          >
+            <Text style={styles.primaryButtonText}>Volgende — Handtekening</Text>
+            <Ionicons name="arrow-forward" size={20} color="#fff" />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[styles.primaryButton, { backgroundColor: primary }, saving && styles.primaryButtonDisabled]}
+            onPress={handleSave}
+            disabled={saving}
+          >
+            {saving ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <Ionicons name="send" size={20} color="#fff" />
+                <Text style={styles.primaryButtonText}>Opslaan & PDF versturen</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
+      </View>
     </SafeAreaView>
   );
 }
@@ -1083,5 +1094,16 @@ const styles = StyleSheet.create({
   },
   primaryButtonDisabled: { opacity: 0.7 },
   primaryButtonText: { color: '#fff', fontSize: 18, fontWeight: '700' },
-  bottomSpacer: { height: 80 },  // Extra space for phone navigation
+  bottomSpacer: { height: 120 },  // Extra space for fixed footer
+  fixedFooter: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E8E9ED',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
 });

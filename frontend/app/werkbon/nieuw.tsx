@@ -11,7 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppStore, Klant, Werf, Team, UrenRegel, KmRegel, WeekDates } from '../../store/appStore';
@@ -61,6 +61,7 @@ const createEmptyKmRegel = (): KmRegel => ({
 export default function NieuweWerkbonScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();  // For responsive bottom padding
   const {
     klanten, werven, teams,
     fetchKlanten, fetchWerven, fetchTeams, fetchWervenByKlant, fetchWeekDates,
@@ -603,6 +604,7 @@ export default function NieuweWerkbonScreen() {
               </View>
             </TouchableOpacity>
           </View>
+          <View style={{ height: 120 }} />
         </ScrollView>
 
         {/* Afkorting Picker Modal */}
@@ -630,25 +632,25 @@ export default function NieuweWerkbonScreen() {
             </View>
           </View>
         )}
-
-        <View style={styles.footer}>
-          <TouchableOpacity
-            testID="werkbon-create-save-button"
-            style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
-            onPress={handleSave}
-            disabled={isSaving}
-          >
-            {isSaving ? (
-              <ActivityIndicator color="#000" />
-            ) : (
-              <>
-                <Ionicons name="save-outline" size={20} color="#000" />
-                <Text style={styles.saveButtonText}>Opslaan</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
       </KeyboardAvoidingView>
+      {/* Fixed footer with safe area padding */}
+      <View style={[styles.fixedFooter, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        <TouchableOpacity
+          testID="werkbon-create-save-button"
+          style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
+          onPress={handleSave}
+          disabled={isSaving}
+        >
+          {isSaving ? (
+            <ActivityIndicator color="#000" />
+          ) : (
+            <>
+              <Ionicons name="save-outline" size={20} color="#000" />
+              <Text style={styles.saveButtonText}>Opslaan</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -716,14 +718,6 @@ const styles = StyleSheet.create({
   pickerOptionText: { color: '#1A1A2E', fontSize: 16 },
   pickerCancel: { padding: 16, marginTop: 8 },
   pickerCancelText: { color: '#dc3545', fontSize: 16, textAlign: 'center' },
-  footer: { 
-    padding: 16, 
-    paddingBottom: 32,  // Extra padding for phone navigation
-    borderTopWidth: 1, 
-    borderTopColor: '#E8E9ED', 
-    backgroundColor: '#FFFFFF',
-    marginBottom: 20,  // Safe margin for bottom navigation
-  },
   saveButton: { 
     flexDirection: 'row', 
     alignItems: 'center', 
@@ -737,6 +731,17 @@ const styles = StyleSheet.create({
   },
   saveButtonDisabled: { opacity: 0.7 },
   saveButtonText: { color: '#000', fontSize: 18, fontWeight: '600' },
+  fixedFooter: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E8E9ED',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
   // Planning suggestions
   planningBanner: { backgroundColor: '#EBF5FB', borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1.5, borderColor: '#3498db30' },
   planningBannerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },

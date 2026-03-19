@@ -11,7 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
@@ -94,7 +94,13 @@ const WebSignatureCanvas = ({ onEnd, onClear, signatureRef }: any) => {
     const rect = canvas.getBoundingClientRect();
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    return { x: clientX - rect.left, y: clientY - rect.top };
+    // Account for scaling between canvas internal size and displayed size
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY,
+    };
   };
 
   const startDrawing = (e: any) => {
@@ -171,6 +177,7 @@ export default function OpleveringWerkbonScreen() {
   const { user } = useAuth();
   const { theme } = useTheme();
   const primary = theme.primaryColor || '#F5A623';
+  const insets = useSafeAreaInsets();  // For responsive bottom padding
   const signatureRef = useRef<any>(null);
   const pendingSubmitRef = useRef(false);
   const hasSignatureRef = useRef(false);
@@ -712,11 +719,6 @@ export default function OpleveringWerkbonScreen() {
                 <TextInput testID="oplevering-notes-input" style={[styles.input, styles.largeInput]} value={notes} onChangeText={setNotes}
                   placeholder="Extra opmerkingen voor klant of beheerder" placeholderTextColor="#8C9199" multiline textAlignVertical="top" />
               </View>
-              <TouchableOpacity style={[styles.primaryButton, { backgroundColor: primary }]}
-                onPress={() => { if (validatePage1()) setPage(2); }}>
-                <Text style={styles.primaryButtonText}>Volgende — Handtekening</Text>
-                <Ionicons name="arrow-forward" size={20} color="#fff" />
-              </TouchableOpacity>
             </>
           )}
 
@@ -806,24 +808,38 @@ export default function OpleveringWerkbonScreen() {
                 <Ionicons name="document-text-outline" size={18} color="#6c757d" />
                 <Text style={{ flex: 1, fontSize: 12, color: '#6c757d', lineHeight: 17 }}>{LEGAL_TEXT}</Text>
               </View>
-
-              {/* Save */}
-              <TouchableOpacity testID="oplevering-save-send-button"
-                style={[styles.primaryButton, { backgroundColor: primary }, saving && styles.primaryButtonDisabled]}
-                onPress={handleSave} disabled={saving}>
-                {saving ? <ActivityIndicator color="#FFFFFF" /> : (
-                  <>
-                    <Ionicons name="send" size={20} color="#FFFFFF" />
-                    <Text style={styles.primaryButtonText}>Opslaan & PDF versturen</Text>
-                  </>
-                )}
-              </TouchableOpacity>
             </>
           )}
 
           <View style={styles.bottomSpacer} />
         </ScrollView>
       </KeyboardAvoidingView>
+      {/* Fixed footer with safe area padding */}
+      <View style={[styles.fixedFooter, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        {page === 1 ? (
+          <TouchableOpacity
+            style={[styles.primaryButton, { backgroundColor: primary, marginTop: 0 }]}
+            onPress={() => { if (validatePage1()) setPage(2); }}
+          >
+            <Text style={styles.primaryButtonText}>Volgende — Handtekening</Text>
+            <Ionicons name="arrow-forward" size={20} color="#fff" />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            testID="oplevering-save-send-button"
+            style={[styles.primaryButton, { backgroundColor: primary, marginTop: 0 }, saving && styles.primaryButtonDisabled]}
+            onPress={handleSave}
+            disabled={saving}
+          >
+            {saving ? <ActivityIndicator color="#FFFFFF" /> : (
+              <>
+                <Ionicons name="send" size={20} color="#FFFFFF" />
+                <Text style={styles.primaryButtonText}>Opslaan & PDF versturen</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
+      </View>
     </SafeAreaView>
   );
 }
@@ -999,5 +1015,16 @@ const styles = StyleSheet.create({
   },
   primaryButtonDisabled: { opacity: 0.7 },
   primaryButtonText: { color: '#FFFFFF', fontSize: 18, fontWeight: '700' },
-  bottomSpacer: { height: 80 },  // Extra space for phone navigation
+  bottomSpacer: { height: 120 },  // Extra space for fixed footer
+  fixedFooter: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E8E9ED',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
 });

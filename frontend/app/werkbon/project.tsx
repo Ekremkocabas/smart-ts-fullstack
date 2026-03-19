@@ -11,7 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
@@ -109,7 +109,13 @@ const WebSignatureCanvas = ({ onEnd, onClear, signatureRef }: any) => {
     const rect = canvas.getBoundingClientRect();
     const clientX = event.touches ? event.touches[0].clientX : event.clientX;
     const clientY = event.touches ? event.touches[0].clientY : event.clientY;
-    return { x: clientX - rect.left, y: clientY - rect.top };
+    // Account for scaling between canvas internal size and displayed size
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY,
+    };
   };
 
   const startDrawing = (event: any) => {
@@ -177,6 +183,7 @@ export default function ProjectWerkbonScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();  // For responsive bottom padding
   const signatureRef = useRef<any>(null);
   const pendingSubmitRef = useRef(false);
   const hasSignatureRef = useRef(false);
@@ -548,12 +555,6 @@ export default function ProjectWerkbonScreen() {
                   ))}
                 </View>
               </View>
-
-              <TouchableOpacity style={[styles.primaryButton, { backgroundColor: theme.primaryColor || '#F5A623' }]}
-                onPress={() => { if (validatePage1()) setPage(2); }}>
-                <Text style={[styles.primaryButtonText, { color: theme.secondaryColor || '#000' }]}>Volgende — Handtekening</Text>
-                <Ionicons name="arrow-forward" size={20} color={theme.secondaryColor || '#000'} />
-              </TouchableOpacity>
             </>
           )}
 
@@ -639,23 +640,37 @@ export default function ProjectWerkbonScreen() {
                 <Ionicons name="document-text-outline" size={18} color="#6c757d" />
                 <Text style={{ flex: 1, fontSize: 12, color: '#6c757d', lineHeight: 17 }}>{LEGAL_TEXT}</Text>
               </View>
-
-              {/* Save */}
-              <TouchableOpacity testID="project-save-send-button"
-                style={[styles.primaryButton, { backgroundColor: theme.primaryColor || '#F5A623' }, saving && styles.primaryButtonDisabled]}
-                onPress={handleSave} disabled={saving}>
-                {saving ? <ActivityIndicator color={theme.secondaryColor || '#000'} /> : (
-                  <>
-                    <Ionicons name="send" size={20} color={theme.secondaryColor || '#000'} />
-                    <Text style={[styles.primaryButtonText, { color: theme.secondaryColor || '#000' }]}>Opslaan & PDF versturen</Text>
-                  </>
-                )}
-              </TouchableOpacity>
             </>
           )}
-          <View style={{ height: 40 }} />
+          <View style={{ height: 120 }} />
         </ScrollView>
       </KeyboardAvoidingView>
+      {/* Fixed footer with safe area padding */}
+      <View style={[styles.fixedFooter, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        {page === 1 ? (
+          <TouchableOpacity
+            style={[styles.primaryButton, { backgroundColor: theme.primaryColor || '#F5A623', marginTop: 0 }]}
+            onPress={() => { if (validatePage1()) setPage(2); }}
+          >
+            <Text style={[styles.primaryButtonText, { color: theme.secondaryColor || '#000' }]}>Volgende — Handtekening</Text>
+            <Ionicons name="arrow-forward" size={20} color={theme.secondaryColor || '#000'} />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            testID="project-save-send-button"
+            style={[styles.primaryButton, { backgroundColor: theme.primaryColor || '#F5A623', marginTop: 0 }, saving && styles.primaryButtonDisabled]}
+            onPress={handleSave}
+            disabled={saving}
+          >
+            {saving ? <ActivityIndicator color={theme.secondaryColor || '#000'} /> : (
+              <>
+                <Ionicons name="send" size={20} color={theme.secondaryColor || '#000'} />
+                <Text style={[styles.primaryButtonText, { color: theme.secondaryColor || '#000' }]}>Opslaan & PDF versturen</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
+      </View>
     </SafeAreaView>
   );
 }
@@ -724,4 +739,15 @@ const styles = StyleSheet.create({
   },
   primaryButtonDisabled: { opacity: 0.7 },
   primaryButtonText: { fontSize: 18, fontWeight: '700' },
+  fixedFooter: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E8E9ED',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
 });
