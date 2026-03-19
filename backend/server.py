@@ -5785,4 +5785,47 @@ async def app_health_check():
     except Exception as e:
         return {"status": "unhealthy", "database": "disconnected", "error": str(e)}
 
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STATIC FILE SERVING FOR WEB PANEL (Railway deployment)
+# ══════════════════════════════════════════════════════════════════════════════
+
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import os
+
+# Path to the exported web panel files
+STATIC_DIR = os.path.join(os.path.dirname(__file__), "dist")
+
+# Serve static files if dist folder exists (production deployment)
+if os.path.exists(STATIC_DIR):
+    # Mount static assets
+    app.mount("/_expo", StaticFiles(directory=os.path.join(STATIC_DIR, "_expo")), name="expo_static")
+    app.mount("/assets", StaticFiles(directory=os.path.join(STATIC_DIR, "assets")), name="assets")
+    
+    # Serve index.html for all non-API routes (SPA routing)
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        # Don't intercept API routes
+        if full_path.startswith("api/"):
+            return {"detail": "Not Found"}
+        
+        # Try to serve the exact file first
+        file_path = os.path.join(STATIC_DIR, full_path)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+        
+        # For HTML files
+        if full_path.endswith(".html"):
+            html_path = os.path.join(STATIC_DIR, full_path)
+            if os.path.isfile(html_path):
+                return FileResponse(html_path)
+        
+        # Fallback to index.html for SPA routing
+        index_path = os.path.join(STATIC_DIR, "index.html")
+        if os.path.isfile(index_path):
+            return FileResponse(index_path)
+        
+        return {"detail": "Not Found"}
+
 # (removed)
