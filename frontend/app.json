@@ -3,7 +3,7 @@
     "name": "Smart-TS",
     "slug": "smart-ts",
     "owner": "smarttechbv",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "smartts",
@@ -11,10 +11,12 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "be.smarttech.smartts"
+      "bundleIdentifier": "be.smarttech.smartts",
+      "buildNumber": "2"
     },
     "android": {
       "package": "be.smarttech.smartts",
+      "versionCode": 2,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#FFFFFF"
