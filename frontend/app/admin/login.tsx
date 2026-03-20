@@ -17,7 +17,23 @@ import { useTheme } from '../../context/ThemeContext';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_BACKEND_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+// Determine API URL based on environment
+const getApiUrl = () => {
+  // For web platform - use window.location.origin for production deployments
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    // Local development
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+    }
+    // Production (Railway, Vercel, etc.)
+    return window.location.origin;
+  }
+  // For mobile
+  return Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_BACKEND_URL || '';
+};
+
+const API_URL = getApiUrl();
 
 export default function AdminLogin() {
   const { setUser } = useAuth();

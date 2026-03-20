@@ -4,19 +4,31 @@ import axios from 'axios';
 import { Platform } from 'react-native';
 import { registerForPushNotifications } from '../utils/notifications';
 
-// Determine backend URL: use env variable, or window.location.origin for web (Railway deployment)
+// Determine backend URL based on platform and environment
 const getBackendUrl = () => {
+  // For web platform
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    
+    // Local development (localhost) - use env variable
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+    }
+    
+    // Production deployments (Railway, Vercel, etc.) - use current origin
+    // This works because the backend is served from the same domain
+    return window.location.origin;
+  }
+  
+  // For mobile: use env variable
   if (process.env.EXPO_PUBLIC_BACKEND_URL) {
     return process.env.EXPO_PUBLIC_BACKEND_URL;
-  }
-  // For web deployment (Railway), use current origin
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    return window.location.origin;
   }
   return '';
 };
 
 const BACKEND_URL = getBackendUrl();
+console.log('[AuthContext] Backend URL:', BACKEND_URL);
 
 // Create a configured axios instance
 export const apiClient = axios.create({
