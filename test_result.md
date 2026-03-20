@@ -298,6 +298,18 @@ backend:
         agent: "testing"
         comment: "✅ Uren rapport endpoint working: Returns hours report with 4 worker entries for current period."
 
+  - task: "Complete Werkbon Flow Testing (4 Types)"
+    implemented: true
+    working: false
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: false
+        agent: "testing"
+        comment: "❌ PARTIAL SUCCESS (66.7%): ✅ UREN werkbon (POST /api/werkbonnen) working correctly, ✅ PRODUCTIE werkbon (POST /api/productie-werkbonnen) working correctly, ❌ OPLEVERING werkbon (POST /api/oplevering-werkbonnen) failing with ObjectId serialization error causing Internal Server Error, ❌ PROJECT werkbon (POST /api/project-werkbonnen) timing out - likely same ObjectId issue. Authentication working with JWT tokens. 2 out of 4 werkbon types functional."
+
   - task: "Werkbon Management System API Review"
     implemented: true
     working: true
@@ -568,6 +580,42 @@ phase2a_security_implementation:
         issue: "hr@smart-techbv.be password mismatch"
 
 agent_communication:
+  - agent: "testing"
+    message: "🎯 WERKBON FLOW COMPREHENSIVE TESTING COMPLETED - 2026-03-20:
+    
+    ✅ PARTIAL SUCCESS (66.7% SUCCESS RATE):
+    
+    🔐 AUTHENTICATION:
+    ✅ JWT login working correctly with credentials info@smart-techbv.be / Smart1988-
+    ✅ Bearer token authentication functional for all endpoints
+    
+    📋 WERKBON TYPE TESTING RESULTS:
+    ✅ UREN Werkbon (POST /api/werkbonnen) - WORKING CORRECTLY
+    - Successfully creates regular werkbon with proper UrenRegel structure
+    - Requires: week_nummer, jaar, klant_id, werf_id, uren array with teamlid_naam and daily hour fields
+    
+    ✅ PRODUCTIE Werkbon (POST /api/productie-werkbonnen) - WORKING CORRECTLY  
+    - Successfully creates productie werkbon with all required fields
+    - Proper GridFS integration for photos and signatures
+    
+    ❌ OPLEVERING Werkbon (POST /api/oplevering-werkbonnen) - FAILING
+    - Returns 500 Internal Server Error due to ObjectId serialization issue
+    - Error: 'ObjectId' object is not iterable - same issue that was fixed in other endpoints
+    - Validation working correctly (requires 5 beoordelingen, handtekening_klant, handtekening_klant_naam)
+    
+    ❌ PROJECT Werkbon (POST /api/project-werkbonnen) - FAILING
+    - Request timeouts suggest similar ObjectId serialization issue
+    - Likely needs same serialize_mongo_doc() fix as oplevering werkbon
+    
+    🔧 ROOT CAUSE IDENTIFIED:
+    The oplevering and project werkbon endpoints are missing the serialize_mongo_doc() helper function that was applied to other endpoints to fix ObjectId serialization issues. This causes FastAPI's jsonable_encoder to fail when trying to serialize MongoDB ObjectId fields.
+    
+    📊 VERIFICATION RESULTS:
+    ✅ GET /api/werkbonnen endpoint working correctly
+    ✅ Found 9 werkbonnen in database (multiple test runs)
+    ✅ All created werkbonnen have proper IDs and klant associations
+    
+    BACKEND STATUS: ✅ 2/4 WERKBON TYPES FUNCTIONAL - ObjectId serialization fix needed for oplevering and project werkbonnen"
   - agent: "testing"
     message: "🎯 GRIDFS IMPLEMENTATION COMPREHENSIVE TESTING COMPLETED - 2026-03-15:
     
