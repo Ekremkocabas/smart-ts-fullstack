@@ -294,6 +294,7 @@ export default function WerkbonSign() {
   };
 
   const handleSignatureOk = (sig: string) => {
+    console.log('Signature OK received, length:', sig?.length);
     setNativeSignatureData(sig);
     setHasSignature(true);
     setSignature(sig);
@@ -301,6 +302,13 @@ export default function WerkbonSign() {
 
   const handleSignatureStart = () => {
     setHasSignature(true);
+  };
+
+  const handleSignatureEnd = () => {
+    // When user finishes drawing, read the signature data
+    if (Platform.OS !== 'web' && signatureRef.current?.readSignature) {
+      signatureRef.current.readSignature();
+    }
   };
 
   const handleSignatureClear = () => {
@@ -374,7 +382,21 @@ export default function WerkbonSign() {
       if (Platform.OS === 'web') {
         signatureData = signatureRef.current?.readSignature?.();
       } else {
-        signatureData = nativeSignatureData;
+        // For native, we need to call readSignature on the ref
+        // The onOK callback might not have been called yet
+        if (nativeSignatureData) {
+          signatureData = nativeSignatureData;
+        } else if (signatureRef.current?.readSignature) {
+          // Try to read directly from the signature pad
+          try {
+            signatureRef.current.readSignature();
+            // Give a small delay for the callback to fire
+            await new Promise(resolve => setTimeout(resolve, 300));
+            signatureData = nativeSignatureData;
+          } catch (e) {
+            console.log('Direct read failed:', e);
+          }
+        }
       }
 
       if (!signatureData) {
@@ -664,6 +686,7 @@ export default function WerkbonSign() {
                   <NativeSignature
                     ref={signatureRef}
                     onBegin={handleSignatureStart}
+                    onEnd={handleSignatureEnd}
                     onOK={handleSignatureOk}
                     onEmpty={handleSignatureClear}
                     webStyle={nativeSignatureStyle}

@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAppStore, Werkbon } from '../../store/appStore';
 import { useAuth } from '../../context/AuthContext';
 import { showAlert, showConfirm } from '../../utils/alerts';
+import { useWerkbonFormStore, WerkbonType } from '../../store/werkbonFormStore';
 const getStatusColor = (status: string) => {
   switch (status) {
     case 'concept': return '#ffc107';
@@ -52,9 +53,11 @@ export default function WerkbonnenScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { werkbonnen, fetchWerkbonnen, deleteWerkbon, duplicateWerkbon, isLoading } = useAppStore();
+  const { setType, clearDraft } = useWerkbonFormStore();
   const [refreshing, setRefreshing] = useState(false);
   const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
-  const isAdmin = user?.rol === 'admin';
+  const [showTypeModal, setShowTypeModal] = useState(false);
+  const isAdmin = user?.rol === 'admin' || user?.rol === 'master_admin';
   const currentWeek = getCurrentWeek();
 
   useEffect(() => {
@@ -168,7 +171,13 @@ export default function WerkbonnenScreen() {
     );
   };
 
-  const [showTypeModal, setShowTypeModal] = useState(false);
+  // Helper function to handle type selection and navigate
+  const handleTypeSelect = (type: WerkbonType) => {
+    clearDraft(); // Clear any previous draft
+    setType(type); // Set the type in store
+    setShowTypeModal(false);
+    router.push('/werkbon/form'); // Go directly to form
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -270,9 +279,9 @@ export default function WerkbonnenScreen() {
         <TouchableOpacity style={styles.typeModalOverlay} activeOpacity={1} onPress={() => setShowTypeModal(false)}>
           <View style={styles.typeModalContent}>
             <Text style={styles.typeModalTitle}>Werkbon type kiezen</Text>
-            {/* All types use the new unified flow at /werkbon */}
+            {/* Uren Werkbon */}
             {(user?.werkbon_types?.includes('uren') || isAdmin) && (
-              <TouchableOpacity style={styles.typeOption} onPress={() => { setShowTypeModal(false); router.push('/werkbon'); }}>
+              <TouchableOpacity style={styles.typeOption} onPress={() => handleTypeSelect('uren')}>
                 <View style={[styles.typeIcon, { backgroundColor: '#3498db15' }]}>
                   <Ionicons name="time-outline" size={24} color="#3498db" />
                 </View>
@@ -283,9 +292,9 @@ export default function WerkbonnenScreen() {
                 <Ionicons name="chevron-forward" size={20} color="#6c757d" />
               </TouchableOpacity>
             )}
-            {/* Oplevering Werkbon - unified flow */}
+            {/* Oplevering Werkbon */}
             {(user?.werkbon_types?.includes('oplevering') || isAdmin) && (
-              <TouchableOpacity style={styles.typeOption} onPress={() => { setShowTypeModal(false); router.push('/werkbon'); }}>
+              <TouchableOpacity style={styles.typeOption} onPress={() => handleTypeSelect('oplevering')}>
                 <View style={[styles.typeIcon, { backgroundColor: '#28a74515' }]}>
                   <Ionicons name="checkmark-done-outline" size={24} color="#28a745" />
                 </View>
@@ -296,9 +305,9 @@ export default function WerkbonnenScreen() {
                 <Ionicons name="chevron-forward" size={20} color="#6c757d" />
               </TouchableOpacity>
             )}
-            {/* Project Werkbon - unified flow */}
+            {/* Project Werkbon */}
             {(user?.werkbon_types?.includes('project') || isAdmin) && (
-              <TouchableOpacity style={styles.typeOption} onPress={() => { setShowTypeModal(false); router.push('/werkbon'); }}>
+              <TouchableOpacity style={styles.typeOption} onPress={() => handleTypeSelect('project')}>
                 <View style={[styles.typeIcon, { backgroundColor: '#F5A62315' }]}>
                   <Ionicons name="location-outline" size={24} color="#F5A623" />
                 </View>
@@ -309,9 +318,9 @@ export default function WerkbonnenScreen() {
                 <Ionicons name="chevron-forward" size={20} color="#6c757d" />
               </TouchableOpacity>
             )}
-            {/* Productie/Prestatie Werkbon - unified flow */}
-            {(user?.werkbon_types?.includes('productie') || isAdmin) && (
-              <TouchableOpacity style={styles.typeOption} onPress={() => { setShowTypeModal(false); router.push('/werkbon'); }}>
+            {/* Prestatie Werkbon */}
+            {(user?.werkbon_types?.includes('productie') || user?.werkbon_types?.includes('prestatie') || isAdmin) && (
+              <TouchableOpacity style={styles.typeOption} onPress={() => handleTypeSelect('prestatie')}>
                 <View style={[styles.typeIcon, { backgroundColor: '#9b59b615' }]}>
                   <Ionicons name="layers-outline" size={24} color="#9b59b6" />
                 </View>

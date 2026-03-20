@@ -80,10 +80,19 @@ export default function WerkbonForm() {
   
   const primary = theme?.primaryColor || '#F5A623';
 
+  // Redirect if no type selected
+  useEffect(() => {
+    if (!type) {
+      router.replace('/werkbon');
+    }
+  }, [type]);
+
   // Load data on mount
   useEffect(() => {
-    loadData();
-  }, []);
+    if (type) {
+      loadData();
+    }
+  }, [type]);
 
   // Load werven when klant changes
   useEffect(() => {
