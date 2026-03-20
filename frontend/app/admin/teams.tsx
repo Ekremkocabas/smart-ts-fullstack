@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, apiClient } from '../../context/AuthContext';
 import Constants from 'expo-constants';
 
 const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_BACKEND_URL || (typeof window !== 'undefined' ? window.location.origin : '');
@@ -32,7 +32,7 @@ interface Werknemer {
 }
 
 export default function TeamsAdmin() {
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, token, isLoading: authLoading } = useAuth();
   const [teams, setTeams] = useState<Team[]>([]);
   const [werknemers, setWerknemers] = useState<Werknemer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,23 +41,29 @@ export default function TeamsAdmin() {
   const [formData, setFormData] = useState({ naam: '', leden: [] as string[], ploegbaas: '' });
   const [saving, setSaving] = useState(false);
 
+  const getAuthConfig = () => ({
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
   useEffect(() => { 
-    if (Platform.OS === 'web' && ['beheerder', 'admin', 'manager', 'master_admin'].includes(user?.rol || '')) {
+    if (Platform.OS === 'web' && !authLoading && token && ['beheerder', 'admin', 'manager', 'master_admin'].includes(user?.rol || '')) {
       fetchData(); 
     }
-  }, [user]);
+  }, [user, token, authLoading]);
 
   const fetchData = async () => {
+    if (!token) return;
     try {
       setLoading(true);
       const [teamsRes, werknemersRes] = await Promise.all([
-        fetch(`${API_URL}/api/teams`),
-        fetch(`${API_URL}/api/auth/users`),
+        apiClient.get('/api/teams', getAuthConfig()),
+        apiClient.get('/api/auth/users', getAuthConfig()),
       ]);
-      const teamsData = await teamsRes.json();
-      const werknemersData = await werknemersRes.json();
-      setTeams(Array.isArray(teamsData) ? teamsData : []);
-      setWerknemers(Array.isArray(werknemersData) ? werknemersData : []);
+      setTeams(Array.isArray(teamsRes.data) ? teamsRes.data : []);
+      setWerknemers(Array.isArray(werknemersRes.data) ? werknemersRes.data : []);
     } catch (error) {
       console.error('Error:', error);
     } finally {
@@ -87,18 +93,20 @@ export default function TeamsAdmin() {
 
   const saveTeam = async () => {
     if (!formData.naam.trim()) { alert('Naam is verplicht'); return; }
+    if (!token) { alert('Sessie verlopen, log opnieuw in'); return; }
     setSaving(true);
     try {
       const body = { naam: formData.naam, leden: formData.leden, ploegbaas: formData.ploegbaas || null };
       if (editingTeam) {
-        await fetch(`${API_URL}/api/teams/${editingTeam.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        await apiClient.put(`/api/teams/${editingTeam.id}`, body, getAuthConfig());
       } else {
-        await fetch(`${API_URL}/api/teams`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        await apiClient.post('/api/teams', body, getAuthConfig());
       }
       setShowModal(false);
       fetchData();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error:', error);
+      alert(error.response?.data?.detail || 'Fout bij opslaan');
     } finally {
       setSaving(false);
     }

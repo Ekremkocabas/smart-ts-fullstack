@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, apiClient } from '../../context/AuthContext';
 import Constants from 'expo-constants';
 
 const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_BACKEND_URL || (typeof window !== 'undefined' ? window.location.origin : '');
@@ -39,18 +39,30 @@ interface RecentWerkbon {
 }
 
 export default function AdminDashboard() {
-  const { user } = useAuth();
+  const { user, token, isLoading: authLoading } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentWerkbonnen, setRecentWerkbonnen] = useState<RecentWerkbon[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Helper to create auth headers
+  const getAuthConfig = () => ({
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
   useEffect(() => {
-    if (Platform.OS === 'web' && (user?.rol === 'beheerder' || user?.rol === 'admin')) {
+    if (Platform.OS === 'web' && !authLoading && token && (user?.rol === 'beheerder' || user?.rol === 'admin' || user?.rol === 'master_admin' || user?.rol === 'manager')) {
       fetchData();
     }
-  }, [user]);
+  }, [user, token, authLoading]);
 
   const fetchData = async () => {
+    if (!token) {
+      console.warn('No token available');
+      return;
+    }
     try {
       setLoading(true);
       const now = new Date();
@@ -59,20 +71,20 @@ export default function AdminDashboard() {
       const currentWeek = Math.ceil((days + startOfYear.getDay() + 1) / 7);
 
       const [werknemersRes, teamsRes, klantenRes, wervenRes, werkbonnenRes, planningRes] = await Promise.all([
-        fetch(`${API_URL}/api/auth/users`),
-        fetch(`${API_URL}/api/teams`),
-        fetch(`${API_URL}/api/klanten`),
-        fetch(`${API_URL}/api/werven`),
-        fetch(`${API_URL}/api/werkbonnen?user_id=admin-001&is_admin=true`),
-        fetch(`${API_URL}/api/planning?week_nummer=${currentWeek}&jaar=${now.getFullYear()}`),
+        apiClient.get('/api/auth/users', getAuthConfig()),
+        apiClient.get('/api/teams', getAuthConfig()),
+        apiClient.get('/api/klanten', getAuthConfig()),
+        apiClient.get('/api/werven', getAuthConfig()),
+        apiClient.get(`/api/werkbonnen?user_id=${user?.id}&is_admin=true`, getAuthConfig()),
+        apiClient.get(`/api/planning?week_nummer=${currentWeek}&jaar=${now.getFullYear()}`, getAuthConfig()),
       ]);
 
-      const werknemers = await werknemersRes.json();
-      const teams = await teamsRes.json();
-      const klanten = await klantenRes.json();
-      const werven = await wervenRes.json();
-      const werkbonnen = await werkbonnenRes.json();
-      const planningData = await planningRes.json();
+      const werknemers = werknemersRes.data;
+      const teams = teamsRes.data;
+      const klanten = klantenRes.data;
+      const werven = wervenRes.data;
+      const werkbonnen = werkbonnenRes.data;
+      const planningData = planningRes.data;
 
       const werknemersList = Array.isArray(werknemers) ? werknemers : [];
       const teamsList = Array.isArray(teams) ? teams : [];
