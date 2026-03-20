@@ -5391,6 +5391,28 @@ async def create_bericht(data: BerichtCreate, current_user: Dict = Depends(get_c
             bericht_dict["naar_naam"] = user["naam"]
     
     await db.berichten.insert_one(bericht_dict)
+    
+    # Send push notification to recipients
+    try:
+        notification_recipients = []
+        if data.is_broadcast:
+            # For broadcasts, send to all active workers
+            async for user in db.users.find({"actief": True, "push_token": {"$ne": None}}, {"id": 1}):
+                if user["id"] != van_id:  # Don't notify sender
+                    notification_recipients.append(user["id"])
+        elif data.naar_id:
+            notification_recipients = [data.naar_id]
+        
+        if notification_recipients:
+            await send_push_notifications(
+                notification_recipients,
+                data.onderwerp or "Nieuw bericht",
+                f"Van {van_naam}: {data.inhoud[:100]}..." if len(data.inhoud) > 100 else f"Van {van_naam}: {data.inhoud}",
+                {"type": "bericht", "bericht_id": bericht_dict["id"]}
+            )
+    except Exception as e:
+        logging.error(f"Push notification failed for bericht: {e}")
+    
     return serialize_mongo_doc(bericht_dict)
 
 @api_router.post("/berichten/{bericht_id}/gelezen")
