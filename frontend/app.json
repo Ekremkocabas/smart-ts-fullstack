@@ -3,7 +3,7 @@
     "name": "Smart-TS",
     "slug": "smart-ts",
     "owner": "smarttechbv",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "smartts",
@@ -16,7 +16,7 @@
     },
     "android": {
       "package": "be.smarttech.smartts",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#FFFFFF"

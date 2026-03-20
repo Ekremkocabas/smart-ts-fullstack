@@ -566,7 +566,7 @@ export default function ProjectWerkbonScreen() {
                 <TouchableOpacity style={[styles.gpsButton, { borderColor: gpsLocatie ? '#28a745' : (theme.primaryColor || '#F5A623') }]} onPress={getGPS} disabled={gpsLoading}>
                   {gpsLoading ? <ActivityIndicator size="small" color={theme.primaryColor || '#F5A623'} /> : <Ionicons name="navigate" size={20} color={gpsLocatie ? '#28a745' : (theme.primaryColor || '#F5A623')} />}
                   <Text style={[styles.gpsButtonText, { color: gpsLocatie ? '#28a745' : (theme.primaryColor || '#F5A623') }]}>
-                    {gpsLocatie ? `GPS: ${gpsLocatie}` : 'Locatie openen (GPS vastleggen)'}
+                    {gpsAdres ? gpsAdres : (gpsLocatie ? `GPS: ${gpsLocatie}` : 'Locatie openen (GPS vastleggen)')}
                   </Text>
                 </TouchableOpacity>
               </View>

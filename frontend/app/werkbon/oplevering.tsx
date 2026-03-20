@@ -730,7 +730,7 @@ export default function OpleveringWerkbonScreen() {
                 <TouchableOpacity style={[styles.gpsButton, { borderColor: gpsLocatie ? '#28a745' : primary }]} onPress={getGPS} disabled={gpsLoading}>
                   {gpsLoading ? <ActivityIndicator size="small" color={primary} /> : <Ionicons name="navigate" size={20} color={gpsLocatie ? '#28a745' : primary} />}
                   <Text style={[styles.gpsButtonText, { color: gpsLocatie ? '#28a745' : primary }]}>
-                    {gpsLocatie ? `GPS: ${gpsLocatie}` : 'Locatie openen (GPS vastleggen)'}
+                    {gpsAdres ? gpsAdres : (gpsLocatie ? `GPS: ${gpsLocatie}` : 'Locatie openen (GPS vastleggen)')}
                   </Text>
                 </TouchableOpacity>
               </View>
