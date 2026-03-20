@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, apiClient } from '../../context/AuthContext';
 import Constants from 'expo-constants';
 
 const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_BACKEND_URL || (typeof window !== 'undefined' ? window.location.origin : '');
@@ -34,7 +34,7 @@ interface Klant {
 }
 
 export default function WervenAdmin() {
-  const { user } = useAuth();
+  const { user, token, isLoading: authLoading } = useAuth();
   const [werven, setWerven] = useState<Werf[]>([]);
   const [klanten, setKlanten] = useState<Klant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,25 +45,35 @@ export default function WervenAdmin() {
   const [formData, setFormData] = useState({ naam: '', adres: '', klant_id: '', werfleider: '', werfleider_email: '' });
   const [saving, setSaving] = useState(false);
 
+  // Helper to create auth headers
+  const getAuthConfig = () => ({
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
   useEffect(() => { 
-    if (Platform.OS === 'web' && (user?.rol === 'beheerder' || user?.rol === 'admin')) {
+    if (Platform.OS === 'web' && !authLoading && token && (user?.rol === 'beheerder' || user?.rol === 'admin' || user?.rol === 'master_admin' || user?.rol === 'manager')) {
       fetchData(); 
     }
-  }, [user]);
+  }, [user, token, authLoading]);
 
   const fetchData = async () => {
+    if (!token) {
+      console.warn('No token available for API requests');
+      return;
+    }
     try {
       setLoading(true);
       const [wervenRes, klantenRes] = await Promise.all([
-        fetch(`${API_URL}/api/werven`),
-        fetch(`${API_URL}/api/klanten`),
+        apiClient.get('/api/werven', getAuthConfig()),
+        apiClient.get('/api/klanten', getAuthConfig()),
       ]);
-      const wervenData = await wervenRes.json();
-      const klantenData = await klantenRes.json();
-      setWerven(Array.isArray(wervenData) ? wervenData : []);
-      setKlanten(Array.isArray(klantenData) ? klantenData : []);
+      setWerven(Array.isArray(wervenRes.data) ? wervenRes.data : []);
+      setKlanten(Array.isArray(klantenRes.data) ? klantenRes.data : []);
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
     }
@@ -84,26 +94,38 @@ export default function WervenAdmin() {
   const saveWerf = async () => {
     if (!formData.naam.trim()) { alert('Naam is verplicht'); return; }
     if (!formData.klant_id) { alert('Selecteer een klant'); return; }
+    if (!token) { alert('Sessie verlopen, log opnieuw in'); return; }
+    
     setSaving(true);
     const klant = klanten.find(k => k.id === formData.klant_id);
     try {
       if (editingWerf) {
-        await fetch(`${API_URL}/api/werven/${editingWerf.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...editingWerf, ...formData, klant_naam: klant?.naam }) });
+        await apiClient.put(`/api/werven/${editingWerf.id}`, { ...editingWerf, ...formData, klant_naam: klant?.naam }, getAuthConfig());
       } else {
-        await fetch(`${API_URL}/api/werven`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ naam: formData.naam, klant_id: formData.klant_id, adres: formData.adres, werfleider: formData.werfleider, werfleider_email: formData.werfleider_email }) });
+        await apiClient.post('/api/werven', { 
+          naam: formData.naam, 
+          klant_id: formData.klant_id, 
+          klant_naam: klant?.naam,
+          adres: formData.adres, 
+          werfleider: formData.werfleider, 
+          werfleider_email: formData.werfleider_email,
+          actief: true
+        }, getAuthConfig());
       }
       setShowModal(false);
       fetchData();
-    } catch (error) {
-      console.error('Error:', error);
+    } catch (error: any) {
+      console.error('Error saving werf:', error);
+      alert(error.response?.data?.detail || 'Fout bij opslaan');
     } finally {
       setSaving(false);
     }
   };
 
   const toggleActief = async (w: Werf) => {
+    if (!token) { alert('Sessie verlopen'); return; }
     try {
-      await fetch(`${API_URL}/api/werven/${w.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...w, actief: !w.actief }) });
+      await apiClient.put(`/api/werven/${w.id}`, { ...w, actief: !w.actief }, getAuthConfig());
       fetchData();
     } catch (error) {
       console.error('Error:', error);
@@ -112,8 +134,9 @@ export default function WervenAdmin() {
 
   const deleteWerf = async (id: string) => {
     if (!confirm('Weet u zeker dat u deze werf wilt verwijderen?')) return;
+    if (!token) { alert('Sessie verlopen'); return; }
     try {
-      await fetch(`${API_URL}/api/werven/${id}`, { method: 'DELETE' });
+      await apiClient.delete(`/api/werven/${id}`, getAuthConfig());
       fetchData();
     } catch (error) {
       console.error('Error:', error);
