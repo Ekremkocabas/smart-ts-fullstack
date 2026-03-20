@@ -12,8 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useAuth } from '../../context/AuthContext';
-import axios from 'axios';
+import { useAuth, apiClient } from '../../context/AuthContext';
 
 const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || (typeof window !== 'undefined' ? window.location.origin : '');
 
@@ -44,7 +43,7 @@ const WERKBON_TYPES = [
 ];
 
 export default function WerknemersAdmin() {
-  const { user } = useAuth();
+  const { user, token, isLoading: authLoading } = useAuth();
   const [werknemers, setWerknemers] = useState<Werknemer[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,20 +61,34 @@ export default function WerknemersAdmin() {
   const [passwordUser, setPasswordUser] = useState<Werknemer | null>(null);
   const [newPassword, setNewPassword] = useState('');
 
+  // Helper to create auth headers
+  const getAuthConfig = () => ({
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
   useEffect(() => { 
-    if (Platform.OS === 'web' && (user?.rol === 'beheerder' || user?.rol === 'admin')) {
+    // Wait for both user and token to be loaded before fetching data
+    // Admin roles: master_admin, admin
+    if (Platform.OS === 'web' && token && !authLoading && (user?.rol === 'master_admin' || user?.rol === 'admin')) {
       fetchData(); 
     }
-  }, [user]);
+  }, [user, token, authLoading]);
 
   const fetchData = async () => {
+    // Don't fetch if token is not available
+    if (!token) {
+      console.warn('No token available for API requests');
+      return;
+    }
+    
     try {
       setLoading(true);
       
-      // axios automatically includes Authorization header from AuthContext
       const [werknemersRes, teamsRes] = await Promise.all([
-        axios.get(`${API_URL}/api/auth/users`),
-        axios.get(`${API_URL}/api/teams`),
+        apiClient.get(`/api/auth/users`, getAuthConfig()),
+        apiClient.get(`/api/teams`, getAuthConfig()),
       ]);
       
       setWerknemers(Array.isArray(werknemersRes.data) ? werknemersRes.data : []);
@@ -137,7 +150,7 @@ export default function WerknemersAdmin() {
         if (formData.password && formData.password.trim()) {
           updateBody.wachtwoord_plain = formData.password.trim();
         }
-        await axios.put(`${API_URL}/api/auth/users/${editingWerknemer.id}`, updateBody);
+        await apiClient.put(`/api/auth/users/${editingWerknemer.id}`, updateBody, getAuthConfig());
       } else {
         // Create new worker
         const password = formData.password || `Smart${Math.floor(1000 + Math.random() * 9000)}`;
@@ -151,7 +164,7 @@ export default function WerknemersAdmin() {
         if (formData.telefoon) params.append('telefoon', formData.telefoon);
         if (formData.werkbon_types.length > 0) params.append('werkbon_types', formData.werkbon_types.join(','));
         
-        await axios.post(`${API_URL}/api/auth/register-worker?${params.toString()}`);
+        await apiClient.post(`/api/auth/register-worker?${params.toString()}`, {}, getAuthConfig());
         
         alert(`✅ Werknemer aangemaakt als ${formData.rol}!\n\nInloggegevens:\nE-mail: ${formData.email}\nWachtwoord: ${password}\n\n📋 Sla dit wachtwoord op.`);
       }
@@ -168,12 +181,11 @@ export default function WerknemersAdmin() {
   const resendEmail = async (w: Werknemer) => {
     setSendingEmail(w.id);
     try {
-      const res = await fetch(`${API_URL}/api/auth/users/${w.id}/resend-info`, { method: 'POST' });
-      const result = await res.json();
-      if (result.email_sent) {
-        alert(`✅ E-mail verstuurd naar ${w.email}\n\nNieuw wachtwoord: ${result.temp_password}`);
+      const res = await apiClient.post(`/api/auth/users/${w.id}/resend-info`, {}, getAuthConfig());
+      if (res.data.email_sent) {
+        alert(`✅ E-mail verstuurd naar ${w.email}\n\nNieuw wachtwoord: ${res.data.temp_password}`);
       } else {
-        alert(`❌ E-mail kon niet worden verzonden: ${result.email_error || 'Onbekende fout'}`);
+        alert(`❌ E-mail kon niet worden verzonden: ${res.data.email_error || 'Onbekende fout'}`);
       }
       fetchData();
     } catch (error) {
@@ -186,11 +198,7 @@ export default function WerknemersAdmin() {
 
   const toggleActief = async (w: Werknemer) => {
     try {
-      await fetch(`${API_URL}/api/auth/users/${w.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ actief: !w.actief }),
-      });
+      await apiClient.put(`/api/auth/users/${w.id}`, { actief: !w.actief }, getAuthConfig());
       fetchData();
     } catch (error) {
       console.error('Error:', error);
@@ -200,7 +208,7 @@ export default function WerknemersAdmin() {
   const deleteWerknemer = async (id: string) => {
     if (!confirm('Weet u zeker dat u deze werknemer wilt verwijderen?')) return;
     try {
-      await axios.delete(`${API_URL}/api/auth/users/${id}`);
+      await apiClient.delete(`/api/auth/users/${id}`, getAuthConfig());
       fetchData();
     } catch (error: any) {
       console.error('Error:', error);
@@ -221,11 +229,10 @@ export default function WerknemersAdmin() {
     
     setLoadingPassword(w.id);
     try {
-      const res = await fetch(`${API_URL}/api/auth/user-password/${w.id}`);
-      const data = await res.json();
+      const res = await apiClient.get(`/api/auth/user-password/${w.id}`, getAuthConfig());
       setVisiblePasswords(prev => ({
         ...prev,
-        [w.id]: data.wachtwoord || '(niet beschikbaar)'
+        [w.id]: res.data.wachtwoord || '(niet beschikbaar)'
       }));
     } catch (error) {
       console.error('Error:', error);
@@ -252,25 +259,18 @@ export default function WerknemersAdmin() {
     }
     
     try {
-      const res = await fetch(`${API_URL}/api/auth/admin-reset-password/${passwordUser.id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ new_password: newPassword }),
-      });
+      const res = await apiClient.post(`/api/auth/admin-reset-password/${passwordUser.id}`, { new_password: newPassword }, getAuthConfig());
       
-      if (res.ok) {
+      if (res.status === 200) {
         alert(`Wachtwoord voor ${passwordUser.naam} is gewijzigd naar: ${newPassword}`);
         setVisiblePasswords(prev => ({ ...prev, [passwordUser.id]: newPassword }));
         setShowPasswordModal(false);
         setPasswordUser(null);
         setNewPassword('');
-      } else {
-        const data = await res.json();
-        alert(data.detail || 'Fout bij wijzigen wachtwoord');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error:', error);
-      alert('Fout bij wijzigen wachtwoord');
+      alert(error.response?.data?.detail || 'Fout bij wijzigen wachtwoord');
     }
   };
 
