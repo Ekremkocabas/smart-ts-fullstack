@@ -1,244 +1,588 @@
 /**
- * Unified Werkbon Review - Overview of filled data
- * Step 2: Review all entered data before signing
+ * Werkbon Review - Control Page (Step 3)
+ * Shows summary of all entered data for final review before signing
  */
 
 import React from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
-  ScrollView,
   StyleSheet,
-  Image,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../../context/ThemeContext';
-
-const TYPE_LABELS: Record<string, string> = {
-  productie: 'Productie Werkbon',
-  oplevering: 'Oplevering Werkbon',
-  project: 'Project Werkbon',
-};
+import { useWerkbonFormStore } from '../../store/werkbonFormStore';
 
 export default function WerkbonReview() {
   const router = useRouter();
-  const { formData: formDataStr } = useLocalSearchParams<{ formData: string }>();
-  const { theme } = useTheme();
   const insets = useSafeAreaInsets();
+  const { theme } = useTheme();
   
-  const primary = theme.primaryColor || '#F5A623';
-  
-  // Parse form data
-  let formData: any = {};
-  try {
-    formData = JSON.parse(formDataStr || '{}');
-  } catch (e) {
-    console.error('Failed to parse form data:', e);
-  }
+  const {
+    type,
+    klantId, klantNaam, manualKlantNaam,
+    werfId, werfNaam, manualWerfNaam,
+    datum, opmerkingen, gps, photos,
+    urenData, opleveringData, projectData, prestatieData,
+    validateStep, validationErrors, nextStep,
+  } = useWerkbonFormStore();
 
-  const handleNext = () => {
-    // Pass data to sign page
-    router.push({
-      pathname: '/werkbon/sign',
-      params: { formData: formDataStr },
-    });
+  const primary = theme?.primaryColor || '#F5A623';
+
+  const getDisplayKlant = () => klantNaam || manualKlantNaam || '-';
+  const getDisplayWerf = () => werfNaam || manualWerfNaam || '-';
+
+  const getTypeTitle = () => {
+    switch (type) {
+      case 'uren': return 'Uren Werkbon';
+      case 'oplevering': return 'Oplevering';
+      case 'project': return 'Project';
+      case 'prestatie': return 'Prestatie';
+      default: return 'Werkbon';
+    }
   };
 
-  const handleBack = () => {
-    router.back();
+  const getTypeColor = () => {
+    switch (type) {
+      case 'uren': return '#3498db';
+      case 'oplevering': return '#27ae60';
+      case 'project': return '#9b59b6';
+      case 'prestatie': return '#e67e22';
+      default: return primary;
+    }
   };
 
-  const renderSection = (title: string, content: React.ReactNode) => (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      {content}
-    </View>
-  );
-
-  const renderRow = (label: string, value: string | null | undefined) => {
-    if (!value) return null;
-    return (
-      <View style={styles.row}>
-        <Text style={styles.rowLabel}>{label}</Text>
-        <Text style={styles.rowValue}>{value}</Text>
-      </View>
-    );
+  // Calculate totals for uren
+  const getTotalUren = () => {
+    if (type !== 'uren') return 0;
+    return urenData.urenRegels.reduce((total, regel) => {
+      return total + regel.maandag + regel.dinsdag + regel.woensdag + 
+             regel.donderdag + regel.vrijdag + regel.zaterdag + regel.zondag;
+    }, 0);
   };
 
-  const renderList = (items: string[]) => {
-    if (!items || items.length === 0) return null;
-    return (
-      <View style={styles.listContainer}>
-        {items.map((item, index) => (
-          <View key={index} style={styles.listItem}>
-            <View style={styles.listBullet} />
-            <Text style={styles.listText}>{item}</Text>
-          </View>
-        ))}
-      </View>
-    );
+  const handleProceedToSign = () => {
+    // Validate all required fields
+    const errors = validateStep(2);
+    if (errors.length > 0) {
+      Alert.alert(
+        'Onvolledige gegevens',
+        'De volgende velden moeten nog worden ingevuld:\n\n' + 
+        errors.map(e => `• ${e.message}`).join('\n'),
+        [
+          { text: 'Terug naar formulier', onPress: () => router.back() },
+          { text: 'OK', style: 'cancel' }
+        ]
+      );
+      return;
+    }
+    
+    nextStep();
+    router.push('/werkbon/sign');
   };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color="#1A1A2E" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Overzicht</Text>
-        <View style={styles.pageIndicators}>
-          <View style={styles.pageIndicator} />
-          <View style={[styles.pageIndicator, { backgroundColor: primary }]} />
-          <View style={styles.pageIndicator} />
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle}>Controle</Text>
+          <Text style={styles.headerStep}>Stap 2 van 3</Text>
         </View>
+        <View style={{ width: 44 }} />
       </View>
 
       <ScrollView 
         style={styles.content}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 120 }}
       >
-        {/* Werkbon Type */}
-        <View style={[styles.typeCard, { borderLeftColor: primary }]}>
-          <Ionicons name="document-text" size={24} color={primary} />
-          <Text style={styles.typeText}>{TYPE_LABELS[formData.type] || 'Werkbon'}</Text>
+        {/* Type Badge */}
+        <View style={[styles.typeBadge, { backgroundColor: getTypeColor() + '15' }]}>
+          <Ionicons 
+            name={
+              type === 'uren' ? 'time-outline' :
+              type === 'oplevering' ? 'checkmark-done-outline' :
+              type === 'project' ? 'briefcase-outline' : 'construct-outline'
+            } 
+            size={24} 
+            color={getTypeColor()} 
+          />
+          <Text style={[styles.typeBadgeText, { color: getTypeColor() }]}>{getTypeTitle()}</Text>
         </View>
 
-        {/* Klant Info */}
-        {renderSection('Klantgegevens', (
-          <>
-            {renderRow('Klant', formData.klant?.naam)}
-            {renderRow('Werf', formData.werf?.naam)}
-          </>
-        ))}
+        {/* General Info */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Algemene gegevens</Text>
+          
+          <View style={styles.infoRow}>
+            <Ionicons name="business-outline" size={18} color="#6C7A89" />
+            <Text style={styles.infoLabel}>Klant</Text>
+            <Text style={styles.infoValue}>{getDisplayKlant()}</Text>
+          </View>
+          
+          <View style={styles.infoRow}>
+            <Ionicons name="location-outline" size={18} color="#6C7A89" />
+            <Text style={styles.infoLabel}>Werf</Text>
+            <Text style={styles.infoValue}>{getDisplayWerf()}</Text>
+          </View>
+          
+          <View style={styles.infoRow}>
+            <Ionicons name="calendar-outline" size={18} color="#6C7A89" />
+            <Text style={styles.infoLabel}>Datum</Text>
+            <Text style={styles.infoValue}>{datum}</Text>
+          </View>
+        </View>
 
-        {/* Type-specific data */}
-        {formData.type === 'productie' && renderSection('Productie Details', (
-          <>
-            {renderRow('Product Type', formData.productType)}
-            {renderRow('Hoeveelheid', formData.hoeveelheid ? `${formData.hoeveelheid} ${formData.eenheid}` : null)}
-          </>
-        ))}
+        {/* Type-specific Details */}
+        {type === 'uren' && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Urenregistratie - Week {urenData.weekNummer}</Text>
+            
+            {urenData.urenRegels.filter(r => r.teamlidNaam.trim()).map((regel, index) => {
+              const total = regel.maandag + regel.dinsdag + regel.woensdag + 
+                           regel.donderdag + regel.vrijdag + regel.zaterdag + regel.zondag;
+              return (
+                <View key={index} style={styles.urenRegelSummary}>
+                  <Text style={styles.teamlidName}>{regel.teamlidNaam}</Text>
+                  <Text style={styles.urenTotal}>{total} uur</Text>
+                </View>
+              );
+            })}
+            
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Totaal</Text>
+              <Text style={[styles.totalValue, { color: primary }]}>{getTotalUren()} uur</Text>
+            </View>
 
-        {formData.type === 'oplevering' && (
-          <>
-            {renderSection('Oplevering Details', (
-              <>
-                {renderRow('Omschrijving', formData.omschrijving)}
-              </>
-            ))}
-            {formData.punten?.length > 0 && renderSection('Opleverpunten', renderList(formData.punten))}
-          </>
+            {urenData.uitgevoerdeWerken && (
+              <View style={styles.descriptionBlock}>
+                <Text style={styles.descriptionLabel}>Uitgevoerde werken</Text>
+                <Text style={styles.descriptionText}>{urenData.uitgevoerdeWerken}</Text>
+              </View>
+            )}
+          </View>
         )}
 
-        {formData.type === 'project' && (
-          <>
-            {renderSection('Project Details', (
-              <>
-                {renderRow('Projectnaam', formData.projectNaam)}
-              </>
-            ))}
-            {formData.taken?.length > 0 && renderSection('Uitgevoerde taken', renderList(formData.taken))}
-          </>
+        {type === 'oplevering' && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Oplevering Details</Text>
+            
+            <View style={styles.descriptionBlock}>
+              <Text style={styles.descriptionLabel}>Omschrijving</Text>
+              <Text style={styles.descriptionText}>{opleveringData.omschrijving || '-'}</Text>
+            </View>
+
+            <View style={styles.checklistSummary}>
+              <Text style={styles.descriptionLabel}>Opleverpunten</Text>
+              {opleveringData.opleverpunten.map((punt) => (
+                <View key={punt.id} style={styles.checkItem}>
+                  <Ionicons 
+                    name={punt.checked ? 'checkbox' : 'square-outline'} 
+                    size={18} 
+                    color={punt.checked ? '#27ae60' : '#C4C4C4'} 
+                  />
+                  <Text style={[styles.checkItemText, !punt.checked && styles.checkItemUnchecked]}>
+                    {punt.text}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
         )}
 
-        {/* Location */}
-        {(formData.gpsAddress || formData.gpsCoords) && renderSection('Locatie', (
-          <>
-            {renderRow('Adres', formData.gpsAddress)}
-            {renderRow('Coördinaten', formData.gpsCoords)}
-          </>
-        ))}
+        {type === 'project' && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Project Details</Text>
+            
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Project</Text>
+              <Text style={styles.infoValue}>{projectData.projectNaam || '-'}</Text>
+            </View>
+            
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Status</Text>
+              <View style={[styles.statusBadge, { backgroundColor: getStatusColor(projectData.status) + '20' }]}>
+                <Text style={[styles.statusText, { color: getStatusColor(projectData.status) }]}>
+                  {getStatusLabel(projectData.status)}
+                </Text>
+              </View>
+            </View>
 
-        {/* Photos */}
-        {formData.photos?.length > 0 && renderSection(`Foto's (${formData.photos.length})`, (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photosScroll}>
-            {formData.photos.map((photo: string, index: number) => (
-              <Image key={index} source={{ uri: photo }} style={styles.photoThumbnail} />
-            ))}
-          </ScrollView>
-        ))}
+            <View style={styles.descriptionBlock}>
+              <Text style={styles.descriptionLabel}>Uitgevoerde werken</Text>
+              <Text style={styles.descriptionText}>{projectData.uitgevoerdeWerken || '-'}</Text>
+            </View>
 
-        {/* Notes */}
-        {formData.opmerking && renderSection('Opmerkingen', (
-          <Text style={styles.noteText}>{formData.opmerking}</Text>
-        ))}
+            {projectData.taken.length > 0 && (
+              <View style={styles.checklistSummary}>
+                <Text style={styles.descriptionLabel}>Taken ({projectData.taken.filter(t => t.completed).length}/{projectData.taken.length})</Text>
+                {projectData.taken.map((taak) => (
+                  <View key={taak.id} style={styles.checkItem}>
+                    <Ionicons 
+                      name={taak.completed ? 'checkbox' : 'square-outline'} 
+                      size={18} 
+                      color={taak.completed ? '#27ae60' : '#C4C4C4'} 
+                    />
+                    <Text style={[styles.checkItemText, !taak.completed && styles.checkItemUnchecked]}>
+                      {taak.text}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
 
-        <View style={{ height: 100 }} />
+            {projectData.zone && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Zone</Text>
+                <Text style={styles.infoValue}>{projectData.zone}</Text>
+              </View>
+            )}
+
+            {projectData.vervolgwerkNodig && (
+              <View style={styles.warningBox}>
+                <Ionicons name="warning-outline" size={18} color="#e67e22" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.warningTitle}>Vervolgwerk nodig</Text>
+                  <Text style={styles.warningText}>{projectData.vervolgwerkBeschrijving || '-'}</Text>
+                </View>
+              </View>
+            )}
+
+            {projectData.hindernissen && (
+              <View style={styles.descriptionBlock}>
+                <Text style={styles.descriptionLabel}>Hindernissen</Text>
+                <Text style={styles.descriptionText}>{projectData.hindernissen}</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {type === 'prestatie' && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Prestatie Details</Text>
+            
+            <View style={styles.prestatieHighlight}>
+              <Text style={styles.prestatieWerk}>{prestatieData.werkNaam || '-'}</Text>
+              <Text style={styles.prestatieAmount}>
+                {prestatieData.hoeveelheid || 0} {prestatieData.eenheid}
+              </Text>
+            </View>
+
+            {prestatieData.dikteCm && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Dikte</Text>
+                <Text style={styles.infoValue}>{prestatieData.dikteCm} cm</Text>
+              </View>
+            )}
+
+            {prestatieData.aantalLagen && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Aantal lagen</Text>
+                <Text style={styles.infoValue}>{prestatieData.aantalLagen}</Text>
+              </View>
+            )}
+
+            {prestatieData.zone && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Zone</Text>
+                <Text style={styles.infoValue}>{prestatieData.zone}</Text>
+              </View>
+            )}
+
+            {prestatieData.werkOmschrijving && (
+              <View style={styles.descriptionBlock}>
+                <Text style={styles.descriptionLabel}>Omschrijving</Text>
+                <Text style={styles.descriptionText}>{prestatieData.werkOmschrijving}</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Photos & GPS */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Bijlagen</Text>
+          
+          <View style={styles.attachmentRow}>
+            <View style={styles.attachmentItem}>
+              <Ionicons 
+                name="images-outline" 
+                size={24} 
+                color={photos.length > 0 ? '#27ae60' : '#C4C4C4'} 
+              />
+              <Text style={styles.attachmentText}>
+                {photos.length > 0 ? `${photos.length} foto's` : 'Geen foto\'s'}
+              </Text>
+            </View>
+            
+            <View style={styles.attachmentItem}>
+              <Ionicons 
+                name="location-outline" 
+                size={24} 
+                color={gps.address ? '#27ae60' : '#C4C4C4'} 
+              />
+              <Text style={styles.attachmentText}>
+                {gps.address ? 'GPS vastgelegd' : 'Geen GPS'}
+              </Text>
+            </View>
+          </View>
+
+          {gps.address && (
+            <View style={styles.gpsAddress}>
+              <Ionicons name="navigate" size={16} color="#6C7A89" />
+              <Text style={styles.gpsAddressText}>{gps.address}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Opmerkingen */}
+        {opmerkingen && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Opmerkingen</Text>
+            <Text style={styles.opmerkingenText}>{opmerkingen}</Text>
+          </View>
+        )}
+
+        {/* Info Box */}
+        <View style={styles.infoBox}>
+          <Ionicons name="information-circle-outline" size={20} color="#3498db" />
+          <Text style={styles.infoBoxText}>
+            Controleer alle gegevens voordat u verder gaat naar de ondertekening.
+          </Text>
+        </View>
       </ScrollView>
 
-      {/* Fixed Footer */}
-      <View style={[styles.fixedFooter, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+      {/* Footer */}
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
         <TouchableOpacity
-          style={[styles.primaryButton, { backgroundColor: primary }]}
-          onPress={handleNext}
+          style={styles.backButtonFooter}
+          onPress={() => router.back()}
         >
-          <Text style={styles.primaryButtonText}>Volgende — Ondertekenen</Text>
-          <Ionicons name="arrow-forward" size={20} color="#000" />
+          <Ionicons name="arrow-back" size={20} color="#6C7A89" />
+          <Text style={styles.backButtonFooterText}>Terug</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[styles.signButton, { backgroundColor: primary }]}
+          onPress={handleProceedToSign}
+        >
+          <Ionicons name="create-outline" size={20} color="#1A1A2E" />
+          <Text style={styles.signButtonText}>Ondertekenen</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
 }
 
+// Helper functions
+function getStatusColor(status: string): string {
+  switch (status) {
+    case 'gestart': return '#3498db';
+    case 'in_uitvoering': return '#f39c12';
+    case 'afgewerkt': return '#27ae60';
+    case 'niet_afgewerkt': return '#e74c3c';
+    case 'wacht_op_goedkeuring': return '#9b59b6';
+    default: return '#6C7A89';
+  }
+}
+
+function getStatusLabel(status: string): string {
+  switch (status) {
+    case 'gestart': return 'Gestart';
+    case 'in_uitvoering': return 'In uitvoering';
+    case 'afgewerkt': return 'Afgewerkt';
+    case 'niet_afgewerkt': return 'Niet afgewerkt';
+    case 'wacht_op_goedkeuring': return 'Wacht op goedkeuring';
+    default: return status;
+  }
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F6FA' },
+  
   header: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingVertical: 12,
-    backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E8E9ED',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E8E9ED',
   },
   backButton: {
-    width: 40, height: 40, borderRadius: 20, backgroundColor: '#F5F6FA',
-    justifyContent: 'center', alignItems: 'center',
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: '#F5F6FA', justifyContent: 'center', alignItems: 'center',
   },
-  headerTitle: { flex: 1, fontSize: 18, fontWeight: '700', color: '#1A1A2E', textAlign: 'center' },
-  pageIndicators: { flexDirection: 'row', gap: 6, width: 50, justifyContent: 'flex-end' },
-  pageIndicator: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#E8E9ED' },
-  content: { flex: 1 },
-  scrollContent: { padding: 16 },
-  typeCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#FFFFFF', borderRadius: 12, padding: 16, marginBottom: 16,
-    borderLeftWidth: 4,
+  headerCenter: { flex: 1, alignItems: 'center' },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#1A1A2E' },
+  headerStep: { fontSize: 13, color: '#6C7A89', marginTop: 2 },
+  
+  content: { flex: 1, padding: 16 },
+  
+  typeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginBottom: 16,
+    alignSelf: 'center',
   },
-  typeText: { fontSize: 18, fontWeight: '700', color: '#1A1A2E' },
-  section: {
-    backgroundColor: '#FFFFFF', borderRadius: 12, padding: 16, marginBottom: 12,
+  typeBadgeText: { fontSize: 16, fontWeight: '600' },
+  
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
   },
-  sectionTitle: {
-    fontSize: 14, fontWeight: '600', color: '#8C9199', marginBottom: 12,
-    textTransform: 'uppercase', letterSpacing: 0.5,
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1A1A2E',
+    marginBottom: 16,
   },
-  row: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
-    paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#F5F6FA',
+  
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F5F6FA',
+    gap: 10,
   },
-  rowLabel: { fontSize: 15, color: '#6c757d', flex: 1 },
-  rowValue: { fontSize: 15, fontWeight: '500', color: '#1A1A2E', flex: 2, textAlign: 'right' },
-  listContainer: { marginTop: 4 },
-  listItem: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 },
-  listBullet: {
-    width: 6, height: 6, borderRadius: 3, backgroundColor: '#F5A623',
-    marginTop: 6, marginRight: 10,
+  infoLabel: { flex: 1, fontSize: 14, color: '#6C7A89' },
+  infoValue: { fontSize: 15, fontWeight: '500', color: '#1A1A2E' },
+  
+  // Uren specific
+  urenRegelSummary: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F5F6FA',
   },
-  listText: { flex: 1, fontSize: 15, color: '#1A1A2E', lineHeight: 22 },
-  photosScroll: { marginTop: 8 },
-  photoThumbnail: {
-    width: 80, height: 80, borderRadius: 8, marginRight: 8, backgroundColor: '#E8E9ED',
+  teamlidName: { fontSize: 15, color: '#1A1A2E' },
+  urenTotal: { fontSize: 15, fontWeight: '600', color: '#1A1A2E' },
+  totalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 12,
+    marginTop: 8,
+    borderTopWidth: 2,
+    borderTopColor: '#E8E9ED',
   },
-  noteText: { fontSize: 15, color: '#1A1A2E', lineHeight: 22 },
-  fixedFooter: {
-    backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: '#E8E9ED',
-    paddingHorizontal: 16, paddingTop: 12,
+  totalLabel: { fontSize: 16, fontWeight: '600', color: '#1A1A2E' },
+  totalValue: { fontSize: 18, fontWeight: '700' },
+  
+  descriptionBlock: { marginTop: 16 },
+  descriptionLabel: { fontSize: 14, fontWeight: '500', color: '#6C7A89', marginBottom: 6 },
+  descriptionText: { fontSize: 15, color: '#1A1A2E', lineHeight: 22 },
+  
+  // Checklist
+  checklistSummary: { marginTop: 16 },
+  checkItem: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
+  checkItemText: { fontSize: 14, color: '#1A1A2E' },
+  checkItemUnchecked: { color: '#6C7A89' },
+  
+  // Project
+  statusBadge: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 8 },
+  statusText: { fontSize: 13, fontWeight: '500' },
+  warningBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: '#FFF8E7',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 16,
   },
-  primaryButton: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, paddingVertical: 16, borderRadius: 12, minHeight: 56,
+  warningTitle: { fontSize: 14, fontWeight: '600', color: '#e67e22' },
+  warningText: { fontSize: 13, color: '#6C7A89', marginTop: 4 },
+  
+  // Prestatie
+  prestatieHighlight: {
+    backgroundColor: '#F5F6FA',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    marginBottom: 16,
   },
-  primaryButtonText: { fontSize: 18, fontWeight: '700', color: '#000' },
+  prestatieWerk: { fontSize: 18, fontWeight: '700', color: '#1A1A2E', marginBottom: 4 },
+  prestatieAmount: { fontSize: 24, fontWeight: '700', color: '#e67e22' },
+  
+  // Attachments
+  attachmentRow: { flexDirection: 'row', gap: 16 },
+  attachmentItem: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  attachmentText: { fontSize: 14, color: '#6C7A89' },
+  gpsAddress: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 12,
+    padding: 10,
+    backgroundColor: '#F5F6FA',
+    borderRadius: 8,
+  },
+  gpsAddressText: { flex: 1, fontSize: 13, color: '#6C7A89' },
+  
+  opmerkingenText: { fontSize: 15, color: '#1A1A2E', lineHeight: 22 },
+  
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#E3F2FD',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 20,
+  },
+  infoBoxText: { flex: 1, fontSize: 14, color: '#1565C0', lineHeight: 20 },
+  
+  // Footer
+  footer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    gap: 12,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E8E9ED',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  backButtonFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    backgroundColor: '#F5F6FA',
+  },
+  backButtonFooterText: { fontSize: 15, fontWeight: '500', color: '#6C7A89' },
+  signButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+  },
+  signButtonText: { fontSize: 16, fontWeight: '600', color: '#1A1A2E' },
 });
