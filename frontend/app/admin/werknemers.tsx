@@ -285,7 +285,7 @@ export default function WerknemersAdmin() {
     );
   }
   
-  if (user?.rol !== 'beheerder' && user?.rol !== 'admin') {
+  if (user?.rol !== 'master_admin' && user?.rol !== 'admin') {
     return (
       <View style={styles.container}>
         <View style={styles.noAccess}>

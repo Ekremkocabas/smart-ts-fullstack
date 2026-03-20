@@ -4,7 +4,19 @@ import axios from 'axios';
 import { Platform } from 'react-native';
 import { registerForPushNotifications } from '../utils/notifications';
 
-const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+// Determine backend URL: use env variable, or window.location.origin for web (Railway deployment)
+const getBackendUrl = () => {
+  if (process.env.EXPO_PUBLIC_BACKEND_URL) {
+    return process.env.EXPO_PUBLIC_BACKEND_URL;
+  }
+  // For web deployment (Railway), use current origin
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    return window.location.origin;
+  }
+  return '';
+};
+
+const BACKEND_URL = getBackendUrl();
 
 // Create a configured axios instance
 export const apiClient = axios.create({
