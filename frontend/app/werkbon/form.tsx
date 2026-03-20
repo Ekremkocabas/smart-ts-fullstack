@@ -424,7 +424,7 @@ export default function WerkbonForm() {
         {/* Fixed Footer */}
         <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
           <TouchableOpacity
-            style={[styles.nextButton, { backgroundColor: primary }]}
+            style={styles.nextButton}
             onPress={handleNext}
           >
             <Text style={styles.nextButtonText}>Volgende</Text>
@@ -1200,6 +1200,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 16,
     borderRadius: 12,
+    backgroundColor: '#FFD966', // Light yellow for better visibility
   },
   nextButtonText: { fontSize: 17, fontWeight: '600', color: '#1A1A2E' },
   

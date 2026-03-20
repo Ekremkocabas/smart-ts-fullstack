@@ -249,7 +249,7 @@ export default function WerkbonnenScreen() {
           <TouchableOpacity
             testID="empty-state-werkbon-add-button"
             style={styles.emptyButton}
-            onPress={() => router.push('/werkbon/nieuw')}
+            onPress={() => router.push('/werkbon')}
           >
             <Text style={styles.emptyButtonText}>Nieuwe Werkbon</Text>
           </TouchableOpacity>
@@ -270,9 +270,9 @@ export default function WerkbonnenScreen() {
         <TouchableOpacity style={styles.typeModalOverlay} activeOpacity={1} onPress={() => setShowTypeModal(false)}>
           <View style={styles.typeModalContent}>
             <Text style={styles.typeModalTitle}>Werkbon type kiezen</Text>
-            {/* Uren Werkbon - keep original flow */}
+            {/* All types use the new unified flow at /werkbon */}
             {(user?.werkbon_types?.includes('uren') || isAdmin) && (
-              <TouchableOpacity style={styles.typeOption} onPress={() => { setShowTypeModal(false); router.push('/werkbon/nieuw'); }}>
+              <TouchableOpacity style={styles.typeOption} onPress={() => { setShowTypeModal(false); router.push('/werkbon'); }}>
                 <View style={[styles.typeIcon, { backgroundColor: '#3498db15' }]}>
                   <Ionicons name="time-outline" size={24} color="#3498db" />
                 </View>
@@ -285,7 +285,7 @@ export default function WerkbonnenScreen() {
             )}
             {/* Oplevering Werkbon - unified flow */}
             {(user?.werkbon_types?.includes('oplevering') || isAdmin) && (
-              <TouchableOpacity style={styles.typeOption} onPress={() => { setShowTypeModal(false); router.push({ pathname: '/werkbon/form', params: { type: 'oplevering' }}); }}>
+              <TouchableOpacity style={styles.typeOption} onPress={() => { setShowTypeModal(false); router.push('/werkbon'); }}>
                 <View style={[styles.typeIcon, { backgroundColor: '#28a74515' }]}>
                   <Ionicons name="checkmark-done-outline" size={24} color="#28a745" />
                 </View>
@@ -298,7 +298,7 @@ export default function WerkbonnenScreen() {
             )}
             {/* Project Werkbon - unified flow */}
             {(user?.werkbon_types?.includes('project') || isAdmin) && (
-              <TouchableOpacity style={styles.typeOption} onPress={() => { setShowTypeModal(false); router.push({ pathname: '/werkbon/form', params: { type: 'project' }}); }}>
+              <TouchableOpacity style={styles.typeOption} onPress={() => { setShowTypeModal(false); router.push('/werkbon'); }}>
                 <View style={[styles.typeIcon, { backgroundColor: '#F5A62315' }]}>
                   <Ionicons name="location-outline" size={24} color="#F5A623" />
                 </View>
@@ -311,7 +311,7 @@ export default function WerkbonnenScreen() {
             )}
             {/* Productie/Prestatie Werkbon - unified flow */}
             {(user?.werkbon_types?.includes('productie') || isAdmin) && (
-              <TouchableOpacity style={styles.typeOption} onPress={() => { setShowTypeModal(false); router.push({ pathname: '/werkbon/form', params: { type: 'productie' }}); }}>
+              <TouchableOpacity style={styles.typeOption} onPress={() => { setShowTypeModal(false); router.push('/werkbon'); }}>
                 <View style={[styles.typeIcon, { backgroundColor: '#9b59b615' }]}>
                   <Ionicons name="layers-outline" size={24} color="#9b59b6" />
                 </View>

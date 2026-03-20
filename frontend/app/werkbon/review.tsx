@@ -370,7 +370,7 @@ export default function WerkbonReview() {
         </TouchableOpacity>
         
         <TouchableOpacity
-          style={[styles.signButton, { backgroundColor: primary }]}
+          style={styles.signButton}
           onPress={handleProceedToSign}
         >
           <Ionicons name="create-outline" size={20} color="#1A1A2E" />
@@ -583,6 +583,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 14,
     borderRadius: 12,
+    backgroundColor: '#FFD966', // Light yellow for better visibility
   },
   signButtonText: { fontSize: 16, fontWeight: '600', color: '#1A1A2E' },
 });

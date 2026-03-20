@@ -725,7 +725,6 @@ export default function WerkbonSign() {
         <TouchableOpacity
           style={[
             styles.submitButton,
-            { backgroundColor: primary },
             (!hasSignature || !confirmationChecked || isSubmitting) && styles.submitButtonDisabled,
           ]}
           onPress={handleSubmit}
@@ -1014,9 +1013,11 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 12,
     minHeight: 56,
+    backgroundColor: '#FFD966', // Light yellow for better visibility
   },
   submitButtonDisabled: {
-    opacity: 0.6,
+    opacity: 0.5,
+    backgroundColor: '#E8E9ED',
   },
   submitButtonText: {
     fontSize: 18,
