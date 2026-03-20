@@ -1,9 +1,18 @@
 /**
- * Unified Werkbon Sign - Signature Page
+ * Werkbon Sign - Signature Page (Step 4)
  * Final step: Sign the werkbon and submit
  * 
  * CRITICAL: The signature canvas is OUTSIDE the ScrollView
  * to prevent scrolling issues on the signature pad.
+ * 
+ * Features:
+ * - Signer name input
+ * - Signature canvas (web & native)
+ * - Selfie camera capture
+ * - GPS verification
+ * - SMS verification button (DISABLED for now)
+ * - Confirmation checkbox
+ * - Submit to backend
  */
 
 import React, { useRef, useState, useEffect } from 'react';
@@ -17,16 +26,19 @@ import {
   Alert,
   Platform,
   Switch,
-  KeyboardAvoidingView,
+  Image,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import axios from 'axios';
 
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
-import { GPSLocation } from '../../components/werkbon/GPSLocation';
+import { useWerkbonFormStore } from '../../store/werkbonFormStore';
 
 // Legal text
 const LEGAL_TEXT = `Door ondertekening van deze werkbon bevestigt de klant dat de hierboven beschreven werkzaamheden naar tevredenheid zijn uitgevoerd en dat de gegevens correct zijn. Deze werkbon dient als bewijs van uitgevoerde werkzaamheden en kan worden gebruikt voor facturatie.`;
@@ -183,37 +195,108 @@ const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
 export default function WerkbonSign() {
   const router = useRouter();
-  const { formData: formDataStr } = useLocalSearchParams<{ formData: string }>();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const signatureRef = useRef<any>(null);
   
-  const primary = theme.primaryColor || '#F5A623';
+  const primary = theme?.primaryColor || '#F5A623';
   
-  // Parse form data
-  let formData: any = {};
-  try {
-    formData = JSON.parse(formDataStr || '{}');
-  } catch (e) {
-    console.error('Failed to parse form data:', e);
-  }
+  // Get all data from Zustand store
+  const {
+    type,
+    klantId, klantNaam, manualKlantNaam,
+    werfId, werfNaam, manualWerfNaam,
+    datum, opmerkingen, gps, photos,
+    urenData, opleveringData, projectData, prestatieData,
+    signerName, signature, selfie, sendToCustomer, confirmationChecked,
+    setSignerName, setSignature, setSelfie, setSendToCustomer, setConfirmationChecked,
+    setGPS,
+    validateStep, validationErrors, clearErrors,
+    setSubmitting, setSubmitError, isSubmitting,
+    clearDraft,
+    getTypeData,
+  } = useWerkbonFormStore();
 
-  // State
-  const [signerName, setSignerName] = useState('');
+  // Local state
   const [hasSignature, setHasSignature] = useState(false);
-  const [gpsCoords, setGpsCoords] = useState(formData.gpsCoords || '');
-  const [gpsAddress, setGpsAddress] = useState(formData.gpsAddress || '');
-  const [sendToCustomer, setSendToCustomer] = useState(false);
-  const [saving, setSaving] = useState(false);
-  
-  // For native: store signature when onOK is called
   const [nativeSignatureData, setNativeSignatureData] = useState<string | null>(null);
+  const [gpsLoading, setGpsLoading] = useState(false);
 
-  const handleSignatureOk = (signature: string) => {
-    // Called by native SignatureScreen when user finishes signing
-    setNativeSignatureData(signature);
+  // Redirect if no type selected
+  useEffect(() => {
+    if (!type) {
+      router.replace('/werkbon');
+    }
+  }, [type]);
+
+  // Auto-fetch GPS on mount if not already captured
+  useEffect(() => {
+    if (!gps.address && !gps.failed) {
+      fetchGPS();
+    }
+  }, []);
+
+  const fetchGPS = async () => {
+    setGpsLoading(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setGPS({ failed: true, failureReason: 'permission_denied' });
+        setGpsLoading(false);
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+
+      // Reverse geocode
+      try {
+        const [address] = await Location.reverseGeocodeAsync({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        });
+
+        let addressStr = '';
+        if (address) {
+          const parts = [address.street, address.streetNumber, address.postalCode, address.city].filter(Boolean);
+          addressStr = parts.join(' ');
+        }
+
+        setGPS({
+          lat: location.coords.latitude,
+          lng: location.coords.longitude,
+          accuracy: location.coords.accuracy,
+          address: addressStr || `${location.coords.latitude.toFixed(6)}, ${location.coords.longitude.toFixed(6)}`,
+          capturedAt: new Date().toISOString(),
+          failed: false,
+          failureReason: null,
+        });
+      } catch (geoError) {
+        // Geocoding failed but we have coords
+        setGPS({
+          lat: location.coords.latitude,
+          lng: location.coords.longitude,
+          accuracy: location.coords.accuracy,
+          address: `${location.coords.latitude.toFixed(6)}, ${location.coords.longitude.toFixed(6)}`,
+          capturedAt: new Date().toISOString(),
+          failed: false,
+          failureReason: null,
+        });
+      }
+    } catch (error: any) {
+      console.error('GPS error:', error);
+      setGPS({ failed: true, failureReason: 'unavailable' });
+    } finally {
+      setGpsLoading(false);
+    }
+  };
+
+  const handleSignatureOk = (sig: string) => {
+    setNativeSignatureData(sig);
     setHasSignature(true);
+    setSignature(sig);
   };
 
   const handleSignatureStart = () => {
@@ -223,43 +306,49 @@ export default function WerkbonSign() {
   const handleSignatureClear = () => {
     setHasSignature(false);
     setNativeSignatureData(null);
+    setSignature(null);
   };
 
-  const clearSignature = () => {
-    if (Platform.OS === 'web') {
-      signatureRef.current?.clearSignature?.();
-    } else {
-      signatureRef.current?.clearSignature?.();
+  const clearSignatureCanvas = () => {
+    if (signatureRef.current?.clearSignature) {
+      signatureRef.current.clearSignature();
     }
     handleSignatureClear();
   };
 
-  const getSignatureData = async (): Promise<string | null> => {
-    if (Platform.OS === 'web') {
-      return signatureRef.current?.readSignature?.() || null;
-    } else {
-      // For native, we need to call readSignature which triggers onOK
-      // If we already have data from onOK, use that
-      if (nativeSignatureData) {
-        return nativeSignatureData;
+  const handleTakeSelfie = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Toestemming vereist', 'Camera toegang is nodig voor selfie.');
+        return;
       }
-      // Otherwise, try to get it
-      return new Promise((resolve) => {
-        if (signatureRef.current?.readSignature) {
-          signatureRef.current.readSignature();
-          // Wait a bit for onOK to be called
-          setTimeout(() => {
-            resolve(nativeSignatureData);
-          }, 500);
-        } else {
-          resolve(null);
-        }
+
+      const result = await ImagePicker.launchCameraAsync({
+        cameraType: ImagePicker.CameraType.front,
+        quality: 0.7,
+        base64: true,
       });
+
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        const selfieData = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
+        setSelfie(selfieData);
+      }
+    } catch (error) {
+      console.error('Selfie error:', error);
+      Alert.alert('Fout', 'Kon selfie niet maken. Probeer opnieuw.');
     }
+  };
+
+  const removeSelfie = () => {
+    setSelfie(null);
   };
 
   const handleSubmit = async () => {
     // Validate
+    clearErrors();
+    
     if (!signerName.trim()) {
       Alert.alert('Fout', 'Vul de naam van de ondertekenaar in');
       return;
@@ -269,8 +358,14 @@ export default function WerkbonSign() {
       Alert.alert('Fout', 'Handtekening is vereist');
       return;
     }
+    
+    if (!confirmationChecked) {
+      Alert.alert('Fout', 'Bevestig de gegevens door het vakje aan te vinken');
+      return;
+    }
 
-    setSaving(true);
+    setSubmitting(true);
+    setSubmitError(null);
 
     try {
       // Get signature data
@@ -279,28 +374,37 @@ export default function WerkbonSign() {
       if (Platform.OS === 'web') {
         signatureData = signatureRef.current?.readSignature?.();
       } else {
-        // For native, use the stored data
         signatureData = nativeSignatureData;
       }
 
       if (!signatureData) {
         Alert.alert('Fout', 'Kon handtekening niet ophalen. Teken opnieuw.');
-        setSaving(false);
+        setSubmitting(false);
         return;
       }
 
-      // Build werkbon data based on type
+      // Build werkbon data
       const werkbonData = buildWerkbonData(signatureData);
       
       // Submit to API
-      const endpoint = getEndpointForType(formData.type);
-      const response = await axios.post(`${API_URL}${endpoint}`, werkbonData);
+      const endpoint = getEndpointForType(type || 'uren');
+      const response = await axios.post(`${API_URL}${endpoint}`, werkbonData, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
       if (response.data) {
-        // Success - optionally send email if enabled
+        // Success - clear draft
+        clearDraft();
+        
+        // Optionally send email
         if (sendToCustomer && response.data.id) {
           try {
-            await axios.post(`${API_URL}${endpoint}/${response.data.id}/verzenden`);
+            await axios.post(`${API_URL}${endpoint}/${response.data.id}/verzenden`, {}, {
+              headers: { 'Authorization': `Bearer ${token}` },
+            });
           } catch (emailError) {
             console.warn('Email sending failed:', emailError);
           }
@@ -314,60 +418,93 @@ export default function WerkbonSign() {
       }
     } catch (error: any) {
       console.error('Submit error:', error);
-      Alert.alert(
-        'Fout',
-        error.response?.data?.detail || 'Er ging iets mis bij het opslaan. Probeer opnieuw.'
-      );
+      const errorMessage = error.response?.data?.detail || 'Er ging iets mis bij het opslaan. Probeer opnieuw.';
+      setSubmitError(errorMessage);
+      Alert.alert('Fout', errorMessage);
     } finally {
-      setSaving(false);
+      setSubmitting(false);
     }
   };
 
   const buildWerkbonData = (signatureData: string) => {
+    const displayKlant = klantNaam || manualKlantNaam;
+    const displayWerf = werfNaam || manualWerfNaam;
+    
     const baseData = {
-      klant_id: formData.klant?.id || '',
-      werf_id: formData.werf?.id || '',
-      datum: new Date().toISOString().split('T')[0],
-      gps_locatie: gpsCoords || gpsAddress || null,
-      handtekening_klant: signatureData,
-      handtekening_klant_naam: signerName,
+      type,
+      klant_id: klantId || null,
+      klant_naam: displayKlant,
+      werf_id: werfId || null,
+      werf_naam: displayWerf,
+      datum,
+      opmerkingen,
+      gps_locatie: gps.address || (gps.lat && gps.lng ? `${gps.lat}, ${gps.lng}` : null),
+      gps_lat: gps.lat,
+      gps_lng: gps.lng,
+      gps_accuracy: gps.accuracy,
+      handtekening: signatureData,
+      handtekening_naam: signerName,
+      selfie: selfie || null,
+      werknemer_id: user?.id || null,
+      werknemer_naam: user?.naam || null,
+      fotos: photos.map(p => ({
+        data: p.uri,
+        timestamp: p.timestamp,
+      })),
       verstuur_naar_klant: sendToCustomer,
+      timestamp: new Date().toISOString(),
     };
 
-    switch (formData.type) {
-      case 'productie':
+    // Add type-specific data
+    switch (type) {
+      case 'uren':
         return {
           ...baseData,
-          handtekening: signatureData,
-          handtekening_naam: signerName,
-          uit_te_voeren_werk: formData.productType || '',
-          opmerking: formData.opmerking || '',
-          fotos: (formData.photos || []).map((photo: string, i: number) => ({
-            base64: photo,
-            timestamp: new Date().toISOString(),
-            werknemer_id: user?.id || '',
-            gps: gpsCoords || '',
-          })),
+          week_nummer: urenData.weekNummer,
+          jaar: urenData.jaar,
+          uren_regels: urenData.urenRegels.filter(r => r.teamlidNaam.trim()),
+          km_afstand: urenData.kmAfstand,
+          uitgevoerde_werken: urenData.uitgevoerdeWerken,
+          extra_materialen: urenData.extraMaterialen,
         };
         
       case 'oplevering':
         return {
           ...baseData,
-          werk_beschrijving: formData.omschrijving || '',
-          extra_opmerkingen: formData.opmerking || '',
-          fotos: formData.photos || [],
-          handtekening_monteur: signatureData,
-          handtekening_monteur_naam: user?.naam || '',
+          omschrijving: opleveringData.omschrijving,
+          opleverpunten: opleveringData.opleverpunten,
         };
         
       case 'project':
         return {
           ...baseData,
-          werk_beschrijving: formData.projectNaam || '',
-          extra_opmerkingen: formData.opmerking || '',
-          dag_regels: (formData.taken || []).map((t: string) => ({ beschrijving: t })),
-          handtekening_monteur: signatureData,
-          handtekening_monteur_naam: user?.naam || '',
+          project_naam: projectData.projectNaam,
+          uitgevoerde_werken: projectData.uitgevoerdeWerken,
+          taken: projectData.taken,
+          materialen: projectData.materialen,
+          gebruikte_machines: projectData.gebruikteMachines,
+          aantal_personen: projectData.aantalPersonen,
+          start_time: projectData.startTime,
+          end_time: projectData.endTime,
+          status: projectData.status,
+          vervolgwerk_nodig: projectData.vervolgwerkNodig,
+          vervolgwerk_beschrijving: projectData.vervolgwerkBeschrijving,
+          vervolgactie_datum: projectData.vervolgactieDatum,
+          hindernissen: projectData.hindernissen,
+          zone: projectData.zone,
+          contactpersoon: projectData.contactpersoon,
+        };
+        
+      case 'prestatie':
+        return {
+          ...baseData,
+          werk_naam: prestatieData.werkNaam,
+          werk_omschrijving: prestatieData.werkOmschrijving,
+          hoeveelheid: prestatieData.hoeveelheid,
+          eenheid: prestatieData.eenheid,
+          dikte_cm: prestatieData.dikteCm,
+          aantal_lagen: prestatieData.aantalLagen,
+          zone: prestatieData.zone,
         };
         
       default:
@@ -375,14 +512,29 @@ export default function WerkbonSign() {
     }
   };
 
-  const getEndpointForType = (type: string) => {
-    switch (type) {
-      case 'productie': return '/api/productie-werkbonnen';
+  const getEndpointForType = (werkbonType: string) => {
+    switch (werkbonType) {
+      case 'uren': return '/api/uren-werkbonnen';
       case 'oplevering': return '/api/oplevering-werkbonnen';
       case 'project': return '/api/project-werkbonnen';
+      case 'prestatie': return '/api/productie-werkbonnen';
       default: return '/api/werkbonnen';
     }
   };
+
+  const getTypeTitle = () => {
+    switch (type) {
+      case 'uren': return 'Uren Werkbon';
+      case 'oplevering': return 'Oplevering';
+      case 'project': return 'Project';
+      case 'prestatie': return 'Prestatie';
+      default: return 'Werkbon';
+    }
+  };
+
+  if (!type) {
+    return null;
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -391,132 +543,200 @@ export default function WerkbonSign() {
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color="#1A1A2E" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Ondertekenen</Text>
-        <View style={styles.pageIndicators}>
-          <View style={styles.pageIndicator} />
-          <View style={styles.pageIndicator} />
-          <View style={[styles.pageIndicator, { backgroundColor: primary }]} />
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle}>Ondertekenen</Text>
+          <Text style={styles.headerStep}>Stap 3 van 3</Text>
         </View>
+        <View style={{ width: 44 }} />
       </View>
 
-      {/* Main Content - NOT a ScrollView to prevent signature scroll issues */}
-      <KeyboardAvoidingView 
-        style={styles.mainContent}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      <ScrollView 
+        style={styles.content}
+        contentContainerStyle={{ paddingBottom: 120 }}
+        keyboardShouldPersistTaps="handled"
       >
-        {/* Top Section - Scrollable fields */}
-        <View style={styles.fieldsSection}>
-          {/* Signer Name */}
-          <View style={styles.card}>
-            <Text style={styles.fieldLabel}>Naam ondertekenaar *</Text>
-            <TextInput
-              style={styles.input}
-              value={signerName}
-              onChangeText={setSignerName}
-              placeholder="Volledige naam"
-              placeholderTextColor="#8C9199"
-            />
-          </View>
-
-          {/* GPS Location */}
-          <View style={styles.card}>
-            <GPSLocation
-              onLocationChange={(coords, address) => {
-                setGpsCoords(coords);
-                setGpsAddress(address);
-              }}
-              initialCoords={gpsCoords}
-              initialAddress={gpsAddress}
-              primaryColor={primary}
-            />
-          </View>
+        {/* Signer Name */}
+        <View style={styles.card}>
+          <Text style={styles.fieldLabel}>Naam ondertekenaar *</Text>
+          <TextInput
+            style={styles.input}
+            value={signerName}
+            onChangeText={setSignerName}
+            placeholder="Volledige naam"
+            placeholderTextColor="#8C9199"
+          />
         </View>
 
-        {/* Signature Section - FIXED, not scrollable */}
-        <View style={styles.signatureSection}>
-          <View style={styles.card}>
-            <View style={styles.signatureHeader}>
-              <Text style={styles.fieldLabel}>Klanthandtekening *</Text>
-              <TouchableOpacity
-                style={[styles.clearButton, { borderColor: primary }]}
-                onPress={clearSignature}
-              >
-                <Ionicons name="refresh" size={16} color={primary} />
-                <Text style={[styles.clearButtonText, { color: primary }]}>Wissen</Text>
+        {/* GPS Location */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.fieldLabel}>GPS Locatie</Text>
+            {gpsLoading && <ActivityIndicator size="small" color={primary} />}
+          </View>
+          
+          {gps.address ? (
+            <View style={styles.gpsSuccess}>
+              <Ionicons name="location" size={20} color="#27ae60" />
+              <Text style={styles.gpsText}>{gps.address}</Text>
+              <TouchableOpacity onPress={fetchGPS}>
+                <Ionicons name="refresh-outline" size={20} color={primary} />
               </TouchableOpacity>
             </View>
-            
-            <View style={styles.signatureWrapper}>
-              {Platform.OS === 'web' ? (
-                <WebSignatureCanvas
-                  signatureRef={signatureRef}
-                  onEnd={handleSignatureStart}
-                  onClear={handleSignatureClear}
-                />
-              ) : (
-                (() => {
-                  const NativeSignature = getSignatureScreen();
-                  return NativeSignature ? (
-                    <NativeSignature
-                      ref={signatureRef}
-                      onBegin={handleSignatureStart}
-                      onOK={handleSignatureOk}
-                      onEmpty={handleSignatureClear}
-                      webStyle={nativeSignatureStyle}
-                      descriptionText=""
-                      backgroundColor="#FFFFFF"
-                      penColor="#1A1A2E"
-                      imageType="image/png"
-                    />
-                  ) : (
-                    <View style={styles.fallbackSignature}>
-                      <Text style={styles.fallbackText}>Handtekening niet beschikbaar</Text>
-                    </View>
-                  );
-                })()
-              )}
+          ) : gps.failed ? (
+            <View style={styles.gpsError}>
+              <Ionicons name="location-outline" size={20} color="#e74c3c" />
+              <Text style={styles.gpsErrorText}>
+                {gps.failureReason === 'permission_denied' 
+                  ? 'Locatietoegang geweigerd' 
+                  : 'Locatie niet beschikbaar'}
+              </Text>
+              <TouchableOpacity style={styles.retryBtn} onPress={fetchGPS}>
+                <Text style={[styles.retryBtnText, { color: primary }]}>Opnieuw</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity style={[styles.gpsButton, { borderColor: primary }]} onPress={fetchGPS}>
+              <Ionicons name="navigate-outline" size={20} color={primary} />
+              <Text style={[styles.gpsButtonText, { color: primary }]}>Locatie ophalen</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Selfie Section */}
+        <View style={styles.card}>
+          <Text style={styles.fieldLabel}>Verificatie Selfie</Text>
+          <Text style={styles.fieldHint}>Maak een selfie ter verificatie van de ondertekening</Text>
+          
+          {selfie ? (
+            <View style={styles.selfieContainer}>
+              <Image source={{ uri: selfie }} style={styles.selfieImage} />
+              <TouchableOpacity style={styles.removeSelfieBtn} onPress={removeSelfie}>
+                <Ionicons name="close-circle" size={28} color="#e74c3c" />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity style={[styles.selfieButton, { borderColor: primary }]} onPress={handleTakeSelfie}>
+              <Ionicons name="camera-outline" size={24} color={primary} />
+              <Text style={[styles.selfieButtonText, { color: primary }]}>Selfie maken</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* SMS Verification - DISABLED */}
+        <View style={[styles.card, styles.cardDisabled]}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.fieldLabel}>SMS Verificatie</Text>
+            <View style={styles.comingSoonBadge}>
+              <Text style={styles.comingSoonText}>Binnenkort</Text>
             </View>
           </View>
+          <Text style={styles.fieldHint}>SMS verificatie is nog niet beschikbaar</Text>
+          <TouchableOpacity style={styles.disabledButton} disabled>
+            <Ionicons name="chatbubble-outline" size={20} color="#C4C4C4" />
+            <Text style={styles.disabledButtonText}>Verstuur SMS Code</Text>
+          </TouchableOpacity>
+        </View>
 
-          {/* Send to Customer Toggle */}
-          <View style={styles.toggleCard}>
-            <View style={styles.toggleContent}>
-              <Ionicons name="mail-outline" size={20} color={primary} />
-              <Text style={styles.toggleText}>Ook versturen naar klant</Text>
-            </View>
-            <Switch
-              value={sendToCustomer}
-              onValueChange={setSendToCustomer}
-              trackColor={{ false: '#E8E9ED', true: primary + '50' }}
-              thumbColor={sendToCustomer ? primary : '#FFFFFF'}
-            />
+        {/* Signature Section */}
+        <View style={styles.card}>
+          <View style={styles.signatureHeader}>
+            <Text style={styles.fieldLabel}>Klanthandtekening *</Text>
+            <TouchableOpacity
+              style={[styles.clearButton, { borderColor: primary }]}
+              onPress={clearSignatureCanvas}
+            >
+              <Ionicons name="refresh" size={16} color={primary} />
+              <Text style={[styles.clearButtonText, { color: primary }]}>Wissen</Text>
+            </TouchableOpacity>
           </View>
-
-          {/* Legal Text */}
-          <View style={styles.legalBox}>
-            <Ionicons name="document-text-outline" size={16} color="#6c757d" />
-            <Text style={styles.legalText}>{LEGAL_TEXT}</Text>
+          
+          <View style={styles.signatureWrapper}>
+            {Platform.OS === 'web' ? (
+              <WebSignatureCanvas
+                signatureRef={signatureRef}
+                onEnd={handleSignatureStart}
+                onClear={handleSignatureClear}
+              />
+            ) : (
+              (() => {
+                const NativeSignature = getSignatureScreen();
+                return NativeSignature ? (
+                  <NativeSignature
+                    ref={signatureRef}
+                    onBegin={handleSignatureStart}
+                    onOK={handleSignatureOk}
+                    onEmpty={handleSignatureClear}
+                    webStyle={nativeSignatureStyle}
+                    descriptionText=""
+                    backgroundColor="#FFFFFF"
+                    penColor="#1A1A2E"
+                    imageType="image/png"
+                  />
+                ) : (
+                  <View style={styles.fallbackSignature}>
+                    <Text style={styles.fallbackText}>Handtekening niet beschikbaar</Text>
+                  </View>
+                );
+              })()
+            )}
           </View>
         </View>
-      </KeyboardAvoidingView>
+
+        {/* Send to Customer Toggle */}
+        <View style={styles.toggleCard}>
+          <View style={styles.toggleContent}>
+            <Ionicons name="mail-outline" size={20} color={primary} />
+            <Text style={styles.toggleText}>Ook versturen naar klant</Text>
+          </View>
+          <Switch
+            value={sendToCustomer}
+            onValueChange={setSendToCustomer}
+            trackColor={{ false: '#E8E9ED', true: primary + '50' }}
+            thumbColor={sendToCustomer ? primary : '#FFFFFF'}
+          />
+        </View>
+
+        {/* Confirmation Checkbox */}
+        <TouchableOpacity 
+          style={styles.confirmationCard} 
+          onPress={() => setConfirmationChecked(!confirmationChecked)}
+          activeOpacity={0.7}
+        >
+          <View style={[
+            styles.checkbox,
+            confirmationChecked && { backgroundColor: primary, borderColor: primary }
+          ]}>
+            {confirmationChecked && <Ionicons name="checkmark" size={16} color="#fff" />}
+          </View>
+          <Text style={styles.confirmationText}>
+            Ik bevestig dat alle ingevulde gegevens correct zijn en dat de werkzaamheden zoals beschreven zijn uitgevoerd.
+          </Text>
+        </TouchableOpacity>
+
+        {/* Legal Text */}
+        <View style={styles.legalBox}>
+          <Ionicons name="document-text-outline" size={16} color="#6c757d" />
+          <Text style={styles.legalText}>{LEGAL_TEXT}</Text>
+        </View>
+      </ScrollView>
 
       {/* Fixed Footer */}
-      <View style={[styles.fixedFooter, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
         <TouchableOpacity
           style={[
-            styles.primaryButton,
+            styles.submitButton,
             { backgroundColor: primary },
-            (!hasSignature || saving) && styles.primaryButtonDisabled,
+            (!hasSignature || !confirmationChecked || isSubmitting) && styles.submitButtonDisabled,
           ]}
           onPress={handleSubmit}
-          disabled={!hasSignature || saving}
+          disabled={!hasSignature || !confirmationChecked || isSubmitting}
         >
-          {saving ? (
-            <ActivityIndicator color="#000" />
+          {isSubmitting ? (
+            <ActivityIndicator color="#1A1A2E" />
           ) : (
             <>
-              <Ionicons name="checkmark-done" size={20} color="#000" />
-              <Text style={styles.primaryButtonText}>Tekenen en versturen</Text>
+              <Ionicons name="checkmark-done" size={20} color="#1A1A2E" />
+              <Text style={styles.submitButtonText}>Tekenen en Versturen</Text>
             </>
           )}
         </TouchableOpacity>
@@ -540,44 +760,22 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E8E9ED',
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: '#F5F6FA',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTitle: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1A1A2E',
-    textAlign: 'center',
-  },
-  pageIndicators: {
-    flexDirection: 'row',
-    gap: 6,
-    width: 50,
-    justifyContent: 'flex-end',
-  },
-  pageIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#E8E9ED',
-  },
-  mainContent: {
+  headerCenter: { flex: 1, alignItems: 'center' },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#1A1A2E' },
+  headerStep: { fontSize: 13, color: '#6C7A89', marginTop: 2 },
+  
+  content: {
     flex: 1,
     padding: 16,
   },
-  fieldsSection: {
-    // Top fields (name, GPS)
-  },
-  signatureSection: {
-    flex: 1,
-    justifyContent: 'flex-start',
-    marginTop: 8,
-  },
+  
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
@@ -589,12 +787,28 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
+  cardDisabled: {
+    opacity: 0.6,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  
   fieldLabel: {
     fontSize: 14,
     fontWeight: '600',
     color: '#1A1A2E',
     marginBottom: 8,
   },
+  fieldHint: {
+    fontSize: 13,
+    color: '#6C7A89',
+    marginBottom: 12,
+  },
+  
   input: {
     backgroundColor: '#F5F6FA',
     borderRadius: 12,
@@ -605,6 +819,95 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E8E9ED',
   },
+  
+  // GPS
+  gpsSuccess: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#E8F5E9',
+    borderRadius: 12,
+    padding: 12,
+  },
+  gpsText: { flex: 1, fontSize: 14, color: '#27ae60' },
+  gpsError: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FFEBEE',
+    borderRadius: 12,
+    padding: 12,
+  },
+  gpsErrorText: { flex: 1, fontSize: 14, color: '#e74c3c' },
+  gpsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 2,
+  },
+  gpsButtonText: { fontSize: 15, fontWeight: '500' },
+  retryBtn: { paddingHorizontal: 12, paddingVertical: 6 },
+  retryBtnText: { fontSize: 14, fontWeight: '500' },
+  
+  // Selfie
+  selfieContainer: {
+    position: 'relative',
+    alignItems: 'center',
+  },
+  selfieImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 3,
+    borderColor: '#27ae60',
+  },
+  removeSelfieBtn: {
+    position: 'absolute',
+    top: -4,
+    right: '30%',
+  },
+  selfieButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 2,
+  },
+  selfieButtonText: { fontSize: 15, fontWeight: '500' },
+  
+  // Coming Soon Badge
+  comingSoonBadge: {
+    backgroundColor: '#F5A62320',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  comingSoonText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#F5A623',
+  },
+  
+  // Disabled Button
+  disabledButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 14,
+    borderRadius: 12,
+    backgroundColor: '#F5F6FA',
+    borderWidth: 1,
+    borderColor: '#E8E9ED',
+  },
+  disabledButtonText: { fontSize: 15, color: '#C4C4C4' },
+  
+  // Signature
   signatureHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -620,10 +923,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
   },
-  clearButtonText: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
+  clearButtonText: { fontSize: 13, fontWeight: '500' },
   signatureWrapper: {
     borderRadius: 12,
     overflow: 'hidden',
@@ -638,10 +938,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#F5F6FA',
   },
-  fallbackText: {
-    color: '#8C9199',
-    fontSize: 14,
-  },
+  fallbackText: { color: '#8C9199', fontSize: 14 },
+  
+  // Toggle
   toggleCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -651,16 +950,37 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
   },
-  toggleContent: {
+  toggleContent: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  toggleText: { fontSize: 15, color: '#1A1A2E', fontWeight: '500' },
+  
+  // Confirmation
+  confirmationCard: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#E8E9ED',
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 10,
+    marginTop: 2,
   },
-  toggleText: {
-    fontSize: 15,
+  confirmationText: {
+    flex: 1,
+    fontSize: 14,
     color: '#1A1A2E',
-    fontWeight: '500',
+    lineHeight: 20,
   },
+  
+  // Legal
   legalBox: {
     flexDirection: 'row',
     gap: 10,
@@ -669,6 +989,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#E8E9ED',
+    marginBottom: 20,
   },
   legalText: {
     flex: 1,
@@ -676,14 +997,16 @@ const styles = StyleSheet.create({
     color: '#6c757d',
     lineHeight: 16,
   },
-  fixedFooter: {
+  
+  // Footer
+  footer: {
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#E8E9ED',
     paddingHorizontal: 16,
     paddingTop: 12,
   },
-  primaryButton: {
+  submitButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -692,12 +1015,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     minHeight: 56,
   },
-  primaryButtonDisabled: {
+  submitButtonDisabled: {
     opacity: 0.6,
   },
-  primaryButtonText: {
+  submitButtonText: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#000',
+    color: '#1A1A2E',
   },
 });

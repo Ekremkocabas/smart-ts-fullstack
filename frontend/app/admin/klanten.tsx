@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, apiClient } from '../../context/AuthContext';
 import Constants from 'expo-constants';
 
 const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_BACKEND_URL || (typeof window !== 'undefined' ? window.location.origin : '');
@@ -138,7 +138,7 @@ const emptyKlant: Klant = {
 };
 
 export default function KlantenAdmin() {
-  const { user, isLoading } = useAuth();
+  const { user, token, isLoading: authLoading } = useAuth();
   const [klanten, setKlanten] = useState<Klant[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -155,6 +155,14 @@ export default function KlantenAdmin() {
   });
   const [customFunctie, setCustomFunctie] = useState('');
 
+  // Helper to create auth headers
+  const getAuthConfig = () => ({
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
   // Handle screen resize
   useEffect(() => {
     const subscription = Dimensions.addEventListener('change', () => {
@@ -164,21 +172,24 @@ export default function KlantenAdmin() {
   }, []);
 
   useEffect(() => { 
-    // Debug: Log user info for troubleshooting
-    console.log('[KlantenAdmin] User:', user?.email, 'Role:', user?.rol);
-    if (Platform.OS === 'web' && ['beheerder', 'admin', 'manager', 'master_admin'].includes(user?.rol || '')) {
+    // Wait for auth to be loaded and check permissions
+    if (Platform.OS === 'web' && token && !authLoading && ['beheerder', 'admin', 'manager', 'master_admin'].includes(user?.rol || '')) {
       fetchKlanten(); 
     }
-  }, [user]);
+  }, [user, token, authLoading]);
 
   const fetchKlanten = async () => {
+    if (!token) {
+      console.warn('No token available for API requests');
+      return;
+    }
+    
     try {
       setLoading(true);
-      const res = await fetch(`${API_URL}/api/klanten`);
-      const data = await res.json();
-      setKlanten(Array.isArray(data) ? data : []);
+      const res = await apiClient.get('/api/klanten', getAuthConfig());
+      setKlanten(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error fetching klanten:', error);
     } finally {
       setLoading(false);
     }
@@ -206,6 +217,8 @@ export default function KlantenAdmin() {
 
   const saveKlant = async () => {
     if (!formData.bedrijfsnaam.trim()) { alert('Bedrijfsnaam is verplicht'); return; }
+    if (!token) { alert('Sessie verlopen, log opnieuw in'); return; }
+    
     setSaving(true);
     try {
       const payload = {
@@ -215,23 +228,15 @@ export default function KlantenAdmin() {
       };
       
       if (editingKlant) {
-        await fetch(`${API_URL}/api/klanten/${editingKlant.id}`, { 
-          method: 'PUT', 
-          headers: { 'Content-Type': 'application/json' }, 
-          body: JSON.stringify(payload) 
-        });
+        await apiClient.put(`/api/klanten/${editingKlant.id}`, payload, getAuthConfig());
       } else {
-        await fetch(`${API_URL}/api/klanten`, { 
-          method: 'POST', 
-          headers: { 'Content-Type': 'application/json' }, 
-          body: JSON.stringify(payload) 
-        });
+        await apiClient.post('/api/klanten', payload, getAuthConfig());
       }
       setShowModal(false);
       fetchKlanten();
-    } catch (error) {
-      console.error('Error:', error);
-      alert('Fout bij opslaan');
+    } catch (error: any) {
+      console.error('Error saving klant:', error);
+      alert(error.response?.data?.detail || 'Fout bij opslaan');
     } finally {
       setSaving(false);
     }
@@ -239,11 +244,14 @@ export default function KlantenAdmin() {
 
   const deleteKlant = async (id: string) => {
     if (!confirm('Weet u zeker dat u deze klant wilt deactiveren?')) return;
+    if (!token) { alert('Sessie verlopen, log opnieuw in'); return; }
+    
     try {
-      await fetch(`${API_URL}/api/klanten/${id}`, { method: 'DELETE' });
+      await apiClient.delete(`/api/klanten/${id}`, getAuthConfig());
       fetchKlanten();
-    } catch (error) {
-      console.error('Error:', error);
+    } catch (error: any) {
+      console.error('Error deleting klant:', error);
+      alert(error.response?.data?.detail || 'Fout bij verwijderen');
     }
   };
 
@@ -311,7 +319,7 @@ export default function KlantenAdmin() {
   if (Platform.OS !== 'web') return null;
   
   // Show loading while auth state is being resolved
-  if (isLoading) {
+  if (authLoading) {
     return (
       <View style={styles.container}>
         <View style={styles.loadingContainer}>
