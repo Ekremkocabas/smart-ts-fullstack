@@ -2,6 +2,8 @@
  * SignatureCanvas - Unified Signature Component
  * Used across all werkbon types (productie, oplevering, project)
  * 
+ * CRITICAL FIX: Native signature capture now properly handles the async onOK callback
+ * 
  * Features:
  * - Works on both web and native
  * - Proper touch/mouse coordinate scaling
@@ -9,7 +11,7 @@
  * - White background for PDF compatibility
  */
 
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useRef, useEffect, useCallback, useState, useImperativeHandle, forwardRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -35,7 +37,6 @@ const WebSignatureCanvas = ({ onEnd, onClear, signatureRef }: any) => {
     const rect = canvas.getBoundingClientRect();
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    // Account for scaling between canvas internal size and displayed size
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
     return {
@@ -94,20 +95,6 @@ const WebSignatureCanvas = ({ onEnd, onClear, signatureRef }: any) => {
     return canvas.toDataURL('image/png');
   }, []);
 
-  const isEmpty = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return true;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return true;
-    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-    for (let i = 0; i < data.length; i += 4) {
-      if (data[i] !== 255 || data[i + 1] !== 255 || data[i + 2] !== 255) {
-        return false;
-      }
-    }
-    return true;
-  }, []);
-
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -126,9 +113,8 @@ const WebSignatureCanvas = ({ onEnd, onClear, signatureRef }: any) => {
     signatureRef.current = {
       clearSignature: clearCanvas,
       readSignature,
-      isEmpty,
     };
-  }, [clearCanvas, readSignature, isEmpty, signatureRef]);
+  }, [clearCanvas, readSignature, signatureRef]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -181,6 +167,7 @@ interface SignatureCanvasProps {
   onSignatureStart: () => void;
   onSignatureClear: () => void;
   onSignatureOk?: (signature: string) => void;
+  onSignatureChange?: (signature: string | null) => void;
   primaryColor?: string;
 }
 
@@ -189,18 +176,77 @@ export const SignatureCanvas: React.FC<SignatureCanvasProps> = ({
   onSignatureStart,
   onSignatureClear,
   onSignatureOk,
+  onSignatureChange,
   primaryColor = '#F5A623',
 }) => {
+  // For native: store signature data internally and provide it via ref
+  const nativeSignatureRef = useRef<any>(null);
+  const [storedSignature, setStoredSignature] = useState<string | null>(null);
+
+  // Handle native onOK - this is called when readSignature() completes on native
+  const handleNativeOk = (signature: string) => {
+    console.log('Native signature received, length:', signature?.length);
+    setStoredSignature(signature);
+    onSignatureOk?.(signature);
+    onSignatureChange?.(signature);
+  };
+
+  // Handle native onEnd (when user finishes a stroke)
+  const handleNativeEnd = () => {
+    onSignatureStart();
+    // On native, we need to call readSignature to get the data
+    // This triggers onOK with the signature data
+    if (nativeSignatureRef.current?.readSignature) {
+      nativeSignatureRef.current.readSignature();
+    }
+  };
+
+  // Handle clear
+  const handleClear = () => {
+    if (Platform.OS === 'web') {
+      signatureRef.current?.clearSignature?.();
+    } else {
+      nativeSignatureRef.current?.clearSignature?.();
+    }
+    setStoredSignature(null);
+    onSignatureClear();
+    onSignatureChange?.(null);
+  };
+
+  // Expose methods via signatureRef
+  useEffect(() => {
+    if (!signatureRef) return;
+    
+    if (Platform.OS === 'web') {
+      // Web ref is already set by WebSignatureCanvas
+    } else {
+      // For native, provide methods that work with stored signature
+      signatureRef.current = {
+        clearSignature: () => {
+          nativeSignatureRef.current?.clearSignature?.();
+          setStoredSignature(null);
+        },
+        readSignature: () => {
+          // Return stored signature or trigger read
+          if (storedSignature) {
+            return storedSignature;
+          }
+          // Trigger read and return null (caller should use onSignatureOk)
+          nativeSignatureRef.current?.readSignature?.();
+          return null;
+        },
+        getStoredSignature: () => storedSignature,
+      };
+    }
+  }, [signatureRef, storedSignature]);
+
   return (
     <View style={styles.container}>
       <View style={styles.labelRow}>
         <Text style={styles.label}>Klanthandtekening</Text>
         <TouchableOpacity
           style={[styles.clearButton, { borderColor: primaryColor }]}
-          onPress={() => {
-            signatureRef.current?.clearSignature?.();
-            onSignatureClear();
-          }}
+          onPress={handleClear}
         >
           <Ionicons name="refresh" size={16} color={primaryColor} />
           <Text style={[styles.clearButtonText, { color: primaryColor }]}>Wissen</Text>
@@ -217,15 +263,18 @@ export const SignatureCanvas: React.FC<SignatureCanvasProps> = ({
         ) : (
           SignatureScreen ? (
             <SignatureScreen
-              ref={signatureRef}
+              ref={nativeSignatureRef}
               onBegin={onSignatureStart}
-              onOK={onSignatureOk}
+              onEnd={handleNativeEnd}
+              onOK={handleNativeOk}
               onEmpty={onSignatureClear}
               webStyle={nativeSignatureStyle}
               descriptionText=""
               backgroundColor="#FFFFFF"
               penColor="#1A1A2E"
               imageType="image/png"
+              trimWhitespace={false}
+              autoClear={false}
             />
           ) : (
             <View style={styles.fallbackSignature}>

@@ -66,6 +66,14 @@ export default function ProductieWerkbonScreen() {
   const [signatureDate, setSignatureDate] = useState(new Date().toISOString().split('T')[0]);
   const [signatureName, setSignatureName] = useState('');
 
+  // Handle signature change from canvas (works on both web and native)
+  const handleSignatureChange = (sig: string | null) => {
+    setSignatureValue(sig);
+    if (sig) {
+      setHasSignature(true);
+    }
+  };
+
   // Data from store
   const { klanten, werven, fetchKlanten, fetchWervenByKlant } = useAppStore();
   
@@ -98,8 +106,8 @@ export default function ProductieWerkbonScreen() {
 
   const handleSubmit = async () => {
     // Validate signature
-    if (!hasSignature) {
-      Alert.alert('Fout', 'Handtekening is verplicht');
+    if (!signatureValue) {
+      Alert.alert('Fout', 'Handtekening is verplicht. Teken eerst en probeer opnieuw.');
       return;
     }
     if (!signatureName.trim()) {
@@ -109,11 +117,8 @@ export default function ProductieWerkbonScreen() {
 
     setSaving(true);
     try {
-      // Get signature data
-      let sig = signatureValue;
-      if (Platform.OS === 'web' && signatureRef.current?.readSignature) {
-        sig = signatureRef.current.readSignature();
-      }
+      // Use stored signature value directly (already captured via onSignatureChange)
+      const sig = signatureValue;
 
       const payload = {
         user_id: user?.id,
@@ -342,6 +347,7 @@ export default function ProductieWerkbonScreen() {
                   onSignatureStart={() => setHasSignature(true)}
                   onSignatureClear={clearSignature}
                   onSignatureOk={handleSignatureOk}
+                  onSignatureChange={handleSignatureChange}
                   primaryColor={primary}
                 />
               </View>
