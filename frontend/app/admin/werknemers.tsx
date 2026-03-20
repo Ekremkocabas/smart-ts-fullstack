@@ -387,7 +387,13 @@ export default function WerknemersAdmin() {
             <Ionicons name="print-outline" size={16} color="#fff" />
             <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>PDF</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.addBtn} onPress={openAddModal}>
+          <TouchableOpacity 
+            style={styles.addBtn} 
+            onPress={openAddModal}
+            testID="add-werknemer-button"
+            accessibilityRole="button"
+            accessibilityLabel="Nieuwe werknemer toevoegen"
+          >
             <Ionicons name="add" size={22} color="#fff" />
             <Text style={styles.addBtnText}>Toevoegen</Text>
           </TouchableOpacity>
