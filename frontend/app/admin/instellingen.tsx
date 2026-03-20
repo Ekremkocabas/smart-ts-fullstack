@@ -19,7 +19,18 @@ import Constants from 'expo-constants';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../../context/ThemeContext';
 
-const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_BACKEND_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+// Determine API URL - prioritize window.location.origin for production web deployments
+const getApiUrl = () => {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+    }
+    return window.location.origin;
+  }
+  return process.env.EXPO_PUBLIC_BACKEND_URL || '';
+};
+const API_URL = getApiUrl();
 
 // Responsive breakpoints
 const getScreenSize = () => {
