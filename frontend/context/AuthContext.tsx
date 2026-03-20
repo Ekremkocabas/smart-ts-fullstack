@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
+import { Platform } from 'react-native';
+import { registerForPushNotifications } from '../utils/notifications';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -166,6 +168,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(tokenData);
     setPlatformAccess(platform_access);
     setValidRoles(valid_roles || []);
+    
+    // Register for push notifications on mobile
+    if (Platform.OS !== 'web' && userData?.id) {
+      registerForPushNotifications(userData.id).catch(e => {
+        console.log('Push notification registration failed:', e);
+      });
+    }
     
     return response.data;
   };

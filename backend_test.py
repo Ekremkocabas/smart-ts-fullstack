@@ -1,384 +1,359 @@
 #!/usr/bin/env python3
+"""
+Backend API Testing for Werkbon Management System
+Tests the specific endpoints mentioned in the review request
+"""
 
 import requests
 import json
-import uuid
-from datetime import datetime
 import sys
+from datetime import datetime
 
-# Base URL from frontend environment  
+# Configuration
 BASE_URL = "https://expo-fastapi-1.preview.emergentagent.com/api"
+LOGIN_EMAIL = "info@smart-techbv.be"
+LOGIN_PASSWORD = "Smart1988-"
 
-# Test credentials from review request
-ADMIN_EMAIL = "info@smart-techbv.be"
-ADMIN_PASSWORD = "Smart1988-"
-WORKER_EMAIL = "davy@smart-techbv.be" 
-WORKER_PASSWORD = "Smart1988-"
-PLANNER_EMAIL = "hr@smart-techbv.be"
-PLANNER_PASSWORD = "Smart1988-"
-
-# Test data with correct structure
-TEST_KLANT_DATA = {
-    "bedrijfsnaam": "Test Security Klant BV",
-    "type_klant": "bedrijf",
-    "btw_nummer": "BE123456789",
-    "algemeen_email": "test@example.com",
-    "algemeen_telefoon": "0123456789",
-    "adres_structured": {
-        "straat": "Test Street",
-        "huisnummer": "1",
-        "postcode": "1000",
-        "stad": "Brussels",
-        "land": "België"
-    }
-}
-
-TEST_WERF_DATA = {
-    "naam": "Test Security Werf",
-    "adres": "Test Site Street 1, 1000 Brussels",
-    "klant_id": "b3dbf862-2ece-43f6-ab35-31366f99effb"  # Valid existing klant
-}
-
-TEST_PLANNING_DATA = {
-    "week_nummer": 12,
-    "jaar": 2026,
-    "dag": "maandag",
-    "datum": datetime.now().strftime("%Y-%m-%d"),
-    "klant_id": "b3dbf862-2ece-43f6-ab35-31366f99effb",
-    "werf_id": "12ad7b78-ff5a-415f-a39b-9f19aa93138b",
-    "werknemer_ids": ["64fa6af4-630e-4f90-9452-fb3b74b4b432"],
-    "werknemer_namen": ["Test Worker"],
-    "omschrijving": "Test security planning"
-}
-
-TEST_WERKBON_DATA = {
-    "week_nummer": 12,
-    "jaar": 2026,
-    "klant_id": "b3dbf862-2ece-43f6-ab35-31366f99effb",
-    "werf_id": "12ad7b78-ff5a-415f-a39b-9f19aa93138b",
-    "omschrijving": "Security test werkbon", 
-    "datum": datetime.now().isoformat(),
-    "uren_begin": "08:00",
-    "uren_eind": "16:00",
-    "team_leden": ["64fa6af4-630e-4f90-9452-fb3b74b4b432"]
-}
-
-TEST_BERICHT_DATA = {
-    "naar_id": "2c4998b1-0f65-474d-ba53-196c8d3770c4",
-    "is_broadcast": False,
-    "onderwerp": "Security Test Bericht",
-    "inhoud": "Testing user identity from JWT token"
-}
-
-def get_auth_token(email, password):
-    """Get JWT token for authentication"""
-    try:
-        response = requests.post(f"{BASE_URL}/auth/login", json={
-            "email": email,
-            "password": password
-        })
-        if response.status_code == 200:
-            data = response.json()
-            return data.get("token"), data.get("user", {})
-        else:
-            print(f"   ❌ Login failed: {response.text}")
-            return None, None
-    except Exception as e:
-        print(f"   ❌ Login error: {e}")
-        return None, None
-
-def test_endpoint_without_auth(method, endpoint, data=None):
-    """Test endpoint without authentication (should get 401)"""
-    try:
-        if method.upper() == "POST":
-            response = requests.post(f"{BASE_URL}{endpoint}", json=data)
-        elif method.upper() == "PUT":
-            response = requests.put(f"{BASE_URL}{endpoint}", json=data)
-        elif method.upper() == "DELETE":
-            response = requests.delete(f"{BASE_URL}{endpoint}")
-        else:
-            response = requests.get(f"{BASE_URL}{endpoint}")
+class WerkbonAPITester:
+    def __init__(self):
+        self.base_url = BASE_URL
+        self.session = requests.Session()
+        self.auth_token = None
+        self.test_results = []
         
-        return response.status_code, response.text
-    except Exception as e:
-        return 0, str(e)
-
-def test_endpoint_with_auth(method, endpoint, token, data=None):
-    """Test endpoint with authentication"""
-    try:
-        headers = {"Authorization": f"Bearer {token}"}
+    def log_result(self, test_name: str, success: bool, status_code: int, response_data: str, error: str = ""):
+        """Log test results"""
+        result = {
+            "test": test_name,
+            "success": success,
+            "status_code": status_code,
+            "response": response_data,
+            "error": error,
+            "timestamp": datetime.now().isoformat()
+        }
+        self.test_results.append(result)
         
-        if method.upper() == "POST":
-            response = requests.post(f"{BASE_URL}{endpoint}", json=data, headers=headers)
-        elif method.upper() == "PUT":
-            response = requests.put(f"{BASE_URL}{endpoint}", json=data, headers=headers)
-        elif method.upper() == "DELETE":
-            response = requests.delete(f"{BASE_URL}{endpoint}", headers=headers)
-        else:
-            response = requests.get(f"{BASE_URL}{endpoint}", headers=headers)
+        status_symbol = "✅" if success else "❌"
+        print(f"{status_symbol} {test_name}: {status_code} - {error if error else 'SUCCESS'}")
+    
+    def test_authentication(self):
+        """Test POST /api/auth/login"""
+        print("\n=== Testing Authentication ===")
         
-        return response.status_code, response.text
-    except Exception as e:
-        return 0, str(e)
+        try:
+            login_data = {
+                "email": LOGIN_EMAIL,
+                "password": LOGIN_PASSWORD
+            }
+            
+            response = self.session.post(f"{self.base_url}/auth/login", json=login_data)
+            
+            if response.status_code == 200:
+                data = response.json()
+                if "token" in data:
+                    self.auth_token = data["token"]
+                    self.session.headers.update({"Authorization": f"Bearer {self.auth_token}"})
+                    self.log_result("Authentication", True, 200, f"Token received: {self.auth_token[:50]}...")
+                    return True
+                else:
+                    self.log_result("Authentication", False, 200, str(data), "No token in response")
+                    return False
+            else:
+                self.log_result("Authentication", False, response.status_code, response.text, "Login failed")
+                return False
+                
+        except Exception as e:
+            self.log_result("Authentication", False, 0, "", str(e))
+            return False
+    
+    def test_users_endpoints(self):
+        """Test GET /api/auth/users and POST /api/auth/register-worker endpoints"""
+        print("\n=== Testing Users (Werknemers) Endpoints ===")
+        
+        # Test GET users
+        try:
+            response = self.session.get(f"{self.base_url}/auth/users")
+            if response.status_code == 200:
+                users = response.json()
+                self.log_result("GET Users", True, 200, f"Found {len(users)} users")
+            else:
+                self.log_result("GET Users", False, response.status_code, response.text, "Failed to get users")
+        except Exception as e:
+            self.log_result("GET Users", False, 0, "", str(e))
+        
+        # Test POST register-worker (create new user)
+        try:
+            # Use timestamp to ensure unique email
+            timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+            new_user_params = {
+                "email": f"test.werknemer.{timestamp}@smart-techbv.be",
+                "naam": "Test Werknemer",
+                "password": "Test1234!",
+                "rol": "werknemer",
+                "werkbon_types": "uren,project"
+            }
+            
+            response = self.session.post(f"{self.base_url}/auth/register-worker", params=new_user_params)
+            if response.status_code in [200, 201]:
+                data = response.json()
+                self.log_result("POST Register Worker", True, response.status_code, f"User created: {data.get('user', {}).get('email', 'N/A')}")
+            else:
+                self.log_result("POST Register Worker", False, response.status_code, response.text, "Failed to create user")
+        except Exception as e:
+            self.log_result("POST Register Worker", False, 0, "", str(e))
+    
+    def test_teams_endpoints(self):
+        """Test GET/POST /api/teams endpoints"""
+        print("\n=== Testing Teams Endpoints ===")
+        
+        # Test GET teams
+        try:
+            response = self.session.get(f"{self.base_url}/teams")
+            if response.status_code == 200:
+                teams = response.json()
+                self.log_result("GET Teams", True, 200, f"Found {len(teams)} teams")
+            else:
+                self.log_result("GET Teams", False, response.status_code, response.text, "Failed to get teams")
+        except Exception as e:
+            self.log_result("GET Teams", False, 0, "", str(e))
+        
+        # Test POST teams (create new team)
+        try:
+            new_team = {
+                "naam": "Test Team Alpha",
+                "omschrijving": "Test team for werkbon testing"
+            }
+            
+            response = self.session.post(f"{self.base_url}/teams", json=new_team)
+            if response.status_code in [200, 201]:
+                data = response.json()
+                self.log_result("POST Teams", True, response.status_code, f"Team created: {data.get('naam', 'N/A')}")
+            else:
+                self.log_result("POST Teams", False, response.status_code, response.text, "Failed to create team")
+        except Exception as e:
+            self.log_result("POST Teams", False, 0, "", str(e))
+    
+    def test_klanten_endpoints(self):
+        """Test GET/POST /api/klanten endpoints"""
+        print("\n=== Testing Klanten (Customers) Endpoints ===")
+        
+        # Test GET klanten
+        try:
+            response = self.session.get(f"{self.base_url}/klanten")
+            if response.status_code == 200:
+                klanten = response.json()
+                self.log_result("GET Klanten", True, 200, f"Found {len(klanten)} customers")
+            else:
+                self.log_result("GET Klanten", False, response.status_code, response.text, "Failed to get customers")
+        except Exception as e:
+            self.log_result("GET Klanten", False, 0, "", str(e))
+        
+        # Test POST klanten (create new customer)
+        try:
+            new_klant = {
+                "bedrijfsnaam": "Test Klant BV",
+                "naam": "Test Klant BV",
+                "contactpersoon": "Jan Test",
+                "email": "test@testklant.be",
+                "telefoon": "+32471234567",
+                "adres": "Teststraat 123",
+                "postcode": "1000",
+                "stad": "Brussel",
+                "land": "België",
+                "actief": True
+            }
+            
+            response = self.session.post(f"{self.base_url}/klanten", json=new_klant)
+            if response.status_code in [200, 201]:
+                data = response.json()
+                self.log_result("POST Klanten", True, response.status_code, f"Customer created: {data.get('naam', 'N/A')}")
+            else:
+                self.log_result("POST Klanten", False, response.status_code, response.text, "Failed to create customer")
+        except Exception as e:
+            self.log_result("POST Klanten", False, 0, "", str(e))
+    
+    def test_werven_endpoints(self):
+        """Test GET/POST /api/werven endpoints"""
+        print("\n=== Testing Werven (Worksites) Endpoints ===")
+        
+        # Test GET werven
+        try:
+            response = self.session.get(f"{self.base_url}/werven")
+            if response.status_code == 200:
+                werven = response.json()
+                self.log_result("GET Werven", True, 200, f"Found {len(werven)} worksites")
+            else:
+                self.log_result("GET Werven", False, response.status_code, response.text, "Failed to get worksites")
+        except Exception as e:
+            self.log_result("GET Werven", False, 0, "", str(e))
+        
+        # Test POST werven (create new worksite) - need to get a klant_id first
+        try:
+            # First get klanten to get a klant_id
+            klanten_response = self.session.get(f"{self.base_url}/klanten")
+            if klanten_response.status_code != 200:
+                self.log_result("POST Werven", False, 0, "", "Could not get klanten for klant_id")
+                return
+                
+            klanten = klanten_response.json()
+            if not klanten:
+                self.log_result("POST Werven", False, 0, "", "No klanten available for klant_id")
+                return
+                
+            # Use first klant_id
+            klant_id = klanten[0].get("id")
+            
+            new_werf = {
+                "naam": "Test Werf Centrum",
+                "adres": "Centrumstraat 50",
+                "postcode": "2000",
+                "stad": "Antwerpen",
+                "omschrijving": "Test werklocatie",
+                "actief": True,
+                "klant_id": klant_id
+            }
+            
+            response = self.session.post(f"{self.base_url}/werven", json=new_werf)
+            if response.status_code in [200, 201]:
+                data = response.json()
+                self.log_result("POST Werven", True, response.status_code, f"Worksite created: {data.get('naam', 'N/A')}")
+            else:
+                self.log_result("POST Werven", False, response.status_code, response.text, "Failed to create worksite")
+        except Exception as e:
+            self.log_result("POST Werven", False, 0, "", str(e))
+    
+    def test_werkbonnen_endpoints(self):
+        """Test GET /api/werkbonnen and POST /api/werkbonnen endpoints"""
+        print("\n=== Testing Werkbonnen (Work Orders) Endpoints ===")
+        
+        # Test GET werkbonnen - requires user_id parameter
+        try:
+            # Use authenticated admin user ID
+            response = self.session.get(f"{self.base_url}/werkbonnen?user_id=64fa6af4-630e-4f90-9452-fb3b74b4b432")
+            if response.status_code == 200:
+                werkbonnen = response.json()
+                self.log_result("GET Werkbonnen", True, 200, f"Found {len(werkbonnen)} work orders")
+            else:
+                self.log_result("GET Werkbonnen", False, response.status_code, response.text, "Failed to get work orders")
+        except Exception as e:
+            self.log_result("GET Werkbonnen", False, 0, "", str(e))
+        
+        # Test POST werkbonnen (create new werkbon using JWT authentication)
+        try:
+            # First get klanten and werven to get IDs
+            klanten_response = self.session.get(f"{self.base_url}/klanten")
+            werven_response = self.session.get(f"{self.base_url}/werven")
+            
+            if klanten_response.status_code != 200 or werven_response.status_code != 200:
+                self.log_result("POST Werkbonnen", False, 0, "", "Could not get klanten/werven for werkbon creation")
+                return
+                
+            klanten = klanten_response.json()
+            werven = werven_response.json()
+            
+            if not klanten or not werven:
+                self.log_result("POST Werkbonnen", False, 0, "", "No klanten/werven available for werkbon creation")
+                return
+            
+            new_werkbon = {
+                "week_nummer": 12,  # Required field
+                "jaar": 2026,       # Required field
+                "klant_id": klanten[0].get("id"),
+                "werf_id": werven[0].get("id"),
+                "uren": [{
+                    "teamlid_naam": "Test Werknemer",
+                    "maandag": 8,
+                    "dinsdag": 0,
+                    "woensdag": 0,
+                    "donderdag": 0,
+                    "vrijdag": 0,
+                    "zaterdag": 0,
+                    "zondag": 0
+                }],
+                "uitgevoerde_werken": "Test werkbon voor API verificatie",
+                "extra_materialen": "Test materiaal"
+            }
+            
+            response = self.session.post(f"{self.base_url}/werkbonnen", json=new_werkbon)
+            if response.status_code in [200, 201]:
+                data = response.json()
+                self.log_result("POST Werkbonnen", True, response.status_code, f"Work order created: {data.get('id', 'N/A')}")
+            else:
+                self.log_result("POST Werkbonnen", False, response.status_code, response.text, "Failed to create work order")
+        except Exception as e:
+            self.log_result("POST Werkbonnen", False, 0, "", str(e))
+    
+    def test_health_check(self):
+        """Test GET /api/health endpoint"""
+        print("\n=== Testing Health Check ===")
+        
+        try:
+            response = self.session.get(f"{self.base_url}/health")
+            if response.status_code == 200:
+                data = response.json()
+                self.log_result("Health Check", True, 200, str(data))
+            else:
+                self.log_result("Health Check", False, response.status_code, response.text, "Health check failed")
+        except Exception as e:
+            self.log_result("Health Check", False, 0, "", str(e))
+    
+    def run_all_tests(self):
+        """Run all API tests"""
+        print("🚀 Starting Werkbon Management System API Testing")
+        print(f"Base URL: {self.base_url}")
+        
+        # Test authentication first
+        if not self.test_authentication():
+            print("\n❌ CRITICAL: Authentication failed - cannot continue with secured endpoints")
+            self.print_summary()
+            return False
+        
+        # Run all other tests
+        self.test_health_check()
+        self.test_users_endpoints()
+        self.test_teams_endpoints()
+        self.test_klanten_endpoints()
+        self.test_werven_endpoints()
+        self.test_werkbonnen_endpoints()
+        
+        self.print_summary()
+        return True
+    
+    def print_summary(self):
+        """Print test summary"""
+        print("\n" + "="*80)
+        print("📊 TEST SUMMARY")
+        print("="*80)
+        
+        total_tests = len(self.test_results)
+        passed_tests = sum(1 for result in self.test_results if result["success"])
+        failed_tests = total_tests - passed_tests
+        
+        print(f"Total Tests: {total_tests}")
+        print(f"Passed: {passed_tests} ✅")
+        print(f"Failed: {failed_tests} ❌")
+        print(f"Success Rate: {(passed_tests/total_tests*100):.1f}%")
+        
+        if failed_tests > 0:
+            print("\n🚨 FAILED TESTS:")
+            for result in self.test_results:
+                if not result["success"]:
+                    print(f"  ❌ {result['test']}: {result['status_code']} - {result['error']}")
+        
+        print("\n✅ PASSED TESTS:")
+        for result in self.test_results:
+            if result["success"]:
+                print(f"  ✅ {result['test']}: {result['status_code']}")
 
-def test_auth_enforcement():
-    """Test 1: Auth Enforcement for CUD Operations"""
-    print("🔐 TESTING AUTH ENFORCEMENT FOR CUD OPERATIONS")
-    print("-" * 60)
-    
-    results = {}
-    
-    # Test endpoints that should require admin/master_admin auth
-    test_cases = [
-        ("POST", "/klanten", TEST_KLANT_DATA),
-        ("PUT", "/klanten/test-id", TEST_KLANT_DATA),
-        ("DELETE", "/klanten/test-id", None),
-        ("POST", "/werven", TEST_WERF_DATA),
-        ("PUT", "/werven/test-id", TEST_WERF_DATA), 
-        ("DELETE", "/werven/test-id", None),
-        ("POST", "/planning", TEST_PLANNING_DATA),
-        ("PUT", "/planning/test-id", TEST_PLANNING_DATA),
-        ("DELETE", "/planning/test-id", None)
-    ]
-    
-    print("Testing endpoints WITHOUT auth (expecting 401):")
-    for method, endpoint, data in test_cases:
-        status_code, response_text = test_endpoint_without_auth(method, endpoint, data)
-        expected_401 = status_code == 401
-        result_symbol = "✅" if expected_401 else "❌"
-        print(f"   {result_symbol} {method} {endpoint}: {status_code}")
-        results[f"no_auth_{method.lower()}{endpoint.replace('/', '_')}"] = expected_401
-    
-    return results
 
-def test_admin_access():
-    """Test 2: Admin Access (should get 200/201)"""
-    print("\n👨‍💼 TESTING ADMIN ACCESS (expecting 200/201)")
-    print("-" * 60)
+def main():
+    """Main test execution function"""
+    tester = WerkbonAPITester()
+    success = tester.run_all_tests()
     
-    results = {}
-    
-    # Get admin token
-    admin_token, admin_user = get_auth_token(ADMIN_EMAIL, ADMIN_PASSWORD)
-    if not admin_token:
-        print("❌ Cannot get admin token")
-        return {"admin_login": False}
-    
-    print(f"✅ Admin login successful: {admin_user.get('naam', 'Unknown')}")
-    results["admin_login"] = True
-    
-    # Test admin endpoints
-    test_cases = [
-        ("POST", "/klanten", TEST_KLANT_DATA),
-        ("POST", "/werven", TEST_WERF_DATA),
-        ("POST", "/planning", TEST_PLANNING_DATA)
-    ]
-    
-    print("Testing endpoints WITH admin auth (expecting 200/201):")
-    for method, endpoint, data in test_cases:
-        status_code, response_text = test_endpoint_with_auth(method, endpoint, admin_token, data)
-        success = status_code in [200, 201]
-        result_symbol = "✅" if success else "❌"
-        print(f"   {result_symbol} {method} {endpoint}: {status_code}")
-        if not success:
-            print(f"      Response: {response_text[:200]}...")
-        results[f"admin_auth_{method.lower()}{endpoint.replace('/', '_')}"] = success
-    
-    return results, admin_token
+    # Exit with proper code
+    sys.exit(0 if success else 1)
 
-def test_worker_access():
-    """Test 3: Worker Access (should get 403 for admin operations)"""
-    print("\n👷 TESTING WORKER ACCESS (expecting 403 for admin ops)")
-    print("-" * 60)
-    
-    results = {}
-    
-    # Get worker token
-    worker_token, worker_user = get_auth_token(WORKER_EMAIL, WORKER_PASSWORD)
-    if not worker_token:
-        print("❌ Cannot get worker token")
-        return {"worker_login": False}
-    
-    print(f"✅ Worker login successful: {worker_user.get('naam', 'Unknown')}")
-    results["worker_login"] = True
-    
-    # Test worker trying admin endpoints (should get 403)
-    test_cases = [
-        ("POST", "/klanten", TEST_KLANT_DATA),
-        ("POST", "/planning", TEST_PLANNING_DATA)
-    ]
-    
-    print("Testing admin endpoints WITH worker auth (expecting 403):")
-    for method, endpoint, data in test_cases:
-        status_code, response_text = test_endpoint_with_auth(method, endpoint, worker_token, data)
-        expected_403 = status_code == 403
-        result_symbol = "✅" if expected_403 else "❌"
-        print(f"   {result_symbol} {method} {endpoint}: {status_code}")
-        results[f"worker_forbidden_{method.lower()}{endpoint.replace('/', '_')}"] = expected_403
-    
-    return results, worker_token
-
-def test_planner_access():
-    """Test 4: Planner Access (should get 403 for CUD operations)"""
-    print("\n📋 TESTING PLANNER ACCESS (expecting 403 for CUD ops)")
-    print("-" * 60)
-    
-    results = {}
-    
-    # Get planner token
-    planner_token, planner_user = get_auth_token(PLANNER_EMAIL, PLANNER_PASSWORD)
-    if not planner_token:
-        print("❌ Cannot get planner token")
-        return {"planner_login": False}
-    
-    print(f"✅ Planner login successful: {planner_user.get('naam', 'Unknown')}")
-    results["planner_login"] = True
-    
-    # Test planner trying CUD endpoints (should get 403)
-    test_cases = [
-        ("POST", "/klanten", TEST_KLANT_DATA),
-        ("POST", "/planning", TEST_PLANNING_DATA)
-    ]
-    
-    print("Testing CUD endpoints WITH planner auth (expecting 403):")
-    for method, endpoint, data in test_cases:
-        status_code, response_text = test_endpoint_with_auth(method, endpoint, planner_token, data)
-        expected_403 = status_code == 403
-        result_symbol = "✅" if expected_403 else "❌"
-        print(f"   {result_symbol} {method} {endpoint}: {status_code}")
-        results[f"planner_forbidden_{method.lower()}{endpoint.replace('/', '_')}"] = expected_403
-    
-    return results
-
-def test_read_operations():
-    """Test 5: Read Operations (should work without auth)"""
-    print("\n📖 TESTING READ OPERATIONS (should work without auth)")
-    print("-" * 60)
-    
-    results = {}
-    
-    # Test GET endpoints that should work without auth
-    test_cases = [
-        "/klanten",
-        "/werven", 
-        "/planning?week_nummer=12&jaar=2026"
-    ]
-    
-    print("Testing GET endpoints WITHOUT auth (expecting 200):")
-    for endpoint in test_cases:
-        status_code, response_text = test_endpoint_without_auth("GET", endpoint)
-        success = status_code == 200
-        result_symbol = "✅" if success else "❌"
-        print(f"   {result_symbol} GET {endpoint}: {status_code}")
-        results[f"read_access{endpoint.split('?')[0].replace('/', '_')}"] = success
-    
-    return results
-
-def test_user_trust_fixes(admin_token, worker_token):
-    """Test 6: User Trust Fixes (user identity from JWT)"""
-    print("\n🛡️ TESTING USER TRUST FIXES (JWT identity)")
-    print("-" * 60)
-    
-    results = {}
-    
-    if not admin_token:
-        print("❌ Cannot test without admin token")
-        return {"missing_token": False}
-    
-    # Test werkbon creation uses JWT identity (not URL params)
-    print("Testing werkbon creation with JWT auth:")
-    
-    werkbon_endpoints = [
-        "/werkbonnen",
-        "/oplevering-werkbonnen", 
-        "/project-werkbonnen",
-        "/productie-werkbonnen"
-    ]
-    
-    for endpoint in werkbon_endpoints:
-        status_code, response_text = test_endpoint_with_auth("POST", endpoint, admin_token, TEST_WERKBON_DATA)
-        success = status_code in [200, 201]
-        result_symbol = "✅" if success else "❌"
-        print(f"   {result_symbol} POST {endpoint}: {status_code}")
-        if not success:
-            print(f"      Response: {response_text[:200]}...")
-        results[f"werkbon_jwt{endpoint.replace('/', '_').replace('-', '_')}"] = success
-    
-    # Test bericht creation uses JWT identity
-    print("Testing bericht creation with JWT auth:")
-    status_code, response_text = test_endpoint_with_auth("POST", "/berichten", admin_token, TEST_BERICHT_DATA)
-    success = status_code in [200, 201]
-    result_symbol = "✅" if success else "❌"
-    print(f"   {result_symbol} POST /berichten: {status_code}")
-    if not success:
-        print(f"      Response: {response_text[:200]}...")
-    results["bericht_jwt_identity"] = success
-    
-    return results
-
-def run_phase2a_security_tests():
-    """Run comprehensive Phase 2A security tests"""
-    print("🚀 PHASE 2A BACKEND SECURITY TESTING")
-    print("=" * 60)
-    print("Testing auth enforcement and user trust fixes")
-    print("=" * 60)
-    
-    all_results = {}
-    
-    # Test 1: Auth Enforcement
-    auth_results = test_auth_enforcement()
-    all_results.update(auth_results)
-    
-    # Test 2: Admin Access
-    admin_results, admin_token = test_admin_access()
-    all_results.update(admin_results)
-    
-    # Test 3: Worker Access 
-    worker_results, worker_token = test_worker_access()
-    all_results.update(worker_results)
-    
-    # Test 4: Planner Access
-    planner_results = test_planner_access()
-    all_results.update(planner_results)
-    
-    # Test 5: Read Operations
-    read_results = test_read_operations()
-    all_results.update(read_results)
-    
-    # Test 6: User Trust Fixes
-    trust_results = test_user_trust_fixes(admin_token, worker_token)
-    all_results.update(trust_results)
-    
-    # Summary
-    print("\n" + "=" * 60)
-    print("📊 PHASE 2A SECURITY TEST RESULTS SUMMARY:")
-    print("=" * 60)
-    
-    total_tests = len(all_results)
-    passed_tests = sum(1 for result in all_results.values() if result)
-    
-    # Group results by category
-    categories = {
-        "Auth Enforcement (401 without auth)": [k for k in all_results.keys() if k.startswith("no_auth_")],
-        "Admin Access (200/201 with admin)": [k for k in all_results.keys() if k.startswith("admin_")],
-        "Worker Access (403 for admin ops)": [k for k in all_results.keys() if k.startswith("worker_")],
-        "Planner Access (403 for CUD)": [k for k in all_results.keys() if k.startswith("planner_")],
-        "Read Operations (200 without auth)": [k for k in all_results.keys() if k.startswith("read_")],
-        "User Trust Fixes (JWT identity)": [k for k in all_results.keys() if k.startswith(("werkbon_", "bericht_"))]
-    }
-    
-    for category, test_keys in categories.items():
-        if test_keys:
-            print(f"\n{category}:")
-            for key in test_keys:
-                result = all_results[key]
-                status = "✅ PASS" if result else "❌ FAIL"
-                clean_name = key.replace("_", " ").title()
-                print(f"   {clean_name:30}: {status}")
-    
-    print(f"\nOVERALL SUCCESS RATE: {passed_tests}/{total_tests} ({(passed_tests/total_tests)*100:.1f}%)")
-    
-    return all_results
 
 if __name__ == "__main__":
-    run_phase2a_security_tests()
+    main()
