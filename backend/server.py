@@ -12,7 +12,7 @@ import io
 import secrets
 from pathlib import Path
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Set
+from typing import List, Optional, Dict, Set, Any
 import uuid
 from datetime import datetime, timedelta, timezone
 import hashlib
@@ -844,12 +844,19 @@ def serialize_mongo_doc(doc: dict) -> dict:
     for key, value in doc.items():
         if key == '_id':
             result[key] = str(value)  # Convert ObjectId to string
+        elif hasattr(value, '__class__') and value.__class__.__name__ == 'ObjectId':
+            result[key] = str(value)  # Convert any ObjectId to string
         elif isinstance(value, datetime):
             result[key] = value.isoformat()  # Convert datetime to ISO string
         elif isinstance(value, dict):
             result[key] = serialize_mongo_doc(value)
         elif isinstance(value, list):
-            result[key] = [serialize_mongo_doc(item) if isinstance(item, dict) else item for item in value]
+            result[key] = [
+                serialize_mongo_doc(item) if isinstance(item, dict) 
+                else str(item) if hasattr(item, '__class__') and item.__class__.__name__ == 'ObjectId'
+                else item 
+                for item in value
+            ]
         else:
             result[key] = value
     return result
@@ -3893,6 +3900,199 @@ async def get_week_dates_api(year: int, week: int):
     """Get dates for a specific week"""
     return get_week_dates(year, week)
 
+# ============ UNIFIED WERKBON ENDPOINT (for new mobile app) ============
+class UnifiedWerkbonCreate(BaseModel):
+    """Flexible werkbon model that accepts frontend format"""
+    type: str  # uren, oplevering, project, prestatie
+    klant_id: Optional[str] = None
+    klant_naam: Optional[str] = None
+    werf_id: Optional[str] = None
+    werf_naam: Optional[str] = None
+    datum: Optional[str] = None
+    opmerkingen: Optional[str] = ""
+    
+    # Signature
+    handtekening: Optional[str] = None
+    handtekening_naam: Optional[str] = None
+    selfie: Optional[str] = None
+    
+    # GPS
+    gps_locatie: Optional[str] = None
+    gps_lat: Optional[float] = None
+    gps_lng: Optional[float] = None
+    gps_accuracy: Optional[float] = None
+    
+    # Uren specific
+    week_nummer: Optional[int] = None
+    jaar: Optional[int] = None
+    uren: Optional[List[Dict]] = None
+    uren_regels: Optional[List[Dict]] = None
+    km_afstand: Optional[Any] = None
+    uitgevoerde_werken: Optional[str] = ""
+    extra_materialen: Optional[str] = ""
+    
+    # Oplevering specific
+    omschrijving: Optional[str] = None
+    opleverpunten: Optional[List[Dict]] = None
+    
+    # Project specific
+    project_naam: Optional[str] = None
+    taken: Optional[List[Dict]] = None
+    materialen: Optional[List[Dict]] = None
+    gebruikte_machines: Optional[str] = None
+    aantal_personen: Optional[int] = None
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+    status: Optional[str] = None
+    vervolgwerk_nodig: Optional[bool] = False
+    vervolgwerk_beschrijving: Optional[str] = None
+    vervolgactie_datum: Optional[str] = None
+    hindernissen: Optional[str] = None
+    zone: Optional[str] = None
+    contactpersoon: Optional[str] = None
+    
+    # Prestatie specific
+    werk_naam: Optional[str] = None
+    werk_omschrijving: Optional[str] = None
+    hoeveelheid: Optional[float] = None
+    eenheid: Optional[str] = None
+    dikte_cm: Optional[float] = None
+    aantal_lagen: Optional[int] = None
+    
+    # Common
+    fotos: Optional[List[Dict]] = None
+    verstuur_naar_klant: Optional[bool] = False
+    werknemer_id: Optional[str] = None
+    werknemer_naam: Optional[str] = None
+    timestamp: Optional[str] = None
+    
+    class Config:
+        extra = "allow"  # Allow extra fields
+
+@api_router.post("/werkbonnen/unified")
+async def create_unified_werkbon(data: UnifiedWerkbonCreate, current_user: Dict = Depends(get_current_user)):
+    """
+    Unified werkbon creation endpoint for the new mobile app.
+    Accepts a flexible format and routes to the appropriate collection based on type.
+    """
+    user_id = current_user["user_id"]
+    user_naam = current_user["naam"]
+    
+    werkbon_type = data.type
+    werkbon_id = str(uuid.uuid4())
+    now = datetime.utcnow()
+    
+    # Base document
+    base_doc = {
+        "id": werkbon_id,
+        "company_id": "default_company",
+        "type": werkbon_type,
+        "klant_id": data.klant_id,
+        "klant_naam": data.klant_naam or "",
+        "werf_id": data.werf_id,
+        "werf_naam": data.werf_naam or "",
+        "datum": data.datum or now.strftime("%Y-%m-%d"),
+        "opmerkingen": data.opmerkingen or "",
+        "handtekening": data.handtekening,
+        "handtekening_naam": data.handtekening_naam or "",
+        "selfie": data.selfie,
+        "gps_locatie": data.gps_locatie,
+        "gps_lat": data.gps_lat,
+        "gps_lng": data.gps_lng,
+        "gps_accuracy": data.gps_accuracy,
+        "ingevuld_door_id": user_id,
+        "ingevuld_door_naam": user_naam,
+        "status": "ondertekend" if data.handtekening else "concept",
+        "created_at": now,
+        "updated_at": now,
+    }
+    
+    # Process photos
+    if data.fotos:
+        base_doc["fotos"] = [f.get("data") or f.get("uri") for f in data.fotos if f]
+    
+    # Route by type
+    if werkbon_type == "uren":
+        # Process uren regels
+        uren_regels = data.uren or data.uren_regels or []
+        processed_uren = []
+        for regel in uren_regels:
+            processed_uren.append({
+                "naam": regel.get("naam") or regel.get("teamlidNaam", ""),
+                "maandag": regel.get("maandag", 0),
+                "dinsdag": regel.get("dinsdag", 0),
+                "woensdag": regel.get("woensdag", 0),
+                "donderdag": regel.get("donderdag", 0),
+                "vrijdag": regel.get("vrijdag", 0),
+                "zaterdag": regel.get("zaterdag", 0),
+                "zondag": regel.get("zondag", 0),
+            })
+        
+        week_nummer = data.week_nummer or datetime.now().isocalendar()[1]
+        jaar = data.jaar or datetime.now().year
+        week_dates = get_week_dates(jaar, week_nummer)
+        
+        werkbon_doc = {
+            **base_doc,
+            "week_nummer": week_nummer,
+            "jaar": jaar,
+            "uren": processed_uren,
+            "km_afstand": data.km_afstand if isinstance(data.km_afstand, dict) else {"afstand": data.km_afstand, "beschrijving": ""} if data.km_afstand else {"afstand": 0, "beschrijving": ""},
+            "uitgevoerde_werken": data.uitgevoerde_werken or "",
+            "extra_materialen": data.extra_materialen or "",
+            **week_dates,
+        }
+        await db.werkbonnen.insert_one(werkbon_doc)
+        
+    elif werkbon_type == "oplevering":
+        werkbon_doc = {
+            **base_doc,
+            "omschrijving": data.omschrijving or "",
+            "opleverpunten": data.opleverpunten or [],
+        }
+        await db.oplevering_werkbonnen.insert_one(werkbon_doc)
+        
+    elif werkbon_type == "project":
+        werkbon_doc = {
+            **base_doc,
+            "project_naam": data.project_naam or "",
+            "uitgevoerde_werken": data.uitgevoerde_werken or "",
+            "taken": data.taken or [],
+            "materialen": data.materialen or [],
+            "gebruikte_machines": data.gebruikte_machines or "",
+            "aantal_personen": data.aantal_personen or 1,
+            "start_time": data.start_time,
+            "end_time": data.end_time,
+            "status": data.status or "gestart",
+            "vervolgwerk_nodig": data.vervolgwerk_nodig or False,
+            "vervolgwerk_beschrijving": data.vervolgwerk_beschrijving,
+            "vervolgactie_datum": data.vervolgactie_datum,
+            "hindernissen": data.hindernissen,
+            "zone": data.zone,
+            "contactpersoon": data.contactpersoon,
+        }
+        await db.project_werkbonnen.insert_one(werkbon_doc)
+        
+    elif werkbon_type == "prestatie":
+        werkbon_doc = {
+            **base_doc,
+            "werk_naam": data.werk_naam or "",
+            "werk_omschrijving": data.werk_omschrijving or "",
+            "hoeveelheid": data.hoeveelheid,
+            "eenheid": data.eenheid or "m²",
+            "dikte_cm": data.dikte_cm,
+            "aantal_lagen": data.aantal_lagen,
+            "zone": data.zone,
+        }
+        await db.productie_werkbonnen.insert_one(werkbon_doc)
+        
+    else:
+        raise HTTPException(status_code=400, detail=f"Onbekend werkbon type: {werkbon_type}")
+    
+    return serialize_mongo_doc(werkbon_doc)
+
+
+
 @api_router.post("/werkbonnen", response_model=Werkbon)
 async def create_werkbon(werkbon_data: WerkbonCreate, current_user: Dict = Depends(get_current_user)):
     """Create werkbon - uses authenticated user's identity from JWT"""
@@ -4671,7 +4871,7 @@ async def create_oplevering_werkbon(
     }
     
     await db.oplevering_werkbonnen.insert_one(werkbon_dict)
-    return werkbon_dict
+    return serialize_mongo_doc(werkbon_dict)
 
 @api_router.put("/oplevering-werkbonnen/{werkbon_id}")
 async def update_oplevering_werkbon(werkbon_id: str, update_data: OpleveringWerkbonUpdate):
@@ -4865,7 +5065,7 @@ async def create_project_werkbon(
     }
     
     await db.project_werkbonnen.insert_one(werkbon_dict)
-    return werkbon_dict
+    return serialize_mongo_doc(werkbon_dict)
 
 @api_router.put("/project-werkbonnen/{werkbon_id}")
 async def update_project_werkbon(werkbon_id: str, update_data: ProjectWerkbonUpdate):

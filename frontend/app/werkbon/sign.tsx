@@ -484,10 +484,23 @@ export default function WerkbonSign() {
           ...baseData,
           week_nummer: urenData.weekNummer,
           jaar: urenData.jaar,
-          uren_regels: urenData.urenRegels.filter(r => r.teamlidNaam.trim()),
-          km_afstand: urenData.kmAfstand,
-          uitgevoerde_werken: urenData.uitgevoerdeWerken,
-          extra_materialen: urenData.extraMaterialen,
+          // Backend expects 'uren' not 'uren_regels'
+          uren: urenData.urenRegels.filter(r => r.teamlidNaam.trim()).map(r => ({
+            naam: r.teamlidNaam,
+            maandag: r.maandag || 0,
+            dinsdag: r.dinsdag || 0,
+            woensdag: r.woensdag || 0,
+            donderdag: r.donderdag || 0,
+            vrijdag: r.vrijdag || 0,
+            zaterdag: r.zaterdag || 0,
+            zondag: r.zondag || 0,
+          })),
+          km_afstand: urenData.kmAfstand ? {
+            afstand: urenData.kmAfstand,
+            beschrijving: '',
+          } : null,
+          uitgevoerde_werken: urenData.uitgevoerdeWerken || '',
+          extra_materialen: urenData.extraMaterialen || '',
         };
         
       case 'oplevering':
@@ -535,13 +548,8 @@ export default function WerkbonSign() {
   };
 
   const getEndpointForType = (werkbonType: string) => {
-    switch (werkbonType) {
-      case 'uren': return '/api/uren-werkbonnen';
-      case 'oplevering': return '/api/oplevering-werkbonnen';
-      case 'project': return '/api/project-werkbonnen';
-      case 'prestatie': return '/api/productie-werkbonnen';
-      default: return '/api/werkbonnen';
-    }
+    // Use unified endpoint for all types (new mobile app)
+    return '/api/werkbonnen/unified';
   };
 
   const getTypeTitle = () => {
