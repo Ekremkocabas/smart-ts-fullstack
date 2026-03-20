@@ -12,7 +12,6 @@ const menuItems = [
   { icon: 'git-branch-outline', label: 'Teams', route: '/admin/teams' },
   { icon: 'briefcase-outline', label: 'Klanten', route: '/admin/klanten' },
   { icon: 'business-outline', label: 'Werven', route: '/admin/werven' },
-  { icon: 'document-text-outline', label: 'Werkbonnen', route: '/admin/werkbonnen' },
   { icon: 'chatbubbles-outline', label: 'Berichten', route: '/admin/berichten' },
   { icon: 'bar-chart-outline', label: 'Rapporten', route: '/admin/rapporten' },
   { icon: 'settings-outline', label: 'Instellingen', route: '/admin/instellingen' },
