@@ -5,6 +5,10 @@ const { FileStore } = require('metro-cache');
 
 const config = getDefaultConfig(__dirname);
 
+// Fix Zustand/import.meta issue on web - SDK 53+ defaults to package exports
+// which loads ESM version with import.meta not supported by Metro
+config.resolver.unstable_enablePackageExports = false;
+
 // Use a stable on-disk store (shared across web/android)
 const root = process.env.METRO_CACHE_ROOT || path.join(__dirname, '.metro-cache');
 config.cacheStores = [
