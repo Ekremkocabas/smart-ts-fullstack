@@ -13,6 +13,16 @@ import React, { useRef, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
+// Import native signature canvas only for native platforms
+let SignatureScreen: any = null;
+if (Platform.OS !== 'web') {
+  try {
+    SignatureScreen = require('react-native-signature-canvas').default;
+  } catch (e) {
+    console.warn('react-native-signature-canvas not available');
+  }
+}
+
 // Web-based signature canvas with proper scaling
 const WebSignatureCanvas = ({ onEnd, onClear, signatureRef }: any) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -181,11 +191,6 @@ export const SignatureCanvas: React.FC<SignatureCanvasProps> = ({
   onSignatureOk,
   primaryColor = '#F5A623',
 }) => {
-  // Dynamically import SignatureScreen for native
-  const SignatureScreen = Platform.OS !== 'web' 
-    ? require('react-native-signature-canvas').default 
-    : null;
-
   return (
     <View style={styles.container}>
       <View style={styles.labelRow}>
@@ -210,7 +215,7 @@ export const SignatureCanvas: React.FC<SignatureCanvasProps> = ({
             onClear={onSignatureClear}
           />
         ) : (
-          SignatureScreen && (
+          SignatureScreen ? (
             <SignatureScreen
               ref={signatureRef}
               onBegin={onSignatureStart}
@@ -222,6 +227,10 @@ export const SignatureCanvas: React.FC<SignatureCanvasProps> = ({
               penColor="#1A1A2E"
               imageType="image/png"
             />
+          ) : (
+            <View style={styles.fallbackSignature}>
+              <Text style={styles.fallbackText}>Handtekening niet beschikbaar</Text>
+            </View>
           )
         )}
       </View>
@@ -264,6 +273,16 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#E8E9ED',
     height: 200,
+  },
+  fallbackSignature: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F5F6FA',
+  },
+  fallbackText: {
+    color: '#8C9199',
+    fontSize: 14,
   },
 });
 
