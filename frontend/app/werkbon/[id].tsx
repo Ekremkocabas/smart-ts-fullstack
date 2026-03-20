@@ -10,7 +10,7 @@ import {
   Platform,
   TextInput,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppStore, Werkbon, UrenRegel } from '../../store/appStore';
@@ -50,6 +50,7 @@ export default function WerkbonDetailScreen() {
   }>();
   const router = useRouter();
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const { fetchWerkbon, verzendWerkbon, deleteWerkbon, duplicateWerkbon, instellingen, fetchInstellingen, lastUpdatedWerkbon } = useAppStore();
   
   const [werkbon, setWerkbon] = useState<Werkbon | null>(null);
@@ -544,7 +545,8 @@ export default function WerkbonDetailScreen() {
         )}
       </ScrollView>
 
-      <View style={styles.footer}>
+      {/* Fixed Footer with Safe Area */}
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
         {currentWerkbon.status === 'concept' && (
           <View style={styles.footerRow}>
             <TouchableOpacity testID="werkbon-edit-button" style={[styles.actionBtn, styles.editBtn]} onPress={handleEdit}>

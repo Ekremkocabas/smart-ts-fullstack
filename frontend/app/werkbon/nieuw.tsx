@@ -81,7 +81,7 @@ export default function NieuweWerkbonScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showAfkortingPicker, setShowAfkortingPicker] = useState<{index: number, dag: string} | null>(null);
-  const [gpsOpPdf, setGpsOpPdf] = useState(false);
+  const [gpsOpPdf, setGpsOpPdf] = useState(true);  // GPS always enabled on PDF
 
   // Planning suggestions
   const [planningItems, setPlanningItems] = useState<any[]>([]);
@@ -588,22 +588,6 @@ export default function NieuweWerkbonScreen() {
             />
           </View>
 
-          {/* GPS Toggle */}
-          <View style={styles.section}>
-            <TouchableOpacity
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff', padding: 16, borderRadius: 12, borderWidth: 1.5, borderColor: gpsOpPdf ? '#3498db' : '#E8E9ED' }}
-              onPress={() => setGpsOpPdf(!gpsOpPdf)}
-            >
-              <Ionicons name={gpsOpPdf ? 'location' : 'location-outline'} size={22} color={gpsOpPdf ? '#3498db' : '#6c757d'} />
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 15, color: '#1A1A2E', fontWeight: '500' }}>GPS locatie op PDF tonen</Text>
-                <Text style={{ fontSize: 12, color: '#6c757d', marginTop: 2 }}>Locatiegegevens worden aan de PDF toegevoegd</Text>
-              </View>
-              <View style={{ width: 48, height: 26, borderRadius: 13, backgroundColor: gpsOpPdf ? '#3498db' : '#E8E9ED', padding: 2, justifyContent: 'center' }}>
-                <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff', alignSelf: gpsOpPdf ? 'flex-end' : 'flex-start' }} />
-              </View>
-            </TouchableOpacity>
-          </View>
           <View style={{ height: 120 }} />
         </ScrollView>
 
