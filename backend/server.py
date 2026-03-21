@@ -3656,7 +3656,7 @@ async def send_push_notifications(user_ids: list, title: str, body: str, data: d
                 tokens.append(user["push_token"])
         
         if not tokens:
-            return
+            return {"sent": 0, "message": "No push tokens found"}
         
         messages = [{"to": t, "sound": "default", "title": title, "body": body, "data": data or {}} for t in tokens]
         
@@ -3666,8 +3666,26 @@ async def send_push_notifications(user_ids: list, title: str, body: str, data: d
                 json=messages,
                 headers={"Content-Type": "application/json"}
             )
+        return {"sent": len(tokens), "message": "Push notifications sent"}
     except Exception as e:
         logging.error(f"Push notification error: {e}")
+        return {"sent": 0, "error": str(e)}
+
+# Push notification API endpoint
+@api_router.post("/notifications/send")
+async def send_notification_api(data: dict):
+    """Send push notification to specific user(s)"""
+    user_id = data.get("user_id")
+    title = data.get("title", "Nieuw bericht")
+    body = data.get("body", "")
+    notification_data = data.get("data", {})
+    
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id is required")
+    
+    user_ids = [user_id] if isinstance(user_id, str) else user_id
+    result = await send_push_notifications(user_ids, title, body, notification_data)
+    return result
 
 # ==================== TEAM ROUTES ====================
 
