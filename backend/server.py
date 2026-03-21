@@ -38,7 +38,8 @@ JWT_EXPIRATION_HOURS = 24 * 7  # 7 days
 # Resend configuration
 resend.api_key = os.environ.get('RESEND_API_KEY', '')
 SENDER_EMAIL = os.environ.get('SENDER_EMAIL', 'onboarding@resend.dev')
-COMPANY_EMAIL = "info@smart-techbv.be"  # All werkbon notifications go here
+COMPANY_EMAIL = "info@smart-techbv.be"  # For sending emails TO customers
+WERKBON_RECIPIENT_EMAIL = "ts@smart-techbv.be"  # Werkbonnen from workers go HERE
 
 # Company info for PDF (hardcoded as requested)
 COMPANY_INFO = {
@@ -1826,15 +1827,15 @@ def get_email_brand_name(instellingen: dict) -> str:
 
 
 def get_company_recipient(instellingen: dict) -> str:
-    """Get the company email for werkbon receipts - prefer inkomend_werkbon, fallback to general email"""
+    """Get the company email for werkbon receipts - prefer inkomend_werkbon, fallback to ts@smart-techbv.be"""
     emails = instellingen.get("emails")
     if emails and isinstance(emails, dict):
         # Prefer inkomend_werkbon for werkbon notifications
         werkbon_email = emails.get("inkomend_werkbon")
         if werkbon_email:
             return werkbon_email
-    # Fallback to legacy email
-    return instellingen.get("email") or COMPANY_EMAIL
+    # Fallback to werkbon recipient email (ts@smart-techbv.be)
+    return instellingen.get("inkomend_werkbon") or WERKBON_RECIPIENT_EMAIL
 
 
 def get_unique_recipients(*emails: Optional[str]) -> List[str]:
