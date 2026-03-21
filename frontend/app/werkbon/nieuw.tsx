@@ -150,22 +150,30 @@ export default function NieuweWerkbonScreen() {
     }
   };
 
+  // Initialize urenRegels with user's name - runs once when user data is available
   useEffect(() => {
+    // Skip if already initialized
+    if (urenRegels.length > 0) return;
+    
     // Initialize with user's team if assigned
     if (user?.team_id && teams.length > 0) {
       const userTeam = teams.find(t => t.id === user.team_id);
-      if (userTeam && userTeam.leden.length > 0 && urenRegels.length === 0) {
+      if (userTeam && userTeam.leden.length > 0) {
         const regels = userTeam.leden.map(naam => createEmptyUrenRegel(naam));
         setUrenRegels(regels);
+        return;
       }
-    } else if (urenRegels.length === 0 && user?.naam) {
-      // Start with user's own name pre-filled
-      setUrenRegels([createEmptyUrenRegel(user.naam)]);
-    } else if (urenRegels.length === 0) {
-      // Fallback: Start with one empty row
-      setUrenRegels([createEmptyUrenRegel()]);
     }
-  }, [teams, user]);
+    
+    // Always pre-fill with logged-in user's name
+    if (user?.naam) {
+      console.log('[Werkbon] Auto-filling user name:', user.naam);
+      setUrenRegels([createEmptyUrenRegel(user.naam)]);
+    } else {
+      // Fallback: Start with one empty row
+      setUrenRegels([createEmptyUrenRegel('')]);
+    }
+  }, [teams, user?.naam, user?.team_id]);
 
   const handleKlantSelect = async (klant: Klant) => {
     setSelectedKlant(klant);
