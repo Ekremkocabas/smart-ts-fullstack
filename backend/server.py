@@ -53,13 +53,13 @@ COMPANY_INFO = {
     "logo_base64": "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"
 }
 
-# Legal text for signature (used in all werkbons)
+# Legal text for signature (used in all werkbons) - Updated per user request
 LEGAL_TEXT = (
-    "De ondertekenaar bevestigt met zijn handtekening dat de ingevulde gegevens correct zijn "
-    "en dat de werkzaamheden naar tevredenheid zijn uitgevoerd. "
-    "Deze werkbon mag worden gebruikt voor administratieve verwerking en facturatie. "
-    "De ondertekenaar geeft toestemming voor het maken en gebruiken van foto's indien deze "
-    "nodig zijn voor werkrapportage of technische documentatie."
+    "Door ondertekening bevestigt de klant de juistheid van alle bovenstaande gegevens. "
+    "Deze werkbon dient als grondslag voor facturatie. "
+    "Bezwaren dienen schriftelijk gemeld te worden aan info@smart-techbv.be binnen 5 werkdagen na ondertekening, "
+    "bij gebreke waarvan de werkbon als definitief goedgekeurd geldt. "
+    "De digitale handtekening heeft dezelfde rechtskracht als een handgeschreven handtekening."
 )
 
 # MongoDB connection
@@ -2041,7 +2041,7 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     story.append(timesheet_table)
     story.append(Spacer(1, 3))
 
-    # ── MAIN HEADER: [Logo + Week/Jaar | Smart-Tech BV + Company Info] ──
+    # ── MAIN HEADER: [Logo + Week/Jaar/Werkbon Nr | Smart-Tech BV + Company Info] ──
     logo_bytes = decode_base64_data(instellingen.get("logo_base64"))
     # Slightly shorter logo (25mm wide x 20mm tall)
     logo = make_safe_reportlab_image(logo_bytes, 34 * mm, 24 * mm)
@@ -2050,8 +2050,26 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
         left_cell.append(logo)
         left_cell.append(Spacer(1, 3))
     week_style = ParagraphStyle("WeekLeft", fontName="Helvetica-Bold", fontSize=14, textColor=colors.HexColor("#1a1a2e"))
+    werkbon_nr_style = ParagraphStyle("WerkbonNr", fontName="Helvetica", fontSize=10, textColor=colors.HexColor("#555555"))
+    
+    # Use current year dynamically
+    current_year = datetime.now().year
+    werkbon_jaar = werkbon.get('jaar', current_year)
+    
+    # Generate werkbon number: YYYY-WW-XXX format (year-week-sequence)
+    werkbon_id = werkbon.get('id', werkbon.get('_id', ''))
+    werkbon_week = werkbon.get('week_nummer', '00')
+    # Use last 4 chars of ID as sequence, or generate from created_at
+    if werkbon_id:
+        seq_num = str(werkbon_id)[-4:].upper()
+    else:
+        seq_num = str(hash(str(werkbon.get('created_at', ''))))[-4:]
+    werkbon_nummer = f"{werkbon_jaar}-W{werkbon_week:0>2}-{seq_num}"
+    
     left_cell.append(Paragraph(f"<b>Week {werkbon.get('week_nummer', '-')}</b>", week_style))
-    left_cell.append(Paragraph(f"<b>{werkbon.get('jaar', '-')}</b>", week_style))
+    left_cell.append(Paragraph(f"<b>{werkbon_jaar}</b>", week_style))
+    left_cell.append(Spacer(1, 2))
+    left_cell.append(Paragraph(f"Werkbon nr: {werkbon_nummer}", werkbon_nr_style))
 
     bedrijfsnaam_pdf = instellingen.get("bedrijfsnaam", "Smart-Tech BV")
     company_name_style = ParagraphStyle("CompNameBold", fontName="Helvetica-Bold", fontSize=13,
@@ -2280,7 +2298,8 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     story.append(bottom_table)
 
     story.append(Spacer(1, 8))
-    footer_text = instellingen.get("pdf_voettekst") or "Factuur wordt als goedgekeurd beschouwd indien geen klacht wordt ingediend binnen 1 week."
+    # Use the new LEGAL_TEXT as footer, override any custom setting
+    footer_text = LEGAL_TEXT
     story.append(Paragraph(footer_text.replace("\n", "<br/>"), styles["FooterText"]))
 
     pdf.build(story)
