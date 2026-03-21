@@ -520,8 +520,24 @@ export default function PlanningAdmin() {
                     <View style={styles.emptyDay}>
                       <Text style={styles.emptyDayText}>Geen taken</Text>
                     </View>
-                  ) : dagItems.map(item => (
-                    <TouchableOpacity key={item.id} style={[styles.planCard, item.belangrijk && styles.planCardBelangrijk]} onPress={() => openDetail(item)} activeOpacity={0.7}>
+                  ) : dagItems.map(item => {
+                    // Check if all workers confirmed
+                    const allConfirmed = item.werknemer_ids?.length > 0 && 
+                      item.werknemer_ids.every((wId: string) => item.bevestigd_door?.includes(wId));
+                    const someConfirmed = item.bevestigd_door?.length > 0 && !allConfirmed;
+                    
+                    return (
+                    <TouchableOpacity 
+                      key={item.id} 
+                      style={[
+                        styles.planCard, 
+                        item.belangrijk && styles.planCardBelangrijk,
+                        allConfirmed && { borderLeftColor: '#28a745', borderLeftWidth: 4 },
+                        someConfirmed && { borderLeftColor: '#F5A623', borderLeftWidth: 4 }
+                      ]} 
+                      onPress={() => openDetail(item)} 
+                      activeOpacity={0.7}
+                    >
                       {/* Priority strip */}
                       <View style={[styles.priorityStrip, { backgroundColor: PRIORITEIT_KLEUREN[item.prioriteit] || '#3498db' }]} />
                       <View style={styles.planCardContent}>
@@ -530,6 +546,19 @@ export default function PlanningAdmin() {
                           <View style={styles.planCardBelangrijkBanner}>
                             <Ionicons name="warning" size={12} color="#fff" />
                             <Text style={styles.planCardBelangrijkText}>BELANGRIJK</Text>
+                          </View>
+                        )}
+                        {/* Bevestigd indicator */}
+                        {allConfirmed && (
+                          <View style={[styles.statusBadge, { backgroundColor: '#28a74520', marginBottom: 4 }]}>
+                            <Ionicons name="checkmark-circle" size={12} color="#28a745" />
+                            <Text style={{ fontSize: 10, color: '#28a745', fontWeight: '600', marginLeft: 4 }}>ALLE BEVESTIGD</Text>
+                          </View>
+                        )}
+                        {someConfirmed && (
+                          <View style={[styles.statusBadge, { backgroundColor: '#F5A62320', marginBottom: 4 }]}>
+                            <Ionicons name="time" size={12} color="#F5A623" />
+                            <Text style={{ fontSize: 10, color: '#F5A623', fontWeight: '600', marginLeft: 4 }}>{item.bevestigd_door?.length}/{item.werknemer_ids?.length} BEVESTIGD</Text>
                           </View>
                         )}
                         {/* Status */}
@@ -559,7 +588,7 @@ export default function PlanningAdmin() {
                         </View>
                       </View>
                     </TouchableOpacity>
-                  ))}
+                  )})}
                 </View>
               </View>
             );

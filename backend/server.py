@@ -5534,6 +5534,27 @@ async def bevestig_planning(planning_id: str, werknemer_id: str, werknemer_naam:
             {"id": planning_id},
             {"$set": {"bevestigd_door": bevestigd, "bevestigingen": bevestigingen}}
         )
+        
+        # Send notification to admins
+        try:
+            admin_users = await db.users.find(
+                {"rol": {"$in": ["admin", "master_admin"]}, "push_token": {"$ne": None}},
+                {"push_token": 1, "id": 1}
+            ).to_list(100)
+            
+            admin_ids = [a["id"] for a in admin_users if a.get("push_token")]
+            if admin_ids:
+                werf_naam = item.get("werf_naam", "onbekend")
+                dag = item.get("dag", "")
+                await send_push_notifications(
+                    admin_ids,
+                    "📋 Planning bevestigd",
+                    f"{werknemer_naam or 'Werknemer'} heeft de opdracht bevestigd ({werf_naam} - {dag})",
+                    {"type": "planning_bevestigd", "planning_id": planning_id}
+                )
+        except Exception as e:
+            logging.error(f"Error sending bevestig notification: {e}")
+            
     return {"message": "Planning bevestigd", "bevestigd_door": bevestigd, "bevestigingen": bevestigingen}
 
 # ==================== BERICHTEN (MESSAGES) ROUTES ====================

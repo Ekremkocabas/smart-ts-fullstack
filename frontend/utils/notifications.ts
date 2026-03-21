@@ -1,7 +1,11 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_BACKEND_URL || '';
+// Get API URL for mobile
+const getApiUrl = () => {
+  return process.env.EXPO_PUBLIC_BACKEND_URL || Constants.expoConfig?.extra?.apiUrl || '';
+};
 
 export async function registerForPushNotifications(userId: string): Promise<string | null> {
   if (Platform.OS === 'web') return null;
@@ -35,16 +39,25 @@ export async function registerForPushNotifications(userId: string): Promise<stri
       projectId: projectId,
     });
     const pushToken = tokenData.data;
+    console.log('[Push] Got token:', pushToken);
 
-    // Save token to backend
+    // Get auth token from storage
+    const authToken = await AsyncStorage.getItem('token');
+    const API_URL = getApiUrl();
+    
+    // Save token to backend with auth
     try {
-      await fetch(`${API_URL}/api/auth/users/${userId}/push-token`, {
+      const response = await fetch(`${API_URL}/api/auth/users/${userId}/push-token`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': authToken ? `Bearer ${authToken}` : '',
+        },
         body: JSON.stringify({ push_token: pushToken }),
       });
+      console.log('[Push] Token save response:', response.status);
     } catch (e) {
-      console.log('Failed to save push token:', e);
+      console.log('[Push] Failed to save push token:', e);
     }
 
     // Configure notification handler
@@ -58,7 +71,7 @@ export async function registerForPushNotifications(userId: string): Promise<stri
 
     return pushToken;
   } catch (e) {
-    console.log('Push notification setup error:', e);
+    console.log('[Push] notification setup error:', e);
     return null;
   }
 }
