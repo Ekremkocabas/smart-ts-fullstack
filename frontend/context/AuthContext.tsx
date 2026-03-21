@@ -4,68 +4,53 @@ import axios from 'axios';
 import { Platform } from 'react-native';
 import { registerForPushNotifications } from '../utils/notifications';
 
-// Determine backend URL based on platform and environment
-const getBackendUrl = () => {
-  // For web platform
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    const hostname = window.location.hostname;
-    
-    // Local development (localhost) - use env variable
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+// Get backend URL dynamically at runtime (not build time)
+const getBackendUrl = (): string => {
+  // For web platform - MUST check at runtime
+  if (Platform.OS === 'web') {
+    if (typeof window !== 'undefined' && window.location) {
+      const hostname = window.location.hostname;
+      // Local development
+      if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        return process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+      }
+      // Production - use current origin (Railway, Vercel, etc.)
+      return window.location.origin;
     }
-    
-    // Production deployments (Railway, Vercel, etc.) - use current origin
-    // This works because the backend is served from the same domain
-    return window.location.origin;
   }
-  
-  // For mobile: use env variable
-  if (process.env.EXPO_PUBLIC_BACKEND_URL) {
-    return process.env.EXPO_PUBLIC_BACKEND_URL;
-  }
-  return '';
+  // For mobile
+  return process.env.EXPO_PUBLIC_BACKEND_URL || '';
 };
 
-const BACKEND_URL = getBackendUrl();
-console.log('[AuthContext] Backend URL:', BACKEND_URL);
+// Create axios instance WITHOUT baseURL - we'll set it dynamically
+export const apiClient = axios.create();
 
-// Create a configured axios instance
-export const apiClient = axios.create({
-  baseURL: BACKEND_URL,
-});
-
-// INTERCEPTOR: Automatically add token to EVERY request
-axios.interceptors.request.use(
-  async (config) => {
-    try {
-      const token = await AsyncStorage.getItem('token');
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-    } catch (error) {
-      console.error('Error getting token:', error);
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
-// Also add interceptor to apiClient
+// INTERCEPTOR: Set baseURL dynamically on EVERY request
 apiClient.interceptors.request.use(
   async (config) => {
+    // Set baseURL dynamically at request time
+    const baseURL = getBackendUrl();
+    config.baseURL = baseURL;
+    
+    // Add auth token
     try {
       const token = await AsyncStorage.getItem('token');
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
     } catch (error) {
-      console.error('Error getting token:', error);
+      console.error('[apiClient] Error getting token:', error);
     }
+    
+    console.log('[apiClient] Request to:', config.baseURL + config.url);
     return config;
   },
   (error) => Promise.reject(error)
 );
+
+// For backward compatibility
+const BACKEND_URL = getBackendUrl();
+console.log('[AuthContext] Initial Backend URL:', BACKEND_URL);
 
 // ==================== TYPES ====================
 
