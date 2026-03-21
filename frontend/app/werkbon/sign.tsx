@@ -39,6 +39,7 @@ import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useWerkbonFormStore } from '../../store/werkbonFormStore';
+import SignatureModal from '../../components/werkbon/SignatureModal';
 
 // Legal text
 const LEGAL_TEXT = `Door ondertekening van deze werkbon bevestigt de klant dat de hierboven beschreven werkzaamheden naar tevredenheid zijn uitgevoerd en dat de gegevens correct zijn. Deze werkbon dient als bewijs van uitgevoerde werkzaamheden en kan worden gebruikt voor facturatie.`;
@@ -222,6 +223,8 @@ export default function WerkbonSign() {
   const [hasSignature, setHasSignature] = useState(false);
   const [nativeSignatureData, setNativeSignatureData] = useState<string | null>(null);
   const [gpsLoading, setGpsLoading] = useState(false);
+  const [showSignatureModal, setShowSignatureModal] = useState(false);
+  const [capturedSignature, setCapturedSignature] = useState<string | null>(null);
 
   // Redirect if no type selected
   useEffect(() => {
@@ -376,28 +379,8 @@ export default function WerkbonSign() {
     setSubmitError(null);
 
     try {
-      // Get signature data
-      let signatureData: string | null = null;
-      
-      if (Platform.OS === 'web') {
-        signatureData = signatureRef.current?.readSignature?.();
-      } else {
-        // For native, we need to call readSignature on the ref
-        // The onOK callback might not have been called yet
-        if (nativeSignatureData) {
-          signatureData = nativeSignatureData;
-        } else if (signatureRef.current?.readSignature) {
-          // Try to read directly from the signature pad
-          try {
-            signatureRef.current.readSignature();
-            // Give a small delay for the callback to fire
-            await new Promise(resolve => setTimeout(resolve, 300));
-            signatureData = nativeSignatureData;
-          } catch (e) {
-            console.log('Direct read failed:', e);
-          }
-        }
-      }
+      // Get signature data - now from modal
+      let signatureData: string | null = capturedSignature || nativeSignatureData;
 
       if (!signatureData) {
         Alert.alert('Fout', 'Kon handtekening niet ophalen. Teken opnieuw.');
@@ -667,51 +650,59 @@ export default function WerkbonSign() {
           </TouchableOpacity>
         </View>
 
-        {/* Signature Section */}
+        {/* Signature Section - NEW MODAL-BASED APPROACH */}
         <View style={styles.card}>
-          <View style={styles.signatureHeader}>
-            <Text style={styles.fieldLabel}>Klanthandtekening *</Text>
-            <TouchableOpacity
-              style={[styles.clearButton, { borderColor: primary }]}
-              onPress={clearSignatureCanvas}
-            >
-              <Ionicons name="refresh" size={16} color={primary} />
-              <Text style={[styles.clearButtonText, { color: primary }]}>Wissen</Text>
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.fieldLabel}>Klanthandtekening *</Text>
+          <Text style={styles.fieldHint}>Tik hieronder om de handtekening te tekenen</Text>
           
-          <View style={styles.signatureWrapper}>
-            {Platform.OS === 'web' ? (
-              <WebSignatureCanvas
-                signatureRef={signatureRef}
-                onEnd={handleSignatureStart}
-                onClear={handleSignatureClear}
+          {capturedSignature ? (
+            <View style={styles.signatureCapturedContainer}>
+              <Image 
+                source={{ uri: capturedSignature }} 
+                style={styles.capturedSignatureImage}
+                resizeMode="contain"
               />
-            ) : (
-              (() => {
-                const NativeSignature = getSignatureScreen();
-                return NativeSignature ? (
-                  <NativeSignature
-                    ref={signatureRef}
-                    onBegin={handleSignatureStart}
-                    onEnd={handleSignatureEnd}
-                    onOK={handleSignatureOk}
-                    onEmpty={handleSignatureClear}
-                    webStyle={nativeSignatureStyle}
-                    descriptionText=""
-                    backgroundColor="#FFFFFF"
-                    penColor="#1A1A2E"
-                    imageType="image/png"
-                  />
-                ) : (
-                  <View style={styles.fallbackSignature}>
-                    <Text style={styles.fallbackText}>Handtekening niet beschikbaar</Text>
-                  </View>
-                );
-              })()
-            )}
-          </View>
+              <View style={styles.signatureActions}>
+                <View style={styles.signatureStatusBadge}>
+                  <Ionicons name="checkmark-circle" size={18} color="#27ae60" />
+                  <Text style={styles.signatureStatusText}>Handtekening vastgelegd</Text>
+                </View>
+                <TouchableOpacity 
+                  style={[styles.resignButton, { borderColor: primary }]}
+                  onPress={() => setShowSignatureModal(true)}
+                >
+                  <Ionicons name="create-outline" size={18} color={primary} />
+                  <Text style={[styles.resignButtonText, { color: primary }]}>Opnieuw tekenen</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <TouchableOpacity 
+              style={[styles.signaturePromptButton, { borderColor: primary }]}
+              onPress={() => setShowSignatureModal(true)}
+            >
+              <View style={styles.signaturePromptContent}>
+                <Ionicons name="finger-print-outline" size={32} color={primary} />
+                <Text style={[styles.signaturePromptText, { color: primary }]}>Tik hier om te tekenen</Text>
+                <Text style={styles.signaturePromptHint}>Opent een apart scherm voor de handtekening</Text>
+              </View>
+            </TouchableOpacity>
+          )}
         </View>
+
+        {/* Signature Modal */}
+        <SignatureModal
+          visible={showSignatureModal}
+          onClose={() => setShowSignatureModal(false)}
+          onSave={(signatureData: string) => {
+            console.log('[Sign] Signature received from modal, length:', signatureData?.length);
+            setCapturedSignature(signatureData);
+            setHasSignature(true);
+            setNativeSignatureData(signatureData);
+            setSignature(signatureData);
+          }}
+          primaryColor={primary}
+        />
 
         {/* Send to Customer Toggle */}
         <View style={styles.toggleCard}>
@@ -937,7 +928,74 @@ const styles = StyleSheet.create({
   },
   disabledButtonText: { fontSize: 15, color: '#C4C4C4' },
   
-  // Signature
+  // Signature - NEW Modal-based styles
+  signatureCapturedContainer: {
+    alignItems: 'center',
+    gap: 12,
+  },
+  capturedSignatureImage: {
+    width: '100%',
+    height: 150,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#27ae60',
+  },
+  signatureActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    gap: 12,
+  },
+  signatureStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  signatureStatusText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#27ae60',
+  },
+  resignButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1.5,
+  },
+  resignButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  signaturePromptButton: {
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderRadius: 16,
+    padding: 24,
+  },
+  signaturePromptContent: {
+    alignItems: 'center',
+    gap: 8,
+  },
+  signaturePromptText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  signaturePromptHint: {
+    fontSize: 12,
+    color: '#8C9199',
+    textAlign: 'center',
+  },
+  
+  // OLD Signature styles - kept for reference but unused
   signatureHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',

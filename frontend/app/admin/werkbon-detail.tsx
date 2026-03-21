@@ -11,23 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useAuth } from '../../context/AuthContext';
-import Constants from 'expo-constants';
-
-// Determine API URL - ALWAYS use window.location.origin for web production
-const getApiUrl = () => {
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    const hostname = window.location.hostname;
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return 'http://localhost:8001';
-    }
-    // Production - use current origin, NO env variables
-    return window.location.origin;
-  }
-  // Mobile only
-  return process.env.EXPO_PUBLIC_BACKEND_URL || '';
-};
-const API_URL = getApiUrl();
+import { useAuth, apiClient } from '../../context/AuthContext';
 
 interface Werkbon {
   id: string;
@@ -76,11 +60,8 @@ export default function WerkbonDetail() {
   const fetchWerkbon = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_URL}/api/werkbonnen/${id}?_ts=${Date.now()}`);
-      if (res.ok) {
-        const data = await res.json();
-        setWerkbon(data);
-      }
+      const res = await apiClient.get(`/api/werkbonnen/${id}?_ts=${Date.now()}`);
+      setWerkbon(res.data);
     } catch (error) {
       console.error('Error:', error);
     } finally {
@@ -92,8 +73,8 @@ export default function WerkbonDetail() {
     if (!werkbon) return;
     setDownloading(true);
     try {
-      const res = await fetch(`${API_URL}/api/werkbonnen/${werkbon.id}/pdf`);
-      const data = await res.json();
+      const res = await apiClient.get(`/api/werkbonnen/${werkbon.id}/pdf`);
+      const data = res.data;
       if (data.pdf_base64) {
         const link = document.createElement('a');
         link.href = `data:application/pdf;base64,${data.pdf_base64}`;
@@ -114,12 +95,8 @@ export default function WerkbonDetail() {
     if (!werkbon) return;
     setSending(true);
     try {
-      const res = await fetch(`${API_URL}/api/werkbonnen/${werkbon.id}/verzenden`, { method: 'POST' });
-      if (res.ok) {
-        alert('E-mail succesvol verzonden!');
-      } else {
-        alert('Fout bij verzenden');
-      }
+      await apiClient.post(`/api/werkbonnen/${werkbon.id}/verzenden`);
+      alert('E-mail succesvol verzonden!');
     } catch (error) {
       console.error('Error:', error);
       alert('Fout bij verzenden');

@@ -13,22 +13,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useAuth, apiClient } from '../../context/AuthContext';
-import Constants from 'expo-constants';
-
-// Determine API URL - ALWAYS use window.location.origin for web production
-const getApiUrl = () => {
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    const hostname = window.location.hostname;
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return 'http://localhost:8001';
-    }
-    // Production - use current origin, NO env variables
-    return window.location.origin;
-  }
-  // Mobile only
-  return process.env.EXPO_PUBLIC_BACKEND_URL || '';
-};
-const API_URL = getApiUrl();
 
 interface Werf {
   id: string;
@@ -76,14 +60,14 @@ export default function WerfDetail() {
     try {
       setLoading(true);
       const [wervenRes, klantenRes, werkbonnenRes] = await Promise.all([
-        fetch(`${API_URL}/api/werven`),
-        fetch(`${API_URL}/api/klanten`),
-        fetch(`${API_URL}/api/werkbonnen?user_id=admin-001&is_admin=true`),
+        apiClient.get('/api/werven'),
+        apiClient.get('/api/klanten'),
+        apiClient.get('/api/werkbonnen?user_id=admin-001&is_admin=true'),
       ]);
       
-      const werven = await wervenRes.json();
-      const klantenData = await klantenRes.json();
-      const werkbonnenData = await werkbonnenRes.json();
+      const werven = wervenRes.data;
+      const klantenData = klantenRes.data;
+      const werkbonnenData = werkbonnenRes.data;
       
       const foundWerf = werven.find((w: Werf) => w.id === id);
       setWerf(foundWerf || null);
@@ -116,19 +100,15 @@ export default function WerfDetail() {
     setSaving(true);
     const klant = klanten.find(k => k.id === formData.klant_id);
     try {
-      await fetch(`${API_URL}/api/werven/${werf.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...werf,
-          naam: formData.naam,
-          adres: formData.adres,
-          klant_id: formData.klant_id,
-          klant_naam: klant?.naam,
-          werfleider: formData.werfleider,
-          werfleider_email: formData.werfleider_email,
-          actief: formData.actief,
-        }),
+      await apiClient.put(`/api/werven/${werf.id}`, {
+        ...werf,
+        naam: formData.naam,
+        adres: formData.adres,
+        klant_id: formData.klant_id,
+        klant_naam: klant?.naam,
+        werfleider: formData.werfleider,
+        werfleider_email: formData.werfleider_email,
+        actief: formData.actief,
       });
       setShowEditModal(false);
       fetchData();
@@ -142,11 +122,7 @@ export default function WerfDetail() {
   const toggleActief = async () => {
     if (!werf) return;
     try {
-      await fetch(`${API_URL}/api/werven/${werf.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...werf, actief: !werf.actief }),
-      });
+      await apiClient.put(`/api/werven/${werf.id}`, { ...werf, actief: !werf.actief });
       fetchData();
     } catch (error) {
       console.error('Error:', error);

@@ -12,24 +12,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useAuth } from '../../context/AuthContext';
-import Constants from 'expo-constants';
+import { useAuth, apiClient } from '../../context/AuthContext';
 import * as Clipboard from 'expo-clipboard';
-
-// Determine API URL - ALWAYS use window.location.origin for web production
-const getApiUrl = () => {
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    const hostname = window.location.hostname;
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return 'http://localhost:8001';
-    }
-    // Production - use current origin, NO env variables
-    return window.location.origin;
-  }
-  // Mobile only
-  return process.env.EXPO_PUBLIC_BACKEND_URL || '';
-};
-const API_URL = getApiUrl();
 
 const ROLLEN = ['worker', 'onderaannemer', 'planner', 'manager', 'admin'];
 const WERKBON_TYPES = [
@@ -79,13 +63,13 @@ export default function WerknemerDetail() {
     try {
       setLoading(true);
       const [usersRes, teamsRes, wbRes] = await Promise.all([
-        fetch(`${API_URL}/api/auth/users`),
-        fetch(`${API_URL}/api/teams`),
-        fetch(`${API_URL}/api/werkbonnen?user_id=admin-001&is_admin=true`),
+        apiClient.get('/api/auth/users'),
+        apiClient.get('/api/teams'),
+        apiClient.get('/api/werkbonnen?user_id=admin-001&is_admin=true'),
       ]);
-      const users = await usersRes.json();
-      const teamsData = await teamsRes.json();
-      const wbData = await wbRes.json();
+      const users = usersRes.data;
+      const teamsData = teamsRes.data;
+      const wbData = wbRes.data;
 
       const found = users.find((w: any) => w.id === id);
       setWerknemer(found || null);
@@ -124,10 +108,7 @@ export default function WerknemerDetail() {
       };
       if (formData.password.trim()) body.wachtwoord_plain = formData.password.trim();
 
-      await fetch(`${API_URL}/api/auth/users/${werknemer.id}`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
+      await apiClient.put(`/api/auth/users/${werknemer.id}`, body);
       setShowEditModal(false);
       fetchData();
     } catch (e) { console.error(e); alert('Fout bij opslaan'); }
@@ -137,10 +118,7 @@ export default function WerknemerDetail() {
   const toggleActief = async () => {
     if (!werknemer) return;
     try {
-      await fetch(`${API_URL}/api/auth/users/${werknemer.id}`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ actief: !werknemer.actief }),
-      });
+      await apiClient.put(`/api/auth/users/${werknemer.id}`, { actief: !werknemer.actief });
       fetchData();
     } catch (e) { console.error(e); }
   };
@@ -149,8 +127,8 @@ export default function WerknemerDetail() {
     if (!werknemer) return;
     setSendingEmail(true);
     try {
-      const res = await fetch(`${API_URL}/api/auth/users/${werknemer.id}/resend-info`, { method: 'POST' });
-      const result = await res.json();
+      const res = await apiClient.post(`/api/auth/users/${werknemer.id}/resend-info`);
+      const result = res.data;
       if (result.email_sent) {
         alert(`✅ E-mail verstuurd naar ${werknemer.email}\n\nNieuw wachtwoord: ${result.temp_password}`);
       } else {

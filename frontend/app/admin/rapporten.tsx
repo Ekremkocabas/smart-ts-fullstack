@@ -10,22 +10,6 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth, apiClient } from '../../context/AuthContext';
-import Constants from 'expo-constants';
-
-// Determine API URL - ALWAYS use window.location.origin for web production
-const getApiUrl = () => {
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    const hostname = window.location.hostname;
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return 'http://localhost:8001';
-    }
-    // Production - use current origin, NO env variables
-    return window.location.origin;
-  }
-  // Mobile only
-  return process.env.EXPO_PUBLIC_BACKEND_URL || '';
-};
-const API_URL = getApiUrl();
 
 interface UrenData {
   naam: string;
@@ -172,9 +156,8 @@ export default function RapportenAdmin() {
 
   const exportCSV = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/werkbonnen?user_id=admin-001&is_admin=true`);
-      const werkbonnen = await res.json();
-      const werkbonnenList = Array.isArray(werkbonnen) ? werkbonnen : [];
+      const res = await apiClient.get('/api/werkbonnen?user_id=admin-001&is_admin=true');
+      const werkbonnenList = Array.isArray(res.data) ? res.data : [];
 
       // CSV headers
       const headers = ['Datum', 'Week', 'Jaar', 'Werknemer', 'Team', 'Klant', 'Werf', 'Type', 'Uren', 'Status', 'Handtekening', 'Opmerkingen'];

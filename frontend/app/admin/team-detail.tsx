@@ -12,23 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useAuth } from '../../context/AuthContext';
-import Constants from 'expo-constants';
-
-// Determine API URL - ALWAYS use window.location.origin for web production
-const getApiUrl = () => {
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    const hostname = window.location.hostname;
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return 'http://localhost:8001';
-    }
-    // Production - use current origin, NO env variables
-    return window.location.origin;
-  }
-  // Mobile only
-  return process.env.EXPO_PUBLIC_BACKEND_URL || '';
-};
-const API_URL = getApiUrl();
+import { useAuth, apiClient } from '../../context/AuthContext';
 
 interface Team {
   id: string;
@@ -65,12 +49,12 @@ export default function TeamDetail() {
     try {
       setLoading(true);
       const [teamsRes, werknemersRes] = await Promise.all([
-        fetch(`${API_URL}/api/teams`),
-        fetch(`${API_URL}/api/auth/users`),
+        apiClient.get('/api/teams'),
+        apiClient.get('/api/auth/users'),
       ]);
       
-      const teams = await teamsRes.json();
-      const werknemersData = await werknemersRes.json();
+      const teams = teamsRes.data;
+      const werknemersData = werknemersRes.data;
       
       const foundTeam = teams.find((t: Team) => t.id === id);
       setTeam(foundTeam || null);
@@ -94,14 +78,10 @@ export default function TeamDetail() {
     if (!team) return;
     setSaving(true);
     try {
-      await fetch(`${API_URL}/api/teams/${team.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          naam: formData.naam,
-          leden: formData.leden,
-          ploegbaas: formData.ploegbaas || null,
-        }),
+      await apiClient.put(`/api/teams/${team.id}`, {
+        naam: formData.naam,
+        leden: formData.leden,
+        ploegbaas: formData.ploegbaas || null,
       });
       setShowEditModal(false);
       fetchData();

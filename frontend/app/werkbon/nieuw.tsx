@@ -489,7 +489,7 @@ export default function NieuweWerkbonScreen() {
                                 style={styles.afkortingTrigger}
                                 onPress={() => setShowAfkortingPicker({ index, dag })}
                               >
-                                <Ionicons name="ellipsis-horizontal" size={12} color="#6c757d" />
+                                <Ionicons name="ellipsis-horizontal" size={16} color="#6c757d" />
                               </TouchableOpacity>
                             </View>
                           )}
@@ -670,15 +670,15 @@ const styles = StyleSheet.create({
   headerText: { color: '#4D5560', fontSize: 11, fontWeight: '600', textAlign: 'center' },
   tableRow: { flexDirection: 'row', backgroundColor: '#FFFFFF', borderRadius: 10, padding: 8, marginBottom: 8, alignItems: 'center', borderWidth: 1, borderColor: '#E8E9ED' },
   nameColumnWide: { width: 160, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  dayColumnSmall: { width: 48, alignItems: 'center' },
-  totalColumn: { width: 52, alignItems: 'center' },
+  dayColumnSmall: { width: 66, alignItems: 'center' },
+  totalColumn: { width: 56, alignItems: 'center' },
   nameInput: { flex: 1, color: '#1A1A2E', fontSize: 16, padding: 8, minHeight: 44, backgroundColor: '#F7F8FA', borderRadius: 8, borderWidth: 1, borderColor: '#E8E9ED' },
   removeButton: { padding: 6 },
-  urenInputContainer: { position: 'relative' },
-  urenInput: { color: '#1A1A2E', fontSize: 16, textAlign: 'center', backgroundColor: '#F7F8FA', borderRadius: 8, width: 44, height: 44, padding: 4, borderWidth: 1, borderColor: '#E8E9ED' },
-  afkortingTrigger: { position: 'absolute', bottom: -2, right: -2 },
-  afkortingBadge: { backgroundColor: '#F5A623', borderRadius: 4, width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
-  afkortingText: { color: '#000', fontSize: 10, fontWeight: '700' },
+  urenInputContainer: { position: 'relative', width: 60, height: 60 },
+  urenInput: { color: '#1A1A2E', fontSize: 18, textAlign: 'center', backgroundColor: '#F7F8FA', borderRadius: 10, width: 60, height: 60, padding: 4, borderWidth: 1.5, borderColor: '#E8E9ED', fontWeight: '600' },
+  afkortingTrigger: { position: 'absolute', bottom: 2, right: 2, backgroundColor: 'rgba(0,0,0,0.1)', borderRadius: 8, padding: 3 },
+  afkortingBadge: { backgroundColor: '#F5A623', borderRadius: 8, width: 60, height: 60, alignItems: 'center', justifyContent: 'center' },
+  afkortingText: { color: '#000', fontSize: 11, fontWeight: '700' },
   totalText: { color: '#F5A623', fontSize: 14, fontWeight: '600' },
   grandTotalRow: { flexDirection: 'row', backgroundColor: '#F1F3F6', borderRadius: 10, padding: 8, marginTop: 4, borderWidth: 1, borderColor: '#E8E9ED' },
   grandTotalLabel: { color: '#1A1A2E', fontSize: 12, fontWeight: '600' },

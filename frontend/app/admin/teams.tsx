@@ -13,22 +13,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth, apiClient } from '../../context/AuthContext';
-import Constants from 'expo-constants';
-
-// Determine API URL - ALWAYS use window.location.origin for web production
-const getApiUrl = () => {
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    const hostname = window.location.hostname;
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return 'http://localhost:8001';
-    }
-    // Production - use current origin, NO env variables
-    return window.location.origin;
-  }
-  // Mobile only
-  return process.env.EXPO_PUBLIC_BACKEND_URL || '';
-};
-const API_URL = getApiUrl();
 
 interface Team {
   id: string;
@@ -128,7 +112,7 @@ export default function TeamsAdmin() {
   const deleteTeam = async (id: string) => {
     if (!confirm('Weet u zeker dat u dit team wilt verwijderen?')) return;
     try {
-      await fetch(`${API_URL}/api/teams/${id}`, { method: 'DELETE' });
+      await apiClient.delete(`/api/teams/${id}`);
       fetchData();
     } catch (error) {
       console.error('Error:', error);

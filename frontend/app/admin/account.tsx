@@ -12,23 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useAuth } from '../../context/AuthContext';
-import Constants from 'expo-constants';
-
-// Determine API URL - ALWAYS use window.location.origin for web production
-const getApiUrl = () => {
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    const hostname = window.location.hostname;
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return 'http://localhost:8001';
-    }
-    // Production - use current origin, NO env variables
-    return window.location.origin;
-  }
-  // Mobile only
-  return process.env.EXPO_PUBLIC_BACKEND_URL || '';
-};
-const API_URL = getApiUrl();
+import { useAuth, apiClient } from '../../context/AuthContext';
 
 const getScreenSize = () => {
   const { width } = Dimensions.get('window');
@@ -84,29 +68,19 @@ export default function AccountScreen() {
 
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/auth/change-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: user?.id,
-          current_password: currentPassword,
-          new_password: newPassword,
-          confirm_password: confirmPassword,
-        }),
+      const response = await apiClient.post('/api/auth/change-password', {
+        user_id: user?.id,
+        current_password: currentPassword,
+        new_password: newPassword,
+        confirm_password: confirmPassword,
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.detail || 'Wachtwoord wijzigen mislukt');
-      }
 
       setSuccess('Wachtwoord is succesvol gewijzigd!');
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
     } catch (err: any) {
-      setError(err.message || 'Er is een fout opgetreden');
+      setError(err.response?.data?.detail || err.message || 'Er is een fout opgetreden');
     } finally {
       setIsLoading(false);
     }
