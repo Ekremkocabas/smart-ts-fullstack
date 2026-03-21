@@ -892,7 +892,7 @@ export default function BerichtenAdmin() {
 
               {/* Recipients List */}
               <Text style={styles.label}>Ontvangers *</Text>
-              <View style={styles.recipientsList}>
+              <ScrollView style={styles.recipientsList} nestedScrollEnabled={true}>
                 {getAvailableRecipients().map(w => (
                   <TouchableOpacity
                     key={w.id}
@@ -906,7 +906,7 @@ export default function BerichtenAdmin() {
                     <Text style={styles.recipientRole}>{w.rol}</Text>
                   </TouchableOpacity>
                 ))}
-              </View>
+              </ScrollView>
 
               {/* Message Form */}
               <Text style={styles.label}>Onderwerp *</Text>
