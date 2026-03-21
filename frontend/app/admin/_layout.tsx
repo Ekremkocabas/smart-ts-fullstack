@@ -161,6 +161,7 @@ export default function AdminLayout() {
 
   // Auth check - redirect to login if not authenticated (except on login page)
   useEffect(() => {
+    console.log('[AdminLayout] Auth state:', { isLoading, user: user?.naam, isLoginPage, pathname });
     if (!isLoading && !user && !isLoginPage) {
       router.replace('/admin/login');
     }
@@ -168,6 +169,7 @@ export default function AdminLayout() {
 
   // Show loading while checking auth
   if (isLoading) {
+    console.log('[AdminLayout] Still loading auth...');
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F5F6FA' }}>
         <Text style={{ fontSize: 16, color: '#6c757d' }}>Laden...</Text>

@@ -57,17 +57,22 @@ export default function AdminDashboard() {
   const [recentWerkbonnen, setRecentWerkbonnen] = useState<RecentWerkbon[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Helper to create auth headers
-  const getAuthConfig = () => ({
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  });
+  // Debug: Log component state
+  useEffect(() => {
+    console.log('[Dashboard] Component mounted. authLoading:', authLoading, 'token:', token?.substring(0, 20), 'user:', user?.naam);
+  }, [authLoading, token, user]);
 
   useEffect(() => {
-    if (Platform.OS === 'web' && !authLoading && token && (user?.rol === 'admin' || user?.rol === 'master_admin' || user?.rol === 'manager')) {
-      fetchData();
+    // Wait for auth to complete and verify we have a valid admin user
+    if (Platform.OS === 'web' && !authLoading && token && user) {
+      const isAdmin = user?.rol === 'admin' || user?.rol === 'master_admin' || user?.rol === 'manager';
+      if (isAdmin) {
+        // Small delay to ensure apiClient has the token set
+        const timer = setTimeout(() => {
+          fetchData();
+        }, 100);
+        return () => clearTimeout(timer);
+      }
     }
   }, [user, token, authLoading]);
 
@@ -83,13 +88,15 @@ export default function AdminDashboard() {
       const days = Math.floor((now.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000));
       const currentWeek = Math.ceil((days + startOfYear.getDay() + 1) / 7);
 
+      console.log('[Dashboard] Fetching data with token:', token?.substring(0, 20) + '...');
+      
       const [werknemersRes, teamsRes, klantenRes, wervenRes, werkbonnenRes, planningRes] = await Promise.all([
-        apiClient.get('/api/auth/users', getAuthConfig()),
-        apiClient.get('/api/teams', getAuthConfig()),
-        apiClient.get('/api/klanten', getAuthConfig()),
-        apiClient.get('/api/werven', getAuthConfig()),
-        apiClient.get(`/api/werkbonnen?user_id=${user?.id}&is_admin=true`, getAuthConfig()),
-        apiClient.get(`/api/planning?week_nummer=${currentWeek}&jaar=${now.getFullYear()}`, getAuthConfig()),
+        apiClient.get('/api/auth/users'),
+        apiClient.get('/api/teams'),
+        apiClient.get('/api/klanten'),
+        apiClient.get('/api/werven'),
+        apiClient.get(`/api/werkbonnen?user_id=${user?.id}&is_admin=true`),
+        apiClient.get(`/api/planning?week_nummer=${currentWeek}&jaar=${now.getFullYear()}`),
       ]);
 
       const werknemers = werknemersRes.data;

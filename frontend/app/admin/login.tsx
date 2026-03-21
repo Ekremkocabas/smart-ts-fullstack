@@ -17,7 +17,7 @@ import { useTheme } from '../../context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function AdminLogin() {
-  const { setUser } = useAuth();
+  const { setUser, login: authLogin } = useAuth();
   const { theme } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -40,17 +40,12 @@ export default function AdminLogin() {
     setError('');
 
     try {
-      console.log('Attempting login with apiClient');
-      const response = await apiClient.post('/api/auth/login', {
-        email: email.trim(),
-        password: password,
-      });
-
-      console.log('Response data:', response.data);
-      const data = response.data;
-
-      // New JWT API returns user object inside data.user
-      const userFromResponse = data.user || data;
+      console.log('Attempting login with AuthContext');
+      // Use AuthContext login function which properly sets both user AND token
+      const response = await authLogin(email.trim(), password);
+      
+      console.log('Login response:', response);
+      const userFromResponse = response.user;
       const userRole = userFromResponse.rol;
       const hasWebAccess = userFromResponse.web_access !== false;
 
@@ -65,31 +60,10 @@ export default function AdminLogin() {
         return;
       }
 
-      // Set user in store and AsyncStorage
-      const userData = {
-        id: userFromResponse.id,
-        naam: userFromResponse.naam,
-        email: userFromResponse.email,
-        rol: userFromResponse.rol,
-        actief: userFromResponse.actief,
-        web_access: userFromResponse.web_access,
-        app_access: userFromResponse.app_access,
-        company_id: userFromResponse.company_id,
-      };
-      
-      // Also store the JWT token
-      if (data.token) {
-        await AsyncStorage.setItem('token', data.token);
-      }
-      
-      await AsyncStorage.setItem('user', JSON.stringify(userData));
-      setUser(userData);
-
-      // Navigate to dashboard
+      // Navigate to dashboard (user and token are already set by authLogin)
       router.replace('/admin/dashboard');
     } catch (err: any) {
       console.error('Login error:', err);
-      // Handle axios error response
       const errorMessage = err.response?.data?.detail || err.message || 'Ongeldige inloggegevens';
       setError(errorMessage);
     } finally {
