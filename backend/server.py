@@ -2298,8 +2298,8 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     story.append(bottom_table)
 
     story.append(Spacer(1, 8))
-    # Use the new LEGAL_TEXT as footer, override any custom setting
-    footer_text = LEGAL_TEXT
+    # Use custom footer from settings, or fall back to default LEGAL_TEXT
+    footer_text = instellingen.get("pdf_voettekst") or LEGAL_TEXT
     story.append(Paragraph(footer_text.replace("\n", "<br/>"), styles["FooterText"]))
 
     pdf.build(story)
