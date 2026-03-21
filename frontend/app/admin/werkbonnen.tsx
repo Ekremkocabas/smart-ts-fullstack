@@ -94,30 +94,30 @@ export default function WerkbonnenAdmin() {
       setLoading(true);
       const userId = user?.id || 'admin-001';
       const [werkbonnenRes, werknemersRes, teamsRes, klantenRes, wervenRes, productieRes, opleveringRes, projectRes] = await Promise.all([
-        fetch(`${API_URL}/api/werkbonnen?user_id=${userId}&is_admin=true`),
-        fetch(`${API_URL}/api/auth/users`),
-        fetch(`${API_URL}/api/teams`),
-        fetch(`${API_URL}/api/klanten`),
-        fetch(`${API_URL}/api/werven`),
-        fetch(`${API_URL}/api/productie-werkbonnen?user_id=${userId}&is_admin=true`),
-        fetch(`${API_URL}/api/oplevering-werkbonnen?user_id=${userId}&is_admin=true`),
-        fetch(`${API_URL}/api/project-werkbonnen?user_id=${userId}&is_admin=true`),
+        apiClient.get(`/api/werkbonnen?user_id=${userId}&is_admin=true`),
+        apiClient.get(`/api/auth/users`),
+        apiClient.get(`/api/teams`),
+        apiClient.get(`/api/klanten`),
+        apiClient.get(`/api/werven`),
+        apiClient.get(`/api/productie-werkbonnen?user_id=${userId}&is_admin=true`),
+        apiClient.get(`/api/oplevering-werkbonnen?user_id=${userId}&is_admin=true`),
+        apiClient.get(`/api/project-werkbonnen?user_id=${userId}&is_admin=true`),
       ]);
-      const data = await werkbonnenRes.json();
+      const data = werkbonnenRes.data;
       setWerkbonnen(Array.isArray(data) ? data.sort((a: Werkbon, b: Werkbon) => b.week_nummer - a.week_nummer) : []);
-      const werknemersData = await werknemersRes.json();
+      const werknemersData = werknemersRes.data;
       setWerknemers(Array.isArray(werknemersData) ? werknemersData : []);
-      const teamsData = await teamsRes.json();
+      const teamsData = teamsRes.data;
       setTeams(Array.isArray(teamsData) ? teamsData : []);
-      const klantenData = await klantenRes.json();
+      const klantenData = klantenRes.data;
       setKlanten(Array.isArray(klantenData) ? klantenData : []);
-      const wervenData = await wervenRes.json();
+      const wervenData = wervenRes.data;
       setWerven(Array.isArray(wervenData) ? wervenData : []);
-      const productieData = await productieRes.json();
+      const productieData = productieRes.data;
       setProductieWerkbonnen(Array.isArray(productieData) ? productieData.sort((a: ProductieWerkbon, b: ProductieWerkbon) => new Date(b.datum).getTime() - new Date(a.datum).getTime()) : []);
-      const opleveringData = await opleveringRes.json();
+      const opleveringData = opleveringRes.data;
       setOpleveringWerkbonnen(Array.isArray(opleveringData) ? opleveringData : []);
-      const projectData = await projectRes.json();
+      const projectData = projectRes.data;
       setProjectWerkbonnen(Array.isArray(projectData) ? projectData : []);
     } catch (error) {
       console.error('Error:', error);
@@ -128,8 +128,8 @@ export default function WerkbonnenAdmin() {
 
   const downloadPdf = async (id: string) => {
     try {
-      const res = await fetch(`${API_URL}/api/werkbonnen/${id}/pdf`);
-      const data = await res.json();
+      const res = await apiClient.get(`/api/werkbonnen/${id}/pdf`);
+      const data = res.data;
       if (data.pdf_base64) {
         const link = document.createElement('a');
         link.href = `data:application/pdf;base64,${data.pdf_base64}`;
@@ -143,8 +143,8 @@ export default function WerkbonnenAdmin() {
 
   const downloadProductiePdf = async (id: string) => {
     try {
-      const res = await fetch(`${API_URL}/api/productie-werkbonnen/${id}/pdf`);
-      const data = await res.json();
+      const res = await apiClient.get(`/api/productie-werkbonnen/${id}/pdf`);
+      const data = res.data;
       if (data.pdf_base64) {
         const link = document.createElement('a');
         link.href = `data:application/pdf;base64,${data.pdf_base64}`;
@@ -158,7 +158,7 @@ export default function WerkbonnenAdmin() {
 
   const resendEmail = async (id: string) => {
     try {
-      await fetch(`${API_URL}/api/werkbonnen/${id}/verzenden`, { method: 'POST' });
+      await apiClient.post(`/api/werkbonnen/${id}/verzenden`);
       alert('E-mail opnieuw verzonden!');
     } catch (error) {
       console.error('Error:', error);
@@ -167,7 +167,7 @@ export default function WerkbonnenAdmin() {
 
   const resendProductieEmail = async (id: string) => {
     try {
-      await fetch(`${API_URL}/api/productie-werkbonnen/${id}/verzenden`, { method: 'POST' });
+      await apiClient.post(`/api/productie-werkbonnen/${id}/verzenden`);
       alert('E-mail opnieuw verzonden!');
     } catch (error) {
       console.error('Error:', error);
@@ -177,7 +177,7 @@ export default function WerkbonnenAdmin() {
   const deleteProductieWerkbon = async (id: string) => {
     if (!confirm('Productie werkbon verwijderen?')) return;
     try {
-      await fetch(`${API_URL}/api/productie-werkbonnen/${id}`, { method: 'DELETE' });
+      await apiClient.delete(`/api/productie-werkbonnen/${id}`);
       setProductieWerkbonnen(prev => prev.filter(wb => wb.id !== id));
     } catch (error) {
       console.error('Error:', error);
