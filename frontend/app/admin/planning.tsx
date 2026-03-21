@@ -14,15 +14,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth, apiClient } from '../../context/AuthContext';
 import Constants from 'expo-constants';
 
-// Determine API URL - prioritize window.location.origin for production web deployments
+// Determine API URL - ALWAYS use window.location.origin for web production
 const getApiUrl = () => {
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
     const hostname = window.location.hostname;
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+      return 'http://localhost:8001';
     }
+    // Production - use current origin, NO env variables
     return window.location.origin;
   }
+  // Mobile only
   return process.env.EXPO_PUBLIC_BACKEND_URL || '';
 };
 const API_URL = getApiUrl();

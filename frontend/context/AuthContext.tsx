@@ -6,19 +6,21 @@ import { registerForPushNotifications } from '../utils/notifications';
 
 // Get backend URL dynamically at runtime (not build time)
 const getBackendUrl = (): string => {
-  // For web platform - MUST check at runtime
+  // For web platform - ALWAYS use window.location.origin in production
+  // This ensures Railway/Vercel deployments work correctly
   if (Platform.OS === 'web') {
     if (typeof window !== 'undefined' && window.location) {
       const hostname = window.location.hostname;
-      // Local development
+      // Local development only
       if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        return process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+        return 'http://localhost:8001';
       }
-      // Production - use current origin (Railway, Vercel, etc.)
+      // ALL other web deployments - use current origin
+      // DO NOT use env variables here as they get baked in at build time
       return window.location.origin;
     }
   }
-  // For mobile
+  // For mobile apps only - use env variable
   return process.env.EXPO_PUBLIC_BACKEND_URL || '';
 };
 

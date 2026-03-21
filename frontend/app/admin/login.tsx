@@ -19,17 +19,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Determine API URL based on environment
 const getApiUrl = () => {
-  // For web platform - use window.location.origin for production deployments
+  // For web platform - ALWAYS use window.location.origin in production
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
     const hostname = window.location.hostname;
-    // Local development
+    // Local development only
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+      return 'http://localhost:8001';
     }
-    // Production (Railway, Vercel, etc.)
+    // ALL production deployments - use current origin
     return window.location.origin;
   }
-  // For mobile
+  // For mobile apps only
   return Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_BACKEND_URL || '';
 };
 
