@@ -157,8 +157,8 @@ export default function InstellingenAdmin() {
   const fetchInstellingen = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_URL}/api/instellingen`);
-      const data = await res.json();
+      const res = await apiClient.get('/api/instellingen');
+      const data = res.data;
       if (data && data.bedrijfsnaam) {
         // Merge with defaults to ensure all fields exist
         const merged: Instellingen = {
@@ -251,11 +251,7 @@ export default function InstellingenAdmin() {
         project_confirmation_text: instellingen.pdf_texts.project_bevestiging,
       };
       
-      await fetch(`${API_URL}/api/instellingen`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      await apiClient.put('/api/instellingen', payload);
       await refreshTheme();
       alert('Instellingen opgeslagen!');
     } catch (error) {

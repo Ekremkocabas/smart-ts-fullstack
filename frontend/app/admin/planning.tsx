@@ -165,20 +165,17 @@ export default function PlanningAdmin() {
     try {
       setLoading(true);
       const [planRes, usersRes, teamsRes, klantenRes, wervenRes] = await Promise.all([
-        fetch(`${API_URL}/api/planning?week_nummer=${weekNummer}&jaar=${jaar}`),
-        fetch(`${API_URL}/api/auth/users`),
-        fetch(`${API_URL}/api/teams`),
-        fetch(`${API_URL}/api/klanten`),
-        fetch(`${API_URL}/api/werven`),
+        apiClient.get(`/api/planning?week_nummer=${weekNummer}&jaar=${jaar}`),
+        apiClient.get('/api/auth/users'),
+        apiClient.get('/api/teams'),
+        apiClient.get('/api/klanten'),
+        apiClient.get('/api/werven'),
       ]);
-      const [planData, usersData, teamsData, klantenData, wervenData] = await Promise.all([
-        planRes.json(), usersRes.json(), teamsRes.json(), klantenRes.json(), wervenRes.json(),
-      ]);
-      setPlanning(Array.isArray(planData) ? planData : []);
-      setWerknemers(Array.isArray(usersData) ? usersData.filter((u: any) => u.actief && u.rol !== 'beheerder' && u.rol !== 'admin') : []);
-      setTeams(Array.isArray(teamsData) ? teamsData : []);
-      setKlanten(Array.isArray(klantenData) ? klantenData.filter((k: any) => k.actief) : []);
-      setWerven(Array.isArray(wervenData) ? wervenData.filter((w: any) => w.actief) : []);
+      setPlanning(Array.isArray(planRes.data) ? planRes.data : []);
+      setWerknemers(Array.isArray(usersRes.data) ? usersRes.data.filter((u: any) => u.actief && u.rol !== 'beheerder' && u.rol !== 'admin') : []);
+      setTeams(Array.isArray(teamsRes.data) ? teamsRes.data : []);
+      setKlanten(Array.isArray(klantenRes.data) ? klantenRes.data.filter((k: any) => k.actief) : []);
+      setWerven(Array.isArray(wervenRes.data) ? wervenRes.data.filter((w: any) => w.actief) : []);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   }, [weekNummer, jaar]);

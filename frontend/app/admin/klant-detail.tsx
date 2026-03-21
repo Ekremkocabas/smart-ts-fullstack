@@ -67,12 +67,12 @@ export default function KlantDetail() {
     try {
       setLoading(true);
       const [klantenRes, wervenRes] = await Promise.all([
-        fetch(`${API_URL}/api/klanten`),
-        fetch(`${API_URL}/api/werven`),
+        apiClient.get('/api/klanten'),
+        apiClient.get('/api/werven'),
       ]);
       
-      const klanten = await klantenRes.json();
-      const wervenData = await wervenRes.json();
+      const klanten = klantenRes.data;
+      const wervenData = wervenRes.data;
       
       const foundKlant = klanten.find((k: Klant) => k.id === id);
       setKlant(foundKlant || null);
@@ -102,17 +102,13 @@ export default function KlantDetail() {
     if (!klant) return;
     setSaving(true);
     try {
-      await fetch(`${API_URL}/api/klanten/${klant.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...klant,
-          naam: formData.naam,
-          email: formData.email,
-          telefoon: formData.telefoon,
-          adres: formData.adres,
-          contactpersoon: formData.contactpersoon,
-        }),
+      await apiClient.put(`/api/klanten/${klant.id}`, {
+        ...klant,
+        naam: formData.naam,
+        email: formData.email,
+        telefoon: formData.telefoon,
+        adres: formData.adres,
+        contactpersoon: formData.contactpersoon,
       });
       setShowEditModal(false);
       fetchData();

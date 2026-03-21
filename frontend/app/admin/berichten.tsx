@@ -151,13 +151,11 @@ export default function BerichtenAdmin() {
       setLoading(true);
       const userId = user?.id || 'admin-001';
       const [berichtenRes, usersRes] = await Promise.all([
-        fetch(`${API_URL}/api/berichten?user_id=${userId}`),
-        fetch(`${API_URL}/api/auth/users`),
+        apiClient.get(`/api/berichten?user_id=${userId}`),
+        apiClient.get('/api/auth/users'),
       ]);
-      const berichtenData = await berichtenRes.json();
-      const usersData = await usersRes.json();
-      setBerichten(Array.isArray(berichtenData) ? berichtenData : []);
-      setWerknemers(Array.isArray(usersData) ? usersData.filter((u: Werknemer) => u.actief && u.rol !== 'beheerder' && u.rol !== 'admin' && u.rol !== 'master_admin') : []);
+      setBerichten(Array.isArray(berichtenRes.data) ? berichtenRes.data : []);
+      setWerknemers(Array.isArray(usersRes.data) ? usersRes.data.filter((u: Werknemer) => u.actief && u.rol !== 'beheerder' && u.rol !== 'admin' && u.rol !== 'master_admin') : []);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   }, [user]);

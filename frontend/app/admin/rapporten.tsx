@@ -65,21 +65,16 @@ export default function RapportenAdmin() {
     try {
       setLoading(true);
       const [werkbonnenRes, werknemersRes, teamsRes, wervenRes] = await Promise.all([
-        fetch(`${API_URL}/api/werkbonnen?user_id=admin-001&is_admin=true`),
-        fetch(`${API_URL}/api/auth/users`),
-        fetch(`${API_URL}/api/teams`),
-        fetch(`${API_URL}/api/werven`),
+        apiClient.get('/api/werkbonnen?user_id=admin-001&is_admin=true'),
+        apiClient.get('/api/auth/users'),
+        apiClient.get('/api/teams'),
+        apiClient.get('/api/werven'),
       ]);
 
-      const werkbonnen = await werkbonnenRes.json();
-      const werknemers = await werknemersRes.json();
-      const teams = await teamsRes.json();
-      const werven = await wervenRes.json();
-
-      const werkbonnenList = Array.isArray(werkbonnen) ? werkbonnen : [];
-      const werknemersList = Array.isArray(werknemers) ? werknemers : [];
-      const teamsList = Array.isArray(teams) ? teams : [];
-      const wervenList = Array.isArray(werven) ? werven : [];
+      const werkbonnenList = Array.isArray(werkbonnenRes.data) ? werkbonnenRes.data : [];
+      const werknemersList = Array.isArray(werknemersRes.data) ? werknemersRes.data : [];
+      const teamsList = Array.isArray(teamsRes.data) ? teamsRes.data : [];
+      const wervenList = Array.isArray(wervenRes.data) ? wervenRes.data : [];
 
       // Count active werknemers (workers and onderaannemers, excluding admins)
       const activeWorkers = werknemersList.filter((w: any) => 
