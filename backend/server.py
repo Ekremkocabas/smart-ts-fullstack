@@ -932,7 +932,8 @@ class WerfCreate(BaseModel):
 
 # Werkbon (Timesheet) Model - Updated
 class UrenRegel(BaseModel):
-    teamlid_naam: str
+    teamlid_naam: str = ""  # Made optional with default for old records
+    naam: Optional[str] = None  # Alternative field name used in some old records
     maandag: float = 0
     dinsdag: float = 0
     woensdag: float = 0
@@ -948,6 +949,12 @@ class UrenRegel(BaseModel):
     afkorting_vr: str = ""
     afkorting_za: str = ""
     afkorting_zo: str = ""
+    
+    def __init__(self, **data):
+        # Handle old records that use 'naam' instead of 'teamlid_naam'
+        if not data.get('teamlid_naam') and data.get('naam'):
+            data['teamlid_naam'] = data['naam']
+        super().__init__(**data)
 
 class KmRegel(BaseModel):
     maandag: float = 0
@@ -972,12 +979,12 @@ class Werkbon(BaseModel):
     datum_zaterdag: Optional[str] = None
     datum_zondag: Optional[str] = None
     
-    klant_id: str
-    klant_naam: str
-    werf_id: str
-    werf_naam: str
+    klant_id: Optional[str] = None  # Made optional for old records
+    klant_naam: str = ""
+    werf_id: Optional[str] = None  # Made optional for old records
+    werf_naam: str = ""
     
-    uren: List[UrenRegel]
+    uren: List[UrenRegel] = []  # Made optional with default
     km_afstand: KmRegel = Field(default_factory=KmRegel)
     
     # New fields
