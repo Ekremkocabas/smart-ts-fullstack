@@ -66,7 +66,7 @@ export default function AdminDashboard() {
   });
 
   useEffect(() => {
-    if (Platform.OS === 'web' && !authLoading && token && (user?.rol === 'beheerder' || user?.rol === 'admin' || user?.rol === 'master_admin' || user?.rol === 'manager')) {
+    if (Platform.OS === 'web' && !authLoading && token && (user?.rol === 'admin' || user?.rol === 'master_admin' || user?.rol === 'manager')) {
       fetchData();
     }
   }, [user, token, authLoading]);
