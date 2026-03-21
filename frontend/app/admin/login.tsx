@@ -12,28 +12,9 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, apiClient } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
-import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-// Determine API URL based on environment
-const getApiUrl = () => {
-  // For web platform - ALWAYS use window.location.origin in production
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    const hostname = window.location.hostname;
-    // Local development only
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return 'http://localhost:8001';
-    }
-    // ALL production deployments - use current origin
-    return window.location.origin;
-  }
-  // For mobile apps only
-  return Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_BACKEND_URL || '';
-};
-
-const API_URL = getApiUrl();
 
 export default function AdminLogin() {
   const { setUser } = useAuth();
@@ -59,21 +40,14 @@ export default function AdminLogin() {
     setError('');
 
     try {
-      console.log('Attempting login to:', `${API_URL}/api/auth/login`);
-      const response = await fetch(`${API_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), password: password }),
+      console.log('Attempting login with apiClient');
+      const response = await apiClient.post('/api/auth/login', {
+        email: email.trim(),
+        password: password,
       });
 
-      console.log('Response status:', response.status);
-      const data = await response.json();
-      console.log('Response data:', data);
-
-      if (!response.ok) {
-        setError(data.detail || 'Ongeldige inloggegevens');
-        return;
-      }
+      console.log('Response data:', response.data);
+      const data = response.data;
 
       // New JWT API returns user object inside data.user
       const userFromResponse = data.user || data;
@@ -115,7 +89,9 @@ export default function AdminLogin() {
       router.replace('/admin/dashboard');
     } catch (err: any) {
       console.error('Login error:', err);
-      setError(`Verbindingsfout: ${err.message || 'Probeer opnieuw.'}`);
+      // Handle axios error response
+      const errorMessage = err.response?.data?.detail || err.message || 'Ongeldige inloggegevens';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
