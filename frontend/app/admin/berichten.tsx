@@ -326,31 +326,37 @@ export default function BerichtenAdmin() {
 
       if (form.is_broadcast) {
         const body = { naar_id: null, is_broadcast: true, onderwerp: form.onderwerp, inhoud: form.inhoud, vastgepind: form.vastgepind, bijlagen: form.bijlagen };
-        await fetch(`${API_URL}/api/berichten?van_id=${userId}&van_naam=${encodeURIComponent(userName)}`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-        });
+        await apiClient.post(`/api/berichten?van_id=${userId}&van_naam=${encodeURIComponent(userName)}`, body);
       } else {
         for (const naarId of form.naar_ids) {
           const body = { naar_id: naarId, is_broadcast: false, onderwerp: form.onderwerp, inhoud: form.inhoud, vastgepind: form.vastgepind, bijlagen: form.bijlagen };
-          await fetch(`${API_URL}/api/berichten?van_id=${userId}&van_naam=${encodeURIComponent(userName)}`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-          });
+          await apiClient.post(`/api/berichten?van_id=${userId}&van_naam=${encodeURIComponent(userName)}`, body);
+        }
+      }
+
+      // Send push notifications to selected workers
+      if (form.naar_ids.length > 0) {
+        for (const naarId of form.naar_ids) {
+          try {
+            await apiClient.post('/api/notifications/send', {
+              user_id: naarId,
+              title: `Nieuw bericht van ${userName}`,
+              body: form.onderwerp,
+              data: { type: 'bericht', from: userId }
+            });
+          } catch (pushErr) { console.error('Push notification error:', pushErr); }
         }
       }
 
       if (form.ook_email && selectedWorkerEmails.length > 0) {
         for (const worker of selectedWorkerEmails) {
           try {
-            await fetch(`${API_URL}/api/berichten/send-email`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                to_email: worker.email,
-                to_naam: worker.naam,
-                onderwerp: form.onderwerp,
-                inhoud: form.inhoud,
-                van_naam: userName,
-              }),
+            await apiClient.post('/api/berichten/send-email', {
+              to_email: worker.email,
+              to_naam: worker.naam,
+              onderwerp: form.onderwerp,
+              inhoud: form.inhoud,
+              van_naam: userName,
             });
           } catch (emailErr) { console.error('Email send error:', emailErr); }
         }
@@ -364,11 +370,7 @@ export default function BerichtenAdmin() {
 
   const archiveBericht = async (id: string) => {
     try {
-      await fetch(`${API_URL}/api/berichten/${id}`, { 
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gearchiveerd: true }),
-      });
+      await apiClient.patch(`/api/berichten/${id}`, { gearchiveerd: true });
       setSelectedBericht(null);
       fetchData();
     } catch (e) { console.error(e); alert('Fout bij archiveren'); }
@@ -376,11 +378,7 @@ export default function BerichtenAdmin() {
 
   const unarchiveBericht = async (id: string) => {
     try {
-      await fetch(`${API_URL}/api/berichten/${id}`, { 
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gearchiveerd: false }),
-      });
+      await apiClient.patch(`/api/berichten/${id}`, { gearchiveerd: false });
       setSelectedBericht(null);
       fetchData();
     } catch (e) { console.error(e); alert('Fout bij herstellen'); }
@@ -389,7 +387,7 @@ export default function BerichtenAdmin() {
   const deleteBericht = async (id: string) => {
     if (!confirm('Weet u zeker dat u dit bericht wilt verwijderen?')) return;
     try {
-      await fetch(`${API_URL}/api/berichten/${id}`, { method: 'DELETE' });
+      await apiClient.delete(`/api/berichten/${id}`);
       setSelectedBericht(null);
       fetchData();
     } catch (e) { console.error(e); }
@@ -397,11 +395,7 @@ export default function BerichtenAdmin() {
 
   const togglePin = async (bericht: Bericht) => {
     try {
-      await fetch(`${API_URL}/api/berichten/${bericht.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vastgepind: !bericht.vastgepind }),
-      });
+      await apiClient.patch(`/api/berichten/${bericht.id}`, { vastgepind: !bericht.vastgepind });
       fetchData();
     } catch (e) { console.error(e); }
   };

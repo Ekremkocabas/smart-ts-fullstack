@@ -108,7 +108,10 @@ export default function AdminDashboard() {
 
       // Separate werknemers and onderaannemers
       const actieveWerknemers = werknemersList.filter((w: any) => w.actief !== false);
-      const werknemerCount = actieveWerknemers.filter((w: any) => w.rol === 'worker' || w.rol === 'werknemer').length;
+      // Count workers, planners, managers as werknemers (exclude admin roles)
+      const werknemerCount = actieveWerknemers.filter((w: any) => 
+        w.rol === 'worker' || w.rol === 'werknemer' || w.rol === 'planner' || w.rol === 'manager'
+      ).length;
       const onderaannemerCount = actieveWerknemers.filter((w: any) => w.rol === 'onderaannemer').length;
 
       const werkbonnenDezeWeek = werkbonnenList.filter(

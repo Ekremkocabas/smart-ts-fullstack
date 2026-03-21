@@ -274,18 +274,10 @@ export default function PlanningAdmin() {
       };
 
       if (isEditing && selectedItem) {
-        await fetch(`${API_URL}/api/planning/${selectedItem.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
+        await apiClient.put(`/api/planning/${selectedItem.id}`, body);
       } else {
-        const res = await fetch(`${API_URL}/api/planning`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
-        const result = await res.json();
+        const res = await apiClient.post('/api/planning', body);
+        const result = res.data;
         if (result.waarschuwingen?.length > 0) {
           setWaarschuwingen(result.waarschuwingen);
         }
@@ -298,11 +290,7 @@ export default function PlanningAdmin() {
 
   const updateStatus = async (itemId: string, newStatus: string) => {
     try {
-      await fetch(`${API_URL}/api/planning/${itemId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
-      });
+      await apiClient.put(`/api/planning/${itemId}`, { status: newStatus });
       fetchData();
       if (selectedItem?.id === itemId) setSelectedItem(prev => prev ? { ...prev, status: newStatus } : null);
     } catch (e) { console.error(e); }
@@ -311,7 +299,7 @@ export default function PlanningAdmin() {
   const deletePlanningItem = async (itemId: string) => {
     if (!confirm('Weet u zeker dat u dit item wilt verwijderen?')) return;
     try {
-      await fetch(`${API_URL}/api/planning/${itemId}`, { method: 'DELETE' });
+      await apiClient.delete(`/api/planning/${itemId}`);
       setShowDetailModal(false);
       fetchData();
     } catch (e) { console.error(e); }
@@ -345,7 +333,7 @@ export default function PlanningAdmin() {
         const weeksInMonth: number[] = [];
         for (let w = weekNummer - 2; w <= weekNummer + 2; w++) weeksInMonth.push(w);
         const promises = weeksInMonth.map(w =>
-          fetch(`${API_URL}/api/planning?week_nummer=${w}&jaar=${jaar}`).then(r => r.json())
+          apiClient.get(`/api/planning?week_nummer=${w}&jaar=${jaar}`).then(r => r.data)
         );
         const results = await Promise.all(promises);
         allPlanning = results.flat();
@@ -353,7 +341,7 @@ export default function PlanningAdmin() {
       } else if (exportPeriode === '6maanden') {
         const promises = [];
         for (let w = Math.max(1, weekNummer - 13); w <= Math.min(52, weekNummer + 13); w++) {
-          promises.push(fetch(`${API_URL}/api/planning?week_nummer=${w}&jaar=${jaar}`).then(r => r.json()));
+          promises.push(apiClient.get(`/api/planning?week_nummer=${w}&jaar=${jaar}`).then(r => r.data));
         }
         const results = await Promise.all(promises);
         allPlanning = results.flat();
@@ -361,7 +349,7 @@ export default function PlanningAdmin() {
       } else if (exportPeriode === 'jaar') {
         const promises = [];
         for (let w = 1; w <= 52; w++) {
-          promises.push(fetch(`${API_URL}/api/planning?week_nummer=${w}&jaar=${jaar}`).then(r => r.json()));
+          promises.push(apiClient.get(`/api/planning?week_nummer=${w}&jaar=${jaar}`).then(r => r.data));
         }
         const results = await Promise.all(promises);
         allPlanning = results.flat();
