@@ -57,12 +57,56 @@ export default function WerkbonReview() {
     }
   };
 
-  // Calculate totals for uren
+  // Calculate totals for uren - ONLY numeric values, exclude afkortingen (Z, V, OV, etc.)
+  const isNumericValue = (val: any): boolean => {
+    if (typeof val === 'number') return true;
+    if (typeof val === 'string') {
+      // Check if it's an afkorting (Z, V, OV, BV, F, ADV)
+      const afkortingen = ['Z', 'V', 'OV', 'BV', 'F', 'ADV'];
+      if (afkortingen.includes(val.toUpperCase())) return false;
+      // Check if it's a valid number string
+      const num = parseFloat(val);
+      return !isNaN(num);
+    }
+    return false;
+  };
+
+  const getNumericValue = (val: any): number => {
+    if (typeof val === 'number') return val;
+    if (typeof val === 'string') {
+      const num = parseFloat(val);
+      return isNaN(num) ? 0 : num;
+    }
+    return 0;
+  };
+
+  const getRegelTotal = (regel: any): number => {
+    const dagValues = [
+      regel.maandag, regel.dinsdag, regel.woensdag,
+      regel.donderdag, regel.vrijdag, regel.zaterdag, regel.zondag
+    ];
+    return dagValues.reduce((sum, val) => {
+      return sum + (isNumericValue(val) ? getNumericValue(val) : 0);
+    }, 0);
+  };
+
+  const getRegelAfkortingen = (regel: any): string[] => {
+    const dagen = ['maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag', 'zondag'];
+    const dagenKort = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'];
+    const afkortingen: string[] = [];
+    dagen.forEach((dag, index) => {
+      const val = regel[dag];
+      if (typeof val === 'string' && ['Z', 'V', 'OV', 'BV', 'F', 'ADV'].includes(val.toUpperCase())) {
+        afkortingen.push(`${dagenKort[index]}:${val}`);
+      }
+    });
+    return afkortingen;
+  };
+
   const getTotalUren = () => {
     if (type !== 'uren') return 0;
     return urenData.urenRegels.reduce((total, regel) => {
-      return total + regel.maandag + regel.dinsdag + regel.woensdag + 
-             regel.donderdag + regel.vrijdag + regel.zaterdag + regel.zondag;
+      return total + getRegelTotal(regel);
     }, 0);
   };
 
@@ -147,11 +191,16 @@ export default function WerkbonReview() {
             <Text style={styles.cardTitle}>Urenregistratie - Week {urenData.weekNummer}</Text>
             
             {urenData.urenRegels.filter(r => r.teamlidNaam.trim()).map((regel, index) => {
-              const total = regel.maandag + regel.dinsdag + regel.woensdag + 
-                           regel.donderdag + regel.vrijdag + regel.zaterdag + regel.zondag;
+              const total = getRegelTotal(regel);
+              const afkortingen = getRegelAfkortingen(regel);
               return (
                 <View key={index} style={styles.urenRegelSummary}>
-                  <Text style={styles.teamlidName}>{regel.teamlidNaam}</Text>
+                  <View style={styles.teamlidInfo}>
+                    <Text style={styles.teamlidName}>{regel.teamlidNaam}</Text>
+                    {afkortingen.length > 0 && (
+                      <Text style={styles.afkortingenText}>({afkortingen.join(', ')})</Text>
+                    )}
+                  </View>
                   <Text style={styles.urenTotal}>{total} uur</Text>
                 </View>
               );
@@ -472,7 +521,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F5F6FA',
   },
+  teamlidInfo: { flex: 1 },
   teamlidName: { fontSize: 15, color: '#1A1A2E' },
+  afkortingenText: { fontSize: 12, color: '#F5A623', marginTop: 2 },
   urenTotal: { fontSize: 15, fontWeight: '600', color: '#1A1A2E' },
   totalRow: {
     flexDirection: 'row',

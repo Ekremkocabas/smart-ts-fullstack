@@ -404,20 +404,39 @@ export default function WerkbonSign() {
         // Success - clear draft
         clearDraft();
         
-        // Optionally send email
+        // Track email sending result
+        let emailSent = false;
+        let emailError = '';
+        
+        // Send email if enabled
         if (sendToCustomer && response.data.id) {
           try {
             await axios.post(`${API_URL}${endpoint}/${response.data.id}/verzenden`, {}, {
               headers: { 'Authorization': `Bearer ${token}` },
             });
-          } catch (emailError) {
-            console.warn('Email sending failed:', emailError);
+            emailSent = true;
+          } catch (emailErr: any) {
+            console.warn('Email sending failed:', emailErr);
+            emailSent = false;
+            emailError = emailErr?.response?.data?.detail || 'Email kon niet worden verstuurd';
           }
+        }
+
+        // Show appropriate success message
+        let successMessage = '';
+        if (sendToCustomer) {
+          if (emailSent) {
+            successMessage = 'Werkbon is succesvol opgeslagen en verstuurd naar de klant!';
+          } else {
+            successMessage = `Werkbon is opgeslagen maar email kon niet worden verstuurd. ${emailError}`;
+          }
+        } else {
+          successMessage = 'Werkbon is succesvol opgeslagen!';
         }
 
         Alert.alert(
           'Succes',
-          'Werkbon is succesvol opgeslagen!',
+          successMessage,
           [{ text: 'OK', onPress: () => router.replace('/(tabs)') }]
         );
       }
