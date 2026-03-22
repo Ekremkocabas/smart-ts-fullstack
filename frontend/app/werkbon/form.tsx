@@ -113,26 +113,6 @@ export default function WerkbonForm() {
     }
   }, [klantId]);
 
-  // Auto-fill user name when user data is available (for uren type)
-  // This runs once when user name becomes available and type is 'uren'
-  useEffect(() => {
-    if (type !== 'uren') return;
-    if (!user?.naam) return;
-    
-    // Use zustand's get() to get latest state
-    const { urenData: currentUrenData, setUrenData: storeSetUrenData } = useWerkbonFormStore.getState();
-    const currentRegels = currentUrenData.urenRegels;
-    
-    if (currentRegels.length > 0) {
-      const firstRow = currentRegels[0];
-      if (!firstRow.teamlidNaam || firstRow.teamlidNaam.trim() === '') {
-        const updatedRegels = [...currentRegels];
-        updatedRegels[0] = { ...updatedRegels[0], teamlidNaam: user.naam };
-        storeSetUrenData({ urenRegels: updatedRegels });
-      }
-    }
-  }, [user?.naam, type]);
-
   const loadData = async () => {
     setIsLoading(true);
     await fetchKlanten();
@@ -140,15 +120,9 @@ export default function WerkbonForm() {
     // Auto-fetch GPS
     await fetchGPS();
     
-    // Initialize with user name for uren - directly set it here
-    if (type === 'uren' && user?.naam) {
-      // Directly update the first row with user name
-      const currentRegels = urenData.urenRegels;
-      if (currentRegels.length > 0 && (!currentRegels[0].teamlidNaam || currentRegels[0].teamlidNaam.trim() === '')) {
-        const updatedRegels = [...currentRegels];
-        updatedRegels[0] = { ...updatedRegels[0], teamlidNaam: user.naam };
-        setUrenData({ urenRegels: updatedRegels });
-      }
+    // Initialize with user name for uren (ORIGINAL WORKING LOGIC)
+    if (type === 'uren' && urenData.urenRegels.length === 0 && user?.naam) {
+      addUrenRegel(user.naam);
     }
     
     setIsLoading(false);
@@ -1380,12 +1354,7 @@ const styles = StyleSheet.create({
   },
   nextButtonText: { fontSize: 17, fontWeight: '600', color: '#1A1A2E' },
   
-  // Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
+  // Modal (uses afkorting modal styles above)
   modalContent: {
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 20,

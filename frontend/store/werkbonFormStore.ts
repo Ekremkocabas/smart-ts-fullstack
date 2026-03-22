@@ -249,7 +249,7 @@ const initialGPS: GPSData = {
 const initialUrenData: UrenTypeData = {
   weekNummer: getCurrentWeekNumber(),
   jaar: new Date().getFullYear(),
-  urenRegels: [createEmptyUrenRegel()],
+  urenRegels: [], // Start empty - will be initialized with user name in loadData
   kmAfstand: createEmptyKmRegel(),
   uitgevoerdeWerken: '',
   extraMaterialen: '',
