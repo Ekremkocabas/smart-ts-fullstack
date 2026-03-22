@@ -150,22 +150,23 @@ export default function NieuweWerkbonScreen() {
     }
   };
 
-  // Initialize urenRegels with user's name - runs when user data is available
-  // FIX: Check if first row has empty name, not just array length
+  // Initialize urenRegels with user's name - runs ONCE when user data is available
   useEffect(() => {
     // Only auto-fill if we have user data
     if (!user?.naam) return;
     
     // Check if first row has an empty name - if so, fill it
+    // Use a ref to track if we've already initialized
+    const firstRow = urenRegels[0];
     const firstRowEmpty = urenRegels.length === 0 || 
-                          (urenRegels.length === 1 && !urenRegels[0].teamlid_naam.trim());
+                          (urenRegels.length === 1 && firstRow && !firstRow.teamlid_naam?.trim());
     
     if (!firstRowEmpty) return; // Already has data, don't overwrite
     
     // Initialize with user's team if assigned
     if (user?.team_id && teams.length > 0) {
       const userTeam = teams.find(t => t.id === user.team_id);
-      if (userTeam && userTeam.leden.length > 0) {
+      if (userTeam && userTeam.leden && userTeam.leden.length > 0) {
         const regels = userTeam.leden.map(naam => createEmptyUrenRegel(naam));
         setUrenRegels(regels);
         console.log('[Werkbon] Auto-filled team members:', userTeam.leden);
@@ -176,7 +177,7 @@ export default function NieuweWerkbonScreen() {
     // Always pre-fill with logged-in user's name
     console.log('[Werkbon] Auto-filling user name:', user.naam);
     setUrenRegels([createEmptyUrenRegel(user.naam)]);
-  }, [teams, user?.naam, user?.team_id, urenRegels]);
+  }, [teams.length, user?.naam, user?.team_id]); // Remove urenRegels from deps to prevent loop
 
   const handleKlantSelect = async (klant: Klant) => {
     setSelectedKlant(klant);
@@ -500,7 +501,7 @@ export default function NieuweWerkbonScreen() {
                                 style={styles.afkortingTrigger}
                                 onPress={() => setShowAfkortingPicker({ index, dag })}
                               >
-                                <Ionicons name="ellipsis-horizontal" size={16} color="#6c757d" />
+                                <Ionicons name="ellipsis-horizontal" size={18} color="#FFFFFF" />
                               </TouchableOpacity>
                             </View>
                           )}

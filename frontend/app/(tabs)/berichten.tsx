@@ -310,6 +310,34 @@ export default function BerichtenTab() {
                   </View>
                   <Text style={styles.detailSubject}>{selectedBericht.onderwerp}</Text>
                   <Text style={styles.detailInhoud}>{selectedBericht.inhoud}</Text>
+                  
+                  {/* Attachments */}
+                  {selectedBericht.attachments && selectedBericht.attachments.length > 0 && (
+                    <View style={styles.attachmentsContainer}>
+                      <Text style={styles.attachmentsTitle}>Bijlagen ({selectedBericht.attachments.length})</Text>
+                      {selectedBericht.attachments.map((att, index) => (
+                        <TouchableOpacity 
+                          key={index} 
+                          style={styles.attachmentItem}
+                          onPress={() => {
+                            if (att.url) {
+                              Linking.openURL(att.url).catch(e => 
+                                Alert.alert('Fout', 'Kan bijlage niet openen')
+                              );
+                            }
+                          }}
+                        >
+                          <Ionicons 
+                            name={att.type?.includes('pdf') ? 'document-text-outline' : 'image-outline'} 
+                            size={24} 
+                            color="#F5A623" 
+                          />
+                          <Text style={styles.attachmentName} numberOfLines={1}>{att.filename}</Text>
+                          <Ionicons name="download-outline" size={20} color="#6c757d" />
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
                 </ScrollView>
               </>
             )}
@@ -417,4 +445,14 @@ const styles = StyleSheet.create({
   docName: { fontSize: 15, fontWeight: '600', color: '#1A1A2E' },
   docMeta: { fontSize: 12, color: '#6c757d', marginTop: 2 },
   docDelete: { padding: 8 },
+
+  // Attachment Styles
+  attachmentsContainer: { marginTop: 20, paddingHorizontal: 20, paddingBottom: 20 },
+  attachmentsTitle: { fontSize: 14, fontWeight: '600', color: '#6c757d', marginBottom: 12 },
+  attachmentItem: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#F5F6FA', borderRadius: 10, padding: 12, marginBottom: 8,
+    borderWidth: 1, borderColor: '#E8E9ED',
+  },
+  attachmentName: { flex: 1, fontSize: 14, color: '#1A1A2E' },
 });

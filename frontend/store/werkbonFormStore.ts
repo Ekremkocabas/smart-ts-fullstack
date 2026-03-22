@@ -319,7 +319,7 @@ const initialState: WerkbonFormState = {
   signerName: '',
   signature: null,
   selfie: null,
-  sendToCustomer: false,
+  sendToCustomer: true,
   confirmationChecked: false,
   signerPhone: '',
   smsVerified: false,
