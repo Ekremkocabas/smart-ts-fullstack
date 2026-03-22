@@ -50,18 +50,41 @@ export default function BerichtenTab() {
   const [selectedBericht, setSelectedBericht] = useState<Bericht | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
 
+  // Fetch personal documents from the new API
+  const fetchMijnDocumenten = useCallback(async () => {
+    if (!user?.id) return [];
+    try {
+      const res = await apiClient.get('/api/mijn-documenten');
+      const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+      return (res.data || []).map((doc: any) => ({
+        id: doc.id,
+        filename: doc.naam || doc.bestandsnaam,
+        url: `${API_URL}/api/files/${doc.file_id}`,
+        type: doc.type,
+        uploaded_at: doc.created_at,
+        uploaded_by: doc.uploaded_by_naam,
+        beschrijving: doc.beschrijving,
+        isPersonalDoc: true,  // Mark as personal document
+      }));
+    } catch (e) {
+      console.error('Error fetching personal documents:', e);
+      return [];
+    }
+  }, [user?.id]);
+
   const fetchBerichten = useCallback(async () => {
     if (!user?.id) return;
     try {
-      const [berichtenRes, unreadRes] = await Promise.all([
+      const [berichtenRes, unreadRes, personalDocs] = await Promise.all([
         apiClient.get(`/api/berichten?user_id=${user.id}`),
         apiClient.get(`/api/berichten/ongelezen?user_id=${user.id}`),
+        fetchMijnDocumenten(),
       ]);
       setBerichten(Array.isArray(berichtenRes.data) ? berichtenRes.data : []);
       setUnreadCount(unreadRes.data?.count || unreadRes.data?.ongelezen || 0);
       
       // Extract documents from berichten with bijlagen (attachments)
-      const docs: Document[] = [];
+      const berichtDocs: Document[] = [];
       (berichtenRes.data || []).forEach((b: Bericht) => {
         if (b.bijlagen && b.bijlagen.length > 0) {
           b.bijlagen.forEach(att => {
@@ -75,7 +98,7 @@ export default function BerichtenTab() {
               url = `data:${att.type || 'application/octet-stream'};base64,${base64Data}`;
             }
             
-            docs.push({
+            berichtDocs.push({
               id: `${b.id}-${att.naam}`,
               filename: att.naam,
               url: url,
@@ -86,10 +109,13 @@ export default function BerichtenTab() {
           });
         }
       });
-      setDocumenten(docs);
+      
+      // Combine personal documents + bericht attachments
+      // Personal docs first (they are more important)
+      setDocumenten([...personalDocs, ...berichtDocs]);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
-  }, [user?.id]);
+  }, [user?.id, fetchMijnDocumenten]);
 
   useEffect(() => { fetchBerichten(); }, [fetchBerichten]);
 

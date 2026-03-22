@@ -9,11 +9,13 @@ import {
   ActivityIndicator,
   TextInput,
   Modal,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useAuth, apiClient } from '../../context/AuthContext';
 import * as Clipboard from 'expo-clipboard';
+import * as DocumentPicker from 'expo-document-picker';
 
 const ROLLEN = ['worker', 'onderaannemer', 'planner', 'manager', 'admin'];
 const WERKBON_TYPES = [
@@ -40,12 +42,38 @@ interface Werknemer {
 interface Team { id: string; naam: string; }
 interface Werkbon { id: string; week_nummer: number; jaar: number; klant_naam: string; werf_naam: string; status: string; }
 
+interface WerknemerDocument {
+  id: string;
+  naam: string;
+  beschrijving: string;
+  bestandsnaam: string;
+  type: string;
+  file_id: string;
+  grootte: number;
+  uploaded_by_naam: string;
+  created_at: string;
+}
+
+// API URL for file download
+const getApiUrl = () => {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return 'http://localhost:8001';
+    }
+    return window.location.origin;
+  }
+  return process.env.EXPO_PUBLIC_BACKEND_URL || '';
+};
+const API_URL = getApiUrl();
+
 export default function WerknemerDetail() {
   const { user } = useAuth();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [werknemer, setWerknemer] = useState<Werknemer | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
   const [werkbonnen, setWerkbonnen] = useState<Werkbon[]>([]);
+  const [documenten, setDocumenten] = useState<WerknemerDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
   const [formData, setFormData] = useState({
@@ -54,6 +82,8 @@ export default function WerknemerDetail() {
   });
   const [saving, setSaving] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [deletingDoc, setDeletingDoc] = useState<string | null>(null);
 
   useEffect(() => {
     if (Platform.OS === 'web' && id) fetchData();
@@ -62,19 +92,22 @@ export default function WerknemerDetail() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [usersRes, teamsRes, wbRes] = await Promise.all([
+      const [usersRes, teamsRes, wbRes, docsRes] = await Promise.all([
         apiClient.get('/api/auth/users'),
         apiClient.get('/api/teams'),
         apiClient.get('/api/werkbonnen?user_id=admin-001&is_admin=true'),
+        id ? apiClient.get(`/api/werknemer-documenten/${id}`) : Promise.resolve({ data: [] }),
       ]);
       const users = usersRes.data;
       const teamsData = teamsRes.data;
       const wbData = wbRes.data;
+      const docsData = docsRes.data || [];
 
       const found = users.find((w: any) => w.id === id);
       setWerknemer(found || null);
       setTeams(Array.isArray(teamsData) ? teamsData : []);
       setWerkbonnen((Array.isArray(wbData) ? wbData : []).filter((wb: any) => wb.created_by === id || wb.user_id === id));
+      setDocumenten(Array.isArray(docsData) ? docsData : []);
 
       if (found) {
         setFormData({
@@ -137,6 +170,110 @@ export default function WerknemerDetail() {
       fetchData();
     } catch (e) { console.error(e); alert('Fout bij verzenden'); }
     finally { setSendingEmail(false); }
+  };
+
+  // Document upload function
+  const uploadDocument = async () => {
+    if (!werknemer) return;
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/png', 'image/jpeg', 'image/jpg'],
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled || !result.assets?.[0]) return;
+
+      const file = result.assets[0];
+      setUploadingDoc(true);
+
+      // Read file as base64
+      let base64Data: string;
+      if (Platform.OS === 'web') {
+        const response = await fetch(file.uri);
+        const blob = await response.blob();
+        base64Data = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      } else {
+        const FileSystem = require('expo-file-system');
+        const base64 = await FileSystem.readAsStringAsync(file.uri, { encoding: FileSystem.EncodingType.Base64 });
+        base64Data = `data:${file.mimeType};base64,${base64}`;
+      }
+
+      // Upload to backend
+      await apiClient.post('/api/werknemer-documenten', {
+        werknemer_id: werknemer.id,
+        naam: file.name,
+        beschrijving: '',
+        bestandsnaam: file.name,
+        type: file.mimeType || 'application/octet-stream',
+        data: base64Data,
+      });
+
+      alert('✅ Document succesvol geüpload!');
+      fetchData();
+    } catch (e: any) {
+      console.error('Upload error:', e);
+      alert(`❌ Fout bij uploaden: ${e?.response?.data?.detail || e.message || 'Onbekend'}`);
+    } finally {
+      setUploadingDoc(false);
+    }
+  };
+
+  // Delete document function
+  const deleteDocument = async (docId: string) => {
+    if (!werknemer) return;
+    
+    const confirmDelete = () => {
+      if (Platform.OS === 'web') {
+        return window.confirm('Weet u zeker dat u dit document wilt verwijderen?');
+      }
+      return new Promise((resolve) => {
+        Alert.alert(
+          'Document verwijderen',
+          'Weet u zeker dat u dit document wilt verwijderen?',
+          [
+            { text: 'Annuleren', style: 'cancel', onPress: () => resolve(false) },
+            { text: 'Verwijderen', style: 'destructive', onPress: () => resolve(true) },
+          ]
+        );
+      });
+    };
+
+    const confirmed = await confirmDelete();
+    if (!confirmed) return;
+
+    try {
+      setDeletingDoc(docId);
+      await apiClient.delete(`/api/werknemer-documenten/${werknemer.id}/${docId}`);
+      alert('✅ Document verwijderd!');
+      fetchData();
+    } catch (e: any) {
+      console.error('Delete error:', e);
+      alert(`❌ Fout bij verwijderen: ${e?.response?.data?.detail || e.message || 'Onbekend'}`);
+    } finally {
+      setDeletingDoc(null);
+    }
+  };
+
+  // Format file size
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
+
+  // Get file icon based on type
+  const getFileIcon = (type: string) => {
+    if (type.includes('pdf')) return 'document-text';
+    if (type.includes('word') || type.includes('document')) return 'document';
+    if (type.includes('image')) return 'image';
+    return 'document-outline';
   };
 
   const copyToClipboard = async (text: string, label: string) => {
@@ -266,6 +403,74 @@ export default function WerknemerDetail() {
         <Text style={styles.sectionTitle}>Gegevens</Text>
         <View style={styles.infoRow}><Text style={styles.infoLabel}>Team</Text><Text style={styles.infoValue}>{teamNaam}</Text></View>
         <View style={styles.infoRow}><Text style={styles.infoLabel}>Mag wachtwoord wijzigen</Text><Text style={[styles.infoValue, { color: werknemer.mag_wachtwoord_wijzigen ? '#27ae60' : '#dc3545' }]}>{werknemer.mag_wachtwoord_wijzigen ? 'Ja' : 'Nee'}</Text></View>
+      </View>
+
+      {/* Documenten */}
+      <View style={styles.card}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <Text style={styles.sectionTitle}>Documenten ({documenten.length})</Text>
+          <TouchableOpacity 
+            style={[styles.uploadBtn, uploadingDoc && { opacity: 0.6 }]} 
+            onPress={uploadDocument}
+            disabled={uploadingDoc}
+          >
+            {uploadingDoc ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <>
+                <Ionicons name="cloud-upload-outline" size={18} color="#fff" />
+                <Text style={styles.uploadBtnText}>Upload</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.docHelpText}>
+          Upload PDF, Word, PNG of JPG bestanden voor deze werknemer. 
+          Deze documenten zijn zichtbaar in de app onder "Mijn Documenten".
+        </Text>
+        
+        {documenten.length === 0 ? (
+          <View style={{ alignItems: 'center', padding: 30 }}>
+            <Ionicons name="folder-open-outline" size={40} color="#E8E9ED" />
+            <Text style={{ color: '#6c757d', marginTop: 10 }}>Geen documenten</Text>
+          </View>
+        ) : (
+          <View style={{ gap: 8 }}>
+            {documenten.map(doc => (
+              <View key={doc.id} style={styles.docRow}>
+                <Ionicons name={getFileIcon(doc.type) as any} size={24} color="#F5A623" />
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={styles.docName} numberOfLines={1}>{doc.naam}</Text>
+                  <Text style={styles.docMeta}>
+                    {formatFileSize(doc.grootte)} • {new Date(doc.created_at).toLocaleDateString('nl-BE')}
+                  </Text>
+                </View>
+                <TouchableOpacity 
+                  style={styles.docDownloadBtn}
+                  onPress={() => {
+                    const url = `${API_URL}/api/files/${doc.file_id}`;
+                    if (Platform.OS === 'web') {
+                      window.open(url, '_blank');
+                    }
+                  }}
+                >
+                  <Ionicons name="download-outline" size={20} color="#3498db" />
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.docDeleteBtn}
+                  onPress={() => deleteDocument(doc.id)}
+                  disabled={deletingDoc === doc.id}
+                >
+                  {deletingDoc === doc.id ? (
+                    <ActivityIndicator size="small" color="#dc3545" />
+                  ) : (
+                    <Ionicons name="trash-outline" size={20} color="#dc3545" />
+                  )}
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        )}
       </View>
 
       {/* Werkbonnen */}
@@ -408,4 +613,13 @@ const styles = StyleSheet.create({
   pwdToggleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#F5F6FA', padding: 14, borderRadius: 10, borderWidth: 1, borderColor: '#E8E9ED', marginTop: 16 },
   saveBtn: { backgroundColor: '#F5A623', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 20 },
   saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  // Document styles
+  uploadBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#27ae60', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8 },
+  uploadBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  docHelpText: { fontSize: 13, color: '#6c757d', marginBottom: 16, lineHeight: 20 },
+  docRow: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#E8E9ED', backgroundColor: '#F5F6FA' },
+  docName: { fontSize: 14, fontWeight: '500', color: '#1A1A2E' },
+  docMeta: { fontSize: 12, color: '#6c757d', marginTop: 2 },
+  docDownloadBtn: { padding: 8, borderRadius: 6, backgroundColor: '#3498db10', marginRight: 8 },
+  docDeleteBtn: { padding: 8, borderRadius: 6, backgroundColor: '#dc354510' },
 });

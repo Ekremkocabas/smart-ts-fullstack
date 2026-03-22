@@ -4287,7 +4287,23 @@ async def get_instellingen(current_user: Dict = Depends(require_web_access())):
         default = BedrijfsInstellingen()
         await db.instellingen.insert_one(default.dict())
         return default
-    return BedrijfsInstellingen(**settings)
+    
+    # Convert backend field names to frontend field names for compatibility
+    # Backend uses Dutch names (adres_gestructureerd), frontend uses English (adres_structured)
+    result = BedrijfsInstellingen(**settings)
+    result_dict = result.dict()
+    
+    # Add frontend-compatible field names
+    if result_dict.get('adres_gestructureerd'):
+        result_dict['adres_structured'] = result_dict['adres_gestructureerd']
+    if result_dict.get('pdf_teksten'):
+        result_dict['pdf_texts'] = result_dict['pdf_teksten']
+    
+    # Also include werkbon_email from email settings if available
+    if result_dict.get('emails') and result_dict['emails'].get('werkbon'):
+        result_dict['werkbon_email'] = result_dict['emails']['werkbon']
+    
+    return result_dict
 
 @api_router.put("/instellingen", response_model=BedrijfsInstellingen)
 async def update_instellingen(update_data: BedrijfsInstellingenUpdate, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
@@ -5857,6 +5873,128 @@ async def delete_file(file_id: str):
     if success:
         return {"message": "Bestand verwijderd"}
     raise HTTPException(status_code=404, detail="Bestand niet gevonden")
+
+# ==================== WERKNEMER DOCUMENTEN (Personal Documents per Worker) ====================
+
+class WerknemerDocument(BaseModel):
+    """Document model for personal documents per worker"""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    werknemer_id: str  # The worker this document belongs to
+    naam: str  # Document name/title
+    beschrijving: str = ""  # Optional description
+    file_id: str  # GridFS file ID
+    bestandsnaam: str  # Original filename
+    type: str  # MIME type (application/pdf, image/png, etc.)
+    grootte: int = 0  # File size in bytes
+    uploaded_by_id: str  # Admin who uploaded
+    uploaded_by_naam: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+class WerknemerDocumentCreate(BaseModel):
+    werknemer_id: str
+    naam: str
+    beschrijving: str = ""
+    bestandsnaam: str
+    type: str
+    data: str  # Base64 encoded file data
+
+@api_router.get("/werknemer-documenten/{werknemer_id}")
+async def get_werknemer_documenten(werknemer_id: str):
+    """Get all documents for a specific worker"""
+    docs = await db.werknemer_documenten.find(
+        {"werknemer_id": werknemer_id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    return docs
+
+@api_router.get("/werknemer-documenten/{werknemer_id}/{doc_id}")
+async def get_werknemer_document(werknemer_id: str, doc_id: str):
+    """Get a specific document"""
+    doc = await db.werknemer_documenten.find_one(
+        {"id": doc_id, "werknemer_id": werknemer_id},
+        {"_id": 0}
+    )
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document niet gevonden")
+    return doc
+
+@api_router.post("/werknemer-documenten")
+async def create_werknemer_document(data: WerknemerDocumentCreate, current_user: Dict = Depends(get_current_user)):
+    """Upload a new document for a worker (admin only)"""
+    # Only admins can upload
+    if current_user["role"] not in ["master_admin", "admin", "planner"]:
+        raise HTTPException(status_code=403, detail="Geen toegang om documenten te uploaden")
+    
+    # Check if worker exists
+    worker = await db.users.find_one({"id": data.werknemer_id})
+    if not worker:
+        raise HTTPException(status_code=404, detail="Werknemer niet gevonden")
+    
+    # Store file in GridFS
+    try:
+        file_id = await store_base64_to_gridfs(
+            data.data,
+            data.bestandsnaam,
+            data.type
+        )
+    except Exception as e:
+        logging.error(f"Failed to store document in GridFS: {e}")
+        raise HTTPException(status_code=500, detail="Kon bestand niet opslaan")
+    
+    # Calculate approximate file size from base64
+    base64_data = data.data.split(",")[1] if "," in data.data else data.data
+    file_size = int(len(base64_data) * 3 / 4)
+    
+    # Create document record
+    doc = {
+        "id": str(uuid.uuid4()),
+        "werknemer_id": data.werknemer_id,
+        "naam": data.naam or data.bestandsnaam,
+        "beschrijving": data.beschrijving,
+        "file_id": file_id,
+        "bestandsnaam": data.bestandsnaam,
+        "type": data.type,
+        "grootte": file_size,
+        "uploaded_by_id": current_user["user_id"],
+        "uploaded_by_naam": current_user["naam"],
+        "created_at": datetime.utcnow(),
+    }
+    
+    await db.werknemer_documenten.insert_one(doc)
+    
+    # Return without _id
+    doc.pop("_id", None)
+    return doc
+
+@api_router.delete("/werknemer-documenten/{werknemer_id}/{doc_id}")
+async def delete_werknemer_document(werknemer_id: str, doc_id: str, current_user: Dict = Depends(get_current_user)):
+    """Delete a document (admin only)"""
+    # Only admins can delete
+    if current_user["role"] not in ["master_admin", "admin", "planner"]:
+        raise HTTPException(status_code=403, detail="Geen toegang om documenten te verwijderen")
+    
+    # Find document
+    doc = await db.werknemer_documenten.find_one({"id": doc_id, "werknemer_id": werknemer_id})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document niet gevonden")
+    
+    # Delete file from GridFS
+    if doc.get("file_id"):
+        await delete_file_from_gridfs(doc["file_id"])
+    
+    # Delete record
+    await db.werknemer_documenten.delete_one({"id": doc_id})
+    
+    return {"message": "Document verwijderd"}
+
+@api_router.get("/mijn-documenten")
+async def get_mijn_documenten(current_user: Dict = Depends(get_current_user)):
+    """Get documents for the currently logged-in worker (for mobile app)"""
+    docs = await db.werknemer_documenten.find(
+        {"werknemer_id": current_user["user_id"]},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    return docs
 
 # ==================== THEME / APP SETTINGS ROUTE ====================
 
