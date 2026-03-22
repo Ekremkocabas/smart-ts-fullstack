@@ -525,6 +525,7 @@ export default function PlanningAdmin() {
                     const allConfirmed = item.werknemer_ids?.length > 0 && 
                       item.werknemer_ids.every((wId: string) => item.bevestigd_door?.includes(wId));
                     const someConfirmed = item.bevestigd_door?.length > 0 && !allConfirmed;
+                    const noneConfirmed = !item.bevestigd_door || item.bevestigd_door.length === 0;
                     
                     return (
                     <TouchableOpacity 
@@ -533,7 +534,8 @@ export default function PlanningAdmin() {
                         styles.planCard, 
                         item.belangrijk && styles.planCardBelangrijk,
                         allConfirmed && { borderLeftColor: '#28a745', borderLeftWidth: 4 },
-                        someConfirmed && { borderLeftColor: '#F5A623', borderLeftWidth: 4 }
+                        someConfirmed && { borderLeftColor: '#F5A623', borderLeftWidth: 4 },
+                        noneConfirmed && { borderLeftColor: '#dc3545', borderLeftWidth: 4 }
                       ]} 
                       onPress={() => openDetail(item)} 
                       activeOpacity={0.7}

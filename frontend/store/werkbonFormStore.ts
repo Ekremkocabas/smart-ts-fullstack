@@ -107,6 +107,29 @@ export interface ProjectTypeData {
   contactpersoon: string;
 }
 
+// Verdieping item for Prestatie werkbon
+export interface VerdiepingItem {
+  id: string;
+  naam: string; // gelijkvoelers, 1ste verdiep, etc.
+  m2: number | null;
+  dikteCm: number | null;
+}
+
+// Extra werk item for Prestatie werkbon
+export interface ExtraWerkItem {
+  id: string;
+  naam: string; // stofzuiger, schuren, etc.
+  m2: number | null;
+}
+
+// Product item for Prestatie werkbon
+export interface ProductItem {
+  id: string;
+  productNaam: string; // PUR, Chap, etc.
+  verdiepingen: VerdiepingItem[];
+  extraWerken: ExtraWerkItem[];
+}
+
 export interface PrestatieTypeData {
   werkNaam: string;
   werkOmschrijving: string;
@@ -115,6 +138,8 @@ export interface PrestatieTypeData {
   dikteCm: number | null;
   aantalLagen: number | null;
   zone: string;
+  // New fields for enhanced prestatie
+  producten: ProductItem[];
 }
 
 export interface ValidationError {
@@ -269,6 +294,7 @@ const initialPrestatieData: PrestatieTypeData = {
   dikteCm: null,
   aantalLagen: null,
   zone: '',
+  producten: [],
 };
 
 const initialState: WerkbonFormState = {

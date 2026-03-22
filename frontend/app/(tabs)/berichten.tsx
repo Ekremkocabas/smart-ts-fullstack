@@ -8,13 +8,13 @@ import {
   ActivityIndicator,
   RefreshControl,
   Modal,
+  Image,
+  Alert,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../../context/AuthContext';
-import Constants from 'expo-constants';
-
-const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_BACKEND_URL || '';
+import { useAuth, apiClient } from '../../context/AuthContext';
 
 interface Bericht {
   id: string;
@@ -28,11 +28,23 @@ interface Bericht {
   vastgepind: boolean;
   gelezen_door: string[];
   created_at: string;
+  attachments?: { filename: string; url: string; type: string }[];
+}
+
+interface Document {
+  id: string;
+  filename: string;
+  url: string;
+  type: string;
+  uploaded_at: string;
+  uploaded_by: string;
 }
 
 export default function BerichtenTab() {
   const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState<'berichten' | 'documenten'>('berichten');
   const [berichten, setBerichten] = useState<Bericht[]>([]);
+  const [documenten, setDocumenten] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedBericht, setSelectedBericht] = useState<Bericht | null>(null);
@@ -42,13 +54,29 @@ export default function BerichtenTab() {
     if (!user?.id) return;
     try {
       const [berichtenRes, unreadRes] = await Promise.all([
-        fetch(`${API_URL}/api/berichten?user_id=${user.id}`),
-        fetch(`${API_URL}/api/berichten/ongelezen?user_id=${user.id}`),
+        apiClient.get(`/api/berichten?user_id=${user.id}`),
+        apiClient.get(`/api/berichten/ongelezen?user_id=${user.id}`),
       ]);
-      const data = await berichtenRes.json();
-      const unread = await unreadRes.json();
-      setBerichten(Array.isArray(data) ? data : []);
-      setUnreadCount(unread?.count || 0);
+      setBerichten(Array.isArray(berichtenRes.data) ? berichtenRes.data : []);
+      setUnreadCount(unreadRes.data?.count || 0);
+      
+      // Extract documents from berichten with attachments
+      const docs: Document[] = [];
+      (berichtenRes.data || []).forEach((b: Bericht) => {
+        if (b.attachments && b.attachments.length > 0) {
+          b.attachments.forEach(att => {
+            docs.push({
+              id: `${b.id}-${att.filename}`,
+              filename: att.filename,
+              url: att.url,
+              type: att.type,
+              uploaded_at: b.created_at,
+              uploaded_by: b.van_naam,
+            });
+          });
+        }
+      });
+      setDocumenten(docs);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   }, [user?.id]);
@@ -66,10 +94,40 @@ export default function BerichtenTab() {
     // Mark as read
     if (user?.id && !bericht.gelezen_door.includes(user.id)) {
       try {
-        await fetch(`${API_URL}/api/berichten/${bericht.id}/gelezen?user_id=${user.id}`, { method: 'POST' });
+        await apiClient.post(`/api/berichten/${bericht.id}/gelezen?user_id=${user.id}`);
         fetchBerichten();
       } catch (e) { console.error(e); }
     }
+  };
+
+  const openDocument = async (doc: Document) => {
+    try {
+      await Linking.openURL(doc.url);
+    } catch (e) {
+      Alert.alert('Fout', 'Kan document niet openen');
+    }
+  };
+
+  const deleteDocument = async (doc: Document) => {
+    Alert.alert(
+      'Document verwijderen',
+      `Weet je zeker dat je "${doc.filename}" wilt verwijderen?`,
+      [
+        { text: 'Annuleren', style: 'cancel' },
+        {
+          text: 'Verwijderen',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Remove from local state for now (backend deletion can be added later)
+              setDocumenten(prev => prev.filter(d => d.id !== doc.id));
+            } catch (e) {
+              Alert.alert('Fout', 'Kan document niet verwijderen');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const formatDate = (dateStr: string) => {
@@ -113,10 +171,69 @@ export default function BerichtenTab() {
         )}
       </View>
 
+      {/* Tab Selector */}
+      <View style={styles.tabSelector}>
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'berichten' && styles.tabActive]}
+          onPress={() => setActiveTab('berichten')}
+        >
+          <Ionicons name="mail-outline" size={18} color={activeTab === 'berichten' ? '#F5A623' : '#6c757d'} />
+          <Text style={[styles.tabText, activeTab === 'berichten' && styles.tabTextActive]}>Berichten</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'documenten' && styles.tabActive]}
+          onPress={() => setActiveTab('documenten')}
+        >
+          <Ionicons name="folder-outline" size={18} color={activeTab === 'documenten' ? '#F5A623' : '#6c757d'} />
+          <Text style={[styles.tabText, activeTab === 'documenten' && styles.tabTextActive]}>Mijn Documenten</Text>
+          {documenten.length > 0 && (
+            <View style={styles.docBadge}>
+              <Text style={styles.docBadgeText}>{documenten.length}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
+
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#F5A623" />
         </View>
+      ) : activeTab === 'documenten' ? (
+        /* Mijn Documenten Tab */
+        documenten.length === 0 ? (
+          <ScrollView
+            contentContainerStyle={styles.emptyContainer}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#F5A623']} />}
+          >
+            <Ionicons name="folder-open-outline" size={64} color="#E8E9ED" />
+            <Text style={styles.emptyTitle}>Geen documenten</Text>
+            <Text style={styles.emptySubtitle}>Documenten die je ontvangt verschijnen hier</Text>
+          </ScrollView>
+        ) : (
+          <ScrollView
+            style={styles.listContainer}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#F5A623']} />}
+          >
+            {documenten.map(doc => (
+              <View key={doc.id} style={styles.docCard}>
+                <TouchableOpacity style={styles.docInfo} onPress={() => openDocument(doc)}>
+                  <Ionicons 
+                    name={doc.type?.includes('pdf') ? 'document-text-outline' : 'image-outline'} 
+                    size={32} 
+                    color="#F5A623" 
+                  />
+                  <View style={styles.docDetails}>
+                    <Text style={styles.docName} numberOfLines={1}>{doc.filename}</Text>
+                    <Text style={styles.docMeta}>Van: {doc.uploaded_by} • {formatDate(doc.uploaded_at)}</Text>
+                  </View>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.docDelete} onPress={() => deleteDocument(doc)}>
+                  <Ionicons name="trash-outline" size={20} color="#dc3545" />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </ScrollView>
+        )
       ) : berichten.length === 0 ? (
         <ScrollView
           contentContainerStyle={styles.emptyContainer}
@@ -270,4 +387,34 @@ const styles = StyleSheet.create({
   detailDate: { fontSize: 13, color: '#999', marginTop: 2 },
   detailSubject: { fontSize: 20, fontWeight: '700', color: '#1A1A2E', paddingHorizontal: 20, marginBottom: 12 },
   detailInhoud: { fontSize: 16, color: '#1A1A2E', lineHeight: 24, paddingHorizontal: 20 },
+
+  // Tab Selector Styles
+  tabSelector: {
+    flexDirection: 'row', backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E8E9ED',
+  },
+  tab: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, paddingVertical: 12,
+  },
+  tabActive: { borderBottomWidth: 2, borderBottomColor: '#F5A623' },
+  tabText: { fontSize: 14, color: '#6c757d', fontWeight: '500' },
+  tabTextActive: { color: '#F5A623', fontWeight: '600' },
+  docBadge: {
+    backgroundColor: '#F5A623', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2, marginLeft: 4,
+  },
+  docBadgeText: { color: '#fff', fontSize: 11, fontWeight: '600' },
+
+  // Document Styles
+  listContainer: { flex: 1, padding: 16 },
+  emptySubtitle: { fontSize: 14, color: '#6c757d', marginTop: 8, textAlign: 'center' },
+  docCard: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff',
+    borderRadius: 12, padding: 12, marginBottom: 10,
+    borderWidth: 1, borderColor: '#E8E9ED',
+  },
+  docInfo: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  docDetails: { flex: 1 },
+  docName: { fontSize: 15, fontWeight: '600', color: '#1A1A2E' },
+  docMeta: { fontSize: 12, color: '#6c757d', marginTop: 2 },
+  docDelete: { padding: 8 },
 });

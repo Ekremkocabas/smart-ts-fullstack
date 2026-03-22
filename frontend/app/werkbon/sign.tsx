@@ -489,40 +489,40 @@ export default function WerkbonSign() {
       case 'oplevering':
         return {
           ...baseData,
-          omschrijving: opleveringData.omschrijving,
-          opleverpunten: opleveringData.opleverpunten,
+          omschrijving: opleveringData?.omschrijving || '',
+          opleverpunten: opleveringData?.opleverpunten || [],
         };
         
       case 'project':
         return {
           ...baseData,
-          project_naam: projectData.projectNaam,
-          uitgevoerde_werken: projectData.uitgevoerdeWerken,
-          taken: projectData.taken,
-          materialen: projectData.materialen,
-          gebruikte_machines: projectData.gebruikteMachines,
-          aantal_personen: projectData.aantalPersonen,
-          start_time: projectData.startTime,
-          end_time: projectData.endTime,
-          status: projectData.status,
-          vervolgwerk_nodig: projectData.vervolgwerkNodig,
-          vervolgwerk_beschrijving: projectData.vervolgwerkBeschrijving,
-          vervolgactie_datum: projectData.vervolgactieDatum,
-          hindernissen: projectData.hindernissen,
-          zone: projectData.zone,
-          contactpersoon: projectData.contactpersoon,
+          project_naam: projectData?.projectNaam || '',
+          uitgevoerde_werken: projectData?.uitgevoerdeWerken || '',
+          taken: projectData?.taken || [],
+          materialen: projectData?.materialen || [],
+          gebruikte_machines: projectData?.gebruikteMachines || [],
+          aantal_personen: projectData?.aantalPersonen || 1,
+          start_time: projectData?.startTime || null,
+          end_time: projectData?.endTime || null,
+          status: projectData?.status || 'in_progress',
+          vervolgwerk_nodig: projectData?.vervolgwerkNodig || false,
+          vervolgwerk_beschrijving: projectData?.vervolgwerkBeschrijving || '',
+          vervolgactie_datum: projectData?.vervolgactieDatum || null,
+          hindernissen: projectData?.hindernissen || '',
+          zone: projectData?.zone || '',
+          contactpersoon: projectData?.contactpersoon || '',
         };
         
       case 'prestatie':
         return {
           ...baseData,
-          werk_naam: prestatieData.werkNaam,
-          werk_omschrijving: prestatieData.werkOmschrijving,
-          hoeveelheid: prestatieData.hoeveelheid,
-          eenheid: prestatieData.eenheid,
-          dikte_cm: prestatieData.dikteCm,
-          aantal_lagen: prestatieData.aantalLagen,
-          zone: prestatieData.zone,
+          werk_naam: prestatieData?.werkNaam || '',
+          werk_omschrijving: prestatieData?.werkOmschrijving || '',
+          hoeveelheid: prestatieData?.hoeveelheid || 0,
+          eenheid: prestatieData?.eenheid || 'm²',
+          dikte_cm: prestatieData?.dikteCm || 0,
+          aantal_lagen: prestatieData?.aantalLagen || 1,
+          zone: prestatieData?.zone || '',
         };
         
       default:

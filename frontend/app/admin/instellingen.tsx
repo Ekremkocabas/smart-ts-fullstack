@@ -437,24 +437,12 @@ export default function InstellingenAdmin() {
           </View>
         </View>
 
-        {/* PDF Texts Section */}
+        {/* PDF Texts Section - Only Voettekst */}
         <View style={[styles.section, isCompact && styles.sectionCompact]}>
           <Text style={styles.sectionTitle}>PDF Teksten</Text>
           
           <Text style={styles.label}>Algemene voettekst</Text>
           <TextInput style={[styles.input, styles.textArea]} value={instellingen.pdf_texts.voettekst} onChangeText={(v) => updatePdfText('voettekst', v)} placeholder="Tekst onderaan elke PDF" placeholderTextColor="#6c757d" multiline />
-          
-          <Text style={styles.label}>Uren werkbon bevestiging</Text>
-          <TextInput style={[styles.input, styles.textArea]} value={instellingen.pdf_texts.uren_bevestiging} onChangeText={(v) => updatePdfText('uren_bevestiging', v)} placeholder="Bevestigingstekst voor uren werkbon" placeholderTextColor="#6c757d" multiline />
-          
-          <Text style={styles.label}>Oplevering bevestiging</Text>
-          <TextInput style={[styles.input, styles.textArea]} value={instellingen.pdf_texts.oplevering_bevestiging} onChangeText={(v) => updatePdfText('oplevering_bevestiging', v)} placeholder="Bevestigingstekst voor oplevering werkbon" placeholderTextColor="#6c757d" multiline />
-          
-          <Text style={styles.label}>Project werkbon bevestiging</Text>
-          <TextInput style={[styles.input, styles.textArea]} value={instellingen.pdf_texts.project_bevestiging} onChangeText={(v) => updatePdfText('project_bevestiging', v)} placeholder="Bevestigingstekst voor project werkbon" placeholderTextColor="#6c757d" multiline />
-          
-          <Text style={styles.label}>Prestatie werkbon bevestiging</Text>
-          <TextInput style={[styles.input, styles.textArea]} value={instellingen.pdf_texts.prestatie_bevestiging} onChangeText={(v) => updatePdfText('prestatie_bevestiging', v)} placeholder="Bevestigingstekst voor prestatie werkbon" placeholderTextColor="#6c757d" multiline />
         </View>
 
         <TouchableOpacity style={styles.saveBtn} onPress={saveInstellingen} disabled={saving}>

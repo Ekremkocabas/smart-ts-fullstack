@@ -380,8 +380,8 @@ export default function SignatureModal({
             onPress={handleSave}
             disabled={!hasDrawn}
           >
-            <Ionicons name="checkmark-circle" size={22} color="#1A1A2E" />
-            <Text style={styles.saveButtonText}>Handtekening Bevestigen</Text>
+            <Ionicons name="checkmark-circle" size={22} color="#FFFFFF" />
+            <Text style={[styles.saveButtonText, { color: '#FFFFFF' }]}>Handtekening Bevestigen</Text>
           </TouchableOpacity>
           
           <Text style={styles.footerHint}>
@@ -536,7 +536,7 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#FFFFFF',
   },
   footerHint: {
     textAlign: 'center',
