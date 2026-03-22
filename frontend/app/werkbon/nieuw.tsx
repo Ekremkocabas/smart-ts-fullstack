@@ -75,6 +75,7 @@ export default function NieuweWerkbonScreen() {
   const [klantWerven, setKlantWerven] = useState<Werf[]>([]);
   const [selectedWerf, setSelectedWerf] = useState<Werf | null>(null);
   const [urenRegels, setUrenRegels] = useState<UrenRegel[]>([]);
+  const [hasInitializedUren, setHasInitializedUren] = useState(false);
   const [kmAfstand, setKmAfstand] = useState<KmRegel>(createEmptyKmRegel());
   const [uitgevoerdeWerken, setUitgevoerdeWerken] = useState('');
   const [extraMaterialen, setExtraMaterialen] = useState('');
@@ -152,19 +153,22 @@ export default function NieuweWerkbonScreen() {
 
   // Initialize urenRegels with user's name - runs ONCE when user data is available
   useEffect(() => {
+    // Skip if already initialized
+    if (hasInitializedUren) return;
+    
     // Only auto-fill if we have user data
-    if (!user?.naam) return;
+    if (!user || !user.naam) {
+      console.log('[Werkbon] Waiting for user data...', user);
+      return;
+    }
     
-    // Check if first row has an empty name - if so, fill it
-    // Use a ref to track if we've already initialized
-    const firstRow = urenRegels[0];
-    const firstRowEmpty = urenRegels.length === 0 || 
-                          (urenRegels.length === 1 && firstRow && !firstRow.teamlid_naam?.trim());
+    console.log('[Werkbon] User data available:', user.naam, 'Team:', user.team_id);
     
-    if (!firstRowEmpty) return; // Already has data, don't overwrite
+    // Mark as initialized
+    setHasInitializedUren(true);
     
     // Initialize with user's team if assigned
-    if (user?.team_id && teams.length > 0) {
+    if (user.team_id && teams.length > 0) {
       const userTeam = teams.find(t => t.id === user.team_id);
       if (userTeam && userTeam.leden && userTeam.leden.length > 0) {
         const regels = userTeam.leden.map(naam => createEmptyUrenRegel(naam));
@@ -177,7 +181,7 @@ export default function NieuweWerkbonScreen() {
     // Always pre-fill with logged-in user's name
     console.log('[Werkbon] Auto-filling user name:', user.naam);
     setUrenRegels([createEmptyUrenRegel(user.naam)]);
-  }, [teams.length, user?.naam, user?.team_id]); // Remove urenRegels from deps to prevent loop
+  }, [teams, user, hasInitializedUren]);
 
   const handleKlantSelect = async (klant: Klant) => {
     setSelectedKlant(klant);
