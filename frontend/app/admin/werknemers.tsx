@@ -161,7 +161,8 @@ export default function WerknemersAdmin() {
           mag_wachtwoord_wijzigen: formData.mag_wachtwoord_wijzigen,
         };
         if (formData.password && formData.password.trim()) {
-          updateBody.wachtwoord_plain = formData.password.trim();
+          // Use new_password field for password updates (backend expects this)
+          updateBody.new_password = formData.password.trim();
         }
         await apiClient.put(`/api/auth/users/${editingWerknemer.id}`, updateBody, getAuthConfig());
       } else {

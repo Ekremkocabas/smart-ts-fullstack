@@ -1074,6 +1074,7 @@ class BedrijfsInstellingen(BaseModel):
 class BedrijfsInstellingenUpdate(BaseModel):
     bedrijfsnaam: Optional[str] = None
     email: Optional[str] = None
+    werkbon_email: Optional[str] = None       # NEW: separate werkbon email
     admin_emails: Optional[List[str]] = None
     telefoon: Optional[str] = None
     adres: Optional[str] = None
@@ -1081,6 +1082,7 @@ class BedrijfsInstellingenUpdate(BaseModel):
     stad: Optional[str] = None
     kvk_nummer: Optional[str] = None
     btw_nummer: Optional[str] = None
+    ondernemingsnummer: Optional[str] = None  # NEW: Belgian enterprise number
     website: Optional[str] = None             # NEW
     logo_base64: Optional[str] = None
     pdf_voettekst: Optional[str] = None
@@ -1093,11 +1095,13 @@ class BedrijfsInstellingenUpdate(BaseModel):
     primary_color: Optional[str] = None
     secondary_color: Optional[str] = None
     accent_color: Optional[str] = None
-    # NEW structured fields
+    # NEW structured fields - support both naming conventions
     adres_gestructureerd: Optional[Dict] = None
+    adres_structured: Optional[Dict] = None    # Frontend sends this
     emails: Optional[Dict] = None
     branding: Optional[Dict] = None
     pdf_teksten: Optional[Dict] = None
+    pdf_texts: Optional[Dict] = None           # Frontend sends this
 
 # ==================== OPLEVERING WERKBON (Customer Satisfaction) ====================
 
@@ -4289,6 +4293,12 @@ async def get_instellingen(current_user: Dict = Depends(require_web_access())):
 async def update_instellingen(update_data: BedrijfsInstellingenUpdate, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Update company settings. Only admin/master_admin can modify."""
     update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
+    
+    # Normalize field names: frontend sends different names
+    if 'adres_structured' in update_dict:
+        update_dict['adres_gestructureerd'] = update_dict.pop('adres_structured')
+    if 'pdf_texts' in update_dict:
+        update_dict['pdf_teksten'] = update_dict.pop('pdf_texts')
     
     await db.instellingen.update_one(
         {"id": "company_settings"},
