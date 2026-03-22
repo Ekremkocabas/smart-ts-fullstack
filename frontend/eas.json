@@ -6,6 +6,9 @@
   "build": {
     "preview": {
       "channel": "preview",
+      "cache": {
+        "disabled": true
+      },
       "android": {
         "buildType": "apk",
         "credentialsSource": "local"
