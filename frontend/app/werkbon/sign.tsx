@@ -494,23 +494,36 @@ export default function WerkbonSign() {
         };
         
       case 'project':
+        // Safely access project data with fallbacks
+        const safeProjectData = projectData || {};
+        const safeTaken = Array.isArray(safeProjectData.taken) 
+          ? safeProjectData.taken.filter(t => t && typeof t === 'object')
+          : [];
+        const safeMaterialen = typeof safeProjectData.materialen === 'string' 
+          ? safeProjectData.materialen 
+          : '';
+        
         return {
           ...baseData,
-          project_naam: projectData?.projectNaam || '',
-          uitgevoerde_werken: projectData?.uitgevoerdeWerken || '',
-          taken: projectData?.taken || [],
-          materialen: projectData?.materialen || [],
-          gebruikte_machines: projectData?.gebruikteMachines || [],
-          aantal_personen: projectData?.aantalPersonen || 1,
-          start_time: projectData?.startTime || null,
-          end_time: projectData?.endTime || null,
-          status: projectData?.status || 'in_progress',
-          vervolgwerk_nodig: projectData?.vervolgwerkNodig || false,
-          vervolgwerk_beschrijving: projectData?.vervolgwerkBeschrijving || '',
-          vervolgactie_datum: projectData?.vervolgactieDatum || null,
-          hindernissen: projectData?.hindernissen || '',
-          zone: projectData?.zone || '',
-          contactpersoon: projectData?.contactpersoon || '',
+          project_naam: safeProjectData.projectNaam || '',
+          uitgevoerde_werken: safeProjectData.uitgevoerdeWerken || '',
+          taken: safeTaken.map(t => ({
+            id: t.id || '',
+            text: t.text || '',
+            completed: Boolean(t.completed),
+          })),
+          materialen: safeMaterialen,
+          gebruikte_machines: safeProjectData.gebruikteMachines || '',
+          aantal_personen: safeProjectData.aantalPersonen || 1,
+          start_time: safeProjectData.startTime || null,
+          end_time: safeProjectData.endTime || null,
+          status: safeProjectData.status || 'gestart',
+          vervolgwerk_nodig: Boolean(safeProjectData.vervolgwerkNodig),
+          vervolgwerk_beschrijving: safeProjectData.vervolgwerkBeschrijving || '',
+          vervolgactie_datum: safeProjectData.vervolgactieDatum || null,
+          hindernissen: safeProjectData.hindernissen || '',
+          zone: safeProjectData.zone || '',
+          contactpersoon: safeProjectData.contactpersoon || '',
         };
         
       case 'prestatie':

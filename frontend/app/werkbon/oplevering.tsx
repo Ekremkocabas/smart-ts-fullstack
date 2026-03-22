@@ -116,7 +116,7 @@ export default function OpleveringWerkbonScreen() {
     return true;
   };
 
-  const handleSubmit = async () => {
+  const handleSave = async (sendEmail: boolean) => {
     if (!signatureValue) {
       Alert.alert('Fout', 'Handtekening is verplicht. Teken eerst en probeer opnieuw.');
       return;
@@ -130,22 +130,27 @@ export default function OpleveringWerkbonScreen() {
     try {
       const sig = signatureValue;
 
+      // Safely filter punten array
+      const safePunten = Array.isArray(punten) 
+        ? punten.filter(p => p && typeof p === 'string' && p.trim()).map(p => p.trim())
+        : [];
+
       const payload = {
-        user_id: user?.id,
-        klant_id: selectedKlant?.id,
-        klant_naam: selectedKlant?.naam,
+        user_id: user?.id || null,
+        klant_id: selectedKlant?.id || null,
+        klant_naam: selectedKlant?.naam || selectedKlant?.bedrijfsnaam || '',
         werf_id: selectedWerf?.id || null,
         werf_naam: selectedWerf?.naam || null,
-        omschrijving,
-        punten: punten.filter(p => p.trim()),
-        opmerking,
+        omschrijving: omschrijving || '',
+        punten: safePunten,
+        opmerking: opmerking || '',
         gps_locatie: gpsCoords || null,
         gps_adres: gpsAddress || null,
-        fotos: photos,
+        fotos: Array.isArray(photos) ? photos : [],
         handtekening: sig,
         handtekening_naam: signatureName,
         handtekening_datum: signatureDate,
-        status: 'ingediend',
+        status: sendEmail ? 'ingediend' : 'concept',
       };
 
       const createRes = await axios.post(
@@ -154,25 +159,36 @@ export default function OpleveringWerkbonScreen() {
       );
       const werkbonId = createRes.data?.id;
 
-      if (werkbonId) {
-        await axios.post(
-          `${BACKEND_URL}/api/oplevering-werkbonnen/${werkbonId}/verzenden?user_id=${user?.id}`
-        );
-        Alert.alert('Succes', 'Werkbon opgeslagen en PDF verstuurd!', [
-          { text: 'OK', onPress: () => router.back() }
-        ]);
+      if (sendEmail && werkbonId) {
+        try {
+          await axios.post(
+            `${BACKEND_URL}/api/oplevering-werkbonnen/${werkbonId}/verzenden?user_id=${user?.id}`
+          );
+          Alert.alert('Succes', 'Werkbon opgeslagen en PDF verstuurd!', [
+            { text: 'OK', onPress: () => router.replace('/(tabs)') }
+          ]);
+        } catch (emailError) {
+          console.warn('Email failed:', emailError);
+          Alert.alert('Succes', 'Werkbon opgeslagen. E-mail verzenden is mislukt.', [
+            { text: 'OK', onPress: () => router.replace('/(tabs)') }
+          ]);
+        }
       } else {
-        Alert.alert('Succes', 'Werkbon opgeslagen', [
-          { text: 'OK', onPress: () => router.back() }
+        Alert.alert('Succes', 'Werkbon opgeslagen!', [
+          { text: 'OK', onPress: () => router.replace('/(tabs)') }
         ]);
       }
     } catch (error: any) {
       console.error('Submit error:', error);
-      Alert.alert('Fout', error.response?.data?.detail || 'Kon werkbon niet opslaan');
+      const errorMsg = error?.response?.data?.detail || error?.message || 'Kon werkbon niet opslaan';
+      Alert.alert('Fout', errorMsg);
     } finally {
       setSaving(false);
     }
   };
+  
+  // Legacy function for backward compatibility
+  const handleSubmit = () => handleSave(true);
 
   const handleSignatureOk = (sig: string) => {
     setSignatureValue(sig);
@@ -395,22 +411,36 @@ export default function OpleveringWerkbonScreen() {
             <Ionicons name="arrow-forward" size={20} color={secondary} />
           </TouchableOpacity>
         ) : (
-          <TouchableOpacity
-            style={[styles.primaryButton, { backgroundColor: primary }, saving && styles.buttonDisabled]}
-            onPress={handleSubmit}
-            disabled={saving}
-          >
-            {saving ? (
-              <ActivityIndicator color={secondary} />
-            ) : (
-              <>
-                <Ionicons name="send" size={20} color={secondary} />
-                <Text style={[styles.primaryButtonText, { color: secondary }]}>
-                  Opslaan & PDF versturen
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
+          <View style={styles.footerButtonRow}>
+            <TouchableOpacity
+              style={[styles.secondaryButton, { borderColor: primary }]}
+              onPress={() => handleSave(false)}
+              disabled={saving}
+            >
+              {saving ? (
+                <ActivityIndicator color={primary} />
+              ) : (
+                <>
+                  <Ionicons name="save-outline" size={18} color={primary} />
+                  <Text style={[styles.secondaryButtonText, { color: primary }]}>Opslaan</Text>
+                </>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.primaryButton, { backgroundColor: primary, flex: 2 }, saving && styles.buttonDisabled]}
+              onPress={() => handleSave(true)}
+              disabled={saving}
+            >
+              {saving ? (
+                <ActivityIndicator color={secondary} />
+              ) : (
+                <>
+                  <Ionicons name="send" size={18} color={secondary} />
+                  <Text style={[styles.primaryButtonText, { color: secondary }]}>Versturen</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
         )}
       </View>
 
@@ -537,11 +567,20 @@ const styles = StyleSheet.create({
     borderTopWidth: 1, borderTopColor: '#E8E9ED',
     paddingHorizontal: 16, paddingTop: 12,
   },
+  footerButtonRow: {
+    flexDirection: 'row', gap: 12,
+  },
   primaryButton: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, paddingVertical: 16, borderRadius: 12, minHeight: 56,
+    gap: 8, paddingVertical: 16, borderRadius: 12, minHeight: 56, flex: 1,
   },
-  primaryButtonText: { fontSize: 18, fontWeight: '700' },
+  primaryButtonText: { fontSize: 16, fontWeight: '700' },
+  secondaryButton: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 16, borderRadius: 12, minHeight: 56, flex: 1,
+    borderWidth: 2, backgroundColor: 'transparent',
+  },
+  secondaryButtonText: { fontSize: 16, fontWeight: '700' },
   buttonDisabled: { opacity: 0.7 },
   modalOverlay: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,

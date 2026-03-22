@@ -1376,13 +1376,18 @@ class ProductieWerkbonCreate(BaseModel):
     datum: str
     werknemer_naam: str = ""
     werknemer_id: str = ""
-    klant_id: str
-    werf_id: str
+    klant_id: Optional[str] = None
+    klant_naam: Optional[str] = None
+    werf_id: Optional[str] = None
+    werf_naam: Optional[str] = None
+    werf_adres: Optional[str] = None
     start_uur: str = ""
     eind_uur: str = ""
     voorziene_uur: str = ""
     uit_te_voeren_werk: str = ""
     nodige_materiaal: str = ""
+    
+    # Legacy fields (for backward compatibility)
     gelijkvloers_m2: float = 0
     gelijkvloers_cm: float = 0
     eerste_verdiep_m2: float = 0
@@ -1393,6 +1398,11 @@ class ProductieWerkbonCreate(BaseModel):
     schuurwerken_m2: float = 0
     stofzuigen: bool = False
     stofzuigen_m2: float = 0
+    
+    # New structure: Multiple products with floors and extra work
+    producten: Optional[List[dict]] = None  # List of products with verdiepingen and extra_werken
+    totaal_m2: Optional[float] = None  # Total m² across all products
+    
     fotos: List[dict] = Field(default_factory=list)
     opmerking: str = ""
     gps_locatie: Optional[str] = None
@@ -1402,6 +1412,9 @@ class ProductieWerkbonCreate(BaseModel):
     selfie_foto: Optional[str] = None
     verstuur_naar_klant: bool = False
     klant_email_override: Optional[str] = None
+    ingevuld_door_id: Optional[str] = None
+    ingevuld_door_naam: Optional[str] = None
+    status: str = "concept"
 
 # ==================== PLANNING SYSTEM ====================
 
