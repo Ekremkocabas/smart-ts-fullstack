@@ -28,7 +28,7 @@ interface Bericht {
   vastgepind: boolean;
   gelezen_door: string[];
   created_at: string;
-  attachments?: { filename: string; url: string; type: string }[];
+  bijlagen?: { naam: string; type: string; data?: string; file_id?: string }[];
 }
 
 interface Document {
@@ -58,18 +58,28 @@ export default function BerichtenTab() {
         apiClient.get(`/api/berichten/ongelezen?user_id=${user.id}`),
       ]);
       setBerichten(Array.isArray(berichtenRes.data) ? berichtenRes.data : []);
-      setUnreadCount(unreadRes.data?.count || 0);
+      setUnreadCount(unreadRes.data?.count || unreadRes.data?.ongelezen || 0);
       
-      // Extract documents from berichten with attachments
+      // Extract documents from berichten with bijlagen (attachments)
       const docs: Document[] = [];
       (berichtenRes.data || []).forEach((b: Bericht) => {
-        if (b.attachments && b.attachments.length > 0) {
-          b.attachments.forEach(att => {
+        if (b.bijlagen && b.bijlagen.length > 0) {
+          b.bijlagen.forEach(att => {
+            // Build URL: if file_id exists, use GridFS endpoint; otherwise use data URL
+            let url = '';
+            if (att.file_id) {
+              const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+              url = `${API_URL}/api/files/${att.file_id}`;
+            } else if (att.data) {
+              const base64Data = att.data.includes(',') ? att.data.split(',')[1] : att.data;
+              url = `data:${att.type || 'application/octet-stream'};base64,${base64Data}`;
+            }
+            
             docs.push({
-              id: `${b.id}-${att.filename}`,
-              filename: att.filename,
-              url: att.url,
-              type: att.type,
+              id: `${b.id}-${att.naam}`,
+              filename: att.naam,
+              url: url,
+              type: att.type || 'application/octet-stream',
               uploaded_at: b.created_at,
               uploaded_by: b.van_naam,
             });
@@ -311,31 +321,45 @@ export default function BerichtenTab() {
                   <Text style={styles.detailSubject}>{selectedBericht.onderwerp}</Text>
                   <Text style={styles.detailInhoud}>{selectedBericht.inhoud}</Text>
                   
-                  {/* Attachments */}
-                  {selectedBericht.attachments && selectedBericht.attachments.length > 0 && (
+                  {/* Attachments / Bijlagen */}
+                  {selectedBericht.bijlagen && selectedBericht.bijlagen.length > 0 && (
                     <View style={styles.attachmentsContainer}>
-                      <Text style={styles.attachmentsTitle}>Bijlagen ({selectedBericht.attachments.length})</Text>
-                      {selectedBericht.attachments.map((att, index) => (
-                        <TouchableOpacity 
-                          key={index} 
-                          style={styles.attachmentItem}
-                          onPress={() => {
-                            if (att.url) {
-                              Linking.openURL(att.url).catch(e => 
-                                Alert.alert('Fout', 'Kan bijlage niet openen')
-                              );
-                            }
-                          }}
-                        >
-                          <Ionicons 
-                            name={att.type?.includes('pdf') ? 'document-text-outline' : 'image-outline'} 
-                            size={24} 
-                            color="#F5A623" 
-                          />
-                          <Text style={styles.attachmentName} numberOfLines={1}>{att.filename}</Text>
-                          <Ionicons name="download-outline" size={20} color="#6c757d" />
-                        </TouchableOpacity>
-                      ))}
+                      <Text style={styles.attachmentsTitle}>Bijlagen ({selectedBericht.bijlagen.length})</Text>
+                      {selectedBericht.bijlagen.map((att, index) => {
+                        // Build URL for opening
+                        let url = '';
+                        if (att.file_id) {
+                          const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+                          url = `${API_URL}/api/files/${att.file_id}`;
+                        } else if (att.data) {
+                          const base64Data = att.data.includes(',') ? att.data.split(',')[1] : att.data;
+                          url = `data:${att.type || 'application/octet-stream'};base64,${base64Data}`;
+                        }
+                        
+                        return (
+                          <TouchableOpacity 
+                            key={index} 
+                            style={styles.attachmentItem}
+                            onPress={() => {
+                              if (url) {
+                                Linking.openURL(url).catch(e => 
+                                  Alert.alert('Fout', 'Kan bijlage niet openen')
+                                );
+                              } else {
+                                Alert.alert('Fout', 'Bijlage URL niet beschikbaar');
+                              }
+                            }}
+                          >
+                            <Ionicons 
+                              name={att.type?.includes('pdf') ? 'document-text-outline' : 'image-outline'} 
+                              size={24} 
+                              color="#F5A623" 
+                            />
+                            <Text style={styles.attachmentName} numberOfLines={1}>{att.naam}</Text>
+                            <Ionicons name="download-outline" size={20} color="#6c757d" />
+                          </TouchableOpacity>
+                        );
+                      })}
                     </View>
                   )}
                 </ScrollView>
