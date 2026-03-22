@@ -150,10 +150,17 @@ export default function NieuweWerkbonScreen() {
     }
   };
 
-  // Initialize urenRegels with user's name - runs once when user data is available
+  // Initialize urenRegels with user's name - runs when user data is available
+  // FIX: Check if first row has empty name, not just array length
   useEffect(() => {
-    // Skip if already initialized
-    if (urenRegels.length > 0) return;
+    // Only auto-fill if we have user data
+    if (!user?.naam) return;
+    
+    // Check if first row has an empty name - if so, fill it
+    const firstRowEmpty = urenRegels.length === 0 || 
+                          (urenRegels.length === 1 && !urenRegels[0].teamlid_naam.trim());
+    
+    if (!firstRowEmpty) return; // Already has data, don't overwrite
     
     // Initialize with user's team if assigned
     if (user?.team_id && teams.length > 0) {
@@ -161,19 +168,15 @@ export default function NieuweWerkbonScreen() {
       if (userTeam && userTeam.leden.length > 0) {
         const regels = userTeam.leden.map(naam => createEmptyUrenRegel(naam));
         setUrenRegels(regels);
+        console.log('[Werkbon] Auto-filled team members:', userTeam.leden);
         return;
       }
     }
     
     // Always pre-fill with logged-in user's name
-    if (user?.naam) {
-      console.log('[Werkbon] Auto-filling user name:', user.naam);
-      setUrenRegels([createEmptyUrenRegel(user.naam)]);
-    } else {
-      // Fallback: Start with one empty row
-      setUrenRegels([createEmptyUrenRegel('')]);
-    }
-  }, [teams, user?.naam, user?.team_id]);
+    console.log('[Werkbon] Auto-filling user name:', user.naam);
+    setUrenRegels([createEmptyUrenRegel(user.naam)]);
+  }, [teams, user?.naam, user?.team_id, urenRegels]);
 
   const handleKlantSelect = async (klant: Klant) => {
     setSelectedKlant(klant);
@@ -678,15 +681,15 @@ const styles = StyleSheet.create({
   headerText: { color: '#4D5560', fontSize: 11, fontWeight: '600', textAlign: 'center' },
   tableRow: { flexDirection: 'row', backgroundColor: '#FFFFFF', borderRadius: 10, padding: 8, marginBottom: 8, alignItems: 'center', borderWidth: 1, borderColor: '#E8E9ED' },
   nameColumnWide: { width: 160, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  dayColumnSmall: { width: 66, alignItems: 'center' },
-  totalColumn: { width: 56, alignItems: 'center' },
-  nameInput: { flex: 1, color: '#1A1A2E', fontSize: 16, padding: 8, minHeight: 44, backgroundColor: '#F7F8FA', borderRadius: 8, borderWidth: 1, borderColor: '#E8E9ED' },
+  dayColumnSmall: { width: 78, alignItems: 'center' },
+  totalColumn: { width: 60, alignItems: 'center' },
+  nameInput: { flex: 1, color: '#1A1A2E', fontSize: 16, padding: 8, minHeight: 48, backgroundColor: '#F7F8FA', borderRadius: 8, borderWidth: 1, borderColor: '#E8E9ED' },
   removeButton: { padding: 6 },
-  urenInputContainer: { position: 'relative', width: 60, height: 60 },
-  urenInput: { color: '#1A1A2E', fontSize: 18, textAlign: 'center', backgroundColor: '#F7F8FA', borderRadius: 10, width: 60, height: 60, padding: 4, borderWidth: 1.5, borderColor: '#E8E9ED', fontWeight: '600' },
-  afkortingTrigger: { position: 'absolute', bottom: 2, right: 2, backgroundColor: 'rgba(0,0,0,0.1)', borderRadius: 8, padding: 3 },
-  afkortingBadge: { backgroundColor: '#F5A623', borderRadius: 8, width: 60, height: 60, alignItems: 'center', justifyContent: 'center' },
-  afkortingText: { color: '#000', fontSize: 11, fontWeight: '700' },
+  urenInputContainer: { position: 'relative', width: 72, height: 72 },
+  urenInput: { color: '#1A1A2E', fontSize: 22, textAlign: 'center', backgroundColor: '#F7F8FA', borderRadius: 12, width: 72, height: 72, padding: 4, borderWidth: 2, borderColor: '#E8E9ED', fontWeight: '700' },
+  afkortingTrigger: { position: 'absolute', bottom: 4, right: 4, backgroundColor: '#3498db', borderRadius: 10, padding: 5 },
+  afkortingBadge: { backgroundColor: '#F5A623', borderRadius: 12, width: 72, height: 72, alignItems: 'center', justifyContent: 'center' },
+  afkortingText: { color: '#000', fontSize: 13, fontWeight: '700' },
   totalText: { color: '#F5A623', fontSize: 14, fontWeight: '600' },
   grandTotalRow: { flexDirection: 'row', backgroundColor: '#F1F3F6', borderRadius: 10, padding: 8, marginTop: 4, borderWidth: 1, borderColor: '#E8E9ED' },
   grandTotalLabel: { color: '#1A1A2E', fontSize: 12, fontWeight: '600' },
