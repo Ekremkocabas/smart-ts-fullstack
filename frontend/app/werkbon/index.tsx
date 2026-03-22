@@ -100,6 +100,14 @@ export default function WerkbonTypeSelect() {
 
   const proceedWithType = (type: WerkbonType) => {
     setType(type);
+    
+    // If it's uren type and user is logged in, initialize with user name
+    if (type === 'uren' && user?.naam) {
+      // Use store's initializeUrenWithUser function
+      const { initializeUrenWithUser } = useWerkbonFormStore.getState();
+      initializeUrenWithUser(user.naam);
+    }
+    
     router.push('/werkbon/form');
   };
 

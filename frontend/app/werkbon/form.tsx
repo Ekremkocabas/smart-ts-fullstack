@@ -36,6 +36,17 @@ import {
 const DAGEN = ['maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag', 'zondag'];
 const DAGEN_KORT = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'];
 const EENHEDEN = ['m²', 'm³', 'meter', 'stuks', 'kg', 'liter'];
+
+// Afkortingen for Ziek/Verlof menu
+const AFKORTINGEN: Record<string, string> = {
+  'Z': 'Ziek',
+  'V': 'Verlof',
+  'BV': 'Bet. Verlof',
+  'F': 'Feestdag',
+  'ADV': 'ADV',
+  'OV': 'Onbet. Verlof',
+};
+
 const PROJECT_STATUS = [
   { value: 'gestart', label: 'Gestart' },
   { value: 'in_uitvoering', label: 'In uitvoering' },
@@ -60,7 +71,7 @@ export default function WerkbonForm() {
     setKlant, setManualKlant, setWerf, setManualWerf,
     setDatum, setOpmerkingen, setGPS,
     addPhoto, removePhoto,
-    setUrenData, addUrenRegel, removeUrenRegel, updateUrenRegel,
+    setUrenData, addUrenRegel, removeUrenRegel, updateUrenRegel, initializeUrenWithUser,
     setOpleveringData, toggleOpleverpunt, addOpleverpunt,
     setProjectData, addProjectTaak, toggleProjectTaak, removeProjectTaak,
     setPrestatieData,
@@ -77,6 +88,7 @@ export default function WerkbonForm() {
   const [gpsLoading, setGpsLoading] = useState(false);
   const [newOpleverpunt, setNewOpleverpunt] = useState('');
   const [newTaak, setNewTaak] = useState('');
+  const [showAfkortingPicker, setShowAfkortingPicker] = useState<{regelIndex: number, dagIndex: number} | null>(null);
   
   const primary = theme?.primaryColor || '#F5A623';
 
@@ -101,6 +113,26 @@ export default function WerkbonForm() {
     }
   }, [klantId]);
 
+  // Auto-fill user name when user data is available (for uren type)
+  // This runs once when user name becomes available and type is 'uren'
+  useEffect(() => {
+    if (type !== 'uren') return;
+    if (!user?.naam) return;
+    
+    // Use zustand's get() to get latest state
+    const { urenData: currentUrenData, setUrenData: storeSetUrenData } = useWerkbonFormStore.getState();
+    const currentRegels = currentUrenData.urenRegels;
+    
+    if (currentRegels.length > 0) {
+      const firstRow = currentRegels[0];
+      if (!firstRow.teamlidNaam || firstRow.teamlidNaam.trim() === '') {
+        const updatedRegels = [...currentRegels];
+        updatedRegels[0] = { ...updatedRegels[0], teamlidNaam: user.naam };
+        storeSetUrenData({ urenRegels: updatedRegels });
+      }
+    }
+  }, [user?.naam, type]);
+
   const loadData = async () => {
     setIsLoading(true);
     await fetchKlanten();
@@ -108,9 +140,15 @@ export default function WerkbonForm() {
     // Auto-fetch GPS
     await fetchGPS();
     
-    // Initialize with user name for uren
-    if (type === 'uren' && urenData.urenRegels.length === 0 && user?.naam) {
-      addUrenRegel(user.naam);
+    // Initialize with user name for uren - directly set it here
+    if (type === 'uren' && user?.naam) {
+      // Directly update the first row with user name
+      const currentRegels = urenData.urenRegels;
+      if (currentRegels.length > 0 && (!currentRegels[0].teamlidNaam || currentRegels[0].teamlidNaam.trim() === '')) {
+        const updatedRegels = [...currentRegels];
+        updatedRegels[0] = { ...updatedRegels[0], teamlidNaam: user.naam };
+        setUrenData({ urenRegels: updatedRegels });
+      }
     }
     
     setIsLoading(false);
@@ -559,41 +597,87 @@ export default function WerkbonForm() {
   // ==========================================
 
   function renderUrenFields() {
+    const handleAfkortingSelect = (regelIndex: number, dagIndex: number, afkorting: string) => {
+      const dag = DAGEN[dagIndex];
+      updateUrenRegel(regelIndex, { 
+        [dag]: afkorting,
+        [`${dag}_afkorting`]: afkorting
+      });
+      setShowAfkortingPicker(null);
+    };
+
+    const clearAfkorting = (regelIndex: number, dagIndex: number) => {
+      const dag = DAGEN[dagIndex];
+      updateUrenRegel(regelIndex, { 
+        [dag]: 0,
+        [`${dag}_afkorting`]: null
+      });
+    };
+
     return (
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Urenregistratie - Week {urenData.weekNummer}</Text>
         
-        {urenData.urenRegels.map((regel, index) => (
-          <View key={index} style={styles.urenRegelCard}>
-            <View style={styles.urenRegelHeader}>
-              <TextInput
-                style={styles.teamlidInput}
-                value={regel.teamlidNaam}
-                onChangeText={(text) => updateUrenRegel(index, { teamlidNaam: text })}
-                placeholder="Naam teamlid"
-              />
-              {urenData.urenRegels.length > 1 && (
-                <TouchableOpacity onPress={() => removeUrenRegel(index)}>
-                  <Ionicons name="trash-outline" size={20} color="#e74c3c" />
-                </TouchableOpacity>
-              )}
+        {urenData.urenRegels.map((regel, regelIndex) => {
+          return (
+            <View key={regelIndex} style={styles.urenRegelCard}>
+              <View style={styles.urenRegelHeader}>
+                <TextInput
+                  style={styles.teamlidInput}
+                  value={regel.teamlidNaam}
+                  onChangeText={(text) => updateUrenRegel(regelIndex, { teamlidNaam: text })}
+                  placeholder="Naam teamlid"
+                  placeholderTextColor="#8C9199"
+                />
+                {urenData.urenRegels.length > 1 && (
+                  <TouchableOpacity onPress={() => removeUrenRegel(regelIndex)}>
+                    <Ionicons name="trash-outline" size={20} color="#e74c3c" />
+                  </TouchableOpacity>
+                )}
+              </View>
+              
+              <View style={styles.urenDagen}>
+                {DAGEN_KORT.map((dagKort, dagIndex) => {
+                  const dag = DAGEN[dagIndex];
+                  const value = regel[dag as keyof typeof regel];
+                  const afkorting = (regel as any)[`${dag}_afkorting`];
+                  const isAfkorting = afkorting && typeof afkorting === 'string' && AFKORTINGEN[afkorting];
+                  
+                  return (
+                    <View key={dagKort} style={styles.urenDagColumn}>
+                      <Text style={styles.urenDagLabel}>{dagKort}</Text>
+                      <View style={styles.urenInputContainer}>
+                        {isAfkorting ? (
+                          <TouchableOpacity 
+                            style={styles.afkortingBadge}
+                            onPress={() => clearAfkorting(regelIndex, dagIndex)}
+                          >
+                            <Text style={styles.afkortingText}>{afkorting}</Text>
+                          </TouchableOpacity>
+                        ) : (
+                          <>
+                            <TextInput
+                              style={styles.urenInput}
+                              value={String(value || 0)}
+                              onChangeText={(val) => updateUrenRegel(regelIndex, { [dag]: parseFloat(val) || 0 })}
+                              keyboardType="numeric"
+                            />
+                            <TouchableOpacity 
+                              style={styles.afkortingTrigger}
+                              onPress={() => setShowAfkortingPicker({ regelIndex, dagIndex })}
+                            >
+                              <Ionicons name="ellipsis-horizontal" size={14} color="#fff" />
+                            </TouchableOpacity>
+                          </>
+                        )}
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
             </View>
-            
-            <View style={styles.urenDagen}>
-              {DAGEN_KORT.map((dag, dagIndex) => (
-                <View key={dag} style={styles.urenDagColumn}>
-                  <Text style={styles.urenDagLabel}>{dag}</Text>
-                  <TextInput
-                    style={styles.urenInput}
-                    value={String(regel[DAGEN[dagIndex] as keyof typeof regel] || 0)}
-                    onChangeText={(val) => updateUrenRegel(index, { [DAGEN[dagIndex]]: parseFloat(val) || 0 })}
-                    keyboardType="numeric"
-                  />
-                </View>
-              ))}
-            </View>
-          </View>
-        ))}
+          );
+        })}
         
         <TouchableOpacity style={styles.addButton} onPress={() => addUrenRegel()}>
           <Ionicons name="add-circle-outline" size={20} color={primary} />
@@ -611,6 +695,33 @@ export default function WerkbonForm() {
             numberOfLines={3}
           />
         </View>
+
+        {/* Afkorting Picker Modal */}
+        <Modal visible={!!showAfkortingPicker} transparent animationType="fade">
+          <TouchableOpacity 
+            style={styles.modalOverlay} 
+            activeOpacity={1} 
+            onPress={() => setShowAfkortingPicker(null)}
+          >
+            <View style={styles.afkortingModal}>
+              <Text style={styles.afkortingModalTitle}>Selecteer type</Text>
+              {Object.entries(AFKORTINGEN).map(([key, label]) => (
+                <TouchableOpacity
+                  key={key}
+                  style={styles.afkortingOption}
+                  onPress={() => {
+                    if (showAfkortingPicker) {
+                      handleAfkortingSelect(showAfkortingPicker.regelIndex, showAfkortingPicker.dagIndex, key);
+                    }
+                  }}
+                >
+                  <Text style={styles.afkortingOptionKey}>{key}</Text>
+                  <Text style={styles.afkortingOptionLabel}>{label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </TouchableOpacity>
+        </Modal>
       </View>
     );
   }
@@ -1102,16 +1213,72 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   urenDagen: { flexDirection: 'row', justifyContent: 'space-between' },
-  urenDagColumn: { alignItems: 'center', flex: 1 },
-  urenDagLabel: { fontSize: 12, color: '#6C7A89', marginBottom: 4 },
+  urenDagColumn: { alignItems: 'center', width: 48 },
+  urenDagLabel: { fontSize: 11, color: '#6C7A89', marginBottom: 4, fontWeight: '600' },
+  urenInputContainer: { position: 'relative', width: 48, height: 48 },
   urenInput: {
-    width: 40,
+    width: 48,
+    height: 48,
     backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    padding: 4,
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+    borderWidth: 2,
+    borderColor: '#E8E9ED',
+  },
+  afkortingTrigger: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    backgroundColor: '#3498db',
     borderRadius: 8,
-    padding: 8,
-    fontSize: 14,
+    padding: 3,
+  },
+  afkortingBadge: {
+    width: 48,
+    height: 48,
+    backgroundColor: '#F5A623',
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  afkortingText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  afkortingModal: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    width: '80%',
+    maxWidth: 300,
+  },
+  afkortingModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1A1A2E',
+    marginBottom: 16,
     textAlign: 'center',
   },
+  afkortingOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F5F6FA',
+  },
+  afkortingOptionKey: {
+    width: 50,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#F5A623',
+  },
+  afkortingOptionLabel: { fontSize: 15, color: '#1A1A2E' },
   
   // Checklist
   checklistItem: {

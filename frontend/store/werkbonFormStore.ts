@@ -378,6 +378,9 @@ interface WerkbonFormActions {
   setSendToCustomer: (send: boolean) => void;
   setConfirmationChecked: (checked: boolean) => void;
   
+  // Initialize uren with user name
+  initializeUrenWithUser: (userName: string) => void;
+  
   // Validation
   validateStep: (step: number) => ValidationError[];
   validateAll: () => ValidationError[];
@@ -509,6 +512,25 @@ export const useWerkbonFormStore = create<WerkbonFormState & WerkbonFormActions>
       setSelfie: (data) => set({ selfie: data }),
       setSendToCustomer: (send) => set({ sendToCustomer: send }),
       setConfirmationChecked: (checked) => set({ confirmationChecked: checked }),
+      
+      // Initialize uren with user name
+      initializeUrenWithUser: (userName) => set((state) => {
+        const currentRegels = state.urenData.urenRegels;
+        const firstRow = currentRegels[0];
+        // Only update if first row has empty name
+        if (firstRow && (!firstRow.teamlidNaam || firstRow.teamlidNaam.trim() === '')) {
+          return {
+            urenData: {
+              ...state.urenData,
+              urenRegels: [
+                { ...firstRow, teamlidNaam: userName },
+                ...currentRegels.slice(1),
+              ],
+            },
+          };
+        }
+        return state;
+      }),
       
       // Validation
       validateStep: (step) => {
