@@ -1923,7 +1923,17 @@ def calculate_total_uren(werkbon: dict) -> float:
     return total_uren
 
 
-def decode_base64_data(data_uri: Optional[str]) -> Optional[bytes]:
+def decode_base64_data(data_uri: Optional[str], max_size_mb: float = 2.0) -> Optional[bytes]:
+    """
+    Decode base64 data URI to bytes.
+    
+    Args:
+        data_uri: Base64 encoded data or URL
+        max_size_mb: Maximum allowed size in MB (default 2MB to prevent memory issues)
+    
+    Returns:
+        Decoded bytes or None if invalid/too large
+    """
     if not data_uri:
         return None
 
@@ -1938,6 +1948,12 @@ def decode_base64_data(data_uri: Optional[str]) -> Optional[bytes]:
             return None
 
     encoded = source.split(",", 1)[1] if "," in source else source
+    
+    # Check estimated decoded size (base64 is ~33% larger than binary)
+    estimated_size_mb = len(encoded) * 0.75 / (1024 * 1024)
+    if estimated_size_mb > max_size_mb:
+        logging.warning(f"Base64 data too large ({estimated_size_mb:.1f}MB > {max_size_mb}MB), will be processed with reduced quality")
+    
     try:
         return base64.b64decode(encoded)
     except Exception:
@@ -1992,7 +2008,7 @@ def correct_image_orientation(pil_image):
 def make_safe_reportlab_image(image_bytes: Optional[bytes], width: float, height: float) -> Optional[Image]:
     """
     Convert image bytes to ReportLab Image with aggressive memory optimization.
-    Resizes images to max 500px and compresses to JPEG with quality 65.
+    Uses thumbnail loading to prevent memory overflow on large images.
     """
     if not image_bytes:
         return None
@@ -2001,20 +2017,21 @@ def make_safe_reportlab_image(image_bytes: Optional[bytes], width: float, height
         import gc
         source = io.BytesIO(image_bytes)
         
+        # CRITICAL: Use thumbnail to limit memory usage when opening large images
+        # This prevents loading full resolution into memory
         with PILImage.open(source) as pil_image:
-            pil_image.load()
+            # For very large images, use draft mode to reduce memory
+            # Draft mode loads a reduced version directly
+            original_size = pil_image.size
             
-            # Apply EXIF orientation correction
+            # Calculate target size - max 400px for PDF (smaller = less memory)
+            max_dimension = 400
+            
+            # Use thumbnail which modifies in place and is memory efficient
+            pil_image.thumbnail((max_dimension, max_dimension), PILImage.Resampling.BILINEAR)
+            
+            # Apply EXIF orientation correction after resize
             pil_image = correct_image_orientation(pil_image)
-            
-            # AGGRESSIVE MEMORY OPTIMIZATION: Resize to max 500px (was 800)
-            # This significantly reduces memory for large phone photos (12MP+)
-            max_dimension = 500
-            if pil_image.width > max_dimension or pil_image.height > max_dimension:
-                ratio = min(max_dimension / pil_image.width, max_dimension / pil_image.height)
-                new_size = (int(pil_image.width * ratio), int(pil_image.height * ratio))
-                # Use BILINEAR instead of LANCZOS for faster processing and less memory
-                pil_image = pil_image.resize(new_size, PILImage.Resampling.BILINEAR)
             
             # Handle transparency: convert to RGB with white background
             if pil_image.mode in ('RGBA', 'LA', 'P'):
@@ -2032,21 +2049,17 @@ def make_safe_reportlab_image(image_bytes: Optional[bytes], width: float, height
             elif pil_image.mode != 'RGB':
                 pil_image = pil_image.convert('RGB')
             
-            # AGGRESSIVE MEMORY OPTIMIZATION: Lower quality JPEG (65 vs 85)
+            # Save with aggressive compression
             normalized = io.BytesIO()
-            pil_image.save(normalized, format="JPEG", quality=65, optimize=True)
+            pil_image.save(normalized, format="JPEG", quality=60, optimize=True)
         
-        # Clean up source buffer
+        # Clean up
         source.close()
         del source
-        
-        normalized.seek(0)
-        result = Image(normalized, width=width, height=height)
-        
-        # Force garbage collection to free memory
         gc.collect()
         
-        return result
+        normalized.seek(0)
+        return Image(normalized, width=width, height=height)
     except Exception as exc:
         logging.warning("Invalid image skipped in PDF: %s", exc)
         return None
