@@ -104,13 +104,33 @@ export default function WerknemersAdmin() {
         apiClient.get(`/api/teams`, getAuthConfig()),
       ]);
       
-      setWerknemers(Array.isArray(werknemersRes.data) ? werknemersRes.data : []);
+      const werknemersList = Array.isArray(werknemersRes.data) ? werknemersRes.data : [];
+      setWerknemers(werknemersList);
       setTeams(Array.isArray(teamsRes.data) ? teamsRes.data : []);
+      
+      // Auto-load all passwords for admin visibility
+      loadAllPasswords(werknemersList);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
     }
+  };
+  
+  // Load all passwords at once for admin convenience
+  const loadAllPasswords = async (users: Werknemer[]) => {
+    const passwords: Record<string, string> = {};
+    
+    for (const user of users) {
+      try {
+        const res = await apiClient.get(`/api/auth/user-password/${user.id}`, getAuthConfig());
+        passwords[user.id] = res.data.wachtwoord || '(niet beschikbaar)';
+      } catch (error) {
+        passwords[user.id] = '(fout)';
+      }
+    }
+    
+    setVisiblePasswords(passwords);
   };
 
   const openAddModal = () => {
@@ -490,27 +510,23 @@ export default function WerknemersAdmin() {
                   </View>
                 </View>
                 <Text style={[styles.tableCell, { flex: 2 }]} numberOfLines={1}>{w.email}</Text>
-                <View style={[styles.tableCell, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
+                <View style={[styles.tableCell, { flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 150 }]}>
                   {loadingPassword === w.id ? (
                     <ActivityIndicator size="small" color="#6c757d" />
-                  ) : visiblePasswords[w.id] ? (
-                    <>
-                      <Text style={styles.passwordText}>{visiblePasswords[w.id]}</Text>
-                      <TouchableOpacity onPress={(e: any) => { e.stopPropagation(); showPassword(w); }}>
-                        <Ionicons name="eye-off-outline" size={16} color="#6c757d" />
-                      </TouchableOpacity>
-                      <TouchableOpacity onPress={(e: any) => { e.stopPropagation(); openPasswordModal(w); }}>
-                        <Ionicons name="key-outline" size={16} color="#F5A623" />
-                      </TouchableOpacity>
-                    </>
                   ) : (
                     <>
-                      <Text style={styles.passwordHidden}>••••••</Text>
-                      <TouchableOpacity onPress={(e: any) => { e.stopPropagation(); showPassword(w); }}>
-                        <Ionicons name="eye-outline" size={16} color="#3498db" />
-                      </TouchableOpacity>
-                      <TouchableOpacity onPress={(e: any) => { e.stopPropagation(); openPasswordModal(w); }}>
-                        <Ionicons name="key-outline" size={16} color="#F5A623" />
+                      <Text style={[styles.passwordText, { 
+                        color: visiblePasswords[w.id]?.includes('niet beschikbaar') ? '#dc3545' : '#2c3e50',
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                      }]}>
+                        {visiblePasswords[w.id] || '...'}
+                      </Text>
+                      <TouchableOpacity 
+                        style={{ backgroundColor: '#F5A62320', padding: 4, borderRadius: 4 }}
+                        onPress={(e: any) => { e.stopPropagation(); openPasswordModal(w); }}
+                      >
+                        <Ionicons name="key" size={14} color="#F5A623" />
                       </TouchableOpacity>
                     </>
                   )}
