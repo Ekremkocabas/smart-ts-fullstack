@@ -2228,20 +2228,20 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     story.append(header_table)
     story.append(Spacer(1, 3))
 
-    # ── INFO SECTION ──
+    # ── INFO SECTION ── (Using safe_para for all cells)
     info_left = [
-        ["Periode", f"{werkbon.get('datum_maandag', '-')} t/m {werkbon.get('datum_zondag', '-')}"],
-        ["Ingevuld door", werkbon.get("ingevuld_door_naam", "-")],
-        ["Status", werkbon.get("status", "concept").capitalize()],
+        [safe_para("Periode"), safe_para(f"{werkbon.get('datum_maandag', '-')} t/m {werkbon.get('datum_zondag', '-')}")],
+        [safe_para("Ingevuld door"), safe_para(werkbon.get("ingevuld_door_naam", "-"))],
+        [safe_para("Status"), safe_para((werkbon.get("status", "concept") or "concept").capitalize())],
     ]
     info_right = [
-        ["Klant", werkbon.get("klant_naam", "-")],
-        ["Werf", werkbon.get("werf_naam", "-")],
-        ["Adres werf", werf.get("adres") or "-"],
-        ["Klant e-mail", klant.get("email") or "-"],
+        [safe_para("Klant"), safe_para(werkbon.get("klant_naam", "-"))],
+        [safe_para("Werf"), safe_para(werkbon.get("werf_naam", "-"))],
+        [safe_para("Adres werf"), safe_para(werf.get("adres") or "-")],
+        [safe_para("Klant e-mail"), safe_para(klant.get("email") or "-")],
     ]
     if klant.get("btw_nummer"):
-        info_right.append(["BTW Nr.", klant.get("btw_nummer")])
+        info_right.append([safe_para("BTW Nr."), safe_para(klant.get("btw_nummer"))])
 
     left_table = Table(info_left, colWidths=[32 * mm, 90 * mm])
     right_table = Table(info_right, colWidths=[32 * mm, 100 * mm])
@@ -2262,25 +2262,25 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     story.append(Table([[left_table, right_table]], colWidths=[125 * mm, 135 * mm], style=[("VALIGN", (0, 0), (-1, -1), "TOP")]))
     story.append(Spacer(1, 4))
 
-    # ── UREN TABEL (geen afkortingen) ──
+    # ── UREN TABEL (geen afkortingen) - Using safe_para for all cells ──
     story.append(Paragraph("Gewerkte uren", styles["SectionTitle"]))
-    hours_header = [["Werknemer"] + [f"{label}\n{werkbon.get(date_key, '')}" for _, label, date_key, _ in DAY_COLUMNS] + ["Totaal"]]
+    hours_header = [[safe_para("Werknemer")] + [safe_para(f"{label}\n{werkbon.get(date_key, '')}") for _, label, date_key, _ in DAY_COLUMNS] + [safe_para("Totaal")]]
     hours_rows = []
     for regel in werkbon.get("uren", []):
         totaal = sum(float(regel.get(dag, 0) or 0) for dag, _, _, _ in DAY_COLUMNS)
         # Support both field names: teamlid_naam (old) and naam (new unified)
         werknemer_naam = regel.get("teamlid_naam") or regel.get("naam") or "-"
         hours_rows.append(
-            [werknemer_naam]
-            + [get_hours_pdf(regel, dag) for dag, _, _, _ in DAY_COLUMNS]
-            + [format_number(totaal) if totaal else ""]
+            [safe_para(werknemer_naam)]
+            + [safe_para(get_hours_pdf(regel, dag)) for dag, _, _, _ in DAY_COLUMNS]
+            + [safe_para(format_number(totaal) if totaal else "")]
         )
 
     dag_totalen = [
         format_number(s) if (s := sum(float(r.get(dag, 0) or 0) for r in werkbon.get("uren", []))) else ""
         for dag, _, _, _ in DAY_COLUMNS
     ]
-    hours_rows.append(["TOTAAL"] + dag_totalen + [format_number(total_uren)])
+    hours_rows.append([safe_para("TOTAAL")] + [safe_para(t) for t in dag_totalen] + [safe_para(format_number(total_uren))])
     hours_table = Table(hours_header + hours_rows, colWidths=[58 * mm] + [22 * mm] * 7 + [22 * mm])
     hours_table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
@@ -2301,13 +2301,13 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     ]))
     story.append(hours_table)
 
-    # ── KM ──
+    # ── KM ── (Using safe_para for all cells)
     km_total = sum(float(werkbon.get("km_afstand", {}).get(dag, 0) or 0) for dag, _, _, _ in DAY_COLUMNS)
     if km_total > 0:
         story.append(Spacer(1, 6))
         story.append(Paragraph("KM-afstand (heen & terug)", styles["SectionTitle"]))
-        km_header = [[label for _, label, _, _ in DAY_COLUMNS] + ["Totaal"]]
-        km_row = [[format_number(werkbon.get("km_afstand", {}).get(dag, 0)) for dag, _, _, _ in DAY_COLUMNS] + [format_number(km_total)]]
+        km_header = [[safe_para(label) for _, label, _, _ in DAY_COLUMNS] + [safe_para("Totaal")]]
+        km_row = [[safe_para(format_number(werkbon.get("km_afstand", {}).get(dag, 0))) for dag, _, _, _ in DAY_COLUMNS] + [safe_para(format_number(km_total))]]
         km_table = Table(km_header + km_row, colWidths=[22 * mm] * 7 + [22 * mm])
         km_table.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
@@ -2347,15 +2347,15 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
         ]))
         story.append(desc_table)
 
-    # ── SAMENVATTING + HANDTEKENING (naast elkaar) ──
+    # ── SAMENVATTING + HANDTEKENING (naast elkaar) - Using safe_para ──
     story.append(Spacer(1, 4))
     summary_rows = [
-        ["Totaal uren", format_number(total_uren)],
-        ["Uurtarief", f"€ {klant.get('uurtarief', 0):.2f}"],
+        [safe_para("Totaal uren"), safe_para(format_number(total_uren))],
+        [safe_para("Uurtarief"), safe_para(f"€ {klant.get('uurtarief', 0):.2f}")],
     ]
     if klant.get("prijsafspraak"):
-        summary_rows.append(["Prijsafspraak", klant.get("prijsafspraak")])
-    summary_rows.append(["Totaalbedrag", f"€ {totaal_bedrag:.2f}"])
+        summary_rows.append([safe_para("Prijsafspraak"), safe_para(klant.get("prijsafspraak"))])
+    summary_rows.append([safe_para("Totaalbedrag"), safe_para(f"€ {totaal_bedrag:.2f}")])
 
     summary_table = Table(summary_rows, colWidths=[40 * mm, 55 * mm])
     summary_table.setStyle(TableStyle([
