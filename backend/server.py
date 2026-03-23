@@ -1999,7 +1999,13 @@ def make_safe_reportlab_image(image_bytes: Optional[bytes], width: float, height
             pil_image.load()
             # Apply EXIF orientation correction
             pil_image = correct_image_orientation(pil_image)
-            normalized = io.BytesIO()
+            
+            # MEMORY OPTIMIZATION: Resize large images to max 800px
+            max_dimension = 800
+            if pil_image.width > max_dimension or pil_image.height > max_dimension:
+                ratio = min(max_dimension / pil_image.width, max_dimension / pil_image.height)
+                new_size = (int(pil_image.width * ratio), int(pil_image.height * ratio))
+                pil_image = pil_image.resize(new_size, PILImage.Resampling.LANCZOS)
             
             # Handle transparency: convert to RGB with white background
             if pil_image.mode in ('RGBA', 'LA', 'P'):
@@ -2021,7 +2027,10 @@ def make_safe_reportlab_image(image_bytes: Optional[bytes], width: float, height
             elif pil_image.mode != 'RGB':
                 pil_image = pil_image.convert('RGB')
             
-            pil_image.save(normalized, format="PNG")
+            # MEMORY OPTIMIZATION: Use JPEG for smaller file size (except for signatures)
+            normalized = io.BytesIO()
+            pil_image.save(normalized, format="JPEG", quality=85, optimize=True)
+            
         normalized.seek(0)
         return Image(normalized, width=width, height=height)
     except Exception as exc:
