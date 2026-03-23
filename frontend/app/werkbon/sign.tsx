@@ -337,13 +337,23 @@ export default function WerkbonSign() {
 
       const result = await ImagePicker.launchCameraAsync({
         cameraType: ImagePicker.CameraType.front,
-        quality: 0.7,
+        quality: 0.5,  // Reduced from 0.7 for smaller file size
         base64: true,
+        allowsEditing: false,
+        // Limit resolution to reduce file size significantly
+        exif: false,  // Don't include EXIF data
       });
 
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
         const selfieData = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
+        
+        // Log size for debugging
+        if (asset.base64) {
+          const sizeKB = Math.round(asset.base64.length / 1024);
+          console.log(`Selfie captured: ${sizeKB} KB`);
+        }
+        
         setSelfie(selfieData);
       }
     } catch (error) {

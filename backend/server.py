@@ -1990,36 +1990,41 @@ def correct_image_orientation(pil_image):
 
 
 def make_safe_reportlab_image(image_bytes: Optional[bytes], width: float, height: float) -> Optional[Image]:
+    """
+    Convert image bytes to ReportLab Image with aggressive memory optimization.
+    Resizes images to max 500px and compresses to JPEG with quality 65.
+    """
     if not image_bytes:
         return None
 
     try:
+        import gc
         source = io.BytesIO(image_bytes)
+        
         with PILImage.open(source) as pil_image:
             pil_image.load()
+            
             # Apply EXIF orientation correction
             pil_image = correct_image_orientation(pil_image)
             
-            # MEMORY OPTIMIZATION: Resize large images to max 800px
-            max_dimension = 800
+            # AGGRESSIVE MEMORY OPTIMIZATION: Resize to max 500px (was 800)
+            # This significantly reduces memory for large phone photos (12MP+)
+            max_dimension = 500
             if pil_image.width > max_dimension or pil_image.height > max_dimension:
                 ratio = min(max_dimension / pil_image.width, max_dimension / pil_image.height)
                 new_size = (int(pil_image.width * ratio), int(pil_image.height * ratio))
-                pil_image = pil_image.resize(new_size, PILImage.Resampling.LANCZOS)
+                # Use BILINEAR instead of LANCZOS for faster processing and less memory
+                pil_image = pil_image.resize(new_size, PILImage.Resampling.BILINEAR)
             
             # Handle transparency: convert to RGB with white background
             if pil_image.mode in ('RGBA', 'LA', 'P'):
-                # Create a white background image
                 if pil_image.mode == 'P':
                     pil_image = pil_image.convert('RGBA')
                 
-                # Create white background
                 background = PILImage.new('RGB', pil_image.size, (255, 255, 255))
                 
-                # If image has alpha channel, use it as mask
                 if pil_image.mode == 'RGBA':
-                    # Paste image onto white background using alpha as mask
-                    background.paste(pil_image, mask=pil_image.split()[3])  # Use alpha channel as mask
+                    background.paste(pil_image, mask=pil_image.split()[3])
                 elif pil_image.mode == 'LA':
                     background.paste(pil_image.convert('L'), mask=pil_image.split()[1])
                 
@@ -2027,12 +2032,21 @@ def make_safe_reportlab_image(image_bytes: Optional[bytes], width: float, height
             elif pil_image.mode != 'RGB':
                 pil_image = pil_image.convert('RGB')
             
-            # MEMORY OPTIMIZATION: Use JPEG for smaller file size (except for signatures)
+            # AGGRESSIVE MEMORY OPTIMIZATION: Lower quality JPEG (65 vs 85)
             normalized = io.BytesIO()
-            pil_image.save(normalized, format="JPEG", quality=85, optimize=True)
-            
+            pil_image.save(normalized, format="JPEG", quality=65, optimize=True)
+        
+        # Clean up source buffer
+        source.close()
+        del source
+        
         normalized.seek(0)
-        return Image(normalized, width=width, height=height)
+        result = Image(normalized, width=width, height=height)
+        
+        # Force garbage collection to free memory
+        gc.collect()
+        
+        return result
     except Exception as exc:
         logging.warning("Invalid image skipped in PDF: %s", exc)
         return None
@@ -4637,7 +4651,14 @@ async def verzend_werkbon(werkbon_id: str, klant_email: Optional[str] = Query(No
     totaal_bedrag = total_uren * uurtarief
 
     try:
+        import gc
+        # Force garbage collection before PDF generation to free memory
+        gc.collect()
+        
         pdf_bytes, pdf_filename = generate_werkbon_pdf(werkbon, klant or {}, werf, instellingen, total_uren, totaal_bedrag)
+        
+        # Force garbage collection after PDF generation
+        gc.collect()
     except Exception as exc:
         logging.exception("PDF generation failed for werkbon %s", werkbon_id)
         raise HTTPException(status_code=500, detail=f"PDF genereren mislukt: {str(exc)}")
@@ -5065,7 +5086,10 @@ async def verzend_oplevering_werkbon(werkbon_id: str, klant_email: Optional[str]
     instellingen = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0}) or {}
 
     try:
+        import gc
+        gc.collect()  # Free memory before PDF generation
         pdf_bytes, pdf_filename = generate_oplevering_pdf(werkbon_prepared, instellingen)
+        gc.collect()  # Free memory after PDF generation
     except Exception as exc:
         logging.exception("Oplevering PDF generation failed for %s", werkbon_id)
         raise HTTPException(status_code=500, detail=f"PDF genereren mislukt: {str(exc)}")
@@ -5261,7 +5285,12 @@ async def verzend_project_werkbon(werkbon_id: str, klant_email: Optional[str] = 
     werkbon_prepared = await prepare_werkbon_for_pdf(werkbon)
 
     instellingen = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0}) or {}
+    
+    import gc
+    gc.collect()  # Free memory before PDF generation
     pdf_bytes, pdf_filename = generate_project_werkbon_pdf(werkbon_prepared, instellingen)
+    gc.collect()  # Free memory after PDF generation
+    
     override_email = (klant_email or werkbon.get("klant_email_override") or "").strip()
     email_result = await send_project_werkbon_email(werkbon, instellingen, pdf_bytes, pdf_filename, klant_email=override_email)
 
@@ -5447,7 +5476,10 @@ async def verzend_productie_werkbon(werkbon_id: str, klant_email: Optional[str] 
     
     instellingen = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0}) or {}
     try:
+        import gc
+        gc.collect()  # Free memory before PDF generation
         pdf_bytes, pdf_filename = generate_productie_pdf(werkbon_prepared, instellingen)
+        gc.collect()  # Free memory after PDF generation
     except Exception as exc:
         logging.exception("Productie PDF generation failed for %s", werkbon_id)
         raise HTTPException(status_code=500, detail=f"PDF genereren mislukt: {str(exc)}")
