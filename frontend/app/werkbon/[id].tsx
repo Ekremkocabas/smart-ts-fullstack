@@ -96,9 +96,30 @@ export default function WerkbonDetailScreen() {
     }
   }, [id, lastUpdatedWerkbon]);
 
+  // Helper function to check if value is an afkorting
+  const AFKORTINGEN_LIST = ['Z', 'V', 'OV', 'BV', 'F', 'ADV'];
+  
+  const isAfkorting = (val: any): boolean => {
+    if (typeof val === 'string') {
+      return AFKORTINGEN_LIST.includes(val.toUpperCase());
+    }
+    return false;
+  };
+
+  const safeNumeric = (val: any): number => {
+    if (typeof val === 'number') return val;
+    if (typeof val === 'string') {
+      if (isAfkorting(val)) return 0;
+      const num = parseFloat(val);
+      return isNaN(num) ? 0 : num;
+    }
+    return 0;
+  };
+
   const calculateTotal = (regel: UrenRegel) => {
-    return regel.maandag + regel.dinsdag + regel.woensdag + 
-           regel.donderdag + regel.vrijdag + regel.zaterdag + regel.zondag;
+    // Only sum numeric values, skip afkortingen (V, OV, Z, etc.)
+    return safeNumeric(regel.maandag) + safeNumeric(regel.dinsdag) + safeNumeric(regel.woensdag) + 
+           safeNumeric(regel.donderdag) + safeNumeric(regel.vrijdag) + safeNumeric(regel.zaterdag) + safeNumeric(regel.zondag);
   };
 
   const getDagValue = (regel: UrenRegel, dayIndex: number) => {

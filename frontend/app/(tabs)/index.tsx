@@ -43,9 +43,21 @@ const getCurrentWeek = () => {
   return Math.ceil(dayOfYear / 7);
 };
 
+// Helper to safely get numeric value (skip afkortingen like V, OV, Z)
+const AFKORTINGEN = ['Z', 'V', 'OV', 'BV', 'F', 'ADV'];
+const safeNum = (val: any): number => {
+  if (typeof val === 'number') return val;
+  if (typeof val === 'string') {
+    if (AFKORTINGEN.includes(val.toUpperCase())) return 0;
+    const num = parseFloat(val);
+    return isNaN(num) ? 0 : num;
+  }
+  return 0;
+};
+
 const calcTotalUren = (werkbon: Werkbon) =>
   werkbon.uren.reduce(
-    (sum, r) => sum + r.maandag + r.dinsdag + r.woensdag + r.donderdag + r.vrijdag + r.zaterdag + r.zondag,
+    (sum, r) => sum + safeNum(r.maandag) + safeNum(r.dinsdag) + safeNum(r.woensdag) + safeNum(r.donderdag) + safeNum(r.vrijdag) + safeNum(r.zaterdag) + safeNum(r.zondag),
     0
   );
 

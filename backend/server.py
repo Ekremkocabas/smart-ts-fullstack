@@ -12,7 +12,7 @@ import io
 import secrets
 from pathlib import Path
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Set, Any
+from typing import List, Optional, Dict, Set, Any, Union
 import uuid
 from datetime import datetime, timedelta, timezone
 import hashlib
@@ -934,14 +934,15 @@ class WerfCreate(BaseModel):
 class UrenRegel(BaseModel):
     teamlid_naam: str = ""  # Made optional with default for old records
     naam: Optional[str] = None  # Alternative field name used in some old records
-    maandag: float = 0
-    dinsdag: float = 0
-    woensdag: float = 0
-    donderdag: float = 0
-    vrijdag: float = 0
-    zaterdag: float = 0
-    zondag: float = 0
-    # Afkortingen per dag (Z, V, BV, BF of leeg)
+    # Days can be either float (hours) or string (afkorting like V, OV, Z, BV, F, ADV)
+    maandag: Union[float, str] = 0
+    dinsdag: Union[float, str] = 0
+    woensdag: Union[float, str] = 0
+    donderdag: Union[float, str] = 0
+    vrijdag: Union[float, str] = 0
+    zaterdag: Union[float, str] = 0
+    zondag: Union[float, str] = 0
+    # Afkortingen per dag (Z, V, BV, BF of leeg) - kept for backward compatibility
     afkorting_ma: str = ""
     afkorting_di: str = ""
     afkorting_wo: str = ""
