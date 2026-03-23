@@ -88,25 +88,27 @@ export default function BerichtenTab() {
       // Extract documents from berichten with bijlagen (attachments)
       const berichtDocs: Document[] = [];
       (berichtenRes.data || []).forEach((b: Bericht) => {
-        if (b.bijlagen && b.bijlagen.length > 0) {
+        if (b.bijlagen && Array.isArray(b.bijlagen) && b.bijlagen.length > 0) {
           b.bijlagen.forEach(att => {
+            if (!att) return; // Skip null/undefined attachments
+            
             // Build URL: if file_id exists, use GridFS endpoint; otherwise use data URL
             let url = '';
             if (att.file_id) {
               const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
               url = `${API_URL}/api/files/${att.file_id}`;
-            } else if (att.data) {
+            } else if (att.data && typeof att.data === 'string') {
               const base64Data = att.data.includes(',') ? att.data.split(',')[1] : att.data;
               url = `data:${att.type || 'application/octet-stream'};base64,${base64Data}`;
             }
             
             berichtDocs.push({
-              id: `${b.id}-${att.naam}`,
-              filename: att.naam,
+              id: `${b.id}-${att.naam || 'unknown'}`,
+              filename: att.naam || 'Onbekend bestand',
               url: url,
               type: att.type || 'application/octet-stream',
-              uploaded_at: b.created_at,
-              uploaded_by: b.van_naam,
+              uploaded_at: b.created_at || '',
+              uploaded_by: b.van_naam || 'Onbekend',
             });
           });
         }
@@ -352,16 +354,18 @@ export default function BerichtenTab() {
                   <Text style={styles.detailInhoud}>{selectedBericht.inhoud}</Text>
                   
                   {/* Attachments / Bijlagen */}
-                  {selectedBericht.bijlagen && selectedBericht.bijlagen.length > 0 && (
+                  {selectedBericht.bijlagen && Array.isArray(selectedBericht.bijlagen) && selectedBericht.bijlagen.length > 0 && (
                     <View style={styles.attachmentsContainer}>
                       <Text style={styles.attachmentsTitle}>Bijlagen ({selectedBericht.bijlagen.length})</Text>
                       {selectedBericht.bijlagen.map((att, index) => {
+                        if (!att) return null; // Skip null attachments
+                        
                         // Build URL for opening
                         let url = '';
                         if (att.file_id) {
                           const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
                           url = `${API_URL}/api/files/${att.file_id}`;
-                        } else if (att.data) {
+                        } else if (att.data && typeof att.data === 'string') {
                           const base64Data = att.data.includes(',') ? att.data.split(',')[1] : att.data;
                           url = `data:${att.type || 'application/octet-stream'};base64,${base64Data}`;
                         }
@@ -385,7 +389,7 @@ export default function BerichtenTab() {
                               size={24} 
                               color="#F5A623" 
                             />
-                            <Text style={styles.attachmentName} numberOfLines={1}>{att.naam}</Text>
+                            <Text style={styles.attachmentName} numberOfLines={1}>{att.naam || 'Bijlage'}</Text>
                             <Ionicons name="download-outline" size={20} color="#6c757d" />
                           </TouchableOpacity>
                         );
