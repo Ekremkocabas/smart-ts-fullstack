@@ -125,8 +125,9 @@ export default function AdminDashboard() {
         (wb: any) => wb.week_nummer === currentWeek && wb.jaar === now.getFullYear()
       );
 
+      // "Wachten op handtekening" = ONLY concept status (not signed yet)
       const werkbonnenWachtend = werkbonnenList.filter(
-        (wb: any) => wb.status === 'concept' || !wb.handtekening_data
+        (wb: any) => wb.status === 'concept'
       );
 
       const totaalUren = werkbonnenDezeWeek.reduce((acc: number, wb: any) => {

@@ -184,6 +184,17 @@ export default function WerkbonnenAdmin() {
     }
   };
 
+  const deleteWerkbon = async (id: string) => {
+    if (!confirm('Werkbon verwijderen? Dit kan niet ongedaan worden gemaakt.')) return;
+    try {
+      await apiClient.delete(`/api/werkbonnen/${id}`);
+      setWerkbonnen(prev => prev.filter(wb => wb.id !== id));
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Fout bij verwijderen werkbon');
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'concept': return '#ffc107';
@@ -193,9 +204,20 @@ export default function WerkbonnenAdmin() {
     }
   };
 
+  // Parse hours - handle numbers, strings, and special codes like "V", "OV"
+  const parseHours = (val: any): number => {
+    if (typeof val === 'number') return val;
+    if (typeof val === 'string') {
+      const parsed = parseFloat(val);
+      return isNaN(parsed) ? 0 : parsed;
+    }
+    return 0;
+  };
+
   const calcTotalUren = (wb: Werkbon) => {
     return wb.uren?.reduce((acc, u) => {
-      return acc + (u.maandag || 0) + (u.dinsdag || 0) + (u.woensdag || 0) + (u.donderdag || 0) + (u.vrijdag || 0) + (u.zaterdag || 0) + (u.zondag || 0);
+      return acc + parseHours(u.maandag) + parseHours(u.dinsdag) + parseHours(u.woensdag) + 
+             parseHours(u.donderdag) + parseHours(u.vrijdag) + parseHours(u.zaterdag) + parseHours(u.zondag);
     }, 0) || 0;
   };
 
@@ -565,6 +587,9 @@ export default function WerkbonnenAdmin() {
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.actionIcon} onPress={(e) => { e.stopPropagation(); resendEmail(wb.id); }}>
                     <Ionicons name="mail-outline" size={18} color="#F5A623" />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.actionIcon} onPress={(e) => { e.stopPropagation(); deleteWerkbon(wb.id); }}>
+                    <Ionicons name="trash-outline" size={18} color="#dc3545" />
                   </TouchableOpacity>
                 </View>
               </TouchableOpacity>
