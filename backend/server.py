@@ -6276,9 +6276,19 @@ async def startup_migrate():
     - Normalize roles (ploegbaas -> worker, werknemer -> worker, etc.)
     - Remove wachtwoord_plain from database
     - Add new structured fields to company settings
+    - Create indexes for performance
     """
     try:
         DEFAULT_COMPANY_ID = "default_company"
+        
+        # === CREATE INDEXES for performance ===
+        # This prevents "Sort exceeded memory limit" errors
+        try:
+            await db.werkbonnen.create_index([("created_at", -1)])
+            await db.werkbonnen.create_index([("ingevuld_door_id", 1), ("created_at", -1)])
+            logging.info("Database indexes created successfully")
+        except Exception as idx_err:
+            logging.warning(f"Index creation warning (may already exist): {idx_err}")
         
         # === PHASE 1: User migrations ===
         
