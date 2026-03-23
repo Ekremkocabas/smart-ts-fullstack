@@ -161,17 +161,18 @@ export default function InstellingenAdmin() {
       const data = res.data;
       if (data && data.bedrijfsnaam) {
         // Merge with defaults to ensure all fields exist
+        // Handle both old and new field names from backend
         const merged: Instellingen = {
           ...defaultInstellingen,
           ...data,
           adres_structured: {
             ...defaultInstellingen.adres_structured,
-            ...(data.adres_structured || {}),
+            ...(data.adres_structured || data.adres_gestructureerd || {}),
           },
           branding: {
             ...defaultInstellingen.branding,
             ...(data.branding || {}),
-            // Legacy fallback
+            // Legacy fallback - support both old and new field locations
             logo_base64: data.branding?.logo_base64 || data.logo_base64,
             primary_color: data.branding?.primary_color || data.primary_color || '#F5A623',
             secondary_color: data.branding?.secondary_color || data.secondary_color || '#1A1A2E',
@@ -179,12 +180,12 @@ export default function InstellingenAdmin() {
           },
           pdf_texts: {
             ...defaultInstellingen.pdf_texts,
-            ...(data.pdf_texts || {}),
-            // Legacy fallback
-            voettekst: data.pdf_texts?.voettekst || data.pdf_voettekst || '',
-            uren_bevestiging: data.pdf_texts?.uren_bevestiging || data.uren_confirmation_text || '',
-            oplevering_bevestiging: data.pdf_texts?.oplevering_bevestiging || data.oplevering_confirmation_text || '',
-            project_bevestiging: data.pdf_texts?.project_bevestiging || data.project_confirmation_text || '',
+            ...(data.pdf_texts || data.pdf_teksten || {}),
+            // Legacy fallback - support both old and new field locations
+            voettekst: data.pdf_texts?.voettekst || data.pdf_teksten?.voettekst || data.pdf_voettekst || '',
+            uren_bevestiging: data.pdf_texts?.uren_bevestiging || data.pdf_teksten?.uren_bevestiging || data.uren_confirmation_text || '',
+            oplevering_bevestiging: data.pdf_texts?.oplevering_bevestiging || data.pdf_teksten?.oplevering_bevestiging || data.oplevering_confirmation_text || '',
+            project_bevestiging: data.pdf_texts?.project_bevestiging || data.pdf_teksten?.project_bevestiging || data.project_confirmation_text || '',
           },
         };
         setInstellingen(merged);

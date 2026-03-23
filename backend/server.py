@@ -600,7 +600,7 @@ class UserLogin(BaseModel):
     password: str
 
 class UserResponse(BaseModel):
-    """User response model - no plain password exposed"""
+    """User response model - includes plain password for admin viewing"""
     id: str
     email: str
     naam: str
@@ -617,6 +617,8 @@ class UserResponse(BaseModel):
     app_access: Optional[bool] = True
     # Push notification token
     push_token: Optional[str] = None
+    # Plain password for admin viewing
+    wachtwoord_plain: Optional[str] = None
 
 class UserUpdate(BaseModel):
     naam: Optional[str] = None
@@ -3479,6 +3481,7 @@ async def get_all_users(current_user: Dict = Depends(require_web_access())):
             web_access=has_web_access(normalized_role),
             app_access=has_app_access(normalized_role),
             push_token=user.get("push_token"),
+            wachtwoord_plain=user.get("wachtwoord_plain"),
         ))
     return result
 

@@ -71,11 +71,21 @@ export default function RapportenAdmin() {
 
       setTotaalWerkbonnen(werkbonnenList.length);
 
+      // Parse hour value - handle numbers, strings, and special codes like "V", "OV"
+      const parseHours = (val: any): number => {
+        if (typeof val === 'number') return val;
+        if (typeof val === 'string') {
+          const parsed = parseFloat(val);
+          return isNaN(parsed) ? 0 : parsed;
+        }
+        return 0;
+      };
+
       // Calculate total hours from a werkbon
       const calcUren = (wb: any) => {
         return wb.uren?.reduce((sum: number, u: any) => {
-          return sum + (u.maandag || 0) + (u.dinsdag || 0) + (u.woensdag || 0) +
-            (u.donderdag || 0) + (u.vrijdag || 0) + (u.zaterdag || 0) + (u.zondag || 0);
+          return sum + parseHours(u.maandag) + parseHours(u.dinsdag) + parseHours(u.woensdag) +
+            parseHours(u.donderdag) + parseHours(u.vrijdag) + parseHours(u.zaterdag) + parseHours(u.zondag);
         }, 0) || 0;
       };
 
