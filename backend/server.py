@@ -4036,7 +4036,13 @@ async def delete_werf(werf_id: str, current_user: Dict = Depends(require_roles([
 async def get_werkbonnen(user_id: str, is_admin: bool = Query(False)):
     if is_admin:
         # Admin can see all werkbonnen
-        werkbonnen = await db.werkbonnen.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+        # Use aggregate with allowDiskUse to avoid 32MB sort memory limit
+        pipeline = [
+            {"$sort": {"created_at": -1}},
+            {"$project": {"_id": 0}},
+            {"$limit": 1000}
+        ]
+        werkbonnen = await db.werkbonnen.aggregate(pipeline, allowDiskUse=True).to_list(1000)
         return [Werkbon(**wb) for wb in werkbonnen]
     
     user = await db.users.find_one({"id": user_id}, {"_id": 0})
@@ -4045,12 +4051,24 @@ async def get_werkbonnen(user_id: str, is_admin: bool = Query(False)):
 
     # V1: Use has_web_access for admin check instead of hardcoded list
     query = {} if has_web_access(user.get("rol", "")) else {"ingevuld_door_id": user_id}
-    werkbonnen = await db.werkbonnen.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    pipeline = [
+        {"$match": query},
+        {"$sort": {"created_at": -1}},
+        {"$project": {"_id": 0}},
+        {"$limit": 1000}
+    ]
+    werkbonnen = await db.werkbonnen.aggregate(pipeline, allowDiskUse=True).to_list(1000)
     return [Werkbon(**wb) for wb in werkbonnen]
 
 @api_router.get("/werkbonnen/user/{user_id}", response_model=List[Werkbon])
 async def get_werkbonnen_by_user(user_id: str):
-    werkbonnen = await db.werkbonnen.find({"ingevuld_door_id": user_id}).sort("created_at", -1).to_list(1000)
+    pipeline = [
+        {"$match": {"ingevuld_door_id": user_id}},
+        {"$sort": {"created_at": -1}},
+        {"$project": {"_id": 0}},
+        {"$limit": 1000}
+    ]
+    werkbonnen = await db.werkbonnen.aggregate(pipeline, allowDiskUse=True).to_list(1000)
     return [Werkbon(**wb) for wb in werkbonnen]
 
 @api_router.get("/werkbonnen/{werkbon_id}", response_model=Werkbon)
