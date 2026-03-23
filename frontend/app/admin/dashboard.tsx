@@ -131,8 +131,17 @@ export default function AdminDashboard() {
 
       const totaalUren = werkbonnenDezeWeek.reduce((acc: number, wb: any) => {
         const wbUren = wb.uren?.reduce((sum: number, uren: any) => {
-          return sum + (uren.maandag || 0) + (uren.dinsdag || 0) + (uren.woensdag || 0) +
-            (uren.donderdag || 0) + (uren.vrijdag || 0) + (uren.zaterdag || 0) + (uren.zondag || 0);
+          // Parse values as floats, treating non-numeric strings (like "V", "OV") as 0
+          const parseHours = (val: any): number => {
+            if (typeof val === 'number') return val;
+            if (typeof val === 'string') {
+              const parsed = parseFloat(val);
+              return isNaN(parsed) ? 0 : parsed;
+            }
+            return 0;
+          };
+          return sum + parseHours(uren.maandag) + parseHours(uren.dinsdag) + parseHours(uren.woensdag) +
+            parseHours(uren.donderdag) + parseHours(uren.vrijdag) + parseHours(uren.zaterdag) + parseHours(uren.zondag);
         }, 0) || 0;
         return acc + wbUren;
       }, 0);
