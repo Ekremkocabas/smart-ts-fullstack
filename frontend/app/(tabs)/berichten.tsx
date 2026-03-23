@@ -38,6 +38,8 @@ interface Document {
   type: string;
   uploaded_at: string;
   uploaded_by: string;
+  beschrijving?: string;
+  isPersonalDoc?: boolean;
 }
 
 export default function BerichtenTab() {
@@ -167,8 +169,10 @@ export default function BerichtenTab() {
   };
 
   const formatDate = (dateStr: string) => {
+    if (!dateStr) return '';
     try {
       const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
       const now = new Date();
       const diff = now.getTime() - d.getTime();
       const mins = Math.floor(diff / 60000);
@@ -178,7 +182,7 @@ export default function BerichtenTab() {
       const days = Math.floor(hours / 24);
       if (days < 7) return `${days}d geleden`;
       return `${d.getDate()}-${d.getMonth() + 1}-${d.getFullYear()}`;
-    } catch { return dateStr; }
+    } catch { return dateStr || ''; }
   };
 
   const isUnread = (bericht: Bericht) => user?.id ? !bericht.gelezen_door.includes(user.id) : false;
@@ -259,8 +263,8 @@ export default function BerichtenTab() {
                     color="#F5A623" 
                   />
                   <View style={styles.docDetails}>
-                    <Text style={styles.docName} numberOfLines={1}>{doc.filename}</Text>
-                    <Text style={styles.docMeta}>Van: {doc.uploaded_by} • {formatDate(doc.uploaded_at)}</Text>
+                    <Text style={styles.docName} numberOfLines={1}>{doc.filename || 'Onbekend'}</Text>
+                    <Text style={styles.docMeta}>Van: {doc.uploaded_by || 'Onbekend'} • {formatDate(doc.uploaded_at)}</Text>
                   </View>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.docDelete} onPress={() => deleteDocument(doc)}>
