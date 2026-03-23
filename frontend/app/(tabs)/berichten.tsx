@@ -52,13 +52,41 @@ export default function BerichtenTab() {
   const [selectedBericht, setSelectedBericht] = useState<Bericht | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
 
+  // ============ DEBUG LOGGING ============
+  const DEBUG = true;
+  const log = (area: string, message: string, data?: any) => {
+    if (DEBUG) {
+      const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
+      console.log(`[${timestamp}] [BERICHTEN-DEBUG] [${area}] ${message}`, data !== undefined ? JSON.stringify(data).substring(0, 200) : '');
+    }
+  };
+
+  // Track component lifecycle
+  useEffect(() => {
+    log('LIFECYCLE', 'Component MOUNTED');
+    return () => {
+      log('LIFECYCLE', 'Component UNMOUNTED');
+    };
+  }, []);
+
+  // Track tab changes
+  useEffect(() => {
+    log('TAB', `Tab changed to: ${activeTab}`, { berichtenCount: berichten.length, documentenCount: documenten.length });
+  }, [activeTab, berichten.length, documenten.length]);
+  // ============ END DEBUG ============
+
   // Fetch personal documents from the new API
   const fetchMijnDocumenten = useCallback(async () => {
-    if (!user?.id) return [];
+    log('FETCH', 'fetchMijnDocumenten START');
+    if (!user?.id) {
+      log('FETCH', 'fetchMijnDocumenten SKIP - no user');
+      return [];
+    }
     try {
       const res = await apiClient.get('/api/mijn-documenten');
+      log('FETCH', 'fetchMijnDocumenten SUCCESS', { count: res.data?.length || 0 });
       const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
-      return (res.data || []).map((doc: any) => ({
+      const mapped = (res.data || []).map((doc: any) => ({
         id: doc.id,
         filename: doc.naam || doc.bestandsnaam,
         url: `${API_URL}/api/files/${doc.file_id}`,
@@ -66,23 +94,39 @@ export default function BerichtenTab() {
         uploaded_at: doc.created_at,
         uploaded_by: doc.uploaded_by_naam,
         beschrijving: doc.beschrijving,
-        isPersonalDoc: true,  // Mark as personal document
+        isPersonalDoc: true,
       }));
-    } catch (e) {
+      log('FETCH', 'fetchMijnDocumenten MAPPED', { count: mapped.length });
+      return mapped;
+    } catch (e: any) {
+      log('FETCH', 'fetchMijnDocumenten ERROR', { error: e?.message || e });
       console.error('Error fetching personal documents:', e);
       return [];
     }
   }, [user?.id]);
 
   const fetchBerichten = useCallback(async () => {
-    if (!user?.id) return;
+    log('FETCH', 'fetchBerichten START', { userId: user?.id });
+    if (!user?.id) {
+      log('FETCH', 'fetchBerichten SKIP - no user');
+      return;
+    }
     try {
+      log('FETCH', 'fetchBerichten calling API...');
       const [berichtenRes, unreadRes, personalDocs] = await Promise.all([
         apiClient.get(`/api/berichten?user_id=${user.id}`),
         apiClient.get(`/api/berichten/ongelezen?user_id=${user.id}`),
         fetchMijnDocumenten(),
       ]);
-      setBerichten(Array.isArray(berichtenRes.data) ? berichtenRes.data : []);
+      log('FETCH', 'fetchBerichten API SUCCESS', { 
+        berichtenCount: berichtenRes.data?.length || 0, 
+        unread: unreadRes.data,
+        personalDocsCount: personalDocs?.length || 0 
+      });
+      
+      const berichtenData = Array.isArray(berichtenRes.data) ? berichtenRes.data : [];
+      log('FETCH', 'Setting berichten state', { count: berichtenData.length });
+      setBerichten(berichtenData);
       setUnreadCount(unreadRes.data?.count || unreadRes.data?.ongelezen || 0);
       
       // Extract documents from berichten with bijlagen (attachments)
@@ -114,22 +158,36 @@ export default function BerichtenTab() {
         }
       });
       
+      log('FETCH', 'Setting documenten state', { personalCount: personalDocs?.length || 0, berichtDocsCount: berichtDocs.length });
       // Combine personal documents + bericht attachments
       // Personal docs first (they are more important)
-      setDocumenten([...personalDocs, ...berichtDocs]);
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
+      setDocumenten([...(personalDocs || []), ...berichtDocs]);
+      log('FETCH', 'fetchBerichten COMPLETE');
+    } catch (e: any) { 
+      log('FETCH', 'fetchBerichten ERROR', { error: e?.message || e });
+      console.error(e); 
+    }
+    finally { 
+      log('FETCH', 'fetchBerichten FINALLY - setting loading false');
+      setLoading(false); 
+    }
   }, [user?.id, fetchMijnDocumenten]);
 
-  useEffect(() => { fetchBerichten(); }, [fetchBerichten]);
+  useEffect(() => { 
+    log('EFFECT', 'Initial fetch useEffect triggered');
+    fetchBerichten(); 
+  }, [fetchBerichten]);
 
   const onRefresh = async () => {
+    log('REFRESH', 'onRefresh START');
     setRefreshing(true);
     await fetchBerichten();
     setRefreshing(false);
+    log('REFRESH', 'onRefresh COMPLETE');
   };
 
   const openBericht = async (bericht: Bericht) => {
+    log('ACTION', 'openBericht', { berichtId: bericht?.id });
     setSelectedBericht(bericht);
     // Mark as read - with defensive check
     const gelezenDoor = bericht.gelezen_door || [];
@@ -207,6 +265,15 @@ export default function BerichtenTab() {
     });
   }, [berichten]);
 
+  // Log render
+  log('RENDER', 'Component rendering', { 
+    activeTab, 
+    loading, 
+    berichtenCount: berichten?.length || 0, 
+    documentenCount: documenten?.length || 0,
+    sortedCount: sorted?.length || 0
+  });
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
@@ -228,14 +295,20 @@ export default function BerichtenTab() {
       <View style={styles.tabSelector}>
         <TouchableOpacity 
           style={[styles.tab, activeTab === 'berichten' && styles.tabActive]}
-          onPress={() => setActiveTab('berichten')}
+          onPress={() => {
+            log('TAB-CLICK', 'Switching to BERICHTEN tab');
+            setActiveTab('berichten');
+          }}
         >
           <Ionicons name="mail-outline" size={18} color={activeTab === 'berichten' ? '#F5A623' : '#6c757d'} />
           <Text style={[styles.tabText, activeTab === 'berichten' && styles.tabTextActive]}>Berichten</Text>
         </TouchableOpacity>
         <TouchableOpacity 
           style={[styles.tab, activeTab === 'documenten' && styles.tabActive]}
-          onPress={() => setActiveTab('documenten')}
+          onPress={() => {
+            log('TAB-CLICK', 'Switching to DOCUMENTEN tab');
+            setActiveTab('documenten');
+          }}
         >
           <Ionicons name="folder-outline" size={18} color={activeTab === 'documenten' ? '#F5A623' : '#6c757d'} />
           <Text style={[styles.tabText, activeTab === 'documenten' && styles.tabTextActive]}>Mijn Documenten</Text>
