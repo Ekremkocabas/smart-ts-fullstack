@@ -1884,11 +1884,41 @@ def format_number(value: float) -> str:
     return f"{numeric:.2f}".rstrip("0").rstrip(".")
 
 
+# ==================== HELPER: SAFE NUMERIC VALUE EXTRACTION ====================
+
+# Afkortingen that should NOT be counted as hours
+AFKORTINGEN = ['Z', 'V', 'OV', 'BV', 'F', 'ADV']
+
+def is_afkorting(value) -> bool:
+    """Check if a value is an afkorting (sick/leave code) rather than a number"""
+    if isinstance(value, str):
+        return value.strip().upper() in AFKORTINGEN
+    return False
+
+def safe_float(value, default: float = 0.0) -> float:
+    """
+    Safely convert a value to float.
+    Returns 0.0 for afkortingen (Z, V, OV, etc.) and invalid values.
+    """
+    if value is None:
+        return default
+    if is_afkorting(value):
+        return default
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        return default
+
 def calculate_total_uren(werkbon: dict) -> float:
+    """
+    Calculate total hours from werkbon uren regels.
+    Skips afkortingen (Z, V, OV, BV, F, ADV) - only sums numeric values.
+    """
     total_uren = 0.0
     for regel in werkbon.get("uren", []):
         for dag, _, _, _ in DAY_COLUMNS:
-            total_uren += float(regel.get(dag, 0) or 0)
+            val = regel.get(dag, 0)
+            total_uren += safe_float(val)
     return total_uren
 
 
@@ -2041,7 +2071,11 @@ def validate_oplevering_payload(data: OpleveringWerkbonCreate) -> None:
 
 def get_hours_pdf(regel: dict, dag: str) -> str:
     """Return hours for PDF - afkortingen are internal only, show hours or blank"""
-    hours = float(regel.get(dag, 0) or 0)
+    val = regel.get(dag, 0)
+    # Skip afkortingen - they should not appear in PDF
+    if is_afkorting(val):
+        return ""
+    hours = safe_float(val)
     if hours == 0:
         return ""
     return format_number(hours)
@@ -2286,9 +2320,12 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
         ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
     ]))
 
-    # Signature cell
+    # Signature cell - BACKWARD COMPATIBLE: check both field names
     sig_content = []
-    if werkbon.get("handtekening_data"):
+    # Try handtekening_data first, fallback to handtekening (old field name)
+    signature_data = werkbon.get("handtekening_data") or werkbon.get("handtekening")
+    
+    if signature_data:
         confirmation_text = instellingen.get("uren_confirmation_text") or "Hierbij bevestigt de klant dat deze ingevulde werkbon juist is ingevuld."
         sig_content.append(Paragraph(confirmation_text.replace("\n", "<br/>"), styles["BodySmall"]))
         sig_content.append(Spacer(1, 3))
@@ -2300,13 +2337,14 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
             datum_text = datum.strftime("%d-%m-%Y %H:%M") if isinstance(datum, datetime) else str(datum)[:16]
             sig_content.append(Paragraph(f"Datum: {datum_text}", styles["BodySmall"]))
         sig_content.append(Spacer(1, 3))
-        sig_bytes = decode_base64_data(werkbon.get("handtekening_data"))
+        sig_bytes = decode_base64_data(signature_data)
         sig_img = make_safe_reportlab_image(sig_bytes, 70 * mm, 26 * mm)
         
-        # Check for selfie
+        # Check for selfie - BACKWARD COMPATIBLE: check both field names
         selfie_col: list = []
-        if werkbon.get("selfie_data"):
-            selfie_bytes = decode_base64_data(werkbon.get("selfie_data"))
+        selfie_data = werkbon.get("selfie_data") or werkbon.get("selfie")
+        if selfie_data:
+            selfie_bytes = decode_base64_data(selfie_data)
             selfie_img = make_safe_reportlab_image(selfie_bytes, 24 * mm, 24 * mm)
             if selfie_img:
                 selfie_col = [
@@ -5919,8 +5957,16 @@ class WerknemerDocumentCreate(BaseModel):
     data: str  # Base64 encoded file data
 
 @api_router.get("/werknemer-documenten/{werknemer_id}")
-async def get_werknemer_documenten(werknemer_id: str):
-    """Get all documents for a specific worker"""
+async def get_werknemer_documenten(werknemer_id: str, current_user: Dict = Depends(get_current_user)):
+    """Get all documents for a specific worker - with auth check"""
+    # Security: Admin/planner can see any worker's documents
+    # Workers can only see their own documents
+    is_admin = current_user["role"] in ["master_admin", "admin", "planner"]
+    is_own_docs = current_user["user_id"] == werknemer_id
+    
+    if not is_admin and not is_own_docs:
+        raise HTTPException(status_code=403, detail="Geen toegang tot documenten van andere werknemers")
+    
     docs = await db.werknemer_documenten.find(
         {"werknemer_id": werknemer_id},
         {"_id": 0}
