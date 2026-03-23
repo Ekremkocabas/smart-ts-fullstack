@@ -4040,9 +4040,17 @@ async def delete_werf(werf_id: str, current_user: Dict = Depends(require_roles([
 # ==================== WERKBON ROUTES ====================
 
 @api_router.get("/werkbonnen", response_model=List[Werkbon])
-async def get_werkbonnen(user_id: str, is_admin: bool = Query(False)):
+async def get_werkbonnen(
+    user_id: str, 
+    is_admin: bool = Query(False),
+    page: int = Query(1, ge=1, description="Page number"),
+    limit: int = Query(50, ge=1, le=100, description="Items per page, max 100")
+):
+    # Calculate skip value
+    skip = (page - 1) * limit
+    
     if is_admin:
-        # Admin can see all werkbonnen
+        # Admin can see all werkbonnen with pagination
         # Exclude large binary fields to reduce memory usage during sort
         projection = {
             "_id": 0,
@@ -4052,9 +4060,9 @@ async def get_werkbonnen(user_id: str, is_admin: bool = Query(False)):
             "handtekening": 0,
             "foto_data": 0
         }
-        # Use find with projection to exclude large fields, then sort
-        cursor = db.werkbonnen.find({}, projection).sort("created_at", -1).limit(500)
-        werkbonnen = await cursor.to_list(500)
+        # Use find with projection, skip and limit for proper pagination
+        cursor = db.werkbonnen.find({}, projection).sort("created_at", -1).skip(skip).limit(limit)
+        werkbonnen = await cursor.to_list(limit)
         return [Werkbon(**wb) for wb in werkbonnen]
     
     user = await db.users.find_one({"id": user_id}, {"_id": 0})
@@ -4071,8 +4079,8 @@ async def get_werkbonnen(user_id: str, is_admin: bool = Query(False)):
         "handtekening": 0,
         "foto_data": 0
     }
-    cursor = db.werkbonnen.find(query, projection).sort("created_at", -1).limit(500)
-    werkbonnen = await cursor.to_list(500)
+    cursor = db.werkbonnen.find(query, projection).sort("created_at", -1).skip(skip).limit(limit)
+    werkbonnen = await cursor.to_list(limit)
     return [Werkbon(**wb) for wb in werkbonnen]
 
 @api_router.get("/werkbonnen/user/{user_id}", response_model=List[Werkbon])

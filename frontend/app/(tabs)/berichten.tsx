@@ -51,9 +51,12 @@ export default function BerichtenTab() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedBericht, setSelectedBericht] = useState<Bericht | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  
+  // CRITICAL FIX: Track if component is mounted to prevent setState on unmounted component
+  const isMountedRef = React.useRef(true);
 
   // ============ DEBUG LOGGING ============
-  const DEBUG = true;
+  const DEBUG = false; // Disable verbose logging for production
   const log = (area: string, message: string, data?: any) => {
     if (DEBUG) {
       const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
@@ -61,10 +64,12 @@ export default function BerichtenTab() {
     }
   };
 
-  // Track component lifecycle
+  // Track component lifecycle - CRITICAL: Set mounted flag
   useEffect(() => {
+    isMountedRef.current = true;
     log('LIFECYCLE', 'Component MOUNTED');
     return () => {
+      isMountedRef.current = false;
       log('LIFECYCLE', 'Component UNMOUNTED');
     };
   }, []);
@@ -84,6 +89,11 @@ export default function BerichtenTab() {
     }
     try {
       const res = await apiClient.get('/api/mijn-documenten');
+      // CRITICAL: Check if still mounted before updating state
+      if (!isMountedRef.current) {
+        log('FETCH', 'fetchMijnDocumenten ABORT - component unmounted');
+        return [];
+      }
       log('FETCH', 'fetchMijnDocumenten SUCCESS', { count: res.data?.length || 0 });
       const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
       const mapped = (res.data || []).map((doc: any) => ({
@@ -118,6 +128,13 @@ export default function BerichtenTab() {
         apiClient.get(`/api/berichten/ongelezen?user_id=${user.id}`),
         fetchMijnDocumenten(),
       ]);
+      
+      // CRITICAL: Check if still mounted before updating state
+      if (!isMountedRef.current) {
+        log('FETCH', 'fetchBerichten ABORT - component unmounted');
+        return;
+      }
+      
       log('FETCH', 'fetchBerichten API SUCCESS', { 
         berichtenCount: berichtenRes.data?.length || 0, 
         unread: unreadRes.data,
@@ -168,8 +185,11 @@ export default function BerichtenTab() {
       console.error(e); 
     }
     finally { 
-      log('FETCH', 'fetchBerichten FINALLY - setting loading false');
-      setLoading(false); 
+      // CRITICAL: Only update loading state if still mounted
+      if (isMountedRef.current) {
+        log('FETCH', 'fetchBerichten FINALLY - setting loading false');
+        setLoading(false); 
+      }
     }
   }, [user?.id, fetchMijnDocumenten]);
 
