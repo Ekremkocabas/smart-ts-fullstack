@@ -421,7 +421,31 @@ export default function WerkbonSign() {
         // Send email if enabled
         if (sendToCustomer && response.data.id) {
           try {
-            await axios.post(`${API_URL}${endpoint}/${response.data.id}/verzenden`, {}, {
+            // Determine correct verzenden endpoint based on werkbon type
+            // uren -> /api/werkbonnen/{id}/verzenden
+            // oplevering -> /api/oplevering-werkbonnen/{id}/verzenden
+            // project -> /api/project-werkbonnen/{id}/verzenden
+            // prestatie -> /api/productie-werkbonnen/{id}/verzenden
+            let verzendEndpoint = '';
+            switch (type) {
+              case 'uren':
+                verzendEndpoint = `/api/werkbonnen/${response.data.id}/verzenden`;
+                break;
+              case 'oplevering':
+                verzendEndpoint = `/api/oplevering-werkbonnen/${response.data.id}/verzenden`;
+                break;
+              case 'project':
+                verzendEndpoint = `/api/project-werkbonnen/${response.data.id}/verzenden`;
+                break;
+              case 'prestatie':
+                verzendEndpoint = `/api/productie-werkbonnen/${response.data.id}/verzenden`;
+                break;
+              default:
+                verzendEndpoint = `/api/werkbonnen/${response.data.id}/verzenden`;
+            }
+            
+            console.log(`[Sign] Sending werkbon via: ${verzendEndpoint}`);
+            await axios.post(`${API_URL}${verzendEndpoint}`, {}, {
               headers: { 'Authorization': `Bearer ${token}` },
             });
             emailSent = true;

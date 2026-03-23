@@ -2138,6 +2138,14 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     styles.add(ParagraphStyle(name="BodySmall", parent=styles["BodyText"], fontSize=8, leading=10))
     styles.add(ParagraphStyle(name="FooterText", parent=styles["BodyText"], fontSize=7, leading=9, textColor=colors.HexColor("#555555")))
     styles.add(ParagraphStyle(name="WeekHeader", parent=styles["Title"], fontSize=20, textColor=colors.HexColor("#1a1a2e"), fontName="Helvetica-Bold", alignment=2))
+    styles.add(ParagraphStyle(name="CellText", parent=styles["BodyText"], fontSize=8, leading=10))
+
+    # CRITICAL FIX: Helper function to prevent 'str' object has no attribute 'wrapOn' error
+    # All Table cells MUST use Paragraph objects, not raw strings
+    def safe_para(val, style_name="CellText") -> Paragraph:
+        """Convert any value to a Paragraph for safe Table rendering"""
+        text = str(val) if val is not None else ""
+        return Paragraph(text, styles[style_name])
 
     story = []
 
@@ -2260,8 +2268,10 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     hours_rows = []
     for regel in werkbon.get("uren", []):
         totaal = sum(float(regel.get(dag, 0) or 0) for dag, _, _, _ in DAY_COLUMNS)
+        # Support both field names: teamlid_naam (old) and naam (new unified)
+        werknemer_naam = regel.get("teamlid_naam") or regel.get("naam") or "-"
         hours_rows.append(
-            [regel.get("teamlid_naam", "-")]
+            [werknemer_naam]
             + [get_hours_pdf(regel, dag) for dag, _, _, _ in DAY_COLUMNS]
             + [format_number(totaal) if totaal else ""]
         )
@@ -3359,25 +3369,18 @@ async def login_user(login_data: UserLogin):
     Login endpoint with JWT token and platform access info.
     Returns JWT token for authenticated requests.
     """
-    print(f"[LOGIN DEBUG] Email: {login_data.email}")
+    # SECURITY: Only log email, NEVER log passwords or hashes
+    logging.info(f"[LOGIN] Login attempt for: {login_data.email}")
+    
     user = await db.users.find_one({"email": login_data.email})
     if not user:
-        print(f"[LOGIN DEBUG] User not found for: {login_data.email}")
+        logging.info(f"[LOGIN] Failed - user not found: {login_data.email}")
         raise HTTPException(status_code=401, detail="Ongeldige inloggegevens")
-    
-    print(f"[LOGIN DEBUG] User found: {user.get('naam')}")
-    print(f"[LOGIN DEBUG] Has password_hash: {bool(user.get('password_hash'))}")
-    print(f"[LOGIN DEBUG] Has wachtwoord_plain: {bool(user.get('wachtwoord_plain'))}")
     
     # Try password_hash first, then fall back to plain text comparison (legacy migration)
     authenticated = False
     if user.get("password_hash"):
-        print(f"[LOGIN DEBUG] Input password: {login_data.password}")
-        print(f"[LOGIN DEBUG] Stored hash: {user['password_hash']}")
-        computed = hash_password(login_data.password)
-        print(f"[LOGIN DEBUG] Computed hash: {computed}")
         authenticated = verify_password(login_data.password, user["password_hash"])
-        print(f"[LOGIN DEBUG] Password hash verify result: {authenticated}")
     
     # Fallback: compare with wachtwoord_plain directly (legacy support)
     if not authenticated and user.get("wachtwoord_plain"):
@@ -3782,16 +3785,17 @@ async def delete_user(user_id: str, current_user: Dict = Depends(require_roles([
 @api_router.post("/auth/users/{user_id}/push-token")
 async def save_push_token(user_id: str, data: dict):
     """Save push notification token for a user"""
+    # SECURITY: Block null/invalid user_id
+    if not user_id or user_id == "null" or user_id == "undefined":
+        raise HTTPException(status_code=400, detail="Ongeldige gebruiker ID")
+    
     push_token = data.get("push_token")
     if not push_token:
         raise HTTPException(status_code=400, detail="Push token is vereist")
     
-    # Debug logging
-    logging.info(f"[PUSH] Saving push token for user {user_id}: {push_token[:30]}...")
+    logging.info(f"[PUSH] Saving push token for user {user_id}")
     
     result = await db.users.update_one({"id": user_id}, {"$set": {"push_token": push_token}})
-    
-    logging.info(f"[PUSH] Update result: matched={result.matched_count}, modified={result.modified_count}")
     
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail=f"Gebruiker met id {user_id} niet gevonden")
