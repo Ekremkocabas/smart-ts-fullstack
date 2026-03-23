@@ -4036,13 +4036,18 @@ async def delete_werf(werf_id: str, current_user: Dict = Depends(require_roles([
 async def get_werkbonnen(user_id: str, is_admin: bool = Query(False)):
     if is_admin:
         # Admin can see all werkbonnen
-        # Use aggregate with allowDiskUse to avoid 32MB sort memory limit
-        pipeline = [
-            {"$sort": {"created_at": -1}},
-            {"$project": {"_id": 0}},
-            {"$limit": 1000}
-        ]
-        werkbonnen = await db.werkbonnen.aggregate(pipeline, allowDiskUse=True).to_list(1000)
+        # Exclude large binary fields to reduce memory usage during sort
+        projection = {
+            "_id": 0,
+            "selfie_data": 0,
+            "selfie": 0,
+            "handtekening_data": 0,
+            "handtekening": 0,
+            "foto_data": 0
+        }
+        # Use find with projection to exclude large fields, then sort
+        cursor = db.werkbonnen.find({}, projection).sort("created_at", -1).limit(500)
+        werkbonnen = await cursor.to_list(500)
         return [Werkbon(**wb) for wb in werkbonnen]
     
     user = await db.users.find_one({"id": user_id}, {"_id": 0})
@@ -4051,24 +4056,30 @@ async def get_werkbonnen(user_id: str, is_admin: bool = Query(False)):
 
     # V1: Use has_web_access for admin check instead of hardcoded list
     query = {} if has_web_access(user.get("rol", "")) else {"ingevuld_door_id": user_id}
-    pipeline = [
-        {"$match": query},
-        {"$sort": {"created_at": -1}},
-        {"$project": {"_id": 0}},
-        {"$limit": 1000}
-    ]
-    werkbonnen = await db.werkbonnen.aggregate(pipeline, allowDiskUse=True).to_list(1000)
+    projection = {
+        "_id": 0,
+        "selfie_data": 0,
+        "selfie": 0,
+        "handtekening_data": 0,
+        "handtekening": 0,
+        "foto_data": 0
+    }
+    cursor = db.werkbonnen.find(query, projection).sort("created_at", -1).limit(500)
+    werkbonnen = await cursor.to_list(500)
     return [Werkbon(**wb) for wb in werkbonnen]
 
 @api_router.get("/werkbonnen/user/{user_id}", response_model=List[Werkbon])
 async def get_werkbonnen_by_user(user_id: str):
-    pipeline = [
-        {"$match": {"ingevuld_door_id": user_id}},
-        {"$sort": {"created_at": -1}},
-        {"$project": {"_id": 0}},
-        {"$limit": 1000}
-    ]
-    werkbonnen = await db.werkbonnen.aggregate(pipeline, allowDiskUse=True).to_list(1000)
+    projection = {
+        "_id": 0,
+        "selfie_data": 0,
+        "selfie": 0,
+        "handtekening_data": 0,
+        "handtekening": 0,
+        "foto_data": 0
+    }
+    cursor = db.werkbonnen.find({"ingevuld_door_id": user_id}, projection).sort("created_at", -1).limit(500)
+    werkbonnen = await cursor.to_list(500)
     return [Werkbon(**wb) for wb in werkbonnen]
 
 @api_router.get("/werkbonnen/{werkbon_id}", response_model=Werkbon)
