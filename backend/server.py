@@ -31,7 +31,9 @@ load_dotenv(ROOT_DIR / '.env')
 APP_URL = os.environ.get('APP_URL', 'https://expo-fastapi-1.preview.emergentagent.com').strip()
 
 # JWT Configuration
-JWT_SECRET = os.environ.get('JWT_SECRET', secrets.token_hex(32))
+JWT_SECRET = os.environ.get('JWT_SECRET')
+if not JWT_SECRET:
+    raise RuntimeError("JWT_SECRET environment variable is not set. Application cannot start without it.")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRATION_HOURS = 24 * 7  # 7 days
 
@@ -6182,7 +6184,7 @@ async def get_app_settings():
 # ==================== DASHBOARD STATS ====================
 
 @api_router.get("/dashboard/stats")
-async def get_dashboard_stats():
+async def get_dashboard_stats(current_user: Dict = Depends(get_current_user)):
     """Get comprehensive dashboard statistics"""
     now = datetime.utcnow()
     current_week = now.isocalendar()[1]
@@ -6237,22 +6239,15 @@ async def root():
 async def api_health_check():
     return {"status": "healthy", "database": "connected"}
 
-# Include the router in the main app
-# Temporary download endpoint for GitHub upload
-from fastapi.responses import FileResponse
-@api_router.get("/download-backend-zip")
-async def download_backend_zip():
-    zip_path = "/tmp/smart-ts-backend.zip"
-    if os.path.exists(zip_path):
-        return FileResponse(path=zip_path, filename="smart-ts-backend.zip", media_type="application/zip")
-    raise HTTPException(status_code=404, detail="ZIP file not found")
-
 app.include_router(api_router)
+
+_cors_origins_env = os.environ.get("CORS_ALLOWED_ORIGINS", "")
+_allowed_origins = [o.strip() for o in _cors_origins_env.split(",") if o.strip()]
 
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=["*"],
+    allow_origins=_allowed_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -6397,15 +6392,6 @@ async def startup_migrate():
 # HEALTH CHECK ENDPOINT (for Railway/Docker deployment)
 # ══════════════════════════════════════════════════════════════════════════════
 
-@app.get("/api/health")
-async def app_health_check():
-    """Health check endpoint for deployment platforms."""
-    try:
-        # Test database connection
-        await db.command("ping")
-        return {"status": "healthy", "database": "connected"}
-    except Exception as e:
-        return {"status": "unhealthy", "database": "disconnected", "error": str(e)}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
