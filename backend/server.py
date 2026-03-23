@@ -1969,9 +1969,27 @@ def make_safe_reportlab_image(image_bytes: Optional[bytes], width: float, height
             # Apply EXIF orientation correction
             pil_image = correct_image_orientation(pil_image)
             normalized = io.BytesIO()
-            # Convert to RGB if necessary (for RGBA images)
+            
+            # Handle transparency: convert to RGB with white background
             if pil_image.mode in ('RGBA', 'LA', 'P'):
+                # Create a white background image
+                if pil_image.mode == 'P':
+                    pil_image = pil_image.convert('RGBA')
+                
+                # Create white background
+                background = PILImage.new('RGB', pil_image.size, (255, 255, 255))
+                
+                # If image has alpha channel, use it as mask
+                if pil_image.mode == 'RGBA':
+                    # Paste image onto white background using alpha as mask
+                    background.paste(pil_image, mask=pil_image.split()[3])  # Use alpha channel as mask
+                elif pil_image.mode == 'LA':
+                    background.paste(pil_image.convert('L'), mask=pil_image.split()[1])
+                
+                pil_image = background
+            elif pil_image.mode != 'RGB':
                 pil_image = pil_image.convert('RGB')
+            
             pil_image.save(normalized, format="PNG")
         normalized.seek(0)
         return Image(normalized, width=width, height=height)
@@ -4056,8 +4074,10 @@ async def create_unified_werkbon(data: UnifiedWerkbonCreate, current_user: Dict 
         "datum": data.datum or now.strftime("%Y-%m-%d"),
         "opmerkingen": data.opmerkingen or "",
         "handtekening": data.handtekening,
+        "handtekening_data": data.handtekening,  # Also save as handtekening_data for PDF generation
         "handtekening_naam": data.handtekening_naam or "",
         "selfie": data.selfie,
+        "selfie_data": data.selfie,  # Also save as selfie_data for PDF generation
         "gps_locatie": data.gps_locatie,
         "gps_lat": data.gps_lat,
         "gps_lng": data.gps_lng,
