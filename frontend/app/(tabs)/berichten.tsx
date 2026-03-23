@@ -131,8 +131,9 @@ export default function BerichtenTab() {
 
   const openBericht = async (bericht: Bericht) => {
     setSelectedBericht(bericht);
-    // Mark as read
-    if (user?.id && !bericht.gelezen_door.includes(user.id)) {
+    // Mark as read - with defensive check
+    const gelezenDoor = bericht.gelezen_door || [];
+    if (user?.id && !gelezenDoor.includes(user.id)) {
       try {
         await apiClient.post(`/api/berichten/${bericht.id}/gelezen?user_id=${user.id}`);
         fetchBerichten();
@@ -187,14 +188,24 @@ export default function BerichtenTab() {
     } catch { return dateStr || ''; }
   };
 
-  const isUnread = (bericht: Bericht) => user?.id ? !bericht.gelezen_door.includes(user.id) : false;
+  const isUnread = (bericht: Bericht) => {
+    if (!user?.id) return false;
+    // Defensive check for gelezen_door array
+    const gelezenDoor = bericht.gelezen_door || [];
+    return !gelezenDoor.includes(user.id);
+  };
 
-  // Sort: pinned first, then by date
-  const sorted = [...berichten].sort((a, b) => {
-    if (a.vastgepind && !b.vastgepind) return -1;
-    if (!a.vastgepind && b.vastgepind) return 1;
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-  });
+  // Sort: pinned first, then by date - memoized to prevent recalculation on every render
+  const sorted = React.useMemo(() => {
+    if (!berichten || !Array.isArray(berichten)) return [];
+    return [...berichten].sort((a, b) => {
+      if (a.vastgepind && !b.vastgepind) return -1;
+      if (!a.vastgepind && b.vastgepind) return 1;
+      const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return dateB - dateA;
+    });
+  }, [berichten]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -228,7 +239,7 @@ export default function BerichtenTab() {
         >
           <Ionicons name="folder-outline" size={18} color={activeTab === 'documenten' ? '#F5A623' : '#6c757d'} />
           <Text style={[styles.tabText, activeTab === 'documenten' && styles.tabTextActive]}>Mijn Documenten</Text>
-          {documenten.length > 0 && (
+          {documenten && documenten.length > 0 && (
             <View style={styles.docBadge}>
               <Text style={styles.docBadgeText}>{documenten.length}</Text>
             </View>
@@ -242,7 +253,7 @@ export default function BerichtenTab() {
         </View>
       ) : activeTab === 'documenten' ? (
         /* Mijn Documenten Tab */
-        documenten.length === 0 ? (
+        (!documenten || documenten.length === 0) ? (
           <ScrollView
             contentContainerStyle={styles.emptyContainer}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#F5A623']} />}
@@ -256,7 +267,7 @@ export default function BerichtenTab() {
             style={styles.listContainer}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#F5A623']} />}
           >
-            {documenten.map(doc => (
+            {documenten.map(doc => doc ? (
               <View key={doc.id} style={styles.docCard}>
                 <TouchableOpacity style={styles.docInfo} onPress={() => openDocument(doc)}>
                   <Ionicons 
@@ -273,10 +284,10 @@ export default function BerichtenTab() {
                   <Ionicons name="trash-outline" size={20} color="#dc3545" />
                 </TouchableOpacity>
               </View>
-            ))}
+            ) : null)}
           </ScrollView>
         )
-      ) : berichten.length === 0 ? (
+      ) : (!berichten || berichten.length === 0) ? (
         <ScrollView
           contentContainerStyle={styles.emptyContainer}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#F5A623" />}
@@ -292,6 +303,7 @@ export default function BerichtenTab() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#F5A623" />}
         >
           {sorted.map(bericht => {
+            if (!bericht) return null;  // Skip null/undefined items
             const unread = isUnread(bericht);
             return (
               <TouchableOpacity
@@ -302,19 +314,19 @@ export default function BerichtenTab() {
               >
                 <View style={styles.berichtHeader}>
                   <View style={[styles.berichtAvatar, unread && { backgroundColor: '#F5A623' }]}>
-                    <Text style={[styles.berichtAvatarText, unread && { color: '#fff' }]}>{bericht.van_naam?.charAt(0)}</Text>
+                    <Text style={[styles.berichtAvatarText, unread && { color: '#fff' }]}>{bericht.van_naam?.charAt(0) || '?'}</Text>
                   </View>
                   <View style={{ flex: 1 }}>
                     <View style={styles.berichtNameRow}>
-                      <Text style={[styles.berichtFrom, unread && { fontWeight: '700' }]}>{bericht.van_naam}</Text>
+                      <Text style={[styles.berichtFrom, unread && { fontWeight: '700' }]}>{bericht.van_naam || 'Onbekend'}</Text>
                       {bericht.vastgepind && <Ionicons name="pin" size={14} color="#F5A623" />}
                       {unread && <View style={styles.unreadDot} />}
                     </View>
                     <Text style={styles.berichtTime}>{formatDate(bericht.created_at)}</Text>
                   </View>
                 </View>
-                <Text style={[styles.berichtSubject, unread && { fontWeight: '700' }]} numberOfLines={1}>{bericht.onderwerp}</Text>
-                <Text style={styles.berichtPreview} numberOfLines={2}>{bericht.inhoud}</Text>
+                <Text style={[styles.berichtSubject, unread && { fontWeight: '700' }]} numberOfLines={1}>{bericht.onderwerp || ''}</Text>
+                <Text style={styles.berichtPreview} numberOfLines={2}>{bericht.inhoud || ''}</Text>
                 {bericht.is_broadcast && (
                   <View style={styles.broadcastBadge}>
                     <Ionicons name="megaphone-outline" size={12} color="#3498db" />
