@@ -615,6 +615,8 @@ class UserResponse(BaseModel):
     # Platform access info - Optional to handle None values from DB
     web_access: Optional[bool] = False
     app_access: Optional[bool] = True
+    # Push notification token
+    push_token: Optional[str] = None
 
 class UserUpdate(BaseModel):
     naam: Optional[str] = None
@@ -3476,6 +3478,7 @@ async def get_all_users(current_user: Dict = Depends(require_web_access())):
             must_change_password=user.get("must_change_password", False),
             web_access=has_web_access(normalized_role),
             app_access=has_app_access(normalized_role),
+            push_token=user.get("push_token"),
         ))
     return result
 
@@ -3779,8 +3782,18 @@ async def save_push_token(user_id: str, data: dict):
     push_token = data.get("push_token")
     if not push_token:
         raise HTTPException(status_code=400, detail="Push token is vereist")
-    await db.users.update_one({"id": user_id}, {"$set": {"push_token": push_token}})
-    return {"message": "Push token opgeslagen"}
+    
+    # Debug logging
+    logging.info(f"[PUSH] Saving push token for user {user_id}: {push_token[:30]}...")
+    
+    result = await db.users.update_one({"id": user_id}, {"$set": {"push_token": push_token}})
+    
+    logging.info(f"[PUSH] Update result: matched={result.matched_count}, modified={result.modified_count}")
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail=f"Gebruiker met id {user_id} niet gevonden")
+    
+    return {"message": "Push token opgeslagen", "matched": result.matched_count, "modified": result.modified_count}
 
 async def send_push_notifications(user_ids: list, title: str, body: str, data: dict = None):
     """Send push notifications to users via Expo Push Service"""
