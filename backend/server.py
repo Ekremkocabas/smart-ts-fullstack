@@ -1070,6 +1070,8 @@ class BedrijfsInstellingen(BaseModel):
     secondary_color: str = "#F5A623"
     accent_color: str = "#16213e"
     
+    ondernemingsnummer: Optional[str] = None  # Belgian enterprise number
+
     # === NEW STRUCTURED FIELDS (Phase 1) ===
     adres_gestructureerd: Optional[Dict] = None
     emails: Optional[Dict] = None
@@ -4418,51 +4420,51 @@ async def dupliceer_werkbon(werkbon_id: str, current_user: Dict = Depends(get_cu
 
 # ==================== BEDRIJFSINSTELLINGEN ROUTES ====================
 
-@api_router.get("/instellingen", response_model=BedrijfsInstellingen)
+@api_router.get("/instellingen")
 async def get_instellingen(current_user: Dict = Depends(require_web_access())):
     """Get company settings. Web panel users can read."""
-    settings = await db.instellingen.find_one({"id": "company_settings"})
+    settings = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0})
     if not settings:
         default = BedrijfsInstellingen()
-        await db.instellingen.insert_one(default.dict())
-        return default
-    
-    # Convert backend field names to frontend field names for compatibility
-    # Backend uses Dutch names (adres_gestructureerd), frontend uses English (adres_structured)
-    result = BedrijfsInstellingen(**settings)
-    result_dict = result.dict()
-    
-    # Add frontend-compatible field names
-    if result_dict.get('adres_gestructureerd'):
-        result_dict['adres_structured'] = result_dict['adres_gestructureerd']
-    if result_dict.get('pdf_teksten'):
-        result_dict['pdf_texts'] = result_dict['pdf_teksten']
-    
-    # Also include werkbon_email from email settings if available
-    if result_dict.get('emails') and result_dict['emails'].get('werkbon'):
-        result_dict['werkbon_email'] = result_dict['emails']['werkbon']
-    
-    return result_dict
+        default_dict = default.dict()
+        await db.instellingen.insert_one(default_dict.copy())
+        return default_dict
 
-@api_router.put("/instellingen", response_model=BedrijfsInstellingen)
+    # Add frontend-compatible field name aliases (without removing Dutch originals)
+    if settings.get('adres_gestructureerd') and not settings.get('adres_structured'):
+        settings['adres_structured'] = settings['adres_gestructureerd']
+    if settings.get('pdf_teksten') and not settings.get('pdf_texts'):
+        settings['pdf_texts'] = settings['pdf_teksten']
+    if not settings.get('werkbon_email'):
+        emails = settings.get('emails') or {}
+        if emails.get('werkbon'):
+            settings['werkbon_email'] = emails['werkbon']
+
+    return settings
+
+@api_router.put("/instellingen")
 async def update_instellingen(update_data: BedrijfsInstellingenUpdate, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Update company settings. Only admin/master_admin can modify."""
     update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
-    
-    # Normalize field names: frontend sends different names
+
+    # Normalize field names: frontend sends adres_structured / pdf_texts
     if 'adres_structured' in update_dict:
         update_dict['adres_gestructureerd'] = update_dict.pop('adres_structured')
     if 'pdf_texts' in update_dict:
         update_dict['pdf_teksten'] = update_dict.pop('pdf_texts')
-    
+
     await db.instellingen.update_one(
         {"id": "company_settings"},
         {"$set": update_dict},
         upsert=True
     )
-    
-    updated = await db.instellingen.find_one({"id": "company_settings"})
-    return BedrijfsInstellingen(**updated)
+
+    updated = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0})
+    if updated.get('adres_gestructureerd') and not updated.get('adres_structured'):
+        updated['adres_structured'] = updated['adres_gestructureerd']
+    if updated.get('pdf_teksten') and not updated.get('pdf_texts'):
+        updated['pdf_texts'] = updated['pdf_teksten']
+    return updated
 
 # ==================== EMAIL SERVICE ====================
 
