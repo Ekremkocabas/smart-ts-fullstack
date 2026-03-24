@@ -622,7 +622,7 @@ export default function WerkbonnenAdmin() {
             ))
           )}
         </View>
-      ) : (
+      ) : activeTab === 'productie' ? (
         /* Productie Werkbonnen Table */
         <View style={styles.tableContainer}>
           <View style={styles.tableHeader}>
