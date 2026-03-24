@@ -3717,53 +3717,6 @@ async def assign_user_role(
         app_access=has_app_access(normalized_new_role),
     )
 
-@api_router.post("/auth/admin-reset-password/{user_id}")
-async def admin_reset_password(
-    user_id: str,
-    admin_id: str = Query(..., description="Admin user ID performing reset"),
-):
-    """
-    Admin-only endpoint to reset a user's password.
-    Generates a new random password and forces password change on next login.
-    No plain password storage - only returns once.
-    """
-    # Verify admin
-    admin = await db.users.find_one({"id": admin_id})
-    if not admin:
-        raise HTTPException(status_code=404, detail="Admin niet gevonden")
-    
-    admin_role = normalize_role(admin.get("rol", "worker"))
-    if admin_role not in {"master_admin", "admin"}:
-        raise HTTPException(status_code=403, detail="Alleen admins kunnen wachtwoorden resetten")
-    
-    # Get target user
-    target_user = await db.users.find_one({"id": user_id})
-    if not target_user:
-        raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
-    
-    # Generate new random password
-    import string
-    new_password = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(12))
-    
-    # Update user with new password hash
-    await db.users.update_one(
-        {"id": user_id},
-        {
-            "$set": {
-                "password_hash": hash_password(new_password),
-                "must_change_password": True,
-                "password_changed_at": datetime.utcnow(),
-            },
-            "$unset": {"wachtwoord_plain": ""}
-        }
-    )
-    
-    return {
-        "message": "Wachtwoord gereset",
-        "temp_password": new_password,  # Return only once
-        "must_change": True,
-    }
-
 @api_router.delete("/auth/users/{user_id}")
 async def delete_user(user_id: str, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Delete a user. Only admin/master_admin can delete users."""
@@ -6232,6 +6185,30 @@ async def get_dashboard_stats(current_user: Dict = Depends(get_current_user)):
         "week_nummer": current_week,
         "jaar": current_year,
     }
+
+@api_router.get("/dashboard/uren-maand")
+async def get_uren_deze_maand(jaar: int, maand: int):
+    """Get total uren for a given month across all werkbonnen."""
+    import calendar
+    weeks_set = set()
+    _, num_days = calendar.monthrange(jaar, maand)
+    for day in range(1, num_days + 1):
+        d = datetime(jaar, maand, day)
+        weeks_set.add(d.isocalendar()[1])
+    werkbonnen = await db.werkbonnen.find(
+        {"jaar": jaar, "week_nummer": {"$in": list(weeks_set)}},
+        {"_id": 0, "uren": 1}
+    ).to_list(1000)
+    totaal = 0.0
+    for wb in werkbonnen:
+        for uren_regel in wb.get("uren", []):
+            for dag in ["maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag"]:
+                val = uren_regel.get(dag, 0)
+                try:
+                    totaal += float(val)
+                except (ValueError, TypeError):
+                    pass
+    return {"totaal_uren": round(totaal, 1), "jaar": jaar, "maand": maand}
 
 @api_router.get("/")
 async def root():

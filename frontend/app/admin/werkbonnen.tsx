@@ -75,6 +75,8 @@ export default function WerkbonnenAdmin() {
   const [klanten, setKlanten] = useState<Klant[]>([]);
   const [werven, setWerven] = useState<Werf[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
   const [filterWeek, setFilterWeek] = useState<number | null>(null);
@@ -89,10 +91,16 @@ export default function WerkbonnenAdmin() {
     }
   }, [user]);
 
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
   const fetchData = async () => {
     try {
       setLoading(true);
-      const userId = user?.id || 'admin-001';
+      setError(null);
+      const userId = user?.id || '';
       const [werkbonnenRes, werknemersRes, teamsRes, klantenRes, wervenRes, productieRes, opleveringRes, projectRes] = await Promise.all([
         apiClient.get(`/api/werkbonnen?user_id=${userId}&is_admin=true`),
         apiClient.get(`/api/auth/users`),
@@ -121,6 +129,7 @@ export default function WerkbonnenAdmin() {
       setProjectWerkbonnen(Array.isArray(projectData) ? projectData : []);
     } catch (error) {
       console.error('Error:', error);
+      setError('Kon werkbonnen niet laden. Probeer opnieuw.');
     } finally {
       setLoading(false);
     }
@@ -159,18 +168,20 @@ export default function WerkbonnenAdmin() {
   const resendEmail = async (id: string) => {
     try {
       await apiClient.post(`/api/werkbonnen/${id}/verzenden`);
-      alert('E-mail opnieuw verzonden!');
+      showToast('E-mail opnieuw verzonden!');
     } catch (error) {
       console.error('Error:', error);
+      showToast('E-mail kon niet worden verzonden.', 'error');
     }
   };
 
   const resendProductieEmail = async (id: string) => {
     try {
       await apiClient.post(`/api/productie-werkbonnen/${id}/verzenden`);
-      alert('E-mail opnieuw verzonden!');
+      showToast('E-mail opnieuw verzonden!');
     } catch (error) {
       console.error('Error:', error);
+      showToast('E-mail kon niet worden verzonden.', 'error');
     }
   };
 
@@ -375,6 +386,29 @@ export default function WerkbonnenAdmin() {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      {/* Toast */}
+      {toast && (
+        <View style={{
+          position: ('fixed' as any), bottom: 24, right: 24,
+          backgroundColor: toast.type === 'success' ? '#28a745' : '#dc3545',
+          paddingHorizontal: 20, paddingVertical: 12, borderRadius: 8, zIndex: 9999,
+          flexDirection: 'row', alignItems: 'center', gap: 8,
+          shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8,
+        }}>
+          <Ionicons name={toast.type === 'success' ? 'checkmark-circle' : 'alert-circle'} size={20} color="#fff" />
+          <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>{toast.message}</Text>
+        </View>
+      )}
+      {/* Error banner */}
+      {error && !loading && (
+        <View style={{ backgroundColor: '#fff3cd', borderRadius: 12, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#ffc107', flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <Ionicons name="warning-outline" size={22} color="#e67e22" />
+          <Text style={{ flex: 1, fontSize: 14, color: '#1A1A2E' }}>{error}</Text>
+          <TouchableOpacity onPress={fetchData} style={{ backgroundColor: '#F5A623', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }}>
+            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 13 }}>Opnieuw</Text>
+          </TouchableOpacity>
+        </View>
+      )}
       {/* Header */}
       <View style={styles.header}>
         <View>

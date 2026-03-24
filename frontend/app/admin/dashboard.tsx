@@ -37,6 +37,7 @@ interface DashboardStats {
   werkbonnenDezeWeek: number;
   werkbonnenWachtend: number;
   totaalUrenDezeWeek: number;
+  totaalUrenDezeMaand: number;
   planningDezeWeek: number;
   planningAfgerond: number;
 }
@@ -56,6 +57,7 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentWerkbonnen, setRecentWerkbonnen] = useState<RecentWerkbon[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Debug: Log component state
   useEffect(() => {
@@ -83,20 +85,27 @@ export default function AdminDashboard() {
     }
     try {
       setLoading(true);
+      setError(null);
       const now = new Date();
-      const startOfYear = new Date(now.getFullYear(), 0, 1);
-      const days = Math.floor((now.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000));
-      const currentWeek = Math.ceil((days + startOfYear.getDay() + 1) / 7);
+      const getISOWeek = (d: Date) => {
+        const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+        const day = date.getUTCDay() || 7;
+        date.setUTCDate(date.getUTCDate() + 4 - day);
+        const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+        return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+      };
+      const currentWeek = getISOWeek(now);
+      const currentMonth = now.getMonth() + 1;
+      const currentYear = now.getFullYear();
 
-      console.log('[Dashboard] Fetching data with token:', token?.substring(0, 20) + '...');
-      
-      const [werknemersRes, teamsRes, klantenRes, wervenRes, werkbonnenRes, planningRes] = await Promise.all([
+      const [werknemersRes, teamsRes, klantenRes, wervenRes, werkbonnenRes, planningRes, maandUrenRes] = await Promise.all([
         apiClient.get('/api/auth/users'),
         apiClient.get('/api/teams'),
         apiClient.get('/api/klanten'),
         apiClient.get('/api/werven'),
         apiClient.get(`/api/werkbonnen?user_id=${user?.id}&is_admin=true`),
-        apiClient.get(`/api/planning?week_nummer=${currentWeek}&jaar=${now.getFullYear()}`),
+        apiClient.get(`/api/planning?week_nummer=${currentWeek}&jaar=${currentYear}`),
+        apiClient.get(`/api/dashboard/uren-maand?jaar=${currentYear}&maand=${currentMonth}`),
       ]);
 
       const werknemers = werknemersRes.data;
@@ -105,6 +114,7 @@ export default function AdminDashboard() {
       const werven = wervenRes.data;
       const werkbonnen = werkbonnenRes.data;
       const planningData = planningRes.data;
+      const maandUrenData = maandUrenRes.data;
 
       const werknemersList = Array.isArray(werknemers) ? werknemers : [];
       const teamsList = Array.isArray(teams) ? teams : [];
@@ -113,11 +123,10 @@ export default function AdminDashboard() {
       const werkbonnenList = Array.isArray(werkbonnen) ? werkbonnen : [];
       const planningList = Array.isArray(planningData) ? planningData : [];
 
-      // Separate werknemers and onderaannemers
+      // Separate werknemers and onderaannemers — consistent with planning page (exclude admin roles)
       const actieveWerknemers = werknemersList.filter((w: any) => w.actief !== false);
-      // Count workers, planners, managers as werknemers (exclude admin roles)
-      const werknemerCount = actieveWerknemers.filter((w: any) => 
-        w.rol === 'worker' || w.rol === 'werknemer' || w.rol === 'planner' || w.rol === 'manager'
+      const werknemerCount = actieveWerknemers.filter((w: any) =>
+        !['beheerder', 'admin', 'master_admin', 'onderaannemer'].includes(w.rol)
       ).length;
       const onderaannemerCount = actieveWerknemers.filter((w: any) => w.rol === 'onderaannemer').length;
 
@@ -155,6 +164,7 @@ export default function AdminDashboard() {
         werkbonnenDezeWeek: werkbonnenDezeWeek.length,
         werkbonnenWachtend: werkbonnenWachtend.length,
         totaalUrenDezeWeek: totaalUren,
+        totaalUrenDezeMaand: maandUrenData?.totaal_uren || 0,
         planningDezeWeek: planningList.length,
         planningAfgerond: planningList.filter((p: any) => p.status === 'afgerond').length,
       });
@@ -166,6 +176,7 @@ export default function AdminDashboard() {
       setRecentWerkbonnen(sorted);
     } catch (error) {
       console.error('Error fetching stats:', error);
+      setError('Kon gegevens niet laden. Controleer de verbinding en probeer opnieuw.');
     } finally {
       setLoading(false);
     }
@@ -216,6 +227,17 @@ export default function AdminDashboard() {
 
       {loading ? (
         <ActivityIndicator size="large" color="#F5A623" style={{ marginVertical: 40 }} />
+      ) : error ? (
+        <View style={{ backgroundColor: '#fff3cd', borderRadius: 12, padding: 20, margin: 8, borderWidth: 1, borderColor: '#ffc107', flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <Ionicons name="warning-outline" size={24} color="#e67e22" />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 15, fontWeight: '600', color: '#1A1A2E' }}>Fout bij laden</Text>
+            <Text style={{ fontSize: 13, color: '#6c757d', marginTop: 4 }}>{error}</Text>
+          </View>
+          <TouchableOpacity onPress={fetchData} style={{ backgroundColor: '#F5A623', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 }}>
+            <Text style={{ color: '#fff', fontWeight: '600' }}>Opnieuw</Text>
+          </TouchableOpacity>
+        </View>
       ) : (
         <>
           {/* Stats Grid */}
@@ -274,15 +296,15 @@ export default function AdminDashboard() {
           <View style={styles.werkbonStats}>
             <View style={[styles.werkbonStatCard, { borderLeftColor: '#F5A623' }]}>
               <Text style={styles.werkbonStatValue}>{stats?.werkbonnenDezeWeek || 0}</Text>
-              <Text style={styles.werkbonStatLabel}>Deze week</Text>
+              <Text style={styles.werkbonStatLabel}>Werkbonnen deze week</Text>
             </View>
-            <View style={[styles.werkbonStatCard, { borderLeftColor: '#ffc107' }]}>
-              <Text style={styles.werkbonStatValue}>{stats?.werkbonnenWachtend || 0}</Text>
-              <Text style={styles.werkbonStatLabel}>Wachtend op handtekening</Text>
-            </View>
-            <View style={[styles.werkbonStatCard, { borderLeftColor: '#28a745' }]}>
+            <View style={[styles.werkbonStatCard, { borderLeftColor: '#3498db' }]}>
               <Text style={styles.werkbonStatValue}>{stats?.totaalUrenDezeWeek || 0}</Text>
               <Text style={styles.werkbonStatLabel}>Uren deze week</Text>
+            </View>
+            <View style={[styles.werkbonStatCard, { borderLeftColor: '#28a745' }]}>
+              <Text style={styles.werkbonStatValue}>{stats?.totaalUrenDezeMaand || 0}</Text>
+              <Text style={styles.werkbonStatLabel}>Uren deze maand</Text>
             </View>
           </View>
 
