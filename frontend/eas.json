@@ -5,7 +5,6 @@
   },
   "build": {
     "preview": {
-      "workingDirectory": "frontend",
       "android": {
         "buildType": "apk",
         "credentialsSource": "remote"
@@ -16,7 +15,6 @@
       "distribution": "internal"
     },
     "production": {
-      "workingDirectory": "frontend",
       "channel": "production",
       "android": {
         "buildType": "apk",
