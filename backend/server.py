@@ -2269,7 +2269,7 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
         )
 
     dag_totalen = [
-        format_number(s) if (s := sum(float(r.get(dag, 0) or 0) for r in werkbon.get("uren", []))) else ""
+        format_number(s) if (s := sum(safe_float(r.get(dag, 0)) for r in werkbon.get("uren", []))) else ""
         for dag, _, _, _ in DAY_COLUMNS
     ]
     hours_rows.append(["TOTAAL"] + dag_totalen + [format_number(total_uren)])
@@ -4640,13 +4640,13 @@ async def send_oplevering_email(
         return {"success": False, "error": str(e), "recipients": recipients}
 
 @api_router.post("/werkbonnen/{werkbon_id}/verzenden")
-async def verzend_werkbon(werkbon_id: str, klant_email: Optional[str] = Query(None)):
-    """Generate signed werkbon PDF and email it. By default only to company. Provide klant_email to also send to client."""
+async def verzend_werkbon(werkbon_id: str, klant_email: Optional[str] = Query(None), force: bool = Query(False)):
+    """Generate signed werkbon PDF and email it. By default only to company. Provide klant_email to also send to client. Use force=true to bypass status check."""
     werkbon = await db.werkbonnen.find_one({"id": werkbon_id}, {"_id": 0})
     if not werkbon:
         raise HTTPException(status_code=404, detail="Werkbon niet gevonden")
-    
-    if werkbon.get("status") != "ondertekend":
+
+    if werkbon.get("status") != "ondertekend" and not force:
         raise HTTPException(status_code=400, detail="Werkbon moet eerst ondertekend worden")
     
     # Get klant for hourly rate
@@ -5808,7 +5808,29 @@ async def create_bericht(data: BerichtCreate, current_user: Dict = Depends(get_c
             bericht_dict["naar_naam"] = user["naam"]
     
     await db.berichten.insert_one(bericht_dict)
-    
+
+    # Auto-save bijlagen to werknemer_documenten when sent to a specific worker
+    if data.naar_id and processed_bijlagen:
+        try:
+            for att in processed_bijlagen:
+                if att.get("file_id"):
+                    doc = {
+                        "id": str(uuid.uuid4()),
+                        "werknemer_id": data.naar_id,
+                        "naam": att.get("naam", "bijlage"),
+                        "beschrijving": f"Bijlage van bericht: {data.onderwerp or ''}",
+                        "file_id": att["file_id"],
+                        "bestandsnaam": att.get("naam", "bijlage"),
+                        "type": att.get("type", "application/octet-stream"),
+                        "grootte": 0,
+                        "uploaded_by_id": van_id,
+                        "uploaded_by_naam": van_naam,
+                        "created_at": datetime.utcnow(),
+                    }
+                    await db.werknemer_documenten.insert_one(doc)
+        except Exception as e:
+            logging.error(f"Failed to auto-save bericht attachment to documenten: {e}")
+
     # Send push notification to recipients
     try:
         notification_recipients = []

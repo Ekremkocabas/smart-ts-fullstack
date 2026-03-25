@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   RefreshControl,
   Modal,
-  Image,
   Alert,
   Linking,
 } from 'react-native';
@@ -31,163 +30,41 @@ interface Bericht {
   bijlagen?: { naam: string; type: string; data?: string; file_id?: string }[];
 }
 
-interface Document {
-  id: string;
-  filename: string;
-  url: string;
-  type: string;
-  uploaded_at: string;
-  uploaded_by: string;
-  beschrijving?: string;
-  isPersonalDoc?: boolean;
-}
 
 export default function BerichtenTab() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'berichten' | 'documenten'>('berichten');
   const [berichten, setBerichten] = useState<Bericht[]>([]);
-  const [documenten, setDocumenten] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedBericht, setSelectedBericht] = useState<Bericht | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  // ============ DEBUG LOGGING ============
-  const DEBUG = true;
-  const log = (area: string, message: string, data?: any) => {
-    if (DEBUG) {
-      const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
-      console.log(`[${timestamp}] [BERICHTEN-DEBUG] [${area}] ${message}`, data !== undefined ? JSON.stringify(data).substring(0, 200) : '');
-    }
-  };
 
-  // Track component lifecycle
-  useEffect(() => {
-    log('LIFECYCLE', 'Component MOUNTED');
-    return () => {
-      log('LIFECYCLE', 'Component UNMOUNTED');
-    };
-  }, []);
-
-  // Track tab changes
-  useEffect(() => {
-    log('TAB', `Tab changed to: ${activeTab}`, { berichtenCount: berichten.length, documentenCount: documenten.length });
-  }, [activeTab, berichten.length, documenten.length]);
-  // ============ END DEBUG ============
-
-  // Fetch personal documents from the new API
-  const fetchMijnDocumenten = useCallback(async () => {
-    log('FETCH', 'fetchMijnDocumenten START');
-    if (!user?.id) {
-      log('FETCH', 'fetchMijnDocumenten SKIP - no user');
-      return [];
-    }
+  const fetchBerichten = useCallback(async () => {
+    if (!user?.id) return;
     try {
-      const res = await apiClient.get('/api/mijn-documenten');
-      log('FETCH', 'fetchMijnDocumenten SUCCESS', { count: res.data?.length || 0 });
-      const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
-      const mapped = (res.data || []).map((doc: any) => ({
-        id: doc.id,
-        filename: doc.naam || doc.bestandsnaam,
-        url: `${API_URL}/api/files/${doc.file_id}`,
-        type: doc.type,
-        uploaded_at: doc.created_at,
-        uploaded_by: doc.uploaded_by_naam,
-        beschrijving: doc.beschrijving,
-        isPersonalDoc: true,
-      }));
-      log('FETCH', 'fetchMijnDocumenten MAPPED', { count: mapped.length });
-      return mapped;
-    } catch (e: any) {
-      log('FETCH', 'fetchMijnDocumenten ERROR', { error: e?.message || e });
-      console.error('Error fetching personal documents:', e);
-      return [];
+      const [berichtenRes, unreadRes] = await Promise.all([
+        apiClient.get(`/api/berichten?user_id=${user.id}`),
+        apiClient.get(`/api/berichten/ongelezen?user_id=${user.id}`),
+      ]);
+      setBerichten(Array.isArray(berichtenRes.data) ? berichtenRes.data : []);
+      setUnreadCount(unreadRes.data?.count || unreadRes.data?.ongelezen || 0);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
     }
   }, [user?.id]);
 
-  const fetchBerichten = useCallback(async () => {
-    log('FETCH', 'fetchBerichten START', { userId: user?.id });
-    if (!user?.id) {
-      log('FETCH', 'fetchBerichten SKIP - no user');
-      return;
-    }
-    try {
-      log('FETCH', 'fetchBerichten calling API...');
-      const [berichtenRes, unreadRes, personalDocs] = await Promise.all([
-        apiClient.get(`/api/berichten?user_id=${user.id}`),
-        apiClient.get(`/api/berichten/ongelezen?user_id=${user.id}`),
-        fetchMijnDocumenten(),
-      ]);
-      log('FETCH', 'fetchBerichten API SUCCESS', { 
-        berichtenCount: berichtenRes.data?.length || 0, 
-        unread: unreadRes.data,
-        personalDocsCount: personalDocs?.length || 0 
-      });
-      
-      const berichtenData = Array.isArray(berichtenRes.data) ? berichtenRes.data : [];
-      log('FETCH', 'Setting berichten state', { count: berichtenData.length });
-      setBerichten(berichtenData);
-      setUnreadCount(unreadRes.data?.count || unreadRes.data?.ongelezen || 0);
-      
-      // Extract documents from berichten with bijlagen (attachments)
-      const berichtDocs: Document[] = [];
-      (berichtenRes.data || []).forEach((b: Bericht) => {
-        if (b.bijlagen && Array.isArray(b.bijlagen) && b.bijlagen.length > 0) {
-          b.bijlagen.forEach(att => {
-            if (!att) return; // Skip null/undefined attachments
-            
-            // Build URL: if file_id exists, use GridFS endpoint; otherwise use data URL
-            let url = '';
-            if (att.file_id) {
-              const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
-              url = `${API_URL}/api/files/${att.file_id}`;
-            } else if (att.data && typeof att.data === 'string') {
-              const base64Data = att.data.includes(',') ? att.data.split(',')[1] : att.data;
-              url = `data:${att.type || 'application/octet-stream'};base64,${base64Data}`;
-            }
-            
-            berichtDocs.push({
-              id: `${b.id}-${att.naam || 'unknown'}`,
-              filename: att.naam || 'Onbekend bestand',
-              url: url,
-              type: att.type || 'application/octet-stream',
-              uploaded_at: b.created_at || '',
-              uploaded_by: b.van_naam || 'Onbekend',
-            });
-          });
-        }
-      });
-      
-      log('FETCH', 'Setting documenten state', { personalCount: personalDocs?.length || 0, berichtDocsCount: berichtDocs.length });
-      // Combine personal documents + bericht attachments
-      // Personal docs first (they are more important)
-      setDocumenten([...(personalDocs || []), ...berichtDocs]);
-      log('FETCH', 'fetchBerichten COMPLETE');
-    } catch (e: any) { 
-      log('FETCH', 'fetchBerichten ERROR', { error: e?.message || e });
-      console.error(e); 
-    }
-    finally { 
-      log('FETCH', 'fetchBerichten FINALLY - setting loading false');
-      setLoading(false); 
-    }
-  }, [user?.id, fetchMijnDocumenten]);
-
-  useEffect(() => { 
-    log('EFFECT', 'Initial fetch useEffect triggered');
-    fetchBerichten(); 
-  }, [fetchBerichten]);
+  useEffect(() => { fetchBerichten(); }, [fetchBerichten]);
 
   const onRefresh = async () => {
-    log('REFRESH', 'onRefresh START');
     setRefreshing(true);
     await fetchBerichten();
     setRefreshing(false);
-    log('REFRESH', 'onRefresh COMPLETE');
   };
 
   const openBericht = async (bericht: Bericht) => {
-    log('ACTION', 'openBericht', { berichtId: bericht?.id });
     setSelectedBericht(bericht);
     // Mark as read - with defensive check
     const gelezenDoor = bericht.gelezen_door || [];
@@ -199,35 +76,6 @@ export default function BerichtenTab() {
     }
   };
 
-  const openDocument = async (doc: Document) => {
-    try {
-      await Linking.openURL(doc.url);
-    } catch (e) {
-      Alert.alert('Fout', 'Kan document niet openen');
-    }
-  };
-
-  const deleteDocument = async (doc: Document) => {
-    Alert.alert(
-      'Document verwijderen',
-      `Weet je zeker dat je "${doc.filename}" wilt verwijderen?`,
-      [
-        { text: 'Annuleren', style: 'cancel' },
-        {
-          text: 'Verwijderen',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              // Remove from local state for now (backend deletion can be added later)
-              setDocumenten(prev => prev.filter(d => d.id !== doc.id));
-            } catch (e) {
-              Alert.alert('Fout', 'Kan document niet verwijderen');
-            }
-          },
-        },
-      ]
-    );
-  };
 
   const formatDate = (dateStr: string) => {
     if (!dateStr) return '';
@@ -265,15 +113,6 @@ export default function BerichtenTab() {
     });
   }, [berichten]);
 
-  // Log render
-  log('RENDER', 'Component rendering', { 
-    activeTab, 
-    loading, 
-    berichtenCount: berichten?.length || 0, 
-    documentenCount: documenten?.length || 0,
-    sortedCount: sorted?.length || 0
-  });
-
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
@@ -291,75 +130,10 @@ export default function BerichtenTab() {
         )}
       </View>
 
-      {/* Tab Selector */}
-      <View style={styles.tabSelector}>
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'berichten' && styles.tabActive]}
-          onPress={() => {
-            log('TAB-CLICK', 'Switching to BERICHTEN tab');
-            setActiveTab('berichten');
-          }}
-        >
-          <Ionicons name="mail-outline" size={18} color={activeTab === 'berichten' ? '#F5A623' : '#6c757d'} />
-          <Text style={[styles.tabText, activeTab === 'berichten' && styles.tabTextActive]}>Berichten</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'documenten' && styles.tabActive]}
-          onPress={() => {
-            log('TAB-CLICK', 'Switching to DOCUMENTEN tab');
-            setActiveTab('documenten');
-          }}
-        >
-          <Ionicons name="folder-outline" size={18} color={activeTab === 'documenten' ? '#F5A623' : '#6c757d'} />
-          <Text style={[styles.tabText, activeTab === 'documenten' && styles.tabTextActive]}>Mijn Documenten</Text>
-          {documenten && documenten.length > 0 && (
-            <View style={styles.docBadge}>
-              <Text style={styles.docBadgeText}>{documenten.length}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      </View>
-
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#F5A623" />
         </View>
-      ) : activeTab === 'documenten' ? (
-        /* Mijn Documenten Tab */
-        (!documenten || documenten.length === 0) ? (
-          <ScrollView
-            contentContainerStyle={styles.emptyContainer}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#F5A623']} />}
-          >
-            <Ionicons name="folder-open-outline" size={64} color="#E8E9ED" />
-            <Text style={styles.emptyTitle}>Geen documenten</Text>
-            <Text style={styles.emptySubtitle}>Documenten die je ontvangt verschijnen hier</Text>
-          </ScrollView>
-        ) : (
-          <ScrollView
-            style={styles.listContainer}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#F5A623']} />}
-          >
-            {documenten.map(doc => doc ? (
-              <View key={doc.id} style={styles.docCard}>
-                <TouchableOpacity style={styles.docInfo} onPress={() => openDocument(doc)}>
-                  <Ionicons 
-                    name={doc.type?.includes('pdf') ? 'document-text-outline' : 'image-outline'} 
-                    size={32} 
-                    color="#F5A623" 
-                  />
-                  <View style={styles.docDetails}>
-                    <Text style={styles.docName} numberOfLines={1}>{doc.filename || 'Onbekend'}</Text>
-                    <Text style={styles.docMeta}>Van: {doc.uploaded_by || 'Onbekend'} • {formatDate(doc.uploaded_at)}</Text>
-                  </View>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.docDelete} onPress={() => deleteDocument(doc)}>
-                  <Ionicons name="trash-outline" size={20} color="#dc3545" />
-                </TouchableOpacity>
-              </View>
-            ) : null)}
-          </ScrollView>
-        )
       ) : (!berichten || berichten.length === 0) ? (
         <ScrollView
           contentContainerStyle={styles.emptyContainer}

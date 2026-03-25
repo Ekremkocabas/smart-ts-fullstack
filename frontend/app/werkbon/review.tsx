@@ -3,7 +3,7 @@
  * Shows summary of all entered data for final review before signing
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -11,25 +11,28 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { useWerkbonFormStore } from '../../store/werkbonFormStore';
+import { apiClient } from '../../context/AuthContext';
 
 export default function WerkbonReview() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
-  
+  const [saving, setSaving] = useState(false);
+
   const {
     type,
     klantId, klantNaam, manualKlantNaam,
     werfId, werfNaam, manualWerfNaam,
     datum, opmerkingen, gps, photos,
     urenData, opleveringData, projectData, prestatieData,
-    validateStep, validationErrors, nextStep,
+    validateStep, validationErrors, nextStep, clearDraft,
   } = useWerkbonFormStore();
 
   const primary = theme?.primaryColor || '#F5A623';
@@ -108,6 +111,78 @@ export default function WerkbonReview() {
     return urenData.urenRegels.reduce((total, regel) => {
       return total + getRegelTotal(regel);
     }, 0);
+  };
+
+  const buildConceptData = () => {
+    const displayKlant = klantNaam || manualKlantNaam;
+    const displayWerf = werfNaam || manualWerfNaam;
+    const base = {
+      type,
+      klant_id: klantId || null,
+      klant_naam: displayKlant,
+      werf_id: werfId || null,
+      werf_naam: displayWerf,
+      datum,
+      opmerkingen,
+      gps_locatie: gps.address || (gps.lat && gps.lng ? `${gps.lat}, ${gps.lng}` : null),
+      gps_lat: gps.lat,
+      gps_lng: gps.lng,
+      handtekening: null,
+      fotos: photos.map(p => ({ data: p.uri, timestamp: p.timestamp })),
+      timestamp: new Date().toISOString(),
+    };
+    if (type === 'uren') {
+      return {
+        ...base,
+        week_nummer: urenData.weekNummer,
+        jaar: urenData.jaar,
+        uren: urenData.urenRegels.filter(r => r.teamlidNaam.trim()).map(r => ({
+          naam: r.teamlidNaam,
+          maandag: r.maandag || 0, dinsdag: r.dinsdag || 0, woensdag: r.woensdag || 0,
+          donderdag: r.donderdag || 0, vrijdag: r.vrijdag || 0, zaterdag: r.zaterdag || 0, zondag: r.zondag || 0,
+        })),
+        uitgevoerde_werken: urenData.uitgevoerdeWerken || '',
+      };
+    }
+    return base;
+  };
+
+  const handleOpslaan = async () => {
+    setSaving(true);
+    try {
+      await apiClient.post('/api/werkbonnen/unified', buildConceptData());
+      clearDraft();
+      Alert.alert('Opgeslagen', 'Werkbon is opgeslagen als concept.', [
+        { text: 'OK', onPress: () => router.replace('/(tabs)') },
+      ]);
+    } catch (e: any) {
+      Alert.alert('Fout', e?.response?.data?.detail || 'Opslaan mislukt');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleVersturen = async () => {
+    setSaving(true);
+    try {
+      const res = await apiClient.post('/api/werkbonnen/unified', buildConceptData());
+      const werkbonId = res.data?.id;
+      if (werkbonId) {
+        try {
+          await apiClient.post(`/api/werkbonnen/${werkbonId}/verzenden?force=true`);
+        } catch (emailErr) {
+          console.warn('Email verzenden mislukt:', emailErr);
+        }
+      }
+      clearDraft();
+      Alert.alert('Verstuurd', 'Werkbon is opgeslagen en verstuurd naar de administratie.', [
+        { text: 'OK', onPress: () => router.replace('/(tabs)') },
+      ]);
+    } catch (e: any) {
+      Alert.alert('Fout', e?.response?.data?.detail || 'Versturen mislukt');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleProceedToSign = () => {
@@ -413,14 +488,34 @@ export default function WerkbonReview() {
         <TouchableOpacity
           style={styles.backButtonFooter}
           onPress={() => router.back()}
+          disabled={saving}
         >
           <Ionicons name="arrow-back" size={20} color="#6C7A89" />
           <Text style={styles.backButtonFooterText}>Terug</Text>
         </TouchableOpacity>
-        
+
+        <TouchableOpacity
+          style={[styles.opslaanButton, saving && { opacity: 0.6 }]}
+          onPress={handleOpslaan}
+          disabled={saving}
+        >
+          {saving ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="save-outline" size={18} color="#fff" />}
+          <Text style={styles.opslaanButtonText}>Opslaan</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.versturenButton, saving && { opacity: 0.6 }]}
+          onPress={handleVersturen}
+          disabled={saving}
+        >
+          <Ionicons name="send-outline" size={18} color="#fff" />
+          <Text style={styles.versturenButtonText}>Versturen</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={styles.signButton}
           onPress={handleProceedToSign}
+          disabled={saving}
         >
           <Ionicons name="create-outline" size={20} color="#1A1A2E" />
           <Text style={styles.signButtonText}>Ondertekenen</Text>
@@ -608,11 +703,12 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
+    flexWrap: 'nowrap',
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#E8E9ED',
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingTop: 12,
   },
   backButtonFooter: {
@@ -626,15 +722,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F6FA',
   },
   backButtonFooterText: { fontSize: 15, fontWeight: '500', color: '#6C7A89' },
+  opslaanButton: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, paddingVertical: 14, paddingHorizontal: 14, borderRadius: 12,
+    backgroundColor: '#6c757d',
+  },
+  opslaanButtonText: { fontSize: 14, fontWeight: '600', color: '#fff' },
+  versturenButton: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, paddingVertical: 14, paddingHorizontal: 14, borderRadius: 12,
+    backgroundColor: '#3498db',
+  },
+  versturenButtonText: { fontSize: 14, fontWeight: '600', color: '#fff' },
   signButton: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
     paddingVertical: 14,
+    paddingHorizontal: 14,
     borderRadius: 12,
-    backgroundColor: '#FFD966', // Light yellow for better visibility
+    backgroundColor: '#FFD966',
   },
-  signButtonText: { fontSize: 16, fontWeight: '600', color: '#1A1A2E' },
+  signButtonText: { fontSize: 14, fontWeight: '600', color: '#1A1A2E' },
 });
