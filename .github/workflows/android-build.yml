@@ -1,0 +1,140 @@
+name: Android APK Build
+
+'on':
+  push:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+
+concurrency:
+  group: android-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EAS_NO_VCS: 1
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      CI: 1
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Setup Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Select build profile
+        id: profile
+        run: |
+          if [ "$GITHUB_REF_NAME" = "main" ]; then
+            echo "profile=production" >> "$GITHUB_OUTPUT"
+            echo "channel=production" >> "$GITHUB_OUTPUT"
+          else
+            echo "profile=preview" >> "$GITHUB_OUTPUT"
+            echo "channel=preview" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Prepare CI workspace
+        run: |
+          mkdir -p credentials
+          base64 -d credentials/smartts.jks.base64 > credentials/smartts.jks
+          cat > credentials.json <<'EOF'
+          {
+            "android": {
+              "keystore": {
+                "keystorePath": "credentials/smartts.jks",
+                "keystorePassword": "smartts123",
+                "keyAlias": "smartts",
+                "keyPassword": "smartts123"
+              }
+            }
+          }
+          EOF
+
+      - name: Install frontend dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Start EAS Android build
+        run: |
+          set -euo pipefail
+          eas build \
+            --platform android \
+            --profile "${{ steps.profile.outputs.profile }}" \
+            --non-interactive \
+            --json \
+            --wait > build-result.json
+
+      - name: Create build summary
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          def pick(data, *paths):
+              for path in paths:
+                  current = data
+                  ok = True
+                  for key in path:
+                      if isinstance(current, dict) and key in current:
+                          current = current[key]
+                      else:
+                          ok = False
+                          break
+                  if ok and current:
+                      return current
+              return "-"
+
+          result_path = Path('build-result.json')
+          raw = result_path.read_text().strip()
+          payload = json.loads(raw)
+          item = payload[0] if isinstance(payload, list) and payload else payload
+
+          build_id = pick(item, ('id',))
+          status = pick(item, ('status',))
+          platform = pick(item, ('platform',))
+          profile = "${{ steps.profile.outputs.profile }}"
+          dashboard_url = pick(item, ('buildDetailsPageUrl',), ('webpageUrl',), ('project', 'builds', 'pageUrl'))
+          artifact_url = pick(
+              item,
+              ('artifacts', 'buildUrl'),
+              ('artifacts', 'applicationArchiveUrl'),
+              ('artifacts', 'apkUrl'),
+          )
+
+          summary = f"""# Android build tamamlandı
+
+          - Branch: {"${{ github.ref_name }}"}
+          - Profil: {profile}
+          - Platform: {platform}
+          - Durum: {status}
+          - Build ID: {build_id}
+          - EAS build sayfası: {dashboard_url}
+          - APK linki: {artifact_url}
+          """
+
+          Path('.build-summary.md').write_text(summary)
+          print(summary)
+          PY
+          cat .build-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload build metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: eas-android-build-metadata-${{ github.run_number }}
+          path: |
+            frontend/build-result.json
+            frontend/.build-summary.md
