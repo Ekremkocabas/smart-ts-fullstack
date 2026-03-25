@@ -80,8 +80,8 @@ android-sdk/
 # Metro cache (all variants including token-suffixed dirs)
 **/.metro-cache*/
 
-# Backend build output
-backend/dist/
+# Backend build output (tracked for Railway deployment)
+# backend/dist/
 
 # Note: .env files are NOT ignored for Emergent deployment
 # Environment variables will be auto-updated with production values during deploy
