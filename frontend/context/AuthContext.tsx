@@ -2,7 +2,6 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { Platform } from 'react-native';
-import { registerForPushNotifications } from '../utils/notifications';
 
 // Get backend URL dynamically at runtime (not build time)
 const getBackendUrl = (): string => {
@@ -179,13 +178,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(tokenData);
     setPlatformAccess(platform_access);
     setValidRoles(valid_roles || []);
-    
-    // Register for push notifications on mobile
-    if (Platform.OS !== 'web' && userData?.id) {
-      registerForPushNotifications(userData.id).catch(e => {
-        console.log('Push notification registration failed:', e);
-      });
-    }
     
     return response.data;
   };

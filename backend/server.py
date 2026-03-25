@@ -3739,18 +3739,24 @@ async def save_push_token(user_id: str, data: dict):
     push_token = data.get("push_token")
     if not push_token:
         raise HTTPException(status_code=400, detail="Push token is vereist")
-    
-    # Debug logging
+
     logging.info(f"[PUSH] Saving push token for user {user_id}: {push_token[:30]}...")
-    
+
     result = await db.users.update_one({"id": user_id}, {"$set": {"push_token": push_token}})
-    
+
     logging.info(f"[PUSH] Update result: matched={result.matched_count}, modified={result.modified_count}")
-    
+
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail=f"Gebruiker met id {user_id} niet gevonden")
-    
+
     return {"message": "Push token opgeslagen", "matched": result.matched_count, "modified": result.modified_count}
+
+@api_router.delete("/auth/users/{user_id}/push-token")
+async def remove_push_token(user_id: str, current_user: Dict = Depends(get_current_user)):
+    """Remove push notification token for a user (called on logout)"""
+    await db.users.update_one({"id": user_id}, {"$set": {"push_token": None}})
+    logging.info(f"[PUSH] Push token cleared for user {user_id}")
+    return {"message": "Push token verwijderd"}
 
 async def send_push_notifications(user_ids: list, title: str, body: str, data: dict = None):
     """Send push notifications to users via Expo Push Service"""
@@ -3760,21 +3766,67 @@ async def send_push_notifications(user_ids: list, title: str, body: str, data: d
         async for user in db.users.find({"id": {"$in": user_ids}, "push_token": {"$ne": None}}, {"push_token": 1}):
             if user.get("push_token"):
                 tokens.append(user["push_token"])
-        
+
         if not tokens:
+            logging.warning(f"[PUSH] No push tokens found for user_ids: {user_ids}")
             return {"sent": 0, "message": "No push tokens found"}
-        
-        messages = [{"to": t, "sound": "default", "title": title, "body": body, "data": data or {}} for t in tokens]
-        
-        async with httpx.AsyncClient() as client:
-            await client.post(
+
+        logging.info(f"[PUSH] Sending '{title}' to {len(tokens)} device(s)")
+
+        messages = [
+            {
+                "to": t,
+                "sound": "default",
+                "title": title,
+                "body": body,
+                "data": data or {},
+                "channelId": (data or {}).get("type", "default"),
+            }
+            for t in tokens
+        ]
+
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.post(
                 "https://exp.host/--/api/v2/push/send",
                 json=messages,
-                headers={"Content-Type": "application/json"}
+                headers={
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                    "Accept-Encoding": "gzip, deflate",
+                },
             )
+
+        logging.info(f"[PUSH] Expo response status: {response.status_code}")
+
+        try:
+            result_data = response.json()
+            tickets = result_data.get("data", [])
+            error_count = 0
+            for i, ticket in enumerate(tickets):
+                if ticket.get("status") == "error":
+                    error_count += 1
+                    err_detail = ticket.get("details", {}).get("error", "unknown")
+                    logging.error(
+                        f"[PUSH] ERROR ticket[{i}] token={tokens[i][:30]}...: "
+                        f"{ticket.get('message')} (error={err_detail})"
+                    )
+                    # Auto-clear invalid/unregistered tokens so we don't waste calls
+                    if err_detail in ("DeviceNotRegistered", "InvalidCredentials"):
+                        await db.users.update_one(
+                            {"push_token": tokens[i]},
+                            {"$set": {"push_token": None}}
+                        )
+                        logging.warning(f"[PUSH] Cleared invalid push token from DB (err={err_detail})")
+                else:
+                    logging.info(f"[PUSH] OK ticket[{i}]: {ticket.get('id')}")
+            if error_count:
+                logging.error(f"[PUSH] {error_count}/{len(tickets)} tickets had errors")
+        except Exception as parse_err:
+            logging.warning(f"[PUSH] Could not parse Expo response body: {parse_err}")
+
         return {"sent": len(tokens), "message": "Push notifications sent"}
     except Exception as e:
-        logging.error(f"Push notification error: {e}")
+        logging.error(f"[PUSH] Error sending push notifications: {e}")
         return {"sent": 0, "error": str(e)}
 
 # Push notification API endpoint
@@ -4039,6 +4091,12 @@ async def get_werkbonnen_by_user(user_id: str):
     werkbonnen = await cursor.to_list(500)
     return [Werkbon(**wb) for wb in werkbonnen]
 
+@api_router.get("/werkbonnen/count")
+async def count_werkbonnen(current_user: Dict = Depends(get_current_user)):
+    """Lightweight endpoint — returns total werkbon count for change detection"""
+    total = await db.werkbonnen.count_documents({})
+    return {"total": total}
+
 @api_router.get("/werkbonnen/{werkbon_id}", response_model=Werkbon)
 async def get_werkbon(werkbon_id: str, response: Response):
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
@@ -4281,6 +4339,26 @@ async def create_werkbon(werkbon_data: WerkbonCreate, current_user: Dict = Depen
     
     werkbon = Werkbon(**werkbon_dict)
     await db.werkbonnen.insert_one(werkbon.dict())
+
+    # Push notification to admins about new werkbon
+    try:
+        admin_ids = []
+        async for admin in db.users.find(
+            {"rol": {"$in": ["admin", "master_admin"]}, "actief": True},
+            {"id": 1}
+        ):
+            if admin.get("id") != user_id:  # Don't notify the submitter
+                admin_ids.append(admin["id"])
+        if admin_ids:
+            await send_push_notifications(
+                admin_ids,
+                "Nieuwe werkbon",
+                f"{user_naam} heeft een werkbon ingediend ({klant['naam']} - {werf['naam']})",
+                {"type": "werkbon", "werkbon_id": werkbon.id},
+            )
+    except Exception as e:
+        logging.error(f"[PUSH] Werkbon admin notification failed: {e}")
+
     return werkbon
 
 @api_router.put("/werkbonnen/{werkbon_id}", response_model=Werkbon)

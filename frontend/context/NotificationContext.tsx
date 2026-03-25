@@ -3,8 +3,8 @@
  * Provides push notification functionality throughout the app
  */
 
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { Platform, Alert } from 'react-native';
+import React, { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
+import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import { useAuth } from './AuthContext';
@@ -35,12 +35,24 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
   const [notification, setNotification] = useState<Notifications.Notification | null>(null);
   const [badgeCount, setBadgeCountState] = useState(0);
+  const prevUserId = useRef<string | null>(null);
 
-  // Register for push notifications when user logs in
+  // Register for push notifications when user logs in; clean up on logout
   useEffect(() => {
-    if (user?.id && Platform.OS !== 'web') {
+    if (Platform.OS === 'web') return;
+
+    const currentId = user?.id ?? null;
+
+    if (currentId && currentId !== prevUserId.current) {
+      // User just logged in
       initializePushNotifications();
+    } else if (!currentId && prevUserId.current) {
+      // User just logged out — remove token
+      removePushToken(prevUserId.current).catch(() => {});
+      setExpoPushToken(null);
     }
+
+    prevUserId.current = currentId;
   }, [user?.id]);
 
   // Setup notification listeners
@@ -87,6 +99,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       router.push('/(tabs)/planning');
     } else if (data?.type === 'bericht') {
       router.push('/(tabs)/berichten');
+    } else if (data?.type === 'werkbon') {
+      router.push('/(tabs)/beheer');
     }
   };
 

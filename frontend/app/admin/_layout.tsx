@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Stack, usePathname, router } from 'expo-router';
 import { Platform, View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const menuItems = [
   { icon: 'grid-outline', label: 'Dashboard', route: '/admin/dashboard' },
@@ -146,6 +147,62 @@ function CompactTopNav() {
   );
 }
 
+/** Request browser notification permission and set up polling for new werkbonnen */
+function useWebPushNotifications(user: any, isLoginPage: boolean) {
+  const lastCountRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || isLoginPage || !user) return;
+    if (typeof Notification === 'undefined') return;
+
+    // Request permission once
+    if (Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+
+    const poll = async () => {
+      if (Notification.permission !== 'granted') return;
+      try {
+        const token = await AsyncStorage.getItem('token');
+        if (!token) return;
+
+        const baseUrl = window.location.origin;
+        const res = await fetch(`${baseUrl}/api/werkbonnen/count`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+
+        const data = await res.json();
+        const total: number = typeof data?.total === 'number' ? data.total : 0;
+
+        if (lastCountRef.current === null) {
+          // First poll — just store baseline
+          lastCountRef.current = total;
+          return;
+        }
+
+        if (total > lastCountRef.current) {
+          const diff = total - lastCountRef.current;
+          lastCountRef.current = total;
+          new Notification('Nieuwe werkbon', {
+            body: `${diff} nieuwe werkbon${diff > 1 ? 'nen' : ''} ingediend`,
+            icon: '/favicon.png',
+            tag: 'werkbon-new',
+          });
+        } else {
+          lastCountRef.current = total;
+        }
+      } catch {
+        // Silently ignore network errors
+      }
+    };
+
+    poll();
+    const interval = setInterval(poll, 30_000);
+    return () => clearInterval(interval);
+  }, [user?.id, isLoginPage]);
+}
+
 export default function AdminLayout() {
   const pathname = usePathname();
   const { user, isLoading } = useAuth();
@@ -158,6 +215,9 @@ export default function AdminLayout() {
   // Don't show sidebar on login page
   const isLoginPage = pathname === '/admin/login';
   const isCompactWeb = width < 1024;
+
+  // Browser push notifications for new werkbonnen
+  useWebPushNotifications(user, isLoginPage);
 
   // Auth check - redirect to login if not authenticated (except on login page)
   useEffect(() => {
