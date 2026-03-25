@@ -421,9 +421,8 @@ export default function WerkbonSign() {
         // Always send to ts@smart-techbv.be; optionally also to client if toggle is on
         if (response.data.id) {
           try {
-            const verzendUrl = sendToCustomer
-              ? `${API_URL}${endpoint}/${response.data.id}/verzenden?force=true`
-              : `${API_URL}${endpoint}/${response.data.id}/verzenden?force=true`;
+            const verzendBase = getVerzendBaseForType(type || 'uren');
+            const verzendUrl = `${API_URL}${verzendBase}/${response.data.id}/verzenden?force=true`;
             await axios.post(verzendUrl, {}, {
               headers: { 'Authorization': `Bearer ${token}` },
             });
@@ -574,6 +573,16 @@ export default function WerkbonSign() {
   const getEndpointForType = (werkbonType: string) => {
     // Use unified endpoint for all types (new mobile app)
     return '/api/werkbonnen/unified';
+  };
+
+  // Returns the correct verzenden base path per type (matches backend route definitions)
+  const getVerzendBaseForType = (werkbonType: string) => {
+    switch (werkbonType) {
+      case 'oplevering': return '/api/oplevering-werkbonnen';
+      case 'project':    return '/api/project-werkbonnen';
+      case 'prestatie':  return '/api/productie-werkbonnen';
+      default:           return '/api/werkbonnen'; // uren + fallback
+    }
   };
 
   const getTypeTitle = () => {
