@@ -23,6 +23,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useAppStore } from '../../store/appStore';
@@ -176,19 +177,32 @@ export default function WerkbonForm() {
     }
   };
 
+  // Compress image to max 1024px wide at 45% quality — keeps payload under ~300 KB per photo
+  const compressImage = async (uri: string): Promise<string> => {
+    try {
+      const result = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: 1024 } }],
+        { compress: 0.45, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+      );
+      return result.base64 ? `data:image/jpeg;base64,${result.base64}` : result.uri;
+    } catch {
+      return uri; // fallback: use original if compression fails
+    }
+  };
+
   const handlePickPhoto = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        quality: 0.7,
-        base64: true,
+        quality: 1, // capture at full quality, compress below
       });
 
       if (!result.canceled && result.assets[0]) {
-        const asset = result.assets[0];
+        const compressed = await compressImage(result.assets[0].uri);
         addPhoto({
           id: `photo_${Date.now()}`,
-          uri: asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri,
+          uri: compressed,
           timestamp: new Date().toISOString(),
         });
       }
@@ -206,15 +220,14 @@ export default function WerkbonForm() {
       }
 
       const result = await ImagePicker.launchCameraAsync({
-        quality: 0.7,
-        base64: true,
+        quality: 1, // capture at full quality, compress below
       });
 
       if (!result.canceled && result.assets[0]) {
-        const asset = result.assets[0];
+        const compressed = await compressImage(result.assets[0].uri);
         addPhoto({
           id: `photo_${Date.now()}`,
-          uri: asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri,
+          uri: compressed,
           timestamp: new Date().toISOString(),
         });
       }

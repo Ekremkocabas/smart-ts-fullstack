@@ -33,6 +33,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import * as Location from 'expo-location';
 import axios from 'axios';
 
@@ -337,23 +338,23 @@ export default function WerkbonSign() {
 
       const result = await ImagePicker.launchCameraAsync({
         cameraType: ImagePicker.CameraType.front,
-        quality: 0.5,  // Reduced from 0.7 for smaller file size
-        base64: true,
+        quality: 1, // capture full quality, resize with ImageManipulator below
         allowsEditing: false,
-        // Limit resolution to reduce file size significantly
-        exif: false,  // Don't include EXIF data
+        exif: false,
       });
 
       if (!result.canceled && result.assets[0]) {
-        const asset = result.assets[0];
-        const selfieData = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
-        
-        // Log size for debugging
-        if (asset.base64) {
-          const sizeKB = Math.round(asset.base64.length / 1024);
-          console.log(`Selfie captured: ${sizeKB} KB`);
-        }
-        
+        // Resize selfie to max 800px wide at 40% quality → ~100-200 KB
+        const compressed = await ImageManipulator.manipulateAsync(
+          result.assets[0].uri,
+          [{ resize: { width: 800 } }],
+          { compress: 0.4, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+        );
+        const selfieData = compressed.base64
+          ? `data:image/jpeg;base64,${compressed.base64}`
+          : compressed.uri;
+
+        console.log(`[Selfie] Compressed to ${Math.round((compressed.base64?.length ?? 0) / 1024)} KB`);
         setSelfie(selfieData);
       }
     } catch (error) {
@@ -425,6 +426,7 @@ export default function WerkbonSign() {
             const verzendUrl = `${API_URL}${verzendBase}/${response.data.id}/verzenden?force=true`;
             await axios.post(verzendUrl, {}, {
               headers: { 'Authorization': `Bearer ${token}` },
+              timeout: 90000, // 90s — PDF generation + email can be slow
             });
             emailSent = true;
           } catch (emailErr: any) {
