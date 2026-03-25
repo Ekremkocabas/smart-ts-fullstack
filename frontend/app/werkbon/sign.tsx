@@ -418,10 +418,13 @@ export default function WerkbonSign() {
         let emailSent = false;
         let emailError = '';
         
-        // Send email if enabled
-        if (sendToCustomer && response.data.id) {
+        // Always send to ts@smart-techbv.be; optionally also to client if toggle is on
+        if (response.data.id) {
           try {
-            await axios.post(`${API_URL}${endpoint}/${response.data.id}/verzenden`, {}, {
+            const verzendUrl = sendToCustomer
+              ? `${API_URL}${endpoint}/${response.data.id}/verzenden?force=true`
+              : `${API_URL}${endpoint}/${response.data.id}/verzenden?force=true`;
+            await axios.post(verzendUrl, {}, {
               headers: { 'Authorization': `Bearer ${token}` },
             });
             emailSent = true;
@@ -434,14 +437,10 @@ export default function WerkbonSign() {
 
         // Show appropriate success message
         let successMessage = '';
-        if (sendToCustomer) {
-          if (emailSent) {
-            successMessage = 'Werkbon is succesvol opgeslagen en verstuurd naar de klant!';
-          } else {
-            successMessage = `Werkbon is opgeslagen maar email kon niet worden verstuurd. ${emailError}`;
-          }
+        if (emailSent) {
+          successMessage = 'Werkbon is succesvol opgeslagen en verstuurd naar de administratie!';
         } else {
-          successMessage = 'Werkbon is succesvol opgeslagen!';
+          successMessage = `Werkbon is opgeslagen maar email kon niet worden verstuurd. ${emailError}`;
         }
 
         Alert.alert(
@@ -799,7 +798,7 @@ export default function WerkbonSign() {
           ) : (
             <>
               <Ionicons name="checkmark-done" size={20} color="#1A1A2E" />
-              <Text style={styles.submitButtonText}>Tekenen en Versturen</Text>
+              <Text style={styles.submitButtonText}>Opslaan & Versturen</Text>
             </>
           )}
         </TouchableOpacity>

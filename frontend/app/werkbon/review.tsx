@@ -3,7 +3,7 @@
  * Shows summary of all entered data for final review before signing
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -11,20 +11,17 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { useWerkbonFormStore } from '../../store/werkbonFormStore';
-import { apiClient } from '../../context/AuthContext';
 
 export default function WerkbonReview() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
-  const [saving, setSaving] = useState(false);
 
   const {
     type,
@@ -145,44 +142,6 @@ export default function WerkbonReview() {
       };
     }
     return base;
-  };
-
-  const handleOpslaan = async () => {
-    setSaving(true);
-    try {
-      await apiClient.post('/api/werkbonnen/unified', buildConceptData());
-      clearDraft();
-      Alert.alert('Opgeslagen', 'Werkbon is opgeslagen als concept.', [
-        { text: 'OK', onPress: () => router.replace('/(tabs)') },
-      ]);
-    } catch (e: any) {
-      Alert.alert('Fout', e?.response?.data?.detail || 'Opslaan mislukt');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleVersturen = async () => {
-    setSaving(true);
-    try {
-      const res = await apiClient.post('/api/werkbonnen/unified', buildConceptData());
-      const werkbonId = res.data?.id;
-      if (werkbonId) {
-        try {
-          await apiClient.post(`/api/werkbonnen/${werkbonId}/verzenden?force=true`);
-        } catch (emailErr) {
-          console.warn('Email verzenden mislukt:', emailErr);
-        }
-      }
-      clearDraft();
-      Alert.alert('Verstuurd', 'Werkbon is opgeslagen en verstuurd naar de administratie.', [
-        { text: 'OK', onPress: () => router.replace('/(tabs)') },
-      ]);
-    } catch (e: any) {
-      Alert.alert('Fout', e?.response?.data?.detail || 'Versturen mislukt');
-    } finally {
-      setSaving(false);
-    }
   };
 
   const handleProceedToSign = () => {
@@ -488,34 +447,14 @@ export default function WerkbonReview() {
         <TouchableOpacity
           style={styles.backButtonFooter}
           onPress={() => router.back()}
-          disabled={saving}
         >
           <Ionicons name="arrow-back" size={20} color="#6C7A89" />
           <Text style={styles.backButtonFooterText}>Terug</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.opslaanButton, saving && { opacity: 0.6 }]}
-          onPress={handleOpslaan}
-          disabled={saving}
-        >
-          {saving ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="save-outline" size={18} color="#fff" />}
-          <Text style={styles.opslaanButtonText}>Opslaan</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.versturenButton, saving && { opacity: 0.6 }]}
-          onPress={handleVersturen}
-          disabled={saving}
-        >
-          <Ionicons name="send-outline" size={18} color="#fff" />
-          <Text style={styles.versturenButtonText}>Versturen</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
           style={styles.signButton}
           onPress={handleProceedToSign}
-          disabled={saving}
         >
           <Ionicons name="create-outline" size={20} color="#1A1A2E" />
           <Text style={styles.signButtonText}>Ondertekenen</Text>
@@ -722,18 +661,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F6FA',
   },
   backButtonFooterText: { fontSize: 15, fontWeight: '500', color: '#6C7A89' },
-  opslaanButton: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 6, paddingVertical: 14, paddingHorizontal: 14, borderRadius: 12,
-    backgroundColor: '#6c757d',
-  },
-  opslaanButtonText: { fontSize: 14, fontWeight: '600', color: '#fff' },
-  versturenButton: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 6, paddingVertical: 14, paddingHorizontal: 14, borderRadius: 12,
-    backgroundColor: '#3498db',
-  },
-  versturenButtonText: { fontSize: 14, fontWeight: '600', color: '#fff' },
   signButton: {
     flexDirection: 'row',
     alignItems: 'center',
