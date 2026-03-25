@@ -5,13 +5,9 @@
   },
   "build": {
     "preview": {
-      "channel": "preview",
-      "cache": {
-        "disabled": true
-      },
       "android": {
         "buildType": "apk",
-        "credentialsSource": "local"
+        "credentialsSource": "remote"
       },
       "env": {
         "EXPO_PUBLIC_BACKEND_URL": "https://web-production-7bce.up.railway.app"
@@ -22,7 +18,7 @@
       "channel": "production",
       "android": {
         "buildType": "apk",
-        "credentialsSource": "local"
+        "credentialsSource": "remote"
       },
       "env": {
         "EXPO_PUBLIC_BACKEND_URL": "https://web-production-7bce.up.railway.app"
