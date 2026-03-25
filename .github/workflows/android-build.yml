@@ -4,36 +4,35 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-android:
     runs-on: ubuntu-latest
-
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EAS_NO_VCS: "1"
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 22
 
-      - name: Install dependencies
-        run: |
-          npm install -g expo-cli
-          npm install
+      - name: Setup Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: Install EAS
-        run: npm install -g eas-cli
-
-      - name: Login Expo
-        run: eas login --non-interactive
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      - name: Install frontend dependencies
+        run: npm ci
 
       - name: Build APK
-        run: eas build --platform android --profile preview --non-interactive
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: apk
-          path: .
+        run: |
+          eas build \
+            --platform android \
+            --profile preview \
+            --non-interactive
