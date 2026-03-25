@@ -234,9 +234,11 @@ export default function WerkbonnenAdmin() {
     }
   };
 
+  const parseUren = (v: any) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
+
   const calcTotalUren = (wb: Werkbon) => {
     return wb.uren?.reduce((acc, u) => {
-      return acc + (u.maandag || 0) + (u.dinsdag || 0) + (u.woensdag || 0) + (u.donderdag || 0) + (u.vrijdag || 0) + (u.zaterdag || 0) + (u.zondag || 0);
+      return acc + parseUren(u.maandag) + parseUren(u.dinsdag) + parseUren(u.woensdag) + parseUren(u.donderdag) + parseUren(u.vrijdag) + parseUren(u.zaterdag) + parseUren(u.zondag);
     }, 0) || 0;
   };
 
@@ -314,8 +316,8 @@ export default function WerkbonnenAdmin() {
       const headers = ['Week', 'Jaar', 'Klant', 'Werf', 'Werknemer', 'Team', 'Status', 'Totaal Uren'];
       const rows = data.map(wb => {
         const totaalUren = wb.uren?.reduce((sum: number, u: any) => {
-          return sum + (u.maandag || 0) + (u.dinsdag || 0) + (u.woensdag || 0) +
-            (u.donderdag || 0) + (u.vrijdag || 0) + (u.zaterdag || 0) + (u.zondag || 0);
+          return sum + parseUren(u.maandag) + parseUren(u.dinsdag) + parseUren(u.woensdag) +
+            parseUren(u.donderdag) + parseUren(u.vrijdag) + parseUren(u.zaterdag) + parseUren(u.zondag);
         }, 0) || 0;
         return [wb.week_nummer, wb.jaar, wb.klant_naam, wb.werf_naam, wb.created_by_naam || '', wb.team_naam || '', wb.status, totaalUren]
           .map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
@@ -341,7 +343,7 @@ export default function WerkbonnenAdmin() {
       <p class="meta">${data.length} werkbonnen | Gegenereerd: ${new Date().toLocaleDateString('nl-BE')}</p>
       <table><tr><th>Week</th><th>Jaar</th><th>Klant</th><th>Werf</th><th>Werknemer</th><th>Team</th><th>Status</th><th>Uren</th></tr>`;
       data.forEach(wb => {
-        const totaalUren = wb.uren?.reduce((sum: number, u: any) => sum + (u.maandag||0) + (u.dinsdag||0) + (u.woensdag||0) + (u.donderdag||0) + (u.vrijdag||0) + (u.zaterdag||0) + (u.zondag||0), 0) || 0;
+        const totaalUren = wb.uren?.reduce((sum: number, u: any) => sum + parseUren(u.maandag) + parseUren(u.dinsdag) + parseUren(u.woensdag) + parseUren(u.donderdag) + parseUren(u.vrijdag) + parseUren(u.zaterdag) + parseUren(u.zondag), 0) || 0;
         html += `<tr><td>W${wb.week_nummer}</td><td>${wb.jaar}</td><td><strong>${wb.klant_naam}</strong></td><td>${wb.werf_naam}</td><td>${wb.created_by_naam||'-'}</td><td>${wb.team_naam||'-'}</td><td>${wb.status}</td><td>${totaalUren}</td></tr>`;
       });
       html += `</table><div class="footer">Smart-Tech BV - ${new Date().toLocaleString('nl-BE')}</div></body></html>`;
