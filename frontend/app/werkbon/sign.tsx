@@ -211,6 +211,7 @@ export default function WerkbonSign() {
     werfId, werfNaam, manualWerfNaam,
     datum, opmerkingen, gps, photos,
     urenData, opleveringData, projectData, prestatieData,
+    kmAfstand,
     signerName, signature, selfie, sendToCustomer, confirmationChecked,
     setSignerName, setSignature, setSelfie, setSendToCustomer, setConfirmationChecked,
     setGPS,
@@ -487,6 +488,8 @@ export default function WerkbonSign() {
       })),
       verstuur_naar_klant: sendToCustomer,
       timestamp: new Date().toISOString(),
+      // KM afstand heen & terug — shared for all types
+      km_afstand: kmAfstand,
     };
 
     // Add type-specific data
@@ -507,14 +510,10 @@ export default function WerkbonSign() {
             zaterdag: r.zaterdag || 0,
             zondag: r.zondag || 0,
           })),
-          km_afstand: urenData.kmAfstand ? {
-            afstand: urenData.kmAfstand,
-            beschrijving: '',
-          } : null,
           uitgevoerde_werken: urenData.uitgevoerdeWerken || '',
           extra_materialen: urenData.extraMaterialen || '',
         };
-        
+
       case 'oplevering':
         return {
           ...baseData,

@@ -18,6 +18,10 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
+# Firebase credentials (DO NOT COMMIT)
+google-services.json
+GoogleService-Info.plist
+
 # Metro
 .metro-health-check*
 .metro-cache/

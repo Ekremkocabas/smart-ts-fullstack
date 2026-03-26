@@ -1181,6 +1181,9 @@ class OpleveringWerkbon(BaseModel):
     email_error: Optional[str] = None
     pdf_bestandsnaam: Optional[str] = None
     
+    # KM afstand heen & terug (per dag)
+    km_afstand: Optional[dict] = None  # {maandag: x, dinsdag: x, ...}
+
     # Meta
     ingevuld_door_id: str
     ingevuld_door_naam: str
@@ -1281,6 +1284,9 @@ class ProjectWerkbon(BaseModel):
     handtekening_monteur_naam: str = ""
     handtekening_datum: Optional[datetime] = None
     
+    # KM afstand heen & terug (per dag)
+    km_afstand: Optional[dict] = None  # {maandag: x, dinsdag: x, ...}
+
     # Meta
     ingevuld_door_id: str
     ingevuld_door_naam: str
@@ -1374,6 +1380,7 @@ class ProductieWerkbon(BaseModel):
     selfie_foto: Optional[str] = None
     verstuur_naar_klant: bool = False
     klant_email_override: Optional[str] = None
+    km_afstand: Optional[dict] = None  # {maandag: x, dinsdag: x, ...}
     ingevuld_door_id: str
     ingevuld_door_naam: str
     status: str = "concept"
@@ -2071,6 +2078,66 @@ def make_safe_reportlab_image(image_bytes: Optional[bytes], width: float, height
         return None
 
 
+_DAGEN_KM = ["maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag"]
+_DAGEN_KM_KORT = ["Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo"]
+
+def build_km_pdf_block(werkbon: dict, styles: Any) -> list:
+    """Return a list of story elements for the KM section, or empty list if no KM."""
+    km = werkbon.get("km_afstand") or {}
+    km_total = sum(float(km.get(d, 0) or 0) for d in _DAGEN_KM)
+    if km_total <= 0:
+        return []
+    from reportlab.platypus import Spacer as _Spacer
+    from reportlab.platypus import Table as _Table, TableStyle as _TStyle
+    from reportlab.lib import colors as _colors
+    header = _DAGEN_KM_KORT + ["Totaal"]
+    row = [str(int(km.get(d, 0)) if km.get(d, 0) == int(km.get(d, 0) or 0) else km.get(d, 0)) for d in _DAGEN_KM] + [str(int(km_total) if km_total == int(km_total) else km_total)]
+    t = _Table([header, row], colWidths=[22 * mm] * 8)
+    t.setStyle(_TStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), _colors.HexColor("#1a1a2e")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), _colors.white),
+        ("BACKGROUND", (-1, 1), (-1, 1), _colors.HexColor("#F5A623")),
+        ("BOX", (0, 0), (-1, -1), 0.8, _colors.HexColor("#cccccc")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.5, _colors.HexColor("#d9d9d9")),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+    ]))
+    return [_Spacer(1, 6), Paragraph("KM-afstand heen & terug", styles["SectionTitle"] if "SectionTitle" in styles else styles["Heading2"]), t]
+
+
+def compress_image_bytes_for_pdf(image_bytes: Optional[bytes], max_px: int = 800, quality: int = 40) -> Optional[bytes]:
+    """Compress image bytes to max_px and quality% before PDF processing to reduce memory usage."""
+    if not image_bytes:
+        return image_bytes
+    try:
+        import gc
+        src = io.BytesIO(image_bytes)
+        with PILImage.open(src) as img:
+            img.thumbnail((max_px, max_px), PILImage.Resampling.BILINEAR)
+            if img.mode in ('RGBA', 'LA', 'P'):
+                if img.mode == 'P':
+                    img = img.convert('RGBA')
+                bg = PILImage.new('RGB', img.size, (255, 255, 255))
+                if img.mode == 'RGBA':
+                    bg.paste(img, mask=img.split()[3])
+                else:
+                    bg.paste(img.convert('L'), mask=img.split()[1])
+                img = bg
+            elif img.mode != 'RGB':
+                img = img.convert('RGB')
+            out = io.BytesIO()
+            img.save(out, format="JPEG", quality=quality, optimize=True)
+        src.close()
+        gc.collect()
+        out.seek(0)
+        return out.getvalue()
+    except Exception as exc:
+        logging.warning("compress_image_bytes_for_pdf failed: %s", exc)
+        return image_bytes
+
+
 def get_hours_or_code(regel: dict, dag: str, afkorting_key: str) -> str:
     afkorting = (regel.get(afkorting_key) or "").strip()
     if afkorting:
@@ -2420,6 +2487,36 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     ]))
     story.append(bottom_table)
 
+    # ── WERKFOTO'S ──
+    fotos = werkbon.get("fotos") or []
+    if fotos:
+        story.append(Spacer(1, 6))
+        story.append(Paragraph("Werkfoto's", styles["SectionTitle"]))
+        foto_images = []
+        for foto in fotos[:6]:
+            foto_data = foto if isinstance(foto, str) else (foto.get("base64") or foto.get("data") or "")
+            raw_bytes = decode_base64_data(foto_data)
+            compressed = compress_image_bytes_for_pdf(raw_bytes, max_px=800, quality=40)
+            img = make_safe_reportlab_image(compressed, 82 * mm, 60 * mm)
+            foto_images.append(img)
+        for row_idx in range(0, len(foto_images), 3):
+            row_imgs = foto_images[row_idx:row_idx + 3]
+            while len(row_imgs) < 3:
+                row_imgs.append(Spacer(82 * mm, 60 * mm))
+            photo_row = Table([row_imgs], colWidths=[88 * mm, 88 * mm, 88 * mm])
+            photo_row.setStyle(TableStyle([
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 2),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+                ("TOPPADDING", (0, 0), (-1, -1), 2),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+                ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#E8E9ED")),
+                ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#E8E9ED")),
+            ]))
+            story.append(photo_row)
+            story.append(Spacer(1, 4))
+
     story.append(Spacer(1, 8))
     # Use custom footer from settings, or fall back to default LEGAL_TEXT
     footer_text = instellingen.get("pdf_voettekst") or LEGAL_TEXT
@@ -2578,6 +2675,10 @@ BTW: {COMPANY_INFO['btw']}<br/>
         ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
     ]))
     story.extend([Paragraph("Klantbeoordeling", styles["OVSection"]), ratings_table, Spacer(1, 8)])
+
+    # KM afstand
+    for el in build_km_pdf_block(werkbon, styles):
+        story.append(el)
 
     fotos = werkbon.get("fotos") or []
     if fotos:
@@ -2856,6 +2957,10 @@ BTW: {COMPANY_INFO['btw']}<br/>
             ]))
             story.append(photo_row_table)
             story.append(Spacer(1, 8))
+
+    # KM afstand
+    for el in build_km_pdf_block(werkbon, styles):
+        story.append(el)
 
     # Signature section - Klanthandtekening with white background
     signer_name = werkbon.get("handtekening_naam") or "-"
@@ -3176,6 +3281,10 @@ def generate_project_werkbon_pdf(werkbon: dict, instellingen: dict) -> tuple[byt
         Paragraph(notes, styles["PJBody"]),
         Spacer(1, 10),
     ])
+
+    # KM afstand
+    for el in build_km_pdf_block(werkbon, styles):
+        story.append(el)
 
     confirmation_text = instellingen.get("project_confirmation_text") or "Hierbij bevestigt de klant dat deze ingevulde project werkbon juist is ingevuld."
     story.append(Paragraph(confirmation_text.replace("\n", "<br/>"), styles["PJBody"]))
@@ -4207,7 +4316,9 @@ async def create_unified_werkbon(data: UnifiedWerkbonCreate, current_user: Dict 
         "opmerkingen": data.opmerkingen or "",
         "handtekening": data.handtekening,
         "handtekening_data": data.handtekening,  # Also save as handtekening_data for PDF generation
+        "handtekening_klant": data.handtekening,  # For oplevering/project verzend compatibility
         "handtekening_naam": data.handtekening_naam or "",
+        "handtekening_klant_naam": data.handtekening_naam or "",  # For oplevering/project verzend compatibility
         "selfie": data.selfie,
         "selfie_data": data.selfie,  # Also save as selfie_data for PDF generation
         "gps_locatie": data.gps_locatie,
@@ -4220,7 +4331,13 @@ async def create_unified_werkbon(data: UnifiedWerkbonCreate, current_user: Dict 
         "created_at": now,
         "updated_at": now,
     }
-    
+
+    # Process km_afstand — store as per-day dict for all types
+    if data.km_afstand and isinstance(data.km_afstand, dict):
+        base_doc["km_afstand"] = data.km_afstand
+    else:
+        base_doc["km_afstand"] = {"maandag": 0, "dinsdag": 0, "woensdag": 0, "donderdag": 0, "vrijdag": 0, "zaterdag": 0, "zondag": 0}
+
     # Process photos
     if data.fotos:
         base_doc["fotos"] = [f.get("data") or f.get("uri") for f in data.fotos if f]
@@ -4251,7 +4368,8 @@ async def create_unified_werkbon(data: UnifiedWerkbonCreate, current_user: Dict 
             "week_nummer": week_nummer,
             "jaar": jaar,
             "uren": processed_uren,
-            "km_afstand": data.km_afstand if isinstance(data.km_afstand, dict) else {"afstand": data.km_afstand, "beschrijving": ""} if data.km_afstand else {"afstand": 0, "beschrijving": ""},
+            # km_afstand already set in base_doc; keep it (don't override)
+
             "uitgevoerde_werken": data.uitgevoerde_werken or "",
             "extra_materialen": data.extra_materialen or "",
             **week_dates,
@@ -4745,7 +4863,8 @@ async def verzend_werkbon(werkbon_id: str, klant_email: Optional[str] = Query(No
         # Force garbage collection before PDF generation to free memory
         gc.collect()
         
-        pdf_bytes, pdf_filename = generate_werkbon_pdf(werkbon, klant or {}, werf, instellingen, total_uren, totaal_bedrag)
+        werkbon_prepared = await prepare_werkbon_for_pdf(werkbon)
+        pdf_bytes, pdf_filename = generate_werkbon_pdf(werkbon_prepared, klant or {}, werf, instellingen, total_uren, totaal_bedrag)
         
         # Force garbage collection after PDF generation
         gc.collect()
@@ -5159,15 +5278,15 @@ async def update_oplevering_werkbon(werkbon_id: str, update_data: OpleveringWerk
 
 
 @api_router.post("/oplevering-werkbonnen/{werkbon_id}/verzenden")
-async def verzend_oplevering_werkbon(werkbon_id: str, klant_email: Optional[str] = Query(None)):
+async def verzend_oplevering_werkbon(werkbon_id: str, klant_email: Optional[str] = Query(None), force: bool = Query(False)):
     werkbon = await db.oplevering_werkbonnen.find_one({"id": werkbon_id}, {"_id": 0})
     if not werkbon:
         raise HTTPException(status_code=404, detail="Oplevering werkbon niet gevonden")
 
-    if not werkbon.get("handtekening_klant") or not werkbon.get("handtekening_klant_naam"):
+    if not force and (not werkbon.get("handtekening_klant") or not werkbon.get("handtekening_klant_naam")):
         raise HTTPException(status_code=400, detail="Oplevering werkbon moet eerst door de klant ondertekend worden")
 
-    if werkbon.get("schade_status") == "schade_aanwezig" and not werkbon.get("fotos"):
+    if not force and werkbon.get("schade_status") == "schade_aanwezig" and not werkbon.get("fotos"):
         raise HTTPException(status_code=400, detail="Bij schade is minimaal 1 foto verplicht")
 
     # Prepare werkbon data - resolve GridFS file IDs to base64 for PDF generation
@@ -5364,11 +5483,11 @@ async def update_project_werkbon(werkbon_id: str, update_data: ProjectWerkbonUpd
 
 
 @api_router.post("/project-werkbonnen/{werkbon_id}/verzenden")
-async def verzend_project_werkbon(werkbon_id: str, klant_email: Optional[str] = Query(None)):
+async def verzend_project_werkbon(werkbon_id: str, klant_email: Optional[str] = Query(None), force: bool = Query(False)):
     werkbon = await db.project_werkbonnen.find_one({"id": werkbon_id}, {"_id": 0})
     if not werkbon:
         raise HTTPException(status_code=404, detail="Project werkbon niet gevonden")
-    if not werkbon.get("handtekening_klant") or not werkbon.get("handtekening_klant_naam"):
+    if not force and (not werkbon.get("handtekening_klant") or not werkbon.get("handtekening_klant_naam")):
         raise HTTPException(status_code=400, detail="Project werkbon moet eerst ondertekend worden")
 
     # Prepare werkbon data - resolve GridFS file IDs to base64 for PDF generation
@@ -6346,15 +6465,24 @@ async def shutdown_db_client():
 async def startup_migrate():
     """
     Phase 1 SaaS Migration:
+
     - Add company_id to all models
     - Normalize roles (ploegbaas -> worker, werknemer -> worker, etc.)
     - Remove wachtwoord_plain from database
     - Add new structured fields to company settings
     - Create indexes for performance
     """
+    # === EMAIL CONFIG CHECK ===
+    _resend_key = os.environ.get('RESEND_API_KEY', '')
+    if _resend_key:
+        logging.info("[EMAIL] RESEND_API_KEY configured (length=%d)", len(_resend_key))
+    else:
+        logging.warning("[EMAIL] RESEND_API_KEY NOT SET - emails will be skipped!")
+    logging.info("[EMAIL] Werkbon recipient: %s | Sender: %s", WERKBON_RECIPIENT_EMAIL, SENDER_EMAIL)
+
     try:
         DEFAULT_COMPANY_ID = "default_company"
-        
+
         # === CREATE INDEXES for performance ===
         # This prevents "Sort exceeded memory limit" errors
         try:
