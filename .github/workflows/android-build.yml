@@ -4,6 +4,7 @@ name: Android APK Build
   push:
     branches:
       - main
+      - test
       - develop
   workflow_dispatch:
 
@@ -48,6 +49,9 @@ jobs:
             echo "channel=preview" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Inject google-services.json
+        run: echo '${{ secrets.GOOGLE_SERVICES_JSON }}' > google-services.json
+
       - name: Prepare CI workspace
         run: |
           mkdir -p credentials
@@ -90,18 +94,18 @@ jobs:
           from pathlib import Path
 
           def pick(data, *paths):
-              for path in paths:
-                  current = data
-                  ok = True
-                  for key in path:
-                      if isinstance(current, dict) and key in current:
-                          current = current[key]
-                      else:
-                          ok = False
-                          break
-                  if ok and current:
-                      return current
-              return "-"
+            for path in paths:
+              current = data
+              ok = True
+              for key in path:
+                if isinstance(current, dict) and key in current:
+                  current = current[key]
+                else:
+                  ok = False
+                  break
+              if ok and current:
+                return current
+            return "-"
 
           result_path = Path('build-result.json')
           raw = result_path.read_text().strip()
@@ -114,20 +118,20 @@ jobs:
           profile = "${{ steps.profile.outputs.profile }}"
           dashboard_url = pick(item, ('buildDetailsPageUrl',), ('webpageUrl',), ('project', 'builds', 'pageUrl'))
           artifact_url = pick(
-              item,
-              ('artifacts', 'buildUrl'),
-              ('artifacts', 'applicationArchiveUrl'),
-              ('artifacts', 'apkUrl'),
+            item,
+            ('artifacts', 'buildUrl'),
+            ('artifacts', 'applicationArchiveUrl'),
+            ('artifacts', 'apkUrl'),
           )
 
-          summary = f"""# Android build tamamlandı
+          summary = f"""# Android build tamamlandi
 
           - Branch: {"${{ github.ref_name }}"}
           - Profil: {profile}
           - Platform: {platform}
           - Durum: {status}
           - Build ID: {build_id}
-          - EAS build sayfası: {dashboard_url}
+          - EAS build sayfasi: {dashboard_url}
           - APK linki: {artifact_url}
           """
 
