@@ -21,7 +21,6 @@
     },
     "android": {
       "package": "be.smarttech.smartts",
-      "googleServicesFile": "./google-services.json",
       "versionCode": 14,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
