@@ -46,6 +46,7 @@ export interface GPSData {
 // Uren specific (weekly timesheet)
 export interface UrenRegel {
   teamlidNaam: string;
+  teamlidId?: string;
   maandag: number;
   dinsdag: number;
   woensdag: number;

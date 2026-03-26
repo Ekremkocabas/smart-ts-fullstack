@@ -3,7 +3,7 @@
  * Displays form fields based on selected werkbon type
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -24,7 +24,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, apiClient } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useAppStore } from '../../store/appStore';
 import { 
@@ -91,8 +91,30 @@ export default function WerkbonForm() {
   const [newOpleverpunt, setNewOpleverpunt] = useState('');
   const [newTaak, setNewTaak] = useState('');
   const [showAfkortingPicker, setShowAfkortingPicker] = useState<{regelIndex: number, dagIndex: number} | null>(null);
-  
+  const [teamlidResults, setTeamlidResults] = useState<{id: string, naam: string, rol: string}[]>([]);
+  const [activeTeamlidIndex, setActiveTeamlidIndex] = useState<number | null>(null);
+  const searchTimeout = useRef<any>(null);
+
   const primary = theme?.primaryColor || '#F5A623';
+
+  const searchTeamleden = (text: string, index: number) => {
+    updateUrenRegel(index, { teamlidNaam: text, teamlidId: undefined });
+    setActiveTeamlidIndex(index);
+    clearTimeout(searchTimeout.current);
+    if (text.length < 2) { setTeamlidResults([]); return; }
+    searchTimeout.current = setTimeout(async () => {
+      try {
+        const res = await apiClient.get(`/api/users/search?q=${encodeURIComponent(text)}`);
+        setTeamlidResults(res.data || []);
+      } catch { setTeamlidResults([]); }
+    }, 300);
+  };
+
+  const selectTeamlid = (index: number, result: {id: string, naam: string, rol: string}) => {
+    updateUrenRegel(index, { teamlidNaam: result.naam, teamlidId: result.id });
+    setTeamlidResults([]);
+    setActiveTeamlidIndex(null);
+  };
 
   // Redirect if no type selected
   useEffect(() => {
@@ -665,15 +687,32 @@ export default function WerkbonForm() {
           return (
             <View key={regelIndex} style={styles.urenRegelCard}>
               <View style={styles.urenRegelHeader}>
-                <TextInput
-                  style={styles.teamlidInput}
-                  value={regel.teamlidNaam}
-                  onChangeText={(text) => updateUrenRegel(regelIndex, { teamlidNaam: text })}
-                  placeholder="Naam teamlid"
-                  placeholderTextColor="#8C9199"
-                />
+                <View style={{ flex: 1, position: 'relative' }}>
+                  <TextInput
+                    style={styles.teamlidInput}
+                    value={regel.teamlidNaam}
+                    onChangeText={(text) => searchTeamleden(text, regelIndex)}
+                    onBlur={() => setTimeout(() => { setTeamlidResults([]); setActiveTeamlidIndex(null); }, 150)}
+                    placeholder="Naam teamlid"
+                    placeholderTextColor="#8C9199"
+                  />
+                  {activeTeamlidIndex === regelIndex && teamlidResults.length > 0 && (
+                    <View style={styles.teamlidDropdown}>
+                      {teamlidResults.map(r => (
+                        <TouchableOpacity
+                          key={r.id}
+                          style={styles.teamlidDropdownItem}
+                          onPress={() => selectTeamlid(regelIndex, r)}
+                        >
+                          <Text style={styles.teamlidDropdownNaam}>{r.naam}</Text>
+                          <Text style={styles.teamlidDropdownRol}>{r.rol}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                </View>
                 {urenData.urenRegels.length > 1 && (
-                  <TouchableOpacity onPress={() => removeUrenRegel(regelIndex)}>
+                  <TouchableOpacity onPress={() => removeUrenRegel(regelIndex)} style={{ paddingLeft: 8 }}>
                     <Ionicons name="trash-outline" size={20} color="#e74c3c" />
                   </TouchableOpacity>
                 )}
@@ -1247,8 +1286,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
+  teamlidDropdown: {
+    position: 'absolute',
+    top: 42,
+    left: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E8E9ED',
+    zIndex: 999,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+  },
+  teamlidDropdownItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  teamlidDropdownNaam: { fontSize: 14, color: '#1A1A2E', fontWeight: '500' },
+  teamlidDropdownRol: { fontSize: 11, color: '#6c757d' },
   teamlidInput: {
-    flex: 1,
     backgroundColor: '#FFFFFF',
     borderRadius: 8,
     padding: 10,

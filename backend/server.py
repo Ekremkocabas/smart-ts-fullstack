@@ -1006,6 +1006,7 @@ class Werkbon(BaseModel):
     
     status: str = "concept"  # concept, ondertekend, verzonden
     email_verzonden: bool = False
+    toegewezen_aan: List[str] = []  # User IDs of assigned team members
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -4148,6 +4149,20 @@ async def delete_werf(werf_id: str, current_user: Dict = Depends(require_roles([
         raise HTTPException(status_code=404, detail="Werf niet gevonden")
     return {"message": "Werf verwijderd"}
 
+# ==================== USER SEARCH ====================
+
+@api_router.get("/users/search")
+async def search_users(q: str = Query(""), current_user: Dict = Depends(get_current_user)):
+    """Search werknemers and onderaannemers by name (min 2 chars). Used for teamlid autocomplete."""
+    if len(q) < 2:
+        return []
+    cursor = db.users.find(
+        {"naam": {"$regex": q, "$options": "i"}, "rol": {"$in": ["werknemer", "onderaannemer"]}, "actief": True},
+        {"_id": 0, "id": 1, "naam": 1, "rol": 1}
+    ).limit(10)
+    users = await cursor.to_list(10)
+    return users
+
 # ==================== WERKBON ROUTES ====================
 
 @api_router.get("/werkbonnen", response_model=List[Werkbon])
@@ -4173,7 +4188,9 @@ async def get_werkbonnen(user_id: str, is_admin: bool = Query(False)):
         raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
 
     # V1: Use has_web_access for admin check instead of hardcoded list
-    query = {} if has_web_access(user.get("rol", "")) else {"ingevuld_door_id": user_id}
+    query = {} if has_web_access(user.get("rol", "")) else {
+        "$or": [{"ingevuld_door_id": user_id}, {"toegewezen_aan": user_id}]
+    }
     projection = {
         "_id": 0,
         "selfie_data": 0,
@@ -4337,6 +4354,11 @@ async def create_unified_werkbon(data: UnifiedWerkbonCreate, current_user: Dict 
         base_doc["km_afstand"] = data.km_afstand
     else:
         base_doc["km_afstand"] = {"maandag": 0, "dinsdag": 0, "woensdag": 0, "donderdag": 0, "vrijdag": 0, "zaterdag": 0, "zondag": 0}
+
+    # Extract toegewezen_aan from uren regels (team member IDs for werkbon sharing)
+    uren_list = data.uren or data.uren_regels or []
+    toegewezen_ids = list({r.get("teamlid_id") for r in uren_list if r.get("teamlid_id")})
+    base_doc["toegewezen_aan"] = toegewezen_ids
 
     # Process photos
     if data.fotos:

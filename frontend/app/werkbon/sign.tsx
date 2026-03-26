@@ -502,6 +502,7 @@ export default function WerkbonSign() {
           // Backend expects 'uren' not 'uren_regels'
           uren: urenData.urenRegels.filter(r => r.teamlidNaam.trim()).map(r => ({
             naam: r.teamlidNaam,
+            teamlid_id: r.teamlidId || null,
             maandag: r.maandag || 0,
             dinsdag: r.dinsdag || 0,
             woensdag: r.woensdag || 0,

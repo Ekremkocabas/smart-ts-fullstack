@@ -61,6 +61,14 @@ const calcTotalUren = (werkbon: Werkbon) =>
     0
   );
 
+const getWeekMonday = (jaar: number, week: number): Date => {
+  const jan1 = new Date(jaar, 0, 1);
+  const dayOfWeek = jan1.getDay() || 7;
+  const daysToFirstMonday = dayOfWeek <= 4 ? 1 - dayOfWeek : 8 - dayOfWeek;
+  const firstMonday = new Date(jaar, 0, 1 + daysToFirstMonday);
+  return new Date(firstMonday.getTime() + (week - 1) * 7 * 86400000);
+};
+
 export default function WerkbonnenScreen() {
   const router = useRouter();
   const { user } = useAuth();
@@ -99,6 +107,20 @@ export default function WerkbonnenScreen() {
     const totalUren = thisWeek.reduce((sum, w) => sum + calcTotalUren(w), 0);
     return { count: thisWeek.length, uren: totalUren };
   }, [werkbonnen, currentWeek]);
+
+  // Monthly stats
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+  const maandStats = useMemo(() => {
+    const thisMonth = werkbonnen.filter(w => {
+      const refDate = w.datum_maandag
+        ? new Date(w.datum_maandag)
+        : getWeekMonday(w.jaar || currentYear, w.week_nummer);
+      return refDate.getMonth() === currentMonth && refDate.getFullYear() === currentYear;
+    });
+    const totalUren = thisMonth.reduce((sum, w) => sum + calcTotalUren(w), 0);
+    return { count: thisMonth.length, uren: totalUren };
+  }, [werkbonnen, currentMonth, currentYear]);
 
   const handleCopy = async (item: Werkbon) => {
     if (!user) return;
@@ -210,19 +232,19 @@ export default function WerkbonnenScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Weekly Stats */}
+      {/* Stats */}
       <View style={styles.statsRow}>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{weekStats.count}</Text>
-          <Text style={styles.statLabel}>Week {currentWeek} werkbonnen</Text>
+        <View style={[styles.statCard, { borderLeftColor: '#3498db' }]}>
+          <Text style={[styles.statValue, { color: '#3498db' }]}>{maandStats.uren}</Text>
+          <Text style={styles.statLabel}>Gewerkte uren</Text>
         </View>
         <View style={[styles.statCard, { borderLeftColor: '#28a745' }]}>
           <Text style={[styles.statValue, { color: '#28a745' }]}>{weekStats.uren}</Text>
           <Text style={styles.statLabel}>Uren deze week</Text>
         </View>
         <View style={[styles.statCard, { borderLeftColor: '#F5A623' }]}>
-          <Text style={[styles.statValue, { color: '#F5A623' }]}>{werkbonnen.length}</Text>
-          <Text style={styles.statLabel}>Totaal</Text>
+          <Text style={[styles.statValue, { color: '#F5A623' }]}>{maandStats.count}</Text>
+          <Text style={styles.statLabel}>Werkbonnen</Text>
         </View>
       </View>
 
@@ -239,7 +261,7 @@ export default function WerkbonnenScreen() {
             onPress={() => setSelectedWeek(null)}
           >
             <Text style={[styles.weekChipText, selectedWeek === null && styles.weekChipTextActive]}>
-              Alle
+              Alles
             </Text>
           </TouchableOpacity>
           {weekNumbers.map(w => (
@@ -249,7 +271,7 @@ export default function WerkbonnenScreen() {
               onPress={() => setSelectedWeek(selectedWeek === w ? null : w)}
             >
               <Text style={[styles.weekChipText, selectedWeek === w && styles.weekChipTextActive]}>
-                Week {w}
+                W{w}
               </Text>
             </TouchableOpacity>
           ))}
@@ -406,18 +428,18 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   weekChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: '#E8E9ED',
+    borderColor: '#D0D3D9',
   },
   weekChipActive: {
     backgroundColor: '#F5A623',
     borderColor: '#F5A623',
   },
-  weekChipText: { fontSize: 13, color: '#6c757d', fontWeight: '500' },
+  weekChipText: { fontSize: 12, color: '#6c757d', fontWeight: '500' },
   weekChipTextActive: { color: '#fff', fontWeight: '700' },
   loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
