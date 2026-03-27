@@ -413,13 +413,10 @@ export default function WerkbonSign() {
       });
 
       if (response.data) {
-        // Success - clear draft
-        clearDraft();
-        
         // Track email sending result
         let emailSent = false;
         let emailError = '';
-        
+
         // Always send to ts@smart-techbv.be; optionally also to client if toggle is on
         if (response.data.id) {
           try {
@@ -448,7 +445,7 @@ export default function WerkbonSign() {
         Alert.alert(
           'Succes',
           successMessage,
-          [{ text: 'OK', onPress: () => router.replace('/(tabs)') }]
+          [{ text: 'OK', onPress: () => { clearDraft(); router.replace('/(tabs)'); } }]
         );
       }
     } catch (error: any) {

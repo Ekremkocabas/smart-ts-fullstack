@@ -1886,29 +1886,36 @@ def get_unique_recipients(*emails: Optional[str]) -> List[str]:
     return recipients
 
 
-def format_number(value: float) -> str:
+# ==================== HELPER: SAFE NUMERIC VALUE EXTRACTION ====================
+
+# Afkortingen that should NOT be counted as hours
+AFKORTINGEN = ['Z', 'V', 'OV', 'BV', 'F', 'ADV', 'AV', 'VV', 'ZW', 'ZV', 'TV', 'PV']
+
+def is_afkorting(value) -> bool:
+    """Check if a value is an afkorting (sick/leave code) rather than a number"""
+    if value is None:
+        return False
+    if isinstance(value, str):
+        cleaned = value.strip().upper()
+        if cleaned in AFKORTINGEN:
+            return True
+        if cleaned.isalpha() and len(cleaned) <= 3:
+            return True
+    return False
+
+
+def format_number(value) -> str:
+    if is_afkorting(value):
+        return str(value).strip().upper()
     try:
         numeric = float(value)
     except (TypeError, ValueError):
-        return "-"
-
+        return str(value) if value else "-"
     if numeric == 0:
         return "-"
     if numeric.is_integer():
         return str(int(numeric))
     return f"{numeric:.2f}".rstrip("0").rstrip(".")
-
-
-# ==================== HELPER: SAFE NUMERIC VALUE EXTRACTION ====================
-
-# Afkortingen that should NOT be counted as hours
-AFKORTINGEN = ['Z', 'V', 'OV', 'BV', 'F', 'ADV']
-
-def is_afkorting(value) -> bool:
-    """Check if a value is an afkorting (sick/leave code) rather than a number"""
-    if isinstance(value, str):
-        return value.strip().upper() in AFKORTINGEN
-    return False
 
 def safe_float(value, default: float = 0.0) -> float:
     """

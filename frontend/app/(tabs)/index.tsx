@@ -90,9 +90,20 @@ export default function WerkbonnenScreen() {
     setRefreshing(false);
   };
 
+  // Parse DD-MM-YYYY or ISO date strings safely
+  const parseDatum = (d: string | undefined) => {
+    if (!d) return null;
+    const parts = d.split('-');
+    if (parts.length !== 3) return null;
+    const [day, month, year] = parts;
+    return new Date(`${year}-${month}-${day}`);
+  };
+
   // Unique week numbers from werkbonnen, sorted descending
   const weekNumbers = useMemo(() => {
-    const weeks = Array.from(new Set(werkbonnen.map(w => w.week_nummer))).sort((a, b) => b - a);
+    const weeks = Array.from(new Set(
+      werkbonnen.map(w => w.week_nummer).filter(Boolean)
+    )).sort((a, b) => b - a);
     return weeks;
   }, [werkbonnen]);
 
@@ -113,9 +124,8 @@ export default function WerkbonnenScreen() {
   const currentYear = new Date().getFullYear();
   const maandStats = useMemo(() => {
     const thisMonth = werkbonnen.filter(w => {
-      const refDate = w.datum_maandag
-        ? new Date(w.datum_maandag)
-        : getWeekMonday(w.jaar || currentYear, w.week_nummer);
+      const refDate = parseDatum(w.datum_maandag)
+        ?? getWeekMonday(w.jaar || currentYear, w.week_nummer);
       return refDate.getMonth() === currentMonth && refDate.getFullYear() === currentYear;
     });
     const totalUren = thisMonth.reduce((sum, w) => sum + calcTotalUren(w), 0);
