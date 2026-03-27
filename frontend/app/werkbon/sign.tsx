@@ -211,7 +211,7 @@ export default function WerkbonSign() {
     werfId, werfNaam, manualWerfNaam,
     datum, opmerkingen, gps, photos,
     urenData, opleveringData, projectData, prestatieData,
-    kmAfstand,
+    kmAfstand, kmVergoedingtarief,
     signerName, signature, selfie, sendToCustomer, confirmationChecked,
     setSignerName, setSignature, setSelfie, setSendToCustomer, setConfirmationChecked,
     setGPS,
@@ -487,6 +487,7 @@ export default function WerkbonSign() {
       timestamp: new Date().toISOString(),
       // KM afstand heen & terug — shared for all types
       km_afstand: kmAfstand,
+      km_vergoeding_tarief: kmVergoedingtarief || 0,
     };
 
     // Add type-specific data

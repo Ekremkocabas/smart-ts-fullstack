@@ -1889,18 +1889,14 @@ def get_unique_recipients(*emails: Optional[str]) -> List[str]:
 # ==================== HELPER: SAFE NUMERIC VALUE EXTRACTION ====================
 
 # Afkortingen that should NOT be counted as hours
-AFKORTINGEN = ['Z', 'V', 'OV', 'BV', 'F', 'ADV', 'AV', 'VV', 'ZW', 'ZV', 'TV', 'PV']
+AFKORTINGEN = ['Z', 'V', 'OV', 'BV', 'F', 'ADV']
 
 def is_afkorting(value) -> bool:
     """Check if a value is an afkorting (sick/leave code) rather than a number"""
     if value is None:
         return False
     if isinstance(value, str):
-        cleaned = value.strip().upper()
-        if cleaned in AFKORTINGEN:
-            return True
-        if cleaned.isalpha() and len(cleaned) <= 3:
-            return True
+        return value.strip().upper() in AFKORTINGEN
     return False
 
 
@@ -2188,11 +2184,10 @@ def validate_oplevering_payload(data: OpleveringWerkbonCreate) -> None:
 
 
 def get_hours_pdf(regel: dict, dag: str) -> str:
-    """Return hours for PDF - afkortingen are internal only, show hours or blank"""
+    """Return hours for PDF - show afkorting codes as-is, numeric hours as formatted number"""
     val = regel.get(dag, 0)
-    # Skip afkortingen - they should not appear in PDF
     if is_afkorting(val):
-        return ""
+        return str(val).strip().upper()  # Z, V, BV etc. tonen
     hours = safe_float(val)
     if hours == 0:
         return ""
@@ -2269,7 +2264,7 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
         )),
     ]
 
-    header_table = Table([[logo_cell, center_cell, right_cell]], colWidths=[60 * mm, 100 * mm, 111 * mm])
+    header_table = Table([[logo_cell, center_cell, right_cell]], colWidths=[55 * mm, 120 * mm, 96 * mm])
     header_table.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#F5A623")),
@@ -2330,8 +2325,11 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     hours_rows = []
     for regel in werkbon.get("uren", []):
         totaal = sum(safe_float(regel.get(dag, 0)) for dag, _, _, _ in DAY_COLUMNS)
+        naam = (regel.get("teamlid_naam") or
+                regel.get("werknemer_naam") or
+                regel.get("naam") or "-")
         hours_rows.append(
-            [regel.get("teamlid_naam", "-")]
+            [naam]
             + [get_hours_pdf(regel, dag) for dag, _, _, _ in DAY_COLUMNS]
             + [format_number(totaal) if totaal else ""]
         )
@@ -2413,13 +2411,20 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
 
     # ── SAMENVATTING + HANDTEKENING (naast elkaar) ──
     story.append(Spacer(1, 4))
+    km_tarief = safe_float(werkbon.get("km_vergoeding_tarief", 0))
+    km_totaal_voor_vergoeding = sum(safe_float(werkbon.get("km_afstand", {}).get(dag, 0)) for dag, _, _, _ in DAY_COLUMNS)
+    km_bedrag = km_totaal_voor_vergoeding * km_tarief if km_tarief > 0 else 0.0
+    totaal_bedrag_incl_km = totaal_bedrag + km_bedrag
     summary_rows = [
         ["Totaal uren", format_number(total_uren)],
         ["Uurtarief", f"€ {klant.get('uurtarief', 0):.2f}"],
     ]
     if klant.get("prijsafspraak"):
         summary_rows.append(["Prijsafspraak", klant.get("prijsafspraak")])
-    summary_rows.append(["Totaalbedrag", f"€ {totaal_bedrag:.2f}"])
+    if km_tarief > 0 and km_totaal_voor_vergoeding > 0:
+        summary_rows.append(["KM vergoeding", f"{format_number(km_totaal_voor_vergoeding)} km × € {km_tarief:.2f}"])
+        summary_rows.append(["KM bedrag", f"€ {km_bedrag:.2f}"])
+    summary_rows.append(["Totaalbedrag", f"€ {totaal_bedrag_incl_km:.2f}"])
 
     summary_table = Table(summary_rows, colWidths=[40 * mm, 55 * mm])
     summary_table.setStyle(TableStyle([

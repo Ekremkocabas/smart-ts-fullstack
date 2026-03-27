@@ -192,6 +192,7 @@ interface WerkbonFormState {
 
   // KM afstand heen & terug (shared for all types)
   kmAfstand: KmRegel;
+  kmVergoedingtarief: number;
 
   // Type-specific data
   urenData: UrenTypeData;
@@ -317,6 +318,7 @@ const initialState: WerkbonFormState = {
   gps: initialGPS,
   photos: [],
   kmAfstand: createEmptyKmRegel(),
+  kmVergoedingtarief: 0,
   urenData: initialUrenData,
   opleveringData: initialOpleveringData,
   projectData: initialProjectData,
@@ -365,6 +367,7 @@ interface WerkbonFormActions {
   // KM afstand
   updateKmAfstand: (dag: string, value: number) => void;
   setKmAfstand: (km: KmRegel) => void;
+  setKmVergoedingtarief: (value: number) => void;
 
   // Type-specific
   setUrenData: (data: Partial<UrenTypeData>) => void;
@@ -452,6 +455,7 @@ export const useWerkbonFormStore = create<WerkbonFormState & WerkbonFormActions>
       // KM afstand
       updateKmAfstand: (dag, value) => set((state) => ({ kmAfstand: { ...state.kmAfstand, [dag]: value } })),
       setKmAfstand: (km) => set({ kmAfstand: km }),
+      setKmVergoedingtarief: (value) => set({ kmVergoedingtarief: value }),
 
       // Uren specific
       setUrenData: (data) => set((state) => ({ urenData: { ...state.urenData, ...data } })),
