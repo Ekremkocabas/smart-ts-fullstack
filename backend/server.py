@@ -2085,13 +2085,13 @@ _DAGEN_KM_KORT = ["Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo"]
 def build_km_pdf_block(werkbon: dict, styles: Any) -> list:
     """Return a list of story elements for the KM section, or empty list if no KM."""
     km = werkbon.get("km_afstand") or {}
-    km_total = sum(float(km.get(d, 0) or 0) for d in _DAGEN_KM)
+    km_total = sum(safe_float(km.get(d, 0)) for d in _DAGEN_KM)
     if km_total <= 0:
         return []
     from reportlab.platypus import Spacer as _Spacer
     from reportlab.platypus import Table as _Table, TableStyle as _TStyle
     from reportlab.lib import colors as _colors
-    header = _DAGEN_KM_KORT + ["Totaal"]
+    header = [Paragraph(f"<b>{d}</b>", ParagraphStyle(f"kmhdrb{i}", textColor=_colors.white, fontSize=8, fontName="Helvetica-Bold", alignment=1)) for i, d in enumerate(_DAGEN_KM_KORT + ["Totaal"])]
     row = [str(int(km.get(d, 0)) if km.get(d, 0) == int(km.get(d, 0) or 0) else km.get(d, 0)) for d in _DAGEN_KM] + [str(int(km_total) if km_total == int(km_total) else km_total)]
     t = _Table([header, row], colWidths=[22 * mm] * 8)
     t.setStyle(_TStyle([
@@ -2211,76 +2211,63 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
 
     story = []
 
-    # ── TIMESHEET TITLE BAR ──
-    timesheet_table = Table(
-        [[Paragraph("TIMESHEET", ParagraphStyle(
-            "TSTitle", fontName="Helvetica-Bold", fontSize=15,
-            textColor=colors.white, alignment=1, spaceAfter=0, spaceBefore=0,
-        ))]],
-        colWidths=[271 * mm],
-    )
-    timesheet_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#1a1a2e")),
-        ("BOX", (0, 0), (-1, -1), 2, colors.HexColor("#F5A623")),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-    ]))
-    story.append(timesheet_table)
-    story.append(Spacer(1, 3))
-
-    # ── MAIN HEADER: [Logo + Week/Jaar/Werkbon Nr | Smart-Tech BV + Company Info] ──
+    # ── MAIN HEADER: 3-column [Logo | TIMESHEET + Week | Firma info] ──
     logo_bytes = decode_base64_data(instellingen.get("logo_base64"))
-    # Slightly shorter logo (25mm wide x 20mm tall)
-    logo = make_safe_reportlab_image(logo_bytes, 34 * mm, 24 * mm)
-    left_cell: list = []
-    if logo:
-        left_cell.append(logo)
-        left_cell.append(Spacer(1, 3))
-    week_style = ParagraphStyle("WeekLeft", fontName="Helvetica-Bold", fontSize=14, textColor=colors.HexColor("#1a1a2e"))
-    werkbon_nr_style = ParagraphStyle("WerkbonNr", fontName="Helvetica", fontSize=10, textColor=colors.HexColor("#555555"))
-    
+    logo = make_safe_reportlab_image(logo_bytes, 38 * mm, 28 * mm)
+    logo_cell: list = [logo] if logo else []
+
     # Use current year dynamically
     current_year = datetime.now().year
     werkbon_jaar = werkbon.get('jaar', current_year)
-    
-    # Generate werkbon number: YYYY-WW-XXX format (year-week-sequence)
-    werkbon_id = werkbon.get('id', werkbon.get('_id', ''))
     werkbon_week = werkbon.get('week_nummer', '00')
-    # Use last 4 chars of ID as sequence, or generate from created_at
+
+    # Generate werkbon number: YYYY-WW-XXX format
+    werkbon_id = werkbon.get('id', werkbon.get('_id', ''))
     if werkbon_id:
         seq_num = str(werkbon_id)[-4:].upper()
     else:
         seq_num = str(hash(str(werkbon.get('created_at', ''))))[-4:]
     werkbon_nummer = f"{werkbon_jaar}-W{werkbon_week:0>2}-{seq_num}"
-    
-    left_cell.append(Paragraph(f"<b>Week {werkbon.get('week_nummer', '-')}</b>", week_style))
-    left_cell.append(Paragraph(f"<b>{werkbon_jaar}</b>", week_style))
-    left_cell.append(Spacer(1, 2))
-    left_cell.append(Paragraph(f"Werkbon nr: {werkbon_nummer}", werkbon_nr_style))
+
+    center_cell: list = [
+        Paragraph("TIMESHEET", ParagraphStyle(
+            "TSBig", fontName="Helvetica-Bold", fontSize=20,
+            textColor=colors.HexColor("#1a1a2e"), alignment=1,
+        )),
+        Paragraph(f"WEEK {werkbon_week}-{werkbon_jaar}", ParagraphStyle(
+            "TSWeek", fontName="Helvetica-Bold", fontSize=16,
+            textColor=colors.HexColor("#1a1a2e"), alignment=1,
+        )),
+        Spacer(1, 2),
+        Paragraph(f"Werkbon nr: {werkbon_nummer}", ParagraphStyle(
+            "TSNr", fontName="Helvetica", fontSize=9,
+            textColor=colors.HexColor("#555555"), alignment=1,
+        )),
+    ]
 
     bedrijfsnaam_pdf = instellingen.get("bedrijfsnaam", "Smart-Tech BV")
-    company_name_style = ParagraphStyle("CompNameBold", fontName="Helvetica-Bold", fontSize=13,
-                                        textColor=colors.HexColor("#1a1a2e"), spaceAfter=3)
-    company_detail_style = ParagraphStyle("CompDetailSmall", fontSize=8, leading=10, textColor=colors.HexColor("#333333"))
     company_lines = [
+        f"<b>{bedrijfsnaam_pdf}</b>",
         instellingen.get("adres") or "",
         " ".join(filter(None, [instellingen.get("postcode"), instellingen.get("stad")])).strip(),
         instellingen.get("telefoon") or "",
         instellingen.get("email") or COMPANY_EMAIL,
-        f"KvK: {instellingen['kvk_nummer']}" if instellingen.get("kvk_nummer") else "",
         f"BTW: {instellingen['btw_nummer']}" if instellingen.get("btw_nummer") else "",
     ]
     company_detail_text = "<br/>".join(line for line in company_lines if line)
     right_cell: list = [
-        Paragraph(f"<b>{bedrijfsnaam_pdf}</b>", company_name_style),
-        Paragraph(company_detail_text or "-", company_detail_style),
+        Paragraph(company_detail_text or "-", ParagraphStyle(
+            "CompRight", fontSize=8, leading=11, textColor=colors.HexColor("#333333"),
+            alignment=2,
+        )),
     ]
 
-    header_table = Table([[left_cell, right_cell]], colWidths=[80 * mm, 191 * mm])
+    header_table = Table([[logo_cell, center_cell, right_cell]], colWidths=[60 * mm, 100 * mm, 111 * mm])
     header_table.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#F5A623")),
         ("LINEAFTER", (0, 0), (0, -1), 0.5, colors.HexColor("#F5A623")),
+        ("LINEAFTER", (1, 0), (1, -1), 0.5, colors.HexColor("#F5A623")),
         ("LEFTPADDING", (0, 0), (-1, -1), 8),
         ("RIGHTPADDING", (0, 0), (-1, -1), 8),
         ("TOPPADDING", (0, 0), (-1, -1), 6),
@@ -2326,10 +2313,16 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
 
     # ── UREN TABEL (geen afkortingen) ──
     story.append(Paragraph("Gewerkte uren", styles["SectionTitle"]))
-    hours_header = [["Werknemer"] + [f"{label}\n{werkbon.get(date_key, '')}" for _, label, date_key, _ in DAY_COLUMNS] + ["Totaal"]]
+    hours_header = [[
+        Paragraph("<b>Werknemer</b>", ParagraphStyle("hdr", textColor=colors.white, fontSize=8, fontName="Helvetica-Bold")),
+        *[Paragraph(f"<b>{label}</b><br/><font size=7>{werkbon.get(date_key,'')}</font>",
+            ParagraphStyle("hdr2", textColor=colors.white, fontSize=8, fontName="Helvetica-Bold", alignment=1))
+          for _, label, date_key, _ in DAY_COLUMNS],
+        Paragraph("<b>Totaal</b>", ParagraphStyle("hdr3", textColor=colors.white, fontSize=8, fontName="Helvetica-Bold", alignment=1))
+    ]]
     hours_rows = []
     for regel in werkbon.get("uren", []):
-        totaal = sum(float(regel.get(dag, 0) or 0) for dag, _, _, _ in DAY_COLUMNS)
+        totaal = sum(safe_float(regel.get(dag, 0)) for dag, _, _, _ in DAY_COLUMNS)
         hours_rows.append(
             [regel.get("teamlid_naam", "-")]
             + [get_hours_pdf(regel, dag) for dag, _, _, _ in DAY_COLUMNS]
@@ -2346,7 +2339,7 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#F5A623")),
-        ("TEXTCOLOR", (0, -1), (-1, -1), colors.black),
+        ("TEXTCOLOR", (0, -1), (-1, -1), colors.white),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
         ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor("#cccccc")),
@@ -2362,11 +2355,15 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     story.append(hours_table)
 
     # ── KM ──
-    km_total = sum(float(werkbon.get("km_afstand", {}).get(dag, 0) or 0) for dag, _, _, _ in DAY_COLUMNS)
+    km_total = sum(safe_float(werkbon.get("km_afstand", {}).get(dag, 0)) for dag, _, _, _ in DAY_COLUMNS)
     if km_total > 0:
         story.append(Spacer(1, 6))
         story.append(Paragraph("KM-afstand (heen & terug)", styles["SectionTitle"]))
-        km_header = [[label for _, label, _, _ in DAY_COLUMNS] + ["Totaal"]]
+        km_header = [[
+            *[Paragraph(f"<b>{label}</b>", ParagraphStyle("kmhdr", textColor=colors.white, fontSize=8, fontName="Helvetica-Bold", alignment=1))
+              for _, label, _, _ in DAY_COLUMNS],
+            Paragraph("<b>Totaal</b>", ParagraphStyle("kmhdr2", textColor=colors.white, fontSize=8, fontName="Helvetica-Bold", alignment=1))
+        ]]
         km_row = [[format_number(werkbon.get("km_afstand", {}).get(dag, 0)) for dag, _, _, _ in DAY_COLUMNS] + [format_number(km_total)]]
         km_table = Table(km_header + km_row, colWidths=[22 * mm] * 7 + [22 * mm])
         km_table.setStyle(TableStyle([
@@ -4895,16 +4892,20 @@ async def verzend_werkbon(werkbon_id: str, klant_email: Optional[str] = Query(No
         raise HTTPException(status_code=500, detail=f"PDF genereren mislukt: {str(exc)}")
     
     # Send email - klant_email is optional (only if user explicitly provided it)
-    email_result = await send_werkbon_email(
-        werkbon,
-        klant or {},
-        instellingen,
-        total_uren,
-        totaal_bedrag,
-        pdf_bytes,
-        pdf_filename,
-        klant_email=klant_email,
-    )
+    try:
+        email_result = await send_werkbon_email(
+            werkbon,
+            klant or {},
+            instellingen,
+            total_uren,
+            totaal_bedrag,
+            pdf_bytes,
+            pdf_filename,
+            klant_email=klant_email,
+        )
+    except Exception as mail_err:
+        logger.error(f"Mail verzenden mislukt: {mail_err}")
+        email_result = {"success": False, "error": str(mail_err)}
     nieuwe_status = "verzonden" if email_result.get("success") else werkbon.get("status", "ondertekend")
     
     # Update werkbon status
