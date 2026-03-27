@@ -81,6 +81,7 @@ interface Klant {
   cc_mail_recipient: string;
   prijsmodel: string;
   standaard_uurtarief: number;
+  km_vergoeding_tarief?: number;
   standaard_dagtarief: number;
   standaard_vaste_prijs: number;
   betaaltermijn: number;
@@ -135,6 +136,7 @@ const emptyKlant: Klant = {
   cc_mail_recipient: '',
   prijsmodel: 'uurtarief',
   standaard_uurtarief: 0,
+  km_vergoeding_tarief: 0,
   standaard_dagtarief: 0,
   standaard_vaste_prijs: 0,
   betaaltermijn: 30,
@@ -701,7 +703,10 @@ export default function KlantenAdmin() {
                     <>
                       <Text style={styles.label}>Standaard uurtarief (€)</Text>
                       <TextInput style={styles.input} value={formData.standaard_uurtarief ? String(formData.standaard_uurtarief) : ''} onChangeText={(v) => setFormData({ ...formData, standaard_uurtarief: parseFloat(v) || 0 })} placeholder="45.00" placeholderTextColor="#6c757d" keyboardType="decimal-pad" />
-                      
+
+                      <Text style={styles.label}>KM vergoeding (€/km)</Text>
+                      <TextInput style={styles.input} value={formData.km_vergoeding_tarief ? String(formData.km_vergoeding_tarief) : ''} onChangeText={(v) => setFormData({ ...formData, km_vergoeding_tarief: parseFloat(v) || 0 })} placeholder="0.00" placeholderTextColor="#6c757d" keyboardType="decimal-pad" />
+
                       <Text style={styles.label}>Standaard dagtarief (€)</Text>
                       <TextInput style={styles.input} value={formData.standaard_dagtarief ? String(formData.standaard_dagtarief) : ''} onChangeText={(v) => setFormData({ ...formData, standaard_dagtarief: parseFloat(v) || 0 })} placeholder="350.00" placeholderTextColor="#6c757d" keyboardType="decimal-pad" />
                     </>

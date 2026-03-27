@@ -742,6 +742,7 @@ class Klant(BaseModel):
     prijsmodel: str = "uurtarief"             # uurtarief / vaste_prijs / regie / nog_te_bepalen
     standaard_uurtarief: float = 0.0
     uurtarief: float = 0.0                    # Legacy field - maps to standaard_uurtarief
+    km_vergoeding_tarief: Optional[float] = 0.0
     standaard_dagtarief: float = 0.0
     standaard_vaste_prijs: float = 0.0
     betaaltermijn: int = 30                   # Payment terms in days: 30 / 45 / 60
@@ -800,6 +801,7 @@ class KlantCreate(BaseModel):
     prijsmodel: str = "uurtarief"
     standaard_uurtarief: float = 0.0
     uurtarief: float = 0.0                    # Legacy
+    km_vergoeding_tarief: float = 0.0
     standaard_dagtarief: float = 0.0
     standaard_vaste_prijs: float = 0.0
     betaaltermijn: int = 30
