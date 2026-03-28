@@ -702,20 +702,20 @@ export default function KlantenAdmin() {
                   {(formData.prijsmodel === 'uurtarief' || formData.prijsmodel === 'regie') && (
                     <>
                       <Text style={styles.label}>Standaard uurtarief (€)</Text>
-                      <TextInput style={styles.input} value={formData.standaard_uurtarief ? String(formData.standaard_uurtarief) : ''} onChangeText={(v) => setFormData({ ...formData, standaard_uurtarief: parseFloat(v.replace(',', '.')) || 0 })} placeholder="45.00" placeholderTextColor="#6c757d" keyboardType="decimal-pad" />
+                      <TextInput style={styles.input} value={formData.standaard_uurtarief ? String(formData.standaard_uurtarief) : ''} onChangeText={(v) => setFormData({ ...formData, standaard_uurtarief: parseFloat(v.replace(',', '.')) || 0 })} placeholder="45.00" placeholderTextColor="#6c757d" keyboardType="decimal-pad" {...(Platform.OS === 'web' ? { type: 'text', inputMode: 'decimal' } : {})} />
 
                       <Text style={styles.label}>KM vergoeding (€/km)</Text>
-                      <TextInput style={styles.input} value={formData.km_vergoeding_tarief ? String(formData.km_vergoeding_tarief) : ''} onChangeText={(v) => setFormData({ ...formData, km_vergoeding_tarief: parseFloat(v.replace(',', '.')) || 0 })} placeholder="0.00" placeholderTextColor="#6c757d" keyboardType="decimal-pad" />
+                      <TextInput style={styles.input} value={formData.km_vergoeding_tarief ? String(formData.km_vergoeding_tarief) : ''} onChangeText={(v) => setFormData({ ...formData, km_vergoeding_tarief: parseFloat(v.replace(',', '.')) || 0 })} placeholder="0.00" placeholderTextColor="#6c757d" keyboardType="decimal-pad" {...(Platform.OS === 'web' ? { type: 'text', inputMode: 'decimal' } : {})} />
 
                       <Text style={styles.label}>Standaard dagtarief (€)</Text>
-                      <TextInput style={styles.input} value={formData.standaard_dagtarief ? String(formData.standaard_dagtarief) : ''} onChangeText={(v) => setFormData({ ...formData, standaard_dagtarief: parseFloat(v.replace(',', '.')) || 0 })} placeholder="350.00" placeholderTextColor="#6c757d" keyboardType="decimal-pad" />
+                      <TextInput style={styles.input} value={formData.standaard_dagtarief ? String(formData.standaard_dagtarief) : ''} onChangeText={(v) => setFormData({ ...formData, standaard_dagtarief: parseFloat(v.replace(',', '.')) || 0 })} placeholder="350.00" placeholderTextColor="#6c757d" keyboardType="decimal-pad" {...(Platform.OS === 'web' ? { type: 'text', inputMode: 'decimal' } : {})} />
                     </>
                   )}
                   
                   {formData.prijsmodel === 'vaste_prijs' && (
                     <>
                       <Text style={styles.label}>Standaard vaste prijs (€)</Text>
-                      <TextInput style={styles.input} value={formData.standaard_vaste_prijs ? String(formData.standaard_vaste_prijs) : ''} onChangeText={(v) => setFormData({ ...formData, standaard_vaste_prijs: parseFloat(v.replace(',', '.')) || 0 })} placeholder="5000.00" placeholderTextColor="#6c757d" keyboardType="decimal-pad" />
+                      <TextInput style={styles.input} value={formData.standaard_vaste_prijs ? String(formData.standaard_vaste_prijs) : ''} onChangeText={(v) => setFormData({ ...formData, standaard_vaste_prijs: parseFloat(v.replace(',', '.')) || 0 })} placeholder="5000.00" placeholderTextColor="#6c757d" keyboardType="decimal-pad" {...(Platform.OS === 'web' ? { type: 'text', inputMode: 'decimal' } : {})} />
                     </>
                   )}
                   
