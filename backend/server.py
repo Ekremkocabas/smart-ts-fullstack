@@ -1,4 +1,7 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Response, Query, Depends, Header
+from fastapi import FastAPI, APIRouter, HTTPException, Response, Query, Depends, Header, Request
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -8,6 +11,7 @@ import os
 import logging
 import asyncio
 import base64
+import binascii
 import io
 import secrets
 from pathlib import Path
@@ -75,6 +79,10 @@ gridfs_bucket = AsyncIOMotorGridFSBucket(db, bucket_name="files")
 # Create the main app without a prefix
 app = FastAPI()
 
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 # ==================== GRIDFS HELPER FUNCTIONS ====================
 
 async def store_file_to_gridfs(data: bytes, filename: str, content_type: str = "application/octet-stream") -> str:
@@ -83,7 +91,7 @@ async def store_file_to_gridfs(data: bytes, filename: str, content_type: str = "
         file_id = await gridfs_bucket.upload_from_stream(
             filename,
             data,
-            metadata={"content_type": content_type, "uploaded_at": datetime.utcnow().isoformat()}
+            metadata={"content_type": content_type, "uploaded_at": datetime.now(timezone.utc).isoformat()}
         )
         return str(file_id)
     except Exception as e:
@@ -138,7 +146,7 @@ def is_gridfs_id(value: str) -> bool:
         try:
             ObjectId(value)
             return True
-        except:
+        except Exception:
             return False
     return False
 
@@ -156,7 +164,8 @@ async def get_image_data_for_pdf(value: Optional[str]) -> Optional[bytes]:
         if "," in value:
             value = value.split(",")[1]
         return base64.b64decode(value)
-    except:
+    except (ValueError, binascii.Error, Exception) as e:
+        logger.warning(f"Base64 decode failed for value length={len(str(value)) if value else 0}: {type(e).__name__}")
         return None
 
 # Create a router with the /api prefix
@@ -281,8 +290,8 @@ def create_jwt_token(user_id: str, email: str, role: str, company_id: str) -> st
         "email": email,
         "role": normalize_role(role),
         "company_id": company_id,
-        "exp": datetime.utcnow() + timedelta(hours=JWT_EXPIRATION_HOURS),
-        "iat": datetime.utcnow(),
+        "exp": datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRATION_HOURS),
+        "iat": datetime.now(timezone.utc),
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
@@ -822,7 +831,7 @@ class KlantCreate(BaseModel):
 # Helper function to generate klantnummer
 async def generate_klantnummer(db) -> str:
     """Generate unique klantnummer in format KL-YYYY-NNNN"""
-    year = datetime.utcnow().year
+    year = datetime.now(timezone.utc).year
     prefix = f"KL-{year}-"
     
     # Find highest existing number for this year
@@ -835,7 +844,7 @@ async def generate_klantnummer(db) -> str:
         try:
             last_num = int(existing[0]["klantnummer"].split("-")[-1])
             new_num = last_num + 1
-        except:
+        except (ValueError, AttributeError):
             new_num = 1
     else:
         new_num = 1
@@ -2097,7 +2106,7 @@ def build_km_pdf_block(werkbon: dict, styles: Any) -> list:
     from reportlab.platypus import Table as _Table, TableStyle as _TStyle
     from reportlab.lib import colors as _colors
     header = [Paragraph(f"<b>{d}</b>", ParagraphStyle(f"kmhdrb{i}", textColor=_colors.white, fontSize=8, fontName="Helvetica-Bold", alignment=1)) for i, d in enumerate(_DAGEN_KM_KORT + ["Totaal"])]
-    row = [str(int(km.get(d, 0)) if km.get(d, 0) == int(km.get(d, 0) or 0) else km.get(d, 0)) for d in _DAGEN_KM] + [str(int(km_total) if km_total == int(km_total) else km_total)]
+    row = [format_number(km.get(d, 0)) for d in _DAGEN_KM] + [format_number(km_total)]
     t = _Table([header, row], colWidths=[22 * mm] * 8)
     t.setStyle(_TStyle([
         ("BACKGROUND", (0, 0), (-1, 0), _colors.HexColor("#1a1a2e")),
@@ -3144,7 +3153,10 @@ def normalize_project_day_rows(data: ProjectWerkbonCreate | ProjectWerkbonUpdate
         datum_value = (row.get("datum") or "").strip()
         start_value = (row.get("start_tijd") or "").strip()
         stop_value = (row.get("stop_tijd") or "").strip()
-        pauze_value = int(row.get("pauze_minuten") or 0)
+        try:
+            pauze_value = int(safe_float(row.get("pauze_minuten", 0)))
+        except (ValueError, TypeError):
+            pauze_value = 0
         dag_opmerking = (row.get("omschrijving") or row.get("opmerking") or "").strip()
 
         if not datum_value or not start_value or not stop_value:
@@ -3269,7 +3281,8 @@ def generate_project_werkbon_pdf(werkbon: dict, instellingen: dict) -> tuple[byt
     feedback_rows = [["Klant feedback", "Ja / Nee"]]
     for item in werkbon.get("klant_feedback_items") or []:
         feedback_rows.append([item.get("label") or "-", "Ja" if item.get("checked") else "Nee"])
-    feedback_rows.append(["Algemene score", "★" * int(werkbon.get("klant_prestatie_score") or 0) + "☆" * max(0, 3 - int(werkbon.get("klant_prestatie_score") or 0))])
+    _score = min(3, max(0, int(safe_float(werkbon.get("klant_prestatie_score", 0)))))
+    feedback_rows.append(["Algemene score", "★" * _score + "☆" * (3 - _score)])
     feedback_table = Table(feedback_rows, colWidths=[120 * mm, 50 * mm])
     feedback_table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F5A623")),
@@ -3380,7 +3393,8 @@ class UserCreateWithEmail(BaseModel):
     send_email: bool = False  # Whether to send welcome email
 
 @api_router.post("/auth/register", response_model=UserResponse)
-async def register_user(user_data: UserCreate):
+@limiter.limit("3/minute")
+async def register_user(request: Request, user_data: UserCreate):
     existing = await db.users.find_one({"email": user_data.email})
     if existing:
         raise HTTPException(status_code=400, detail="E-mailadres is al geregistreerd")
@@ -3399,30 +3413,32 @@ async def register_user(user_data: UserCreate):
 
 @api_router.post("/auth/register-worker")
 async def register_worker_with_email(
-    email: str, 
-    naam: str, 
-    password: str, 
-    rol: str = "werknemer", 
-    team_id: Optional[str] = None, 
-    telefoon: Optional[str] = None, 
-    werkbon_types: Optional[str] = None, 
+    email: str,
+    naam: str,
+    password: Optional[str] = None,
+    rol: str = "werknemer",
+    team_id: Optional[str] = None,
+    telefoon: Optional[str] = None,
+    werkbon_types: Optional[str] = None,
     send_email: bool = False,
     current_user: Dict = Depends(require_roles(["admin", "master_admin"]))
 ):
     """Register a new worker. Only admin/master_admin can create users."""
+    # Generate secure password server-side if not provided
+    password = password or generate_temp_password()
+
     existing = await db.users.find_one({"email": email})
     if existing:
         raise HTTPException(status_code=400, detail="E-mailadres is al geregistreerd")
-    
+
     # Parse werkbon_types from comma-separated string
     wbt = ["uren"]
     if werkbon_types:
         wbt = [t.strip() for t in werkbon_types.split(",") if t.strip()]
-    
+
     user = User(
         email=email,
         password_hash=hash_password(password),
-        wachtwoord_plain=password,
         naam=naam,
         rol=rol,
         team_id=team_id,
@@ -3459,8 +3475,7 @@ async def resend_worker_info_email(user_id: str):
     await db.users.update_one(
         {"id": user_id},
         {"$set": {
-            "password_hash": hash_password(new_password), 
-            "wachtwoord_plain": new_password,
+            "password_hash": hash_password(new_password),
             "actief": True
         }},
     )
@@ -3477,30 +3492,26 @@ async def resend_worker_info_email(user_id: str):
     )
 
 @api_router.post("/auth/login")
-async def login_user(login_data: UserLogin):
+@limiter.limit("5/minute")
+async def login_user(request: Request, login_data: UserLogin):
     """
     Login endpoint with JWT token and platform access info.
     Returns JWT token for authenticated requests.
     """
-    print(f"[LOGIN DEBUG] Email: {login_data.email}")
+    logger.info(f"[LOGIN] Giriş denemesi: {login_data.email}")
     user = await db.users.find_one({"email": login_data.email})
     if not user:
-        print(f"[LOGIN DEBUG] User not found for: {login_data.email}")
+        logger.warning(f"[LOGIN] Kullanıcı bulunamadı: {login_data.email}")
         raise HTTPException(status_code=401, detail="Ongeldige inloggegevens")
-    
-    print(f"[LOGIN DEBUG] User found: {user.get('naam')}")
-    print(f"[LOGIN DEBUG] Has password_hash: {bool(user.get('password_hash'))}")
-    print(f"[LOGIN DEBUG] Has wachtwoord_plain: {bool(user.get('wachtwoord_plain'))}")
-    
+
+    logger.info(f"[LOGIN] Kullanıcı bulundu: {user.get('naam')}")
+
     # Try password_hash first, then fall back to plain text comparison (legacy migration)
     authenticated = False
     if user.get("password_hash"):
-        print(f"[LOGIN DEBUG] Input password: {login_data.password}")
-        print(f"[LOGIN DEBUG] Stored hash: {user['password_hash']}")
         computed = hash_password(login_data.password)
-        print(f"[LOGIN DEBUG] Computed hash: {computed}")
         authenticated = verify_password(login_data.password, user["password_hash"])
-        print(f"[LOGIN DEBUG] Password hash verify result: {authenticated}")
+        logger.info(f"[LOGIN] Giriş {'başarılı' if authenticated else 'başarısız'}: {login_data.email}")
     
     # Fallback: compare with wachtwoord_plain directly (legacy support)
     if not authenticated and user.get("wachtwoord_plain"):
@@ -3617,7 +3628,7 @@ async def update_user(user_id: str, update_data: UserUpdate):
     # Handle new_password field (replaces wachtwoord_plain)
     if "new_password" in update_dict and update_dict["new_password"]:
         update_dict["password_hash"] = hash_password(update_dict["new_password"])
-        update_dict["password_changed_at"] = datetime.utcnow()
+        update_dict["password_changed_at"] = datetime.now(timezone.utc)
         del update_dict["new_password"]
     
     # Normalize role if being updated
@@ -3651,7 +3662,8 @@ class PasswordChange(BaseModel):
     new_password: str
 
 @api_router.post("/auth/change-password")
-async def change_password(user_id: str, password_data: PasswordChangeRequest):
+@limiter.limit("5/minute")
+async def change_password(request: Request, user_id: str, password_data: PasswordChangeRequest):
     """
     Secure password change endpoint.
     Requires current password verification.
@@ -3687,7 +3699,7 @@ async def change_password(user_id: str, password_data: PasswordChangeRequest):
         {
             "$set": {
                 "password_hash": new_hash,
-                "password_changed_at": datetime.utcnow(),
+                "password_changed_at": datetime.now(timezone.utc),
                 "must_change_password": False,
             },
             "$unset": {"wachtwoord_plain": ""}  # Remove plain password if exists
@@ -3721,8 +3733,7 @@ async def admin_reset_password(user_id: str, data: dict):
         {
             "$set": {
                 "password_hash": new_hash,
-                "password_changed_at": datetime.utcnow(),
-                "wachtwoord_plain": new_password,  # Store plain for admin viewing (temporary)
+                "password_changed_at": datetime.now(timezone.utc),
             }
         }
     )
@@ -4049,7 +4060,7 @@ async def create_klant(klant_data: KlantCreate, current_user: Dict = Depends(req
     klant_dict["id"] = str(uuid.uuid4())
     klant_dict["company_id"] = "default_company"
     klant_dict["actief"] = True
-    klant_dict["created_at"] = datetime.utcnow()
+    klant_dict["created_at"] = datetime.now(timezone.utc)
     
     # Ensure adres_structured exists
     if not klant_dict.get("adres_structured"):
@@ -4077,7 +4088,7 @@ async def update_klant(klant_id: str, klant_data: dict, current_user: Dict = Dep
     if update_dict.get("algemeen_email"):
         update_dict["email"] = update_dict["algemeen_email"]
     
-    update_dict["updated_at"] = datetime.utcnow()
+    update_dict["updated_at"] = datetime.now(timezone.utc)
     
     # Remove MongoDB _id if present
     update_dict.pop("_id", None)
@@ -4329,7 +4340,7 @@ async def create_unified_werkbon(data: UnifiedWerkbonCreate, current_user: Dict 
     
     werkbon_type = data.type
     werkbon_id = str(uuid.uuid4())
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     
     # Base document
     base_doc = {
@@ -4515,7 +4526,7 @@ async def create_werkbon(werkbon_data: WerkbonCreate, current_user: Dict = Depen
 @api_router.put("/werkbonnen/{werkbon_id}", response_model=Werkbon)
 async def update_werkbon(werkbon_id: str, update_data: WerkbonUpdate):
     update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
-    update_dict["updated_at"] = datetime.utcnow()
+    update_dict["updated_at"] = datetime.now(timezone.utc)
     
     # Resolve klant name if klant_id was provided
     if update_data.klant_id and not update_data.klant_naam:
@@ -4541,7 +4552,7 @@ async def update_werkbon(werkbon_id: str, update_data: WerkbonUpdate):
         update_dict.update(week_dates)
     
     if update_data.handtekening_data:
-        update_dict["handtekening_datum"] = datetime.utcnow()
+        update_dict["handtekening_datum"] = datetime.now(timezone.utc)
         update_dict["status"] = "ondertekend"
     
     if "uren" in update_dict:
@@ -4575,7 +4586,7 @@ async def dupliceer_werkbon(werkbon_id: str, current_user: Dict = Depends(get_cu
     user_id = current_user["user_id"]
     user_naam = current_user["naam"]
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     iso = now.isocalendar()
     current_week = iso[1]
     current_year = iso[0]
@@ -5169,21 +5180,12 @@ async def get_oplevering_werkbon(werkbon_id: str):
 
 @api_router.post("/oplevering-werkbonnen")
 async def create_oplevering_werkbon(
-    data: OpleveringWerkbonCreate, 
-    user_id: Optional[str] = Query(None),
-    user_naam: Optional[str] = Query(None),
-    current_user: Optional[Dict] = Depends(get_optional_user)
+    data: OpleveringWerkbonCreate,
+    current_user: Dict = Depends(get_current_user)
 ):
-    """Create oplevering werkbon - supports both JWT auth and legacy query params"""
-    # Use JWT if available, otherwise fall back to query params (legacy support)
-    if current_user:
-        final_user_id = current_user["user_id"]
-        final_user_naam = current_user["naam"]
-    elif user_id and user_naam:
-        final_user_id = user_id
-        final_user_naam = user_naam
-    else:
-        raise HTTPException(status_code=401, detail="Authenticatie vereist")
+    """Create oplevering werkbon - uses authenticated user's identity from JWT"""
+    final_user_id = current_user["user_id"]
+    final_user_naam = current_user["naam"]
     
     validate_oplevering_payload(data)
     klant = await db.klanten.find_one({"id": data.klant_id})
@@ -5285,8 +5287,8 @@ async def create_oplevering_werkbon(
         "email_verzonden": False,
         "pdf_bestandsnaam": None,
         "email_error": None,
-        "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow(),
+        "created_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc),
     }
     
     await db.oplevering_werkbonnen.insert_one(werkbon_dict)
@@ -5298,7 +5300,7 @@ async def update_oplevering_werkbon(werkbon_id: str, update_data: OpleveringWerk
     update_dict["updated_at"] = datetime.now(timezone.utc)
     
     if update_data.handtekening_klant:
-        update_dict["handtekening_datum"] = datetime.utcnow()
+        update_dict["handtekening_datum"] = datetime.now(timezone.utc)
         update_dict["status"] = "ondertekend"
     
     # Convert nested models to dicts
@@ -5400,21 +5402,12 @@ async def get_project_werkbon(werkbon_id: str):
 
 @api_router.post("/project-werkbonnen")
 async def create_project_werkbon(
-    data: ProjectWerkbonCreate, 
-    user_id: Optional[str] = Query(None),
-    user_naam: Optional[str] = Query(None),
-    current_user: Optional[Dict] = Depends(get_optional_user)
+    data: ProjectWerkbonCreate,
+    current_user: Dict = Depends(get_current_user)
 ):
-    """Create project werkbon - supports both JWT auth and legacy query params"""
-    # Use JWT if available, otherwise fall back to query params (legacy support)
-    if current_user:
-        final_user_id = current_user["user_id"]
-        final_user_naam = current_user["naam"]
-    elif user_id and user_naam:
-        final_user_id = user_id
-        final_user_naam = user_naam
-    else:
-        raise HTTPException(status_code=401, detail="Authenticatie vereist")
+    """Create project werkbon - uses authenticated user's identity from JWT"""
+    final_user_id = current_user["user_id"]
+    final_user_naam = current_user["naam"]
     
     klant = await db.klanten.find_one({"id": data.klant_id})
     werf = await db.werven.find_one({"id": data.werf_id})
@@ -5482,8 +5475,8 @@ async def create_project_werkbon(
         "email_error": None,
         "locatie_start": None,
         "locatie_stop": None,
-        "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow(),
+        "created_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc),
     }
     
     await db.project_werkbonnen.insert_one(werkbon_dict)
@@ -5495,7 +5488,7 @@ async def update_project_werkbon(werkbon_id: str, update_data: ProjectWerkbonUpd
     update_dict["updated_at"] = datetime.now(timezone.utc)
     
     if update_data.handtekening_klant:
-        update_dict["handtekening_datum"] = datetime.utcnow()
+        update_dict["handtekening_datum"] = datetime.now(timezone.utc)
         update_dict["status"] = "ondertekend"
     
     # Recalculate hours if times changed
@@ -5591,21 +5584,12 @@ async def get_productie_werkbon(werkbon_id: str):
 
 @api_router.post("/productie-werkbonnen")
 async def create_productie_werkbon(
-    data: ProductieWerkbonCreate, 
-    user_id: Optional[str] = Query(None),
-    user_naam: Optional[str] = Query(None),
-    current_user: Optional[Dict] = Depends(get_optional_user)
+    data: ProductieWerkbonCreate,
+    current_user: Dict = Depends(get_current_user)
 ):
-    """Create productie werkbon - supports both JWT auth and legacy query params for backward compatibility"""
-    # Use JWT if available, otherwise fall back to query params (legacy support)
-    if current_user:
-        final_user_id = current_user["user_id"]
-        final_user_naam = current_user["naam"]
-    elif user_id and user_naam:
-        final_user_id = user_id
-        final_user_naam = user_naam
-    else:
-        raise HTTPException(status_code=401, detail="Authenticatie vereist")
+    """Create productie werkbon - uses authenticated user's identity from JWT"""
+    final_user_id = current_user["user_id"]
+    final_user_naam = current_user["naam"]
     
     klant = await db.klanten.find_one({"id": data.klant_id})
     werf = await db.werven.find_one({"id": data.werf_id})
@@ -5628,7 +5612,7 @@ async def create_productie_werkbon(
                 processed_fotos.append({
                     "file_id": file_id,
                     "timestamp": foto.get("timestamp", "") if isinstance(foto, dict) else "",
-                    "werknemer_id": foto.get("werknemer_id", final_user_id) if isinstance(foto, dict) else user_id,
+                    "werknemer_id": foto.get("werknemer_id", final_user_id) if isinstance(foto, dict) else final_user_id,
                     "gps": foto.get("gps", "") if isinstance(foto, dict) else "",
                 })
         except Exception as e:
@@ -5704,8 +5688,8 @@ async def create_productie_werkbon(
         "email_verzonden": False,
         "pdf_bestandsnaam": None,
         "email_error": None,
-        "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow(),
+        "created_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc),
     }
     
     await db.productie_werkbonnen.insert_one(werkbon_dict)
@@ -5887,7 +5871,7 @@ async def create_planning(data: PlanningItemCreate, current_user: Dict = Depends
 async def update_planning(planning_id: str, update_data: PlanningItemUpdate, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Update planning item - Admin/Master Admin only"""
     update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
-    update_dict["updated_at"] = datetime.utcnow()
+    update_dict["updated_at"] = datetime.now(timezone.utc)
     
     # Resolve names if IDs changed
     if update_data.klant_id:
@@ -6032,7 +6016,7 @@ async def create_bericht(data: BerichtCreate, current_user: Dict = Depends(get_c
         "gelezen_door": [],
         "bijlagen": processed_bijlagen,
         "planning_id": data.planning_id,
-        "created_at": datetime.utcnow(),
+        "created_at": datetime.now(timezone.utc),
     }
     
     # Resolve recipient name
@@ -6059,7 +6043,7 @@ async def create_bericht(data: BerichtCreate, current_user: Dict = Depends(get_c
                         "grootte": 0,
                         "uploaded_by_id": van_id,
                         "uploaded_by_naam": van_naam,
-                        "created_at": datetime.utcnow(),
+                        "created_at": datetime.now(timezone.utc),
                     }
                     await db.werknemer_documenten.insert_one(doc)
         except Exception as e:
@@ -6232,7 +6216,7 @@ async def upload_file(data: dict):
         return {"file_id": file_id, "filename": filename}
     except Exception as e:
         logging.error(f"Failed to upload file: {e}")
-        raise HTTPException(status_code=500, detail=f"Upload mislukt: {str(e)}")
+        raise HTTPException(status_code=500, detail="Upload mislukt. Probeer het opnieuw.")
 
 @api_router.delete("/files/{file_id}")
 async def delete_file(file_id: str):
@@ -6333,7 +6317,7 @@ async def create_werknemer_document(data: WerknemerDocumentCreate, current_user:
         "grootte": file_size,
         "uploaded_by_id": current_user["user_id"],
         "uploaded_by_naam": current_user["naam"],
-        "created_at": datetime.utcnow(),
+        "created_at": datetime.now(timezone.utc),
     }
     
     await db.werknemer_documenten.insert_one(doc)
@@ -6397,7 +6381,7 @@ async def get_app_settings():
 @api_router.get("/dashboard/stats")
 async def get_dashboard_stats(current_user: Dict = Depends(get_current_user)):
     """Get comprehensive dashboard statistics"""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     current_week = now.isocalendar()[1]
     current_year = now.isocalendar()[0]
     

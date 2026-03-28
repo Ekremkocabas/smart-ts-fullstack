@@ -1,7 +1,5 @@
 import { create } from 'zustand';
-import axios from 'axios';
-
-const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+import { apiClient } from '../context/AuthContext';
 
 // Types
 export interface Team {
@@ -139,28 +137,28 @@ interface AppState {
   lastUpdatedWerkbon: Werkbon | null;
   werknemers: User[];
   instellingen: BedrijfsInstellingen | null;
-  
+
   // Loading states
   isLoading: boolean;
   error: string | null;
-  
+
   // Actions
   fetchTeams: () => Promise<void>;
   addTeam: (naam: string, leden: string[]) => Promise<void>;
   updateTeam: (id: string, naam: string, leden: string[]) => Promise<void>;
   deleteTeam: (id: string) => Promise<void>;
-  
+
   fetchKlanten: () => Promise<void>;
   addKlant: (data: Omit<Klant, 'id' | 'actief'>) => Promise<void>;
   updateKlant: (id: string, data: Omit<Klant, 'id' | 'actief'>) => Promise<void>;
   deleteKlant: (id: string) => Promise<void>;
-  
+
   fetchWerven: () => Promise<void>;
   fetchWervenByKlant: (klantId: string) => Promise<Werf[]>;
   addWerf: (data: Omit<Werf, 'id' | 'actief'>) => Promise<void>;
   updateWerf: (id: string, data: Omit<Werf, 'id' | 'actief'>) => Promise<void>;
   deleteWerf: (id: string) => Promise<void>;
-  
+
   fetchWerkbonnen: (options?: { userId?: string; isAdmin?: boolean }) => Promise<void>;
   fetchWerkbon: (id: string) => Promise<Werkbon>;
   createWerkbon: (data: any, userId: string, userName: string) => Promise<Werkbon>;
@@ -168,19 +166,19 @@ interface AppState {
   deleteWerkbon: (id: string) => Promise<void>;
   verzendWerkbon: (id: string, klantEmail?: string) => Promise<any>;
   duplicateWerkbon: (id: string, userId: string, userName: string) => Promise<Werkbon>;
-  
+
   fetchWeekDates: (year: number, week: number) => Promise<WeekDates>;
-  
+
   fetchInstellingen: () => Promise<void>;
   updateInstellingen: (data: Partial<BedrijfsInstellingen>) => Promise<void>;
-  
+
   // Werknemer actions
   fetchWerknemers: () => Promise<void>;
   addWerknemer: (email: string, naam: string, teamId?: string) => Promise<AddWerknemerResult>;
   updateWerknemer: (id: string, data: { naam?: string; team_id?: string; actief?: boolean }) => Promise<void>;
   resendWerknemerInfo: (id: string) => Promise<AddWerknemerResult>;
   deleteWerknemer: (id: string) => Promise<void>;
-  
+
   clearError: () => void;
 }
 
@@ -204,30 +202,30 @@ export const useAppStore = create<AppState>((set, get) => ({
   instellingen: null,
   isLoading: false,
   error: null,
-  
+
   // Team actions
   fetchTeams: async () => {
     set({ isLoading: true, error: null });
     try {
-      const response = await axios.get(`${BACKEND_URL}/api/teams`);
+      const response = await apiClient.get(`/api/teams`);
       set({ teams: response.data, isLoading: false });
     } catch (error: any) {
       set({ error: error.response?.data?.detail || error.message, isLoading: false });
     }
   },
-  
+
   addTeam: async (naam: string, leden: string[]) => {
     try {
-      const response = await axios.post(`${BACKEND_URL}/api/teams`, { naam, leden });
+      const response = await apiClient.post(`/api/teams`, { naam, leden });
       set(state => ({ teams: [...state.teams, response.data] }));
     } catch (error: any) {
       set({ error: error.response?.data?.detail || error.message });
     }
   },
-  
+
   updateTeam: async (id: string, naam: string, leden: string[]) => {
     try {
-      const response = await axios.put(`${BACKEND_URL}/api/teams/${id}`, { naam, leden });
+      const response = await apiClient.put(`/api/teams/${id}`, { naam, leden });
       set(state => ({
         teams: state.teams.map(t => t.id === id ? response.data : t)
       }));
@@ -235,39 +233,39 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ error: error.response?.data?.detail || error.message });
     }
   },
-  
+
   deleteTeam: async (id: string) => {
     try {
-      await axios.delete(`${BACKEND_URL}/api/teams/${id}`);
+      await apiClient.delete(`/api/teams/${id}`);
       set(state => ({ teams: state.teams.filter(t => t.id !== id) }));
     } catch (error: any) {
       set({ error: error.message });
     }
   },
-  
+
   // Klant actions
   fetchKlanten: async () => {
     set({ isLoading: true, error: null });
     try {
-      const response = await axios.get(`${BACKEND_URL}/api/klanten`);
+      const response = await apiClient.get(`/api/klanten`);
       set({ klanten: response.data, isLoading: false });
     } catch (error: any) {
       set({ error: error.response?.data?.detail || error.message, isLoading: false });
     }
   },
-  
+
   addKlant: async (data) => {
     try {
-      const response = await axios.post(`${BACKEND_URL}/api/klanten`, data);
+      const response = await apiClient.post(`/api/klanten`, data);
       set(state => ({ klanten: [...state.klanten, response.data] }));
     } catch (error: any) {
       set({ error: error.response?.data?.detail || error.message });
     }
   },
-  
+
   updateKlant: async (id, data) => {
     try {
-      const response = await axios.put(`${BACKEND_URL}/api/klanten/${id}`, data);
+      const response = await apiClient.put(`/api/klanten/${id}`, data);
       set(state => ({
         klanten: state.klanten.map(k => k.id === id ? response.data : k)
       }));
@@ -275,40 +273,40 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ error: error.response?.data?.detail || error.message });
     }
   },
-  
+
   deleteKlant: async (id: string) => {
     try {
-      await axios.delete(`${BACKEND_URL}/api/klanten/${id}`);
+      await apiClient.delete(`/api/klanten/${id}`);
       set(state => ({ klanten: state.klanten.filter(k => k.id !== id) }));
     } catch (error: any) {
       set({ error: error.message });
     }
   },
-  
+
   // Werf actions
   fetchWerven: async () => {
     set({ isLoading: true, error: null });
     try {
-      const response = await axios.get(`${BACKEND_URL}/api/werven`);
+      const response = await apiClient.get(`/api/werven`);
       set({ werven: response.data, isLoading: false });
     } catch (error: any) {
       set({ error: error.response?.data?.detail || error.message, isLoading: false });
     }
   },
-  
+
   fetchWervenByKlant: async (klantId: string) => {
     try {
-      const response = await axios.get(`${BACKEND_URL}/api/werven/klant/${klantId}`);
+      const response = await apiClient.get(`/api/werven/klant/${klantId}`);
       return response.data;
     } catch (error: any) {
       set({ error: error.response?.data?.detail || error.message });
       return [];
     }
   },
-  
+
   addWerf: async (data) => {
     try {
-      const response = await axios.post(`${BACKEND_URL}/api/werven`, data);
+      const response = await apiClient.post(`/api/werven`, data);
       set(state => ({ werven: [...state.werven, response.data] }));
     } catch (error: any) {
       set({ error: error.response?.data?.detail || error.message });
@@ -317,7 +315,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   updateWerf: async (id, data) => {
     try {
-      const response = await axios.put(`${BACKEND_URL}/api/werven/${id}`, data);
+      const response = await apiClient.put(`/api/werven/${id}`, data);
       set(state => ({
         werven: state.werven.map(w => w.id === id ? response.data : w),
       }));
@@ -326,16 +324,16 @@ export const useAppStore = create<AppState>((set, get) => ({
       throw error;
     }
   },
-  
+
   deleteWerf: async (id: string) => {
     try {
-      await axios.delete(`${BACKEND_URL}/api/werven/${id}`);
+      await apiClient.delete(`/api/werven/${id}`);
       set(state => ({ werven: state.werven.filter(w => w.id !== id) }));
     } catch (error: any) {
       set({ error: error.message });
     }
   },
-  
+
   // Werkbon actions
   fetchWerkbonnen: async (options) => {
     set({ isLoading: true, error: null });
@@ -345,7 +343,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         throw new Error('Gebruiker niet gevonden voor werkbon overzicht');
       }
 
-      const response = await axios.get(`${BACKEND_URL}/api/werkbonnen`, {
+      const response = await apiClient.get(`/api/werkbonnen`, {
         params: { user_id: userId },
       });
       set({ werkbonnen: response.data, isLoading: false });
@@ -353,10 +351,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ error: error.response?.data?.detail || error.message, isLoading: false });
     }
   },
-  
+
   fetchWerkbon: async (id: string) => {
     try {
-      const response = await axios.get(`${BACKEND_URL}/api/werkbonnen/${id}`, {
+      const response = await apiClient.get(`/api/werkbonnen/${id}`, {
         params: { _ts: Date.now() },
       });
       return response.data;
@@ -365,11 +363,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       throw error;
     }
   },
-  
+
   createWerkbon: async (data, userId, userName) => {
     try {
-      const response = await axios.post(
-        `${BACKEND_URL}/api/werkbonnen?user_id=${userId}&user_naam=${encodeURIComponent(userName)}`,
+      const response = await apiClient.post(
+        `/api/werkbonnen?user_id=${userId}&user_naam=${encodeURIComponent(userName)}`,
         data
       );
       set(state => ({ werkbonnen: [response.data, ...state.werkbonnen], lastUpdatedWerkbon: response.data }));
@@ -379,10 +377,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       throw error;
     }
   },
-  
+
   updateWerkbon: async (id, data) => {
     try {
-      const response = await axios.put(`${BACKEND_URL}/api/werkbonnen/${id}`, data);
+      const response = await apiClient.put(`/api/werkbonnen/${id}`, data);
       set(state => ({
         werkbonnen: state.werkbonnen.some(w => w.id === id)
           ? state.werkbonnen.map(w => w.id === id ? response.data : w)
@@ -395,16 +393,16 @@ export const useAppStore = create<AppState>((set, get) => ({
       throw error;
     }
   },
-  
+
   deleteWerkbon: async (id: string) => {
     try {
-      await axios.delete(`${BACKEND_URL}/api/werkbonnen/${id}`);
+      await apiClient.delete(`/api/werkbonnen/${id}`);
       set(state => ({ werkbonnen: state.werkbonnen.filter(w => w.id !== id) }));
     } catch (error: any) {
       set({ error: error.message });
     }
   },
-  
+
   verzendWerkbon: async (id: string, klantEmail?: string) => {
     try {
       const params: any = {};
@@ -418,9 +416,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         type === 'project'    ? '/api/project-werkbonnen' :
         type === 'prestatie'  ? '/api/productie-werkbonnen' :
         '/api/werkbonnen';
-      const response = await axios.post(`${BACKEND_URL}${basePath}/${id}/verzenden`, null, { params });
+      const response = await apiClient.post(`${basePath}/${id}/verzenden`, null, { params });
       set(state => ({
-        werkbonnen: state.werkbonnen.map(w => 
+        werkbonnen: state.werkbonnen.map(w =>
           w.id === id
             ? {
                 ...w,
@@ -446,8 +444,8 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   duplicateWerkbon: async (id: string, userId: string, userName: string) => {
     try {
-      const response = await axios.post(
-        `${BACKEND_URL}/api/werkbonnen/${id}/dupliceer`,
+      const response = await apiClient.post(
+        `/api/werkbonnen/${id}/dupliceer`,
         null,
         { params: { user_id: userId, user_naam: userName } }
       );
@@ -458,66 +456,63 @@ export const useAppStore = create<AppState>((set, get) => ({
       throw error;
     }
   },
-  
+
   fetchWeekDates: async (year: number, week: number) => {
     try {
-      const response = await axios.get(`${BACKEND_URL}/api/week-dates/${year}/${week}`);
+      const response = await apiClient.get(`/api/week-dates/${year}/${week}`);
       return response.data;
     } catch (error: any) {
       set({ error: error.response?.data?.detail || error.message });
       throw error;
     }
   },
-  
+
   // Instellingen actions
   fetchInstellingen: async () => {
     try {
-      const response = await axios.get(`${BACKEND_URL}/api/instellingen`);
+      const response = await apiClient.get(`/api/instellingen`);
       set({ instellingen: response.data });
     } catch (error: any) {
       set({ error: error.response?.data?.detail || error.message });
     }
   },
-  
+
   updateInstellingen: async (data) => {
     try {
-      const response = await axios.put(`${BACKEND_URL}/api/instellingen`, data);
+      const response = await apiClient.put(`/api/instellingen`, data);
       set({ instellingen: response.data });
     } catch (error: any) {
       set({ error: error.response?.data?.detail || error.message });
     }
   },
-  
+
   // Werknemer actions
   fetchWerknemers: async () => {
     try {
-      const response = await axios.get(`${BACKEND_URL}/api/auth/users`);
+      const response = await apiClient.get(`/api/auth/users`);
       set({ werknemers: response.data });
     } catch (error: any) {
       set({ error: error.message });
     }
   },
-  
+
   addWerknemer: async (email: string, naam: string, teamId?: string) => {
     try {
-      // Generate random password
-      const tempPassword = Math.random().toString(36).slice(-8);
-      
       // Use the new endpoint that sends welcome email
-      const response = await axios.post(`${BACKEND_URL}/api/auth/register-worker`, null, {
+      // Password is generated server-side using a cryptographically secure function
+      const response = await apiClient.post(`/api/auth/register-worker`, null, {
         params: {
           email,
           naam,
-          password: tempPassword,
           team_id: teamId || undefined
         }
       });
-      
+
       const { fetchWerknemers } = get();
       await fetchWerknemers();
-      
-      return { 
-        ...response.data.user, 
+
+      return {
+        ...response.data.user,
         tempPassword: response.data.temp_password,
         emailSent: response.data.email_sent,
         emailError: response.data.email_error,
@@ -527,10 +522,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       throw error;
     }
   },
-  
+
   updateWerknemer: async (id: string, data: { naam?: string; team_id?: string; actief?: boolean }) => {
     try {
-      await axios.put(`${BACKEND_URL}/api/auth/users/${id}`, data);
+      await apiClient.put(`/api/auth/users/${id}`, data);
       const { fetchWerknemers } = get();
       await fetchWerknemers();
     } catch (error: any) {
@@ -541,7 +536,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   resendWerknemerInfo: async (id: string) => {
     try {
-      const response = await axios.post(`${BACKEND_URL}/api/auth/users/${id}/resend-info`);
+      const response = await apiClient.post(`/api/auth/users/${id}/resend-info`);
       const { fetchWerknemers } = get();
       await fetchWerknemers();
       return {
@@ -555,10 +550,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       throw error;
     }
   },
-  
+
   deleteWerknemer: async (id: string) => {
     try {
-      await axios.delete(`${BACKEND_URL}/api/auth/users/${id}`);
+      await apiClient.delete(`/api/auth/users/${id}`);
       const { fetchWerknemers } = get();
       await fetchWerknemers();
     } catch (error: any) {
@@ -566,6 +561,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       throw error;
     }
   },
-  
+
   clearError: () => set({ error: null }),
 }));

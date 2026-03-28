@@ -4,7 +4,24 @@
       "Bash(npx expo:*)",
       "Bash(node_modules/.bin/expo export:*)",
       "Bash(npm install:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(ls ../frontend/app/\\\\\\(tabs\\\\\\)/)",
+      "Read(//c/Users/ekrem/OneDrive/Desktop/smart-ts-fullstack/**)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" https://web-production-7bce.up.railway.app/api/health)",
+      "Bash(curl:*)",
+      "Bash(npx tsc:*)",
+      "Bash(cat /c/Users/ekrem/OneDrive/Desktop/smart-ts-fullstack/.github/workflows/*.yml)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(''''owner:'''', d[''''expo''''].get\\(''''owner''''\\)\\); print\\(''''slug:'''', d[''''expo''''].get\\(''''slug''''\\)\\); print\\(''''projectId:'''', d[''''expo''''].get\\(''''extra'''',{}\\).get\\(''''eas'''',{}\\).get\\(''''projectId''''\\)\\)\")",
+      "Bash(npx eas:*)",
+      "Bash(find C:UsersekremOneDriveDesktopsmart-ts-fullstackfrontend -name *store* -o -name *photo* -o -name *image*)",
+      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\(''''expo'''',{}\\).get\\(''''android'''',{}\\), indent=2\\)\\)\")",
+      "Bash(python:*)",
+      "Bash(eas secret:list --scope project)",
+      "Bash(eas env:list)",
+      "Bash(eas env:list --environment production)",
+      "Bash(eas env:list --environment preview)",
+      "Bash(eas secret:create --scope project --name GOOGLE_SERVICES_JSON --type file --value ./google-services.json)",
+      "Bash(ls:*)"
     ]
   }
 }

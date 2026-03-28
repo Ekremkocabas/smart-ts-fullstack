@@ -34,10 +34,11 @@ const AFKORTING_LABELS: { [key: string]: string } = {
 
 function getCurrentWeekNumber(): number {
   const now = new Date();
-  const start = new Date(now.getFullYear(), 0, 1);
-  const diff = now.getTime() - start.getTime();
-  const oneWeek = 1000 * 60 * 60 * 24 * 7;
-  return Math.ceil((diff + start.getDay() * 24 * 60 * 60 * 1000) / oneWeek);
+  const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
 }
 
 // Default 8 hours for weekdays (Mon-Fri), 0 for weekends

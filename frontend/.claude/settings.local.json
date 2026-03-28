@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(eas build:*)",
+      "Bash(eas:*)",
+      "WebFetch(domain:expo.dev)",
+      "Bash(ls /c/Users/ekrem/OneDrive/Desktop/smart-ts-fullstack/*.json)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\(''''expo'''',{}\\).get\\(''''extra'''',{}\\), indent=2\\)\\)\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); e=d.get\\(''''expo'''',{}\\); print\\(''''owner:'''', e.get\\(''''owner''''\\)\\); print\\(''''slug:'''', e.get\\(''''slug''''\\)\\); print\\(''''extra:'''', json.dumps\\(e.get\\(''''extra'''',{}\\), indent=2\\)\\); print\\(''''runtimeVersion:'''', e.get\\(''''runtimeVersion''''\\)\\)\")",
+      "Bash(git commit:*)",
+      "Bash(node -e \"const f=require\\(''''./frontend/app.json''''\\); console.log\\(''''slug:'''', f.expo.slug, ''''owner:'''', f.expo.owner\\)\")",
+      "Bash(git archive:*)",
+      "Bash(tar -tv)",
+      "Bash(git rm:*)",
+      "Bash(git add:*)",
+      "Bash(/c/Users/ekrem/OneDrive/Desktop/smart-ts-fullstack/frontend/eas.json:*)",
+      "Bash(EAS_NO_VCS=1 eas build --platform android --profile preview --non-interactive)",
+      "Bash(npm install:*)",
+      "Bash(git push:*)",
+      "Bash(gh workflow:*)",
+      "Bash(git checkout:*)",
+      "Bash(git pull:*)",
+      "Bash(git stash:*)",
+      "Bash(git fetch:*)",
+      "Bash(npx expo:*)",
+      "Bash(awk:*)",
+      "Bash(xargs grep:*)",
+      "Bash(grep -n \"parseUren\\\\|uren.*reduce\\\\|maandag\\\\|dinsdag\\\\|totaal\\\\|ingevuld_door\\\\|handleDownload\\\\|handleVerzend\\\\|pdf\\\\|verzend\\\\|Fout\\\\|error\\\\|Error\" /c/Users/ekrem/OneDrive/Desktop/smart-ts-fullstack/frontend/app/werkbon/[id].tsx)"
+    ]
+  }
+}

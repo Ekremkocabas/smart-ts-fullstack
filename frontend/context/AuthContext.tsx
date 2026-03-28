@@ -40,10 +40,10 @@ apiClient.interceptors.request.use(
         config.headers.Authorization = `Bearer ${token}`;
       }
     } catch (error) {
-      console.error('[apiClient] Error getting token:', error);
+      if (__DEV__) console.error('[apiClient] Error getting token:', error);
     }
-    
-    console.log('[apiClient] Request to:', config.baseURL + config.url);
+
+    if (__DEV__) console.log('[apiClient] Request to:', config.baseURL + config.url);
     return config;
   },
   (error) => Promise.reject(error)
@@ -51,7 +51,7 @@ apiClient.interceptors.request.use(
 
 // For backward compatibility
 const BACKEND_URL = getBackendUrl();
-console.log('[AuthContext] Initial Backend URL:', BACKEND_URL);
+if (__DEV__) console.log('[AuthContext] Initial Backend URL:', BACKEND_URL);
 
 // ==================== TYPES ====================
 
@@ -150,7 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setPlatformAccess(platformData as 'web' | 'app' | 'both');
       }
     } catch (error) {
-      console.error('Error loading user:', error);
+      if (__DEV__) console.error('Error loading user:', error);
     } finally {
       setIsLoading(false);
     }
