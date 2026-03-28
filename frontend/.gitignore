@@ -13,10 +13,15 @@ expo-env.d.ts
 .kotlin/
 *.orig.*
 *.jks
+*.jks.base64
+*.keystore
 *.p8
 *.p12
 *.key
 *.mobileprovision
+
+# Signing credentials (NEVER commit)
+credentials/
 
 # Firebase credentials (DO NOT COMMIT)
 google-services.json
