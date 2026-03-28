@@ -106,6 +106,7 @@ export default function PlanningAdmin() {
   const [klanten, setKlanten] = useState<Klant[]>([]);
   const [werven, setWerven] = useState<Werf[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState<PlanningItem | null>(null);
@@ -164,6 +165,7 @@ export default function PlanningAdmin() {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
+      setError(null);
       const [planRes, usersRes, teamsRes, klantenRes, wervenRes] = await Promise.all([
         apiClient.get(`/api/planning?week_nummer=${weekNummer}&jaar=${jaar}`),
         apiClient.get('/api/auth/users'),
@@ -176,7 +178,7 @@ export default function PlanningAdmin() {
       setTeams(Array.isArray(teamsRes.data) ? teamsRes.data : []);
       setKlanten(Array.isArray(klantenRes.data) ? klantenRes.data.filter((k: any) => k.actief) : []);
       setWerven(Array.isArray(wervenRes.data) ? wervenRes.data.filter((w: any) => w.actief) : []);
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error(e); setError('Kon planningsgegevens niet laden. Probeer opnieuw.'); }
     finally { setLoading(false); }
   }, [weekNummer, jaar]);
 
@@ -494,6 +496,15 @@ export default function PlanningAdmin() {
         ))}
       </View>
 
+      {error && !loading && (
+        <View style={{ backgroundColor: '#fff3cd', borderRadius: 12, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#ffc107', flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <Ionicons name="warning-outline" size={22} color="#e67e22" />
+          <Text style={{ flex: 1, fontSize: 14, color: '#1A1A2E' }}>{error}</Text>
+          <TouchableOpacity onPress={fetchData} style={{ backgroundColor: '#F5A623', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }}>
+            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 13 }}>Opnieuw</Text>
+          </TouchableOpacity>
+        </View>
+      )}
       {loading ? (
         <ActivityIndicator size="large" color="#F5A623" style={{ marginTop: 40 }} />
       ) : (

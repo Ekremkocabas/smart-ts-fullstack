@@ -5,16 +5,13 @@
   },
   "build": {
     "preview": {
-      "channel": "preview",
-      "cache": {
-        "disabled": true
-      },
       "android": {
         "buildType": "apk",
-        "credentialsSource": "local"
+        "credentialsSource": "remote"
       },
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://web-production-7bce.up.railway.app"
+        "EXPO_PUBLIC_BACKEND_URL": "https://web-production-7bce.up.railway.app",
+        "EXPO_PUBLIC_PROJECT_ID": "9dd093e7-a900-4295-b278-efe5315c1a87"
       },
       "distribution": "internal"
     },
@@ -22,10 +19,11 @@
       "channel": "production",
       "android": {
         "buildType": "apk",
-        "credentialsSource": "local"
+        "credentialsSource": "remote"
       },
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://web-production-7bce.up.railway.app"
+        "EXPO_PUBLIC_BACKEND_URL": "https://web-production-7bce.up.railway.app",
+        "EXPO_PUBLIC_PROJECT_ID": "9dd093e7-a900-4295-b278-efe5315c1a87"
       }
     }
   },

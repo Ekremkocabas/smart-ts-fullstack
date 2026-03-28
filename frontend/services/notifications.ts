@@ -5,13 +5,12 @@
 
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiClient } from '../context/AuthContext';
 
-const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
-
-// Configure notification handling
+// Configure foreground notification handling (app open → still show alert + sound)
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -23,73 +22,94 @@ Notifications.setNotificationHandler({
 });
 
 /**
- * Request notification permissions and get push token
+ * Setup Android notification channels.
+ * Must be called before any notification can be received on Android 8+.
+ */
+async function setupAndroidChannels() {
+  if (Platform.OS !== 'android') return;
+
+  await Notifications.setNotificationChannelAsync('default', {
+    name: 'Smart-Tech Notificaties',
+    importance: Notifications.AndroidImportance.MAX,
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: '#F5A623',
+    sound: 'default',
+  });
+
+  await Notifications.setNotificationChannelAsync('planning', {
+    name: 'Planning',
+    description: 'Nieuwe taken en planning updates',
+    importance: Notifications.AndroidImportance.HIGH,
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: '#3498db',
+    sound: 'default',
+  });
+
+  await Notifications.setNotificationChannelAsync('berichten', {
+    name: 'Berichten',
+    description: 'Nieuwe berichten van het bedrijf',
+    importance: Notifications.AndroidImportance.HIGH,
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: '#27ae60',
+    sound: 'default',
+  });
+
+  await Notifications.setNotificationChannelAsync('werkbon', {
+    name: 'Werkbonnen',
+    description: 'Nieuwe werkbon ingediend',
+    importance: Notifications.AndroidImportance.HIGH,
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: '#e67e22',
+    sound: 'default',
+  });
+}
+
+/**
+ * Request notification permissions and get Expo push token.
+ * Works on physical devices only.
  */
 export async function registerForPushNotificationsAsync(): Promise<string | null> {
-  let token: string | null = null;
-
   // Only works on physical devices
   if (!Device.isDevice) {
-    console.log('Push notifications require a physical device');
+    console.log('[Push] Push notifications require a physical device');
     return null;
   }
 
-  // Check existing permissions
+  // Setup Android channels first (so they exist when first notification arrives)
+  await setupAndroidChannels();
+
+  // Check / request permissions
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
 
-  // Request permission if not granted
   if (existingStatus !== 'granted') {
     const { status } = await Notifications.requestPermissionsAsync();
     finalStatus = status;
   }
 
   if (finalStatus !== 'granted') {
-    console.log('Push notification permission denied');
+    console.log('[Push] Permission denied');
+    return null;
+  }
+
+  // Resolve projectId: prefer app.json extra.eas.projectId, fallback to env var
+  const projectId =
+    Constants.expoConfig?.extra?.eas?.projectId ||
+    process.env.EXPO_PUBLIC_PROJECT_ID;
+
+  if (!projectId) {
+    console.error('[Push] projectId not found — check app.json extra.eas.projectId');
     return null;
   }
 
   try {
-    // Get Expo push token
-    const pushToken = await Notifications.getExpoPushTokenAsync({
-      projectId: process.env.EXPO_PUBLIC_PROJECT_ID, // Add to .env if needed
-    });
-    token = pushToken.data;
-    console.log('Push token:', token);
+    const pushToken = await Notifications.getExpoPushTokenAsync({ projectId });
+    console.log('[Push] Token obtained:', pushToken.data.slice(0, 40) + '...');
+    return pushToken.data;
   } catch (error) {
-    console.error('Error getting push token:', error);
+    console.error('[Push] Error getting push token:', error);
+    return null;
   }
-
-  // Android specific channel setup
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('default', {
-      name: 'Smart-Tech Notificaties',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#F5A623',
-      sound: 'default',
-    });
-
-    await Notifications.setNotificationChannelAsync('planning', {
-      name: 'Planning',
-      description: 'Nieuwe taken en planning updates',
-      importance: Notifications.AndroidImportance.HIGH,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#3498db',
-      sound: 'default',
-    });
-
-    await Notifications.setNotificationChannelAsync('berichten', {
-      name: 'Berichten',
-      description: 'Nieuwe berichten van het bedrijf',
-      importance: Notifications.AndroidImportance.HIGH,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#27ae60',
-      sound: 'default',
-    });
-  }
-
-  return token;
 }
 
 /**
@@ -99,7 +119,7 @@ export async function savePushToken(userId: string, token: string): Promise<bool
   try {
     const authToken = await AsyncStorage.getItem('token');
     if (!authToken) {
-      console.error('No auth token available');
+      console.error('[Push] No auth token available for savePushToken');
       return false;
     }
 
@@ -108,19 +128,18 @@ export async function savePushToken(userId: string, token: string): Promise<bool
       { push_token: token },
       { headers: { Authorization: `Bearer ${authToken}` } }
     );
-    
-    // Store locally for reference
+
     await AsyncStorage.setItem('pushToken', token);
-    console.log('Push token saved to backend');
+    console.log('[Push] Token saved to backend');
     return true;
   } catch (error) {
-    console.error('Error saving push token:', error);
+    console.error('[Push] Error saving push token:', error);
     return false;
   }
 }
 
 /**
- * Remove push token from backend (logout)
+ * Remove push token from backend (on logout)
  */
 export async function removePushToken(userId: string): Promise<void> {
   try {
@@ -131,41 +150,29 @@ export async function removePushToken(userId: string): Promise<void> {
       `/api/auth/users/${userId}/push-token`,
       { headers: { Authorization: `Bearer ${authToken}` } }
     );
-    
+
     await AsyncStorage.removeItem('pushToken');
-    console.log('Push token removed');
+    console.log('[Push] Token removed from backend');
   } catch (error) {
-    console.error('Error removing push token:', error);
+    // Non-critical — just log
+    console.warn('[Push] Could not remove push token from backend:', error);
   }
 }
 
 /**
- * Setup notification listeners
+ * Setup notification listeners (foreground + tap)
  */
 export function setupNotificationListeners(
   onNotificationReceived?: (notification: Notifications.Notification) => void,
   onNotificationResponse?: (response: Notifications.NotificationResponse) => void
 ) {
-  // When notification is received while app is in foreground
   const receivedSubscription = Notifications.addNotificationReceivedListener((notification) => {
-    console.log('Notification received:', notification);
+    console.log('[Push] Notification received in foreground:', notification.request.content.title);
     onNotificationReceived?.(notification);
   });
 
-  // When user taps on notification
   const responseSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
-    console.log('Notification response:', response);
-    const data = response.notification.request.content.data;
-    
-    // Handle navigation based on notification type
-    if (data?.type === 'planning') {
-      // Navigate to planning tab
-      // router.push('/(tabs)/planning');
-    } else if (data?.type === 'bericht') {
-      // Navigate to berichten tab
-      // router.push('/(tabs)/berichten');
-    }
-    
+    console.log('[Push] Notification tapped:', response.notification.request.content.title);
     onNotificationResponse?.(response);
   });
 
@@ -173,26 +180,6 @@ export function setupNotificationListeners(
     receivedSubscription.remove();
     responseSubscription.remove();
   };
-}
-
-/**
- * Send a local notification (for testing)
- */
-export async function sendLocalNotification(
-  title: string,
-  body: string,
-  data?: Record<string, any>,
-  channelId: string = 'default'
-): Promise<void> {
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title,
-      body,
-      data,
-      sound: 'default',
-    },
-    trigger: null, // Immediately
-  });
 }
 
 /**
@@ -210,7 +197,7 @@ export async function setBadgeCount(count: number): Promise<void> {
 }
 
 /**
- * Clear all notifications
+ * Clear all notifications and reset badge
  */
 export async function clearAllNotifications(): Promise<void> {
   await Notifications.dismissAllNotificationsAsync();

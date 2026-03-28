@@ -23,6 +23,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useAppStore } from '../../store/appStore';
@@ -68,6 +69,7 @@ export default function WerkbonForm() {
     werfId, werfNaam, manualWerfNaam,
     datum, opmerkingen, gps, photos,
     urenData, opleveringData, projectData, prestatieData,
+    kmAfstand, updateKmAfstand,
     setKlant, setManualKlant, setWerf, setManualWerf,
     setDatum, setOpmerkingen, setGPS,
     addPhoto, removePhoto,
@@ -176,19 +178,32 @@ export default function WerkbonForm() {
     }
   };
 
+  // Compress image to max 1024px wide at 45% quality — keeps payload under ~300 KB per photo
+  const compressImage = async (uri: string): Promise<string> => {
+    try {
+      const result = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: 1024 } }],
+        { compress: 0.45, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+      );
+      return result.base64 ? `data:image/jpeg;base64,${result.base64}` : result.uri;
+    } catch {
+      return uri; // fallback: use original if compression fails
+    }
+  };
+
   const handlePickPhoto = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        quality: 0.7,
-        base64: true,
+        quality: 1, // capture at full quality, compress below
       });
 
       if (!result.canceled && result.assets[0]) {
-        const asset = result.assets[0];
+        const compressed = await compressImage(result.assets[0].uri);
         addPhoto({
           id: `photo_${Date.now()}`,
-          uri: asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri,
+          uri: compressed,
           timestamp: new Date().toISOString(),
         });
       }
@@ -206,15 +221,14 @@ export default function WerkbonForm() {
       }
 
       const result = await ImagePicker.launchCameraAsync({
-        quality: 0.7,
-        base64: true,
+        quality: 1, // capture at full quality, compress below
       });
 
       if (!result.canceled && result.assets[0]) {
-        const asset = result.assets[0];
+        const compressed = await compressImage(result.assets[0].uri);
         addPhoto({
           id: `photo_${Date.now()}`,
-          uri: asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri,
+          uri: compressed,
           timestamp: new Date().toISOString(),
         });
       }
@@ -360,6 +374,42 @@ export default function WerkbonForm() {
           {type === 'oplevering' && renderOpleveringFields()}
           {type === 'project' && renderProjectFields()}
           {type === 'prestatie' && renderPrestatieFields()}
+
+          {/* KM afstand heen & terug — alle types */}
+          {(() => {
+            const DAGEN_KM = ['maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag', 'zondag'];
+            const DAGEN_KM_KORT = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'];
+            const kmTotaal = DAGEN_KM.reduce((s, d) => s + (kmAfstand[d as keyof typeof kmAfstand] || 0), 0);
+            return (
+              <View style={styles.section}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                  <Text style={[styles.sectionTitle, { flex: 1, marginBottom: 0 }]}>KM heen & terug</Text>
+                  {kmTotaal > 0 && (
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#F5A623' }}>Totaal: {kmTotaal} km</Text>
+                  )}
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  {DAGEN_KM.map((dag, i) => (
+                    <View key={dag} style={{ alignItems: 'center', flex: 1 }}>
+                      <Text style={{ fontSize: 11, color: '#6C7A89', marginBottom: 4 }}>{DAGEN_KM_KORT[i]}</Text>
+                      <TextInput
+                        style={{
+                          borderWidth: 1, borderColor: '#E8E9ED', borderRadius: 8,
+                          padding: 6, textAlign: 'center', fontSize: 13,
+                          backgroundColor: '#fff', width: '90%',
+                        }}
+                        value={kmAfstand[dag as keyof typeof kmAfstand] === 0 ? '' : String(kmAfstand[dag as keyof typeof kmAfstand])}
+                        onChangeText={(val) => updateKmAfstand(dag, parseFloat(val) || 0)}
+                        keyboardType="numeric"
+                        placeholder="0"
+                        placeholderTextColor="#ccc"
+                      />
+                    </View>
+                  ))}
+                </View>
+              </View>
+            );
+          })()}
 
           {/* Photos */}
           <View style={styles.section}>
@@ -588,9 +638,28 @@ export default function WerkbonForm() {
       });
     };
 
+    const changeWeekNummer = (delta: number) => {
+      let newWeek = (urenData.weekNummer || 1) + delta;
+      let newJaar = urenData.jaar || new Date().getFullYear();
+      if (newWeek < 1) { newJaar -= 1; newWeek = 52; }
+      if (newWeek > 52) { newJaar += 1; newWeek = 1; }
+      setUrenData({ weekNummer: newWeek, jaar: newJaar });
+    };
+
     return (
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Urenregistratie - Week {urenData.weekNummer}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+          <Text style={[styles.sectionTitle, { flex: 1, marginBottom: 0 }]}>Urenregistratie</Text>
+          <TouchableOpacity onPress={() => changeWeekNummer(-1)} style={{ padding: 6 }}>
+            <Ionicons name="chevron-back" size={20} color="#1A1A2E" />
+          </TouchableOpacity>
+          <Text style={{ fontSize: 15, fontWeight: '700', marginHorizontal: 4, color: '#1A1A2E' }}>
+            Week {urenData.weekNummer} / {urenData.jaar}
+          </Text>
+          <TouchableOpacity onPress={() => changeWeekNummer(1)} style={{ padding: 6 }}>
+            <Ionicons name="chevron-forward" size={20} color="#1A1A2E" />
+          </TouchableOpacity>
+        </View>
         
         {urenData.urenRegels.map((regel, regelIndex) => {
           return (

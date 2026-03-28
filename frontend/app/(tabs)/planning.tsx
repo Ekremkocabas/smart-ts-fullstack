@@ -14,7 +14,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
+import { useWerkbonFormStore } from '../../store/werkbonFormStore';
 import Constants from 'expo-constants';
 
 const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_BACKEND_URL || '';
@@ -67,8 +69,26 @@ function getISOWeek(date: Date): number {
   return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
 }
 
+const PLANNING_DAGEN = ['maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag', 'zondag'];
+
+function parseHoursFromPlanning(start?: string, end?: string, voorziene?: string): number {
+  if (start && end) {
+    const [sh, sm] = start.split(':').map(Number);
+    const [eh, em] = end.split(':').map(Number);
+    const h = (eh * 60 + em - sh * 60 - sm) / 60;
+    return Math.max(0, Math.round(h * 2) / 2);
+  }
+  if (voorziene) {
+    const match = voorziene.match(/(\d+(\.\d+)?)/);
+    if (match) return parseFloat(match[1]);
+  }
+  return 8;
+}
+
 export default function PlanningTab() {
   const { user } = useAuth();
+  const router = useRouter();
+  const { startNewDraft, setType, setManualKlant, setManualWerf, setUrenData, setKmAfstand } = useWerkbonFormStore();
   const now = new Date();
   const [weekNummer, setWeekNummer] = useState(getISOWeek(now));
   const [jaar, setJaar] = useState(now.getFullYear());
@@ -78,6 +98,39 @@ export default function PlanningTab() {
   const [selectedItem, setSelectedItem] = useState<PlanningItem | null>(null);
   const [detailVisible, setDetailVisible] = useState(false);
   const [bevestigingLoading, setBevestigingLoading] = useState<string | null>(null);
+
+  const maakWerkbonVanPlanning = (item: PlanningItem) => {
+    const dagIndex = PLANNING_DAGEN.indexOf(item.dag);
+    const uren = parseHoursFromPlanning(item.start_uur, item.eind_uur, item.voorziene_uur);
+
+    // Initialize form with planning data
+    startNewDraft();
+    setType('uren');
+    setManualKlant(item.klant_naam);
+    setManualWerf(item.werf_naam);
+    setUrenData({
+      weekNummer: item.week_nummer,
+      jaar: item.jaar,
+      urenRegels: (item.werknemer_namen || [user?.naam || '']).map((naam) => ({
+        teamlidNaam: naam,
+        maandag: dagIndex === 0 ? uren : 0,
+        dinsdag: dagIndex === 1 ? uren : 0,
+        woensdag: dagIndex === 2 ? uren : 0,
+        donderdag: dagIndex === 3 ? uren : 0,
+        vrijdag: dagIndex === 4 ? uren : 0,
+        zaterdag: dagIndex === 5 ? uren : 0,
+        zondag: dagIndex === 6 ? uren : 0,
+        afkortingMa: '', afkortingDi: '', afkortingWo: '', afkortingDo: '',
+        afkortingVr: '', afkortingZa: '', afkortingZo: '',
+      })),
+      uitgevoerdeWerken: item.omschrijving || '',
+      extraMaterialen: item.nodige_materiaal || '',
+    });
+    setKmAfstand({ maandag: 0, dinsdag: 0, woensdag: 0, donderdag: 0, vrijdag: 0, zaterdag: 0, zondag: 0 });
+
+    setDetailVisible(false);
+    router.push('/werkbon/form' as any);
+  };
 
   const fetchPlanning = useCallback(async () => {
     if (!user?.id) return;
@@ -506,6 +559,17 @@ export default function PlanningTab() {
                 </View>
               ) : null}
 
+              {/* Maak werkbon button */}
+              <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
+                <TouchableOpacity
+                  style={styles.maakWerkbonBtn}
+                  onPress={() => maakWerkbonVanPlanning(selectedItem)}
+                >
+                  <Ionicons name="document-text-outline" size={20} color="#fff" />
+                  <Text style={styles.maakWerkbonBtnText}>Maak werkbon</Text>
+                </TouchableOpacity>
+              </View>
+
               {/* Confirm button */}
               <View style={styles.detailConfirmSection}>
                 {user?.id && selectedItem.bevestigd_door.includes(user.id) ? (
@@ -725,7 +789,13 @@ const styles = StyleSheet.create({
   aandachtBoxLarge: { backgroundColor: '#FFF9ED', borderRadius: 10, padding: 14, borderLeftWidth: 3, borderLeftColor: '#F5A623' },
   aandachtBoxText: { fontSize: 15, color: '#856404', lineHeight: 22 },
 
-  detailConfirmSection: { margin: 16, marginTop: 20 },
+  maakWerkbonBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+    backgroundColor: '#1A1A2E', padding: 16, borderRadius: 14, marginBottom: 8,
+  },
+  maakWerkbonBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+
+  detailConfirmSection: { margin: 16, marginTop: 8 },
   detailConfirmedRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#28a74510', padding: 16, borderRadius: 12 },
   detailConfirmedText: { fontSize: 15, fontWeight: '600', color: '#28a745' },
   detailConfirmBtn: {

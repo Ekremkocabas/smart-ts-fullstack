@@ -33,6 +33,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import * as Location from 'expo-location';
 import axios from 'axios';
 
@@ -210,6 +211,7 @@ export default function WerkbonSign() {
     werfId, werfNaam, manualWerfNaam,
     datum, opmerkingen, gps, photos,
     urenData, opleveringData, projectData, prestatieData,
+    kmAfstand,
     signerName, signature, selfie, sendToCustomer, confirmationChecked,
     setSignerName, setSignature, setSelfie, setSendToCustomer, setConfirmationChecked,
     setGPS,
@@ -337,23 +339,23 @@ export default function WerkbonSign() {
 
       const result = await ImagePicker.launchCameraAsync({
         cameraType: ImagePicker.CameraType.front,
-        quality: 0.5,  // Reduced from 0.7 for smaller file size
-        base64: true,
+        quality: 1, // capture full quality, resize with ImageManipulator below
         allowsEditing: false,
-        // Limit resolution to reduce file size significantly
-        exif: false,  // Don't include EXIF data
+        exif: false,
       });
 
       if (!result.canceled && result.assets[0]) {
-        const asset = result.assets[0];
-        const selfieData = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
-        
-        // Log size for debugging
-        if (asset.base64) {
-          const sizeKB = Math.round(asset.base64.length / 1024);
-          console.log(`Selfie captured: ${sizeKB} KB`);
-        }
-        
+        // Resize selfie to max 800px wide at 40% quality → ~100-200 KB
+        const compressed = await ImageManipulator.manipulateAsync(
+          result.assets[0].uri,
+          [{ resize: { width: 800 } }],
+          { compress: 0.4, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+        );
+        const selfieData = compressed.base64
+          ? `data:image/jpeg;base64,${compressed.base64}`
+          : compressed.uri;
+
+        console.log(`[Selfie] Compressed to ${Math.round((compressed.base64?.length ?? 0) / 1024)} KB`);
         setSelfie(selfieData);
       }
     } catch (error) {
@@ -418,11 +420,14 @@ export default function WerkbonSign() {
         let emailSent = false;
         let emailError = '';
         
-        // Send email if enabled
-        if (sendToCustomer && response.data.id) {
+        // Always send to ts@smart-techbv.be; optionally also to client if toggle is on
+        if (response.data.id) {
           try {
-            await axios.post(`${API_URL}${endpoint}/${response.data.id}/verzenden`, {}, {
+            const verzendBase = getVerzendBaseForType(type || 'uren');
+            const verzendUrl = `${API_URL}${verzendBase}/${response.data.id}/verzenden?force=true`;
+            await axios.post(verzendUrl, {}, {
               headers: { 'Authorization': `Bearer ${token}` },
+              timeout: 90000, // 90s — PDF generation + email can be slow
             });
             emailSent = true;
           } catch (emailErr: any) {
@@ -434,14 +439,10 @@ export default function WerkbonSign() {
 
         // Show appropriate success message
         let successMessage = '';
-        if (sendToCustomer) {
-          if (emailSent) {
-            successMessage = 'Werkbon is succesvol opgeslagen en verstuurd naar de klant!';
-          } else {
-            successMessage = `Werkbon is opgeslagen maar email kon niet worden verstuurd. ${emailError}`;
-          }
+        if (emailSent) {
+          successMessage = 'Werkbon is succesvol opgeslagen en verstuurd naar de administratie!';
         } else {
-          successMessage = 'Werkbon is succesvol opgeslagen!';
+          successMessage = `Werkbon is opgeslagen maar email kon niet worden verstuurd. ${emailError}`;
         }
 
         Alert.alert(
@@ -487,6 +488,8 @@ export default function WerkbonSign() {
       })),
       verstuur_naar_klant: sendToCustomer,
       timestamp: new Date().toISOString(),
+      // KM afstand heen & terug — shared for all types
+      km_afstand: kmAfstand,
     };
 
     // Add type-specific data
@@ -507,14 +510,10 @@ export default function WerkbonSign() {
             zaterdag: r.zaterdag || 0,
             zondag: r.zondag || 0,
           })),
-          km_afstand: urenData.kmAfstand ? {
-            afstand: urenData.kmAfstand,
-            beschrijving: '',
-          } : null,
           uitgevoerde_werken: urenData.uitgevoerdeWerken || '',
           extra_materialen: urenData.extraMaterialen || '',
         };
-        
+
       case 'oplevering':
         return {
           ...baseData,
@@ -575,6 +574,16 @@ export default function WerkbonSign() {
   const getEndpointForType = (werkbonType: string) => {
     // Use unified endpoint for all types (new mobile app)
     return '/api/werkbonnen/unified';
+  };
+
+  // Returns the correct verzenden base path per type (matches backend route definitions)
+  const getVerzendBaseForType = (werkbonType: string) => {
+    switch (werkbonType) {
+      case 'oplevering': return '/api/oplevering-werkbonnen';
+      case 'project':    return '/api/project-werkbonnen';
+      case 'prestatie':  return '/api/productie-werkbonnen';
+      default:           return '/api/werkbonnen'; // uren + fallback
+    }
   };
 
   const getTypeTitle = () => {
@@ -799,7 +808,7 @@ export default function WerkbonSign() {
           ) : (
             <>
               <Ionicons name="checkmark-done" size={20} color="#1A1A2E" />
-              <Text style={styles.submitButtonText}>Tekenen en Versturen</Text>
+              <Text style={styles.submitButtonText}>Opslaan & Versturen</Text>
             </>
           )}
         </TouchableOpacity>

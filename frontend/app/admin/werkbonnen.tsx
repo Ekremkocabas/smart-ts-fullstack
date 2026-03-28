@@ -75,6 +75,8 @@ export default function WerkbonnenAdmin() {
   const [klanten, setKlanten] = useState<Klant[]>([]);
   const [werven, setWerven] = useState<Werf[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
   const [filterWeek, setFilterWeek] = useState<number | null>(null);
@@ -89,10 +91,16 @@ export default function WerkbonnenAdmin() {
     }
   }, [user]);
 
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
   const fetchData = async () => {
     try {
       setLoading(true);
-      const userId = user?.id || 'admin-001';
+      setError(null);
+      const userId = user?.id || '';
       const [werkbonnenRes, werknemersRes, teamsRes, klantenRes, wervenRes, productieRes, opleveringRes, projectRes] = await Promise.all([
         apiClient.get(`/api/werkbonnen?user_id=${userId}&is_admin=true`),
         apiClient.get(`/api/auth/users`),
@@ -121,6 +129,7 @@ export default function WerkbonnenAdmin() {
       setProjectWerkbonnen(Array.isArray(projectData) ? projectData : []);
     } catch (error) {
       console.error('Error:', error);
+      setError('Kon werkbonnen niet laden. Probeer opnieuw.');
     } finally {
       setLoading(false);
     }
@@ -159,26 +168,58 @@ export default function WerkbonnenAdmin() {
   const resendEmail = async (id: string) => {
     try {
       await apiClient.post(`/api/werkbonnen/${id}/verzenden`);
-      alert('E-mail opnieuw verzonden!');
+      showToast('E-mail opnieuw verzonden!');
     } catch (error) {
       console.error('Error:', error);
+      showToast('E-mail kon niet worden verzonden.', 'error');
     }
   };
 
   const resendProductieEmail = async (id: string) => {
     try {
       await apiClient.post(`/api/productie-werkbonnen/${id}/verzenden`);
-      alert('E-mail opnieuw verzonden!');
+      showToast('E-mail opnieuw verzonden!');
+    } catch (error) {
+      console.error('Error:', error);
+      showToast('E-mail kon niet worden verzonden.', 'error');
+    }
+  };
+
+  const deleteWerkbon = async (id: string) => {
+    if (!confirm('Zeker weten? Deze werkbon wordt permanent verwijderd.')) return;
+    try {
+      await apiClient.delete(`/api/werkbonnen/${id}`);
+      setWerkbonnen(prev => prev.filter(wb => wb.id !== id));
     } catch (error) {
       console.error('Error:', error);
     }
   };
 
   const deleteProductieWerkbon = async (id: string) => {
-    if (!confirm('Productie werkbon verwijderen?')) return;
+    if (!confirm('Zeker weten? Deze werkbon wordt permanent verwijderd.')) return;
     try {
       await apiClient.delete(`/api/productie-werkbonnen/${id}`);
       setProductieWerkbonnen(prev => prev.filter(wb => wb.id !== id));
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
+
+  const deleteOpleveringWerkbon = async (id: string) => {
+    if (!confirm('Zeker weten? Deze werkbon wordt permanent verwijderd.')) return;
+    try {
+      await apiClient.delete(`/api/oplevering-werkbonnen/${id}`);
+      setOpleveringWerkbonnen(prev => prev.filter((wb: any) => wb.id !== id));
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
+
+  const deleteProjectWerkbon = async (id: string) => {
+    if (!confirm('Zeker weten? Deze werkbon wordt permanent verwijderd.')) return;
+    try {
+      await apiClient.delete(`/api/project-werkbonnen/${id}`);
+      setProjectWerkbonnen(prev => prev.filter((wb: any) => wb.id !== id));
     } catch (error) {
       console.error('Error:', error);
     }
@@ -193,9 +234,11 @@ export default function WerkbonnenAdmin() {
     }
   };
 
+  const parseUren = (v: any) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
+
   const calcTotalUren = (wb: Werkbon) => {
     return wb.uren?.reduce((acc, u) => {
-      return acc + (u.maandag || 0) + (u.dinsdag || 0) + (u.woensdag || 0) + (u.donderdag || 0) + (u.vrijdag || 0) + (u.zaterdag || 0) + (u.zondag || 0);
+      return acc + parseUren(u.maandag) + parseUren(u.dinsdag) + parseUren(u.woensdag) + parseUren(u.donderdag) + parseUren(u.vrijdag) + parseUren(u.zaterdag) + parseUren(u.zondag);
     }, 0) || 0;
   };
 
@@ -273,8 +316,8 @@ export default function WerkbonnenAdmin() {
       const headers = ['Week', 'Jaar', 'Klant', 'Werf', 'Werknemer', 'Team', 'Status', 'Totaal Uren'];
       const rows = data.map(wb => {
         const totaalUren = wb.uren?.reduce((sum: number, u: any) => {
-          return sum + (u.maandag || 0) + (u.dinsdag || 0) + (u.woensdag || 0) +
-            (u.donderdag || 0) + (u.vrijdag || 0) + (u.zaterdag || 0) + (u.zondag || 0);
+          return sum + parseUren(u.maandag) + parseUren(u.dinsdag) + parseUren(u.woensdag) +
+            parseUren(u.donderdag) + parseUren(u.vrijdag) + parseUren(u.zaterdag) + parseUren(u.zondag);
         }, 0) || 0;
         return [wb.week_nummer, wb.jaar, wb.klant_naam, wb.werf_naam, wb.created_by_naam || '', wb.team_naam || '', wb.status, totaalUren]
           .map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
@@ -300,7 +343,7 @@ export default function WerkbonnenAdmin() {
       <p class="meta">${data.length} werkbonnen | Gegenereerd: ${new Date().toLocaleDateString('nl-BE')}</p>
       <table><tr><th>Week</th><th>Jaar</th><th>Klant</th><th>Werf</th><th>Werknemer</th><th>Team</th><th>Status</th><th>Uren</th></tr>`;
       data.forEach(wb => {
-        const totaalUren = wb.uren?.reduce((sum: number, u: any) => sum + (u.maandag||0) + (u.dinsdag||0) + (u.woensdag||0) + (u.donderdag||0) + (u.vrijdag||0) + (u.zaterdag||0) + (u.zondag||0), 0) || 0;
+        const totaalUren = wb.uren?.reduce((sum: number, u: any) => sum + parseUren(u.maandag) + parseUren(u.dinsdag) + parseUren(u.woensdag) + parseUren(u.donderdag) + parseUren(u.vrijdag) + parseUren(u.zaterdag) + parseUren(u.zondag), 0) || 0;
         html += `<tr><td>W${wb.week_nummer}</td><td>${wb.jaar}</td><td><strong>${wb.klant_naam}</strong></td><td>${wb.werf_naam}</td><td>${wb.created_by_naam||'-'}</td><td>${wb.team_naam||'-'}</td><td>${wb.status}</td><td>${totaalUren}</td></tr>`;
       });
       html += `</table><div class="footer">Smart-Tech BV - ${new Date().toLocaleString('nl-BE')}</div></body></html>`;
@@ -345,6 +388,29 @@ export default function WerkbonnenAdmin() {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      {/* Toast */}
+      {toast && (
+        <View style={{
+          position: ('fixed' as any), bottom: 24, right: 24,
+          backgroundColor: toast.type === 'success' ? '#28a745' : '#dc3545',
+          paddingHorizontal: 20, paddingVertical: 12, borderRadius: 8, zIndex: 9999,
+          flexDirection: 'row', alignItems: 'center', gap: 8,
+          shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8,
+        }}>
+          <Ionicons name={toast.type === 'success' ? 'checkmark-circle' : 'alert-circle'} size={20} color="#fff" />
+          <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>{toast.message}</Text>
+        </View>
+      )}
+      {/* Error banner */}
+      {error && !loading && (
+        <View style={{ backgroundColor: '#fff3cd', borderRadius: 12, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#ffc107', flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <Ionicons name="warning-outline" size={22} color="#e67e22" />
+          <Text style={{ flex: 1, fontSize: 14, color: '#1A1A2E' }}>{error}</Text>
+          <TouchableOpacity onPress={fetchData} style={{ backgroundColor: '#F5A623', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }}>
+            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 13 }}>Opnieuw</Text>
+          </TouchableOpacity>
+        </View>
+      )}
       {/* Header */}
       <View style={styles.header}>
         <View>
@@ -389,7 +455,25 @@ export default function WerkbonnenAdmin() {
         >
           <Ionicons name="construct-outline" size={16} color={activeTab === 'productie' ? '#fff' : '#6c757d'} />
           <Text style={[styles.tabText, activeTab === 'productie' && styles.tabTextActive]}>
-            Productie ({productieWerkbonnen.length})
+            Prestatie ({productieWerkbonnen.length})
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'oplevering' && styles.tabActive]}
+          onPress={() => setActiveTab('oplevering')}
+        >
+          <Ionicons name="checkmark-done-outline" size={16} color={activeTab === 'oplevering' ? '#fff' : '#6c757d'} />
+          <Text style={[styles.tabText, activeTab === 'oplevering' && styles.tabTextActive]}>
+            Oplevering ({opleveringWerkbonnen.length})
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'project' && styles.tabActive]}
+          onPress={() => setActiveTab('project')}
+        >
+          <Ionicons name="briefcase-outline" size={16} color={activeTab === 'project' ? '#fff' : '#6c757d'} />
+          <Text style={[styles.tabText, activeTab === 'project' && styles.tabTextActive]}>
+            Project ({projectWerkbonnen.length})
           </Text>
         </TouchableOpacity>
       </View>
@@ -566,12 +650,15 @@ export default function WerkbonnenAdmin() {
                   <TouchableOpacity style={styles.actionIcon} onPress={(e) => { e.stopPropagation(); resendEmail(wb.id); }}>
                     <Ionicons name="mail-outline" size={18} color="#F5A623" />
                   </TouchableOpacity>
+                  <TouchableOpacity style={styles.actionIcon} onPress={(e) => { e.stopPropagation(); deleteWerkbon(wb.id); }}>
+                    <Ionicons name="trash-outline" size={18} color="#dc3545" />
+                  </TouchableOpacity>
                 </View>
               </TouchableOpacity>
             ))
           )}
         </View>
-      ) : (
+      ) : activeTab === 'productie' ? (
         /* Productie Werkbonnen Table */
         <View style={styles.tableContainer}>
           <View style={styles.tableHeader}>
@@ -586,8 +673,8 @@ export default function WerkbonnenAdmin() {
           {filteredProductie.length === 0 ? (
             <View style={styles.emptyState}>
               <Ionicons name="construct-outline" size={48} color="#E8E9ED" />
-              <Text style={styles.emptyText}>Geen productie werkbonnen gevonden</Text>
-              <Text style={styles.emptySubText}>Werknemers kunnen productie werkbonnen aanmaken via de app</Text>
+              <Text style={styles.emptyText}>Geen prestatie werkbonnen gevonden</Text>
+              <Text style={styles.emptySubText}>Werknemers kunnen prestatie werkbonnen aanmaken via de app</Text>
             </View>
           ) : (
             filteredProductie.map((wb, index) => (
@@ -621,6 +708,100 @@ export default function WerkbonnenAdmin() {
                     <Ionicons name="mail-outline" size={18} color="#F5A623" />
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.actionIcon} onPress={() => deleteProductieWerkbon(wb.id)}>
+                    <Ionicons name="trash-outline" size={18} color="#dc3545" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))
+          )}
+        </View>
+      ) : activeTab === 'oplevering' ? (
+        /* Oplevering Werkbonnen Table */
+        <View style={styles.tableContainer}>
+          <View style={styles.tableHeader}>
+            <Text style={styles.tableHeaderCell}>Datum</Text>
+            <Text style={[styles.tableHeaderCell, { flex: 1.5 }]}>Klant / Werf</Text>
+            <Text style={styles.tableHeaderCell}>Monteur</Text>
+            <Text style={styles.tableHeaderCell}>Score</Text>
+            <Text style={styles.tableHeaderCell}>Status</Text>
+            <Text style={[styles.tableHeaderCell, { flex: 0.8, textAlign: 'center' }]}>Acties</Text>
+          </View>
+          {opleveringWerkbonnen.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="checkmark-done-outline" size={48} color="#E8E9ED" />
+              <Text style={styles.emptyText}>Geen oplevering werkbonnen gevonden</Text>
+              <Text style={styles.emptySubText}>Werknemers kunnen oplevering werkbonnen aanmaken via de app</Text>
+            </View>
+          ) : (
+            opleveringWerkbonnen.map((wb: any, index: number) => (
+              <View key={wb.id} style={[styles.tableRow, index % 2 === 0 && styles.tableRowAlt]}>
+                <View style={styles.tableCell}>
+                  <View style={styles.dateBadge}>
+                    <Text style={styles.dateText}>{wb.datum || '-'}</Text>
+                  </View>
+                </View>
+                <View style={[styles.tableCell, { flex: 1.5 }]}>
+                  <Text style={styles.klantText}>{wb.klant_naam || '-'}</Text>
+                  <Text style={styles.werfText}>{wb.werf_naam || '-'}</Text>
+                </View>
+                <Text style={styles.tableCell}>{wb.ingevuld_door_naam || wb.werknemer_naam || '-'}</Text>
+                <View style={styles.tableCell}>
+                  <Text style={styles.urenText}>{wb.gemiddelde_score ? `${wb.gemiddelde_score}/5` : '-'}</Text>
+                </View>
+                <View style={styles.tableCell}>
+                  <View style={[styles.statusBadge, { backgroundColor: getStatusColor(wb.status || 'concept') }]}>
+                    <Text style={styles.statusText}>{wb.status || 'concept'}</Text>
+                  </View>
+                </View>
+                <View style={[styles.tableCell, { flex: 0.8, flexDirection: 'row', justifyContent: 'center', gap: 4 }]}>
+                  <TouchableOpacity style={styles.actionIcon} onPress={() => deleteOpleveringWerkbon(wb.id)}>
+                    <Ionicons name="trash-outline" size={18} color="#dc3545" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))
+          )}
+        </View>
+      ) : (
+        /* Project Werkbonnen Table */
+        <View style={styles.tableContainer}>
+          <View style={styles.tableHeader}>
+            <Text style={styles.tableHeaderCell}>Datum</Text>
+            <Text style={[styles.tableHeaderCell, { flex: 1.5 }]}>Klant / Werf</Text>
+            <Text style={styles.tableHeaderCell}>Monteur</Text>
+            <Text style={styles.tableHeaderCell}>Uren</Text>
+            <Text style={styles.tableHeaderCell}>Status</Text>
+            <Text style={[styles.tableHeaderCell, { flex: 0.8, textAlign: 'center' }]}>Acties</Text>
+          </View>
+          {projectWerkbonnen.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="briefcase-outline" size={48} color="#E8E9ED" />
+              <Text style={styles.emptyText}>Geen project werkbonnen gevonden</Text>
+              <Text style={styles.emptySubText}>Werknemers kunnen project werkbonnen aanmaken via de app</Text>
+            </View>
+          ) : (
+            projectWerkbonnen.map((wb: any, index: number) => (
+              <View key={wb.id} style={[styles.tableRow, index % 2 === 0 && styles.tableRowAlt]}>
+                <View style={styles.tableCell}>
+                  <View style={styles.dateBadge}>
+                    <Text style={styles.dateText}>{wb.datum || '-'}</Text>
+                  </View>
+                </View>
+                <View style={[styles.tableCell, { flex: 1.5 }]}>
+                  <Text style={styles.klantText}>{wb.klant_naam || '-'}</Text>
+                  <Text style={styles.werfText}>{wb.werf_naam || '-'}</Text>
+                </View>
+                <Text style={styles.tableCell}>{wb.ingevuld_door_naam || wb.werknemer_naam || '-'}</Text>
+                <View style={styles.tableCell}>
+                  <Text style={styles.urenText}>{wb.totaal_uren ? `${wb.totaal_uren} u` : '-'}</Text>
+                </View>
+                <View style={styles.tableCell}>
+                  <View style={[styles.statusBadge, { backgroundColor: getStatusColor(wb.status || 'concept') }]}>
+                    <Text style={styles.statusText}>{wb.status || 'concept'}</Text>
+                  </View>
+                </View>
+                <View style={[styles.tableCell, { flex: 0.8, flexDirection: 'row', justifyContent: 'center', gap: 4 }]}>
+                  <TouchableOpacity style={styles.actionIcon} onPress={() => deleteProjectWerkbon(wb.id)}>
                     <Ionicons name="trash-outline" size={18} color="#dc3545" />
                   </TouchableOpacity>
                 </View>

@@ -30,7 +30,7 @@ const getApiUrl = () => {
 };
 const API_URL = getApiUrl();
 
-type TabType = 'werknemers' | 'onderaannemers' | 'archief' | 'per_werknemer';
+type TabType = 'werknemers' | 'onderaannemers' | 'archief' | 'per_werknemer' | 'mappen';
 
 interface Bericht {
   id: string;
@@ -75,6 +75,10 @@ export default function BerichtenAdmin() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'alle' | 'vastgepind' | 'ongelezen'>('alle');
   const [selectedWerknemer, setSelectedWerknemer] = useState<Werknemer | null>(null);
+  const [mappenWerknemer, setMappenWerknemer] = useState<Werknemer | null>(null);
+  const [mappenDocs, setMappenDocs] = useState<any[]>([]);
+  const [mappenLoading, setMappenLoading] = useState(false);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
 
   const [form, setForm] = useState({
     naar_ids: [] as string[],
@@ -87,6 +91,72 @@ export default function BerichtenAdmin() {
     bijlagen: [] as BerichtAttachment[],
     target_group: 'werknemers' as 'werknemers' | 'onderaannemers' | 'beide',
   });
+
+  const fetchMappenDocs = async (werknemerId: string) => {
+    setMappenLoading(true);
+    try {
+      const res = await apiClient.get(`/api/werknemer-documenten/${werknemerId}`);
+      setMappenDocs(Array.isArray(res.data) ? res.data : []);
+    } catch (e) { console.error(e); setMappenDocs([]); }
+    finally { setMappenLoading(false); }
+  };
+
+  const selectMappenWerknemer = (wn: Werknemer) => {
+    setMappenWerknemer(wn);
+    fetchMappenDocs(wn.id);
+  };
+
+  const uploadDocumentToMap = async () => {
+    if (!mappenWerknemer) return;
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'image/*'],
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled || !result.assets?.length) return;
+      const file = result.assets[0];
+
+      setUploadingDoc(true);
+      let base64Data = '';
+      if (Platform.OS === 'web') {
+        const response = await fetch(file.uri);
+        const blob = await response.blob();
+        base64Data = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const result = reader.result as string;
+            resolve(result.split(',')[1] || result);
+          };
+          reader.readAsDataURL(blob);
+        });
+      } else {
+        const FileSystem = await import('expo-file-system');
+        base64Data = await FileSystem.readAsStringAsync(file.uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+      }
+
+      await apiClient.post('/api/werknemer-documenten', {
+        werknemer_id: mappenWerknemer.id,
+        naam: file.name,
+        bestandsnaam: file.name,
+        type: file.mimeType || 'application/pdf',
+        data: base64Data,
+        beschrijving: '',
+      });
+      fetchMappenDocs(mappenWerknemer.id);
+    } catch (e) { console.error(e); alert('Fout bij uploaden'); }
+    finally { setUploadingDoc(false); }
+  };
+
+  const deleteMapDocument = async (docId: string) => {
+    if (!mappenWerknemer) return;
+    if (!confirm('Document verwijderen?')) return;
+    try {
+      await apiClient.delete(`/api/werknemer-documenten/${mappenWerknemer.id}/${docId}`);
+      setMappenDocs(prev => prev.filter(d => d.id !== docId));
+    } catch (e) { console.error(e); alert('Fout bij verwijderen'); }
+  };
 
   const handlePickDocument = async () => {
     try {
@@ -504,13 +574,23 @@ export default function BerichtenAdmin() {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.tab, activeTab === 'per_werknemer' && styles.tabActive]}
             onPress={() => { setActiveTab('per_werknemer'); setSelectedWerknemer(null); }}
           >
             <Ionicons name="folder-open" size={18} color={activeTab === 'per_werknemer' ? '#F5A623' : '#6c757d'} />
             <Text style={[styles.tabText, activeTab === 'per_werknemer' && styles.tabTextActive]}>
               Per Werknemer
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'mappen' && styles.tabActive]}
+            onPress={() => { setActiveTab('mappen'); setMappenWerknemer(null); setMappenDocs([]); }}
+          >
+            <Ionicons name="folder" size={18} color={activeTab === 'mappen' ? '#F5A623' : '#6c757d'} />
+            <Text style={[styles.tabText, activeTab === 'mappen' && styles.tabTextActive]}>
+              Mappen
             </Text>
           </TouchableOpacity>
         </View>
@@ -558,7 +638,99 @@ export default function BerichtenAdmin() {
       </View>
 
       {/* Content */}
-      {activeTab === 'per_werknemer' ? (
+      {activeTab === 'mappen' ? (
+        /* ===== Mappen View ===== */
+        <View style={styles.perWerknemerContainer}>
+          {/* Left: Worker List */}
+          <View style={styles.werknemerListPanel}>
+            <Text style={styles.panelTitle}>Werknemer Mappen</Text>
+            <ScrollView style={styles.werknemerScroll}>
+              {werknemers.filter(w => w.actief).map((wn) => (
+                <TouchableOpacity
+                  key={wn.id}
+                  style={[styles.werknemerItem, mappenWerknemer?.id === wn.id && styles.werknemerItemActive]}
+                  onPress={() => selectMappenWerknemer(wn)}
+                >
+                  <View style={styles.werknemerAvatar}>
+                    <Text style={styles.werknemerAvatarText}>{wn.naam.charAt(0).toUpperCase()}</Text>
+                  </View>
+                  <View style={styles.werknemerInfo}>
+                    <Text style={styles.werknemerName}>{wn.naam}</Text>
+                    <Text style={styles.werknemerRole}>{wn.rol}</Text>
+                  </View>
+                  <Ionicons name="folder-outline" size={18} color="#6c757d" />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+
+          {/* Right: Documents for selected worker */}
+          <View style={styles.werknemerMessagesPanel}>
+            {mappenWerknemer ? (
+              <>
+                <View style={styles.selectedWerknemerHeader}>
+                  <Text style={styles.selectedWerknemerName}>{mappenWerknemer.naam} - Map</Text>
+                  <TouchableOpacity
+                    style={[styles.sendToWerknemerBtn, uploadingDoc && { opacity: 0.6 }]}
+                    onPress={uploadDocumentToMap}
+                    disabled={uploadingDoc}
+                  >
+                    {uploadingDoc
+                      ? <ActivityIndicator size="small" color="#fff" />
+                      : <Ionicons name="cloud-upload-outline" size={18} color="#fff" />}
+                    <Text style={styles.sendToWerknemerBtnText}>Upload document</Text>
+                  </TouchableOpacity>
+                </View>
+                {mappenLoading ? (
+                  <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                    <ActivityIndicator size="large" color="#F5A623" />
+                  </View>
+                ) : (
+                  <ScrollView style={styles.werknemerMessagesScroll}>
+                    {mappenDocs.length === 0 ? (
+                      <View style={styles.emptyState}>
+                        <Ionicons name="folder-open-outline" size={48} color="#E8E9ED" />
+                        <Text style={styles.emptyTitle}>Geen documenten</Text>
+                        <Text style={styles.emptySubtitle}>Upload een document voor {mappenWerknemer.naam}</Text>
+                      </View>
+                    ) : mappenDocs.map((doc) => (
+                      <View key={doc.id} style={[styles.messageCard, { flexDirection: 'row', alignItems: 'center' }]}>
+                        <Ionicons
+                          name={doc.type?.includes('pdf') ? 'document-text-outline' : 'image-outline'}
+                          size={24} color="#F5A623"
+                          style={{ marginRight: 12 }}
+                        />
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.messageSubject} numberOfLines={1}>{doc.naam || doc.bestandsnaam}</Text>
+                          <Text style={styles.messagePreview}>{doc.uploaded_by_naam} • {new Date(doc.created_at).toLocaleDateString('nl-BE')}</Text>
+                        </View>
+                        <TouchableOpacity
+                          style={{ padding: 8 }}
+                          onPress={() => {
+                            const url = `${API_URL}/api/files/${doc.file_id}`;
+                            window.open(url, '_blank');
+                          }}
+                        >
+                          <Ionicons name="open-outline" size={20} color="#3498db" />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={{ padding: 8 }} onPress={() => deleteMapDocument(doc.id)}>
+                          <Ionicons name="trash-outline" size={20} color="#dc3545" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </ScrollView>
+                )}
+              </>
+            ) : (
+              <View style={styles.selectWerknemerPrompt}>
+                <Ionicons name="folder-outline" size={64} color="#E8E9ED" />
+                <Text style={styles.selectWerknemerText}>Selecteer een werknemer</Text>
+                <Text style={styles.selectWerknemerSubtext}>Kies een werknemer om hun map te bekijken en documenten te uploaden</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      ) : activeTab === 'per_werknemer' ? (
         /* ===== Per Werknemer View ===== */
         <View style={styles.perWerknemerContainer}>
           {/* Left: Worker List */}

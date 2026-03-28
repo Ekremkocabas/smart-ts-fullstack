@@ -124,9 +124,10 @@ export default function WerknemersAdmin() {
     for (const user of users) {
       try {
         const res = await apiClient.get(`/api/auth/user-password/${user.id}`, getAuthConfig());
-        passwords[user.id] = res.data.wachtwoord || '(niet beschikbaar)';
+        const ww = res.data.wachtwoord || '';
+        passwords[user.id] = ww && !ww.includes('hash only') ? ww : '••••••••';
       } catch (error) {
-        passwords[user.id] = '(fout)';
+        passwords[user.id] = '••••••••';
       }
     }
     
@@ -264,9 +265,10 @@ export default function WerknemersAdmin() {
     setLoadingPassword(w.id);
     try {
       const res = await apiClient.get(`/api/auth/user-password/${w.id}`, getAuthConfig());
+      const ww = res.data.wachtwoord || '';
       setVisiblePasswords(prev => ({
         ...prev,
-        [w.id]: res.data.wachtwoord || '(niet beschikbaar)'
+        [w.id]: ww && !ww.includes('hash only') ? ww : '••••••••',
       }));
     } catch (error) {
       console.error('Error:', error);
@@ -515,8 +517,8 @@ export default function WerknemersAdmin() {
                     <ActivityIndicator size="small" color="#6c757d" />
                   ) : (
                     <>
-                      <Text style={[styles.passwordText, { 
-                        color: visiblePasswords[w.id]?.includes('niet beschikbaar') ? '#dc3545' : '#2c3e50',
+                      <Text style={[styles.passwordText, {
+                        color: visiblePasswords[w.id] === '••••••••' ? '#adb5bd' : '#2c3e50',
                         fontFamily: 'monospace',
                         fontSize: 12,
                       }]}>
@@ -603,7 +605,7 @@ export default function WerknemersAdmin() {
                   <Text style={styles.label}>Huidig wachtwoord</Text>
                   <View style={styles.passwordDisplay}>
                     <Ionicons name="key-outline" size={18} color="#F5A623" />
-                    <Text style={styles.passwordText}>{editingWerknemer.wachtwoord_plain || '(niet beschikbaar)'}</Text>
+                    <Text style={styles.passwordText}>{editingWerknemer.wachtwoord_plain || '••••••••'}</Text>
                   </View>
                   <Text style={styles.label}>Nieuw wachtwoord instellen (optioneel)</Text>
                   <TextInput style={styles.input} value={formData.password} onChangeText={(v) => setFormData({ ...formData, password: v })} placeholder="Laat leeg om niet te wijzigen" placeholderTextColor="#6c757d" />

@@ -22,14 +22,14 @@ export default function WerkbonReview() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
-  
+
   const {
     type,
     klantId, klantNaam, manualKlantNaam,
     werfId, werfNaam, manualWerfNaam,
     datum, opmerkingen, gps, photos,
     urenData, opleveringData, projectData, prestatieData,
-    validateStep, validationErrors, nextStep,
+    validateStep, validationErrors, nextStep, clearDraft,
   } = useWerkbonFormStore();
 
   const primary = theme?.primaryColor || '#F5A623';
@@ -108,6 +108,40 @@ export default function WerkbonReview() {
     return urenData.urenRegels.reduce((total, regel) => {
       return total + getRegelTotal(regel);
     }, 0);
+  };
+
+  const buildConceptData = () => {
+    const displayKlant = klantNaam || manualKlantNaam;
+    const displayWerf = werfNaam || manualWerfNaam;
+    const base = {
+      type,
+      klant_id: klantId || null,
+      klant_naam: displayKlant,
+      werf_id: werfId || null,
+      werf_naam: displayWerf,
+      datum,
+      opmerkingen,
+      gps_locatie: gps.address || (gps.lat && gps.lng ? `${gps.lat}, ${gps.lng}` : null),
+      gps_lat: gps.lat,
+      gps_lng: gps.lng,
+      handtekening: null,
+      fotos: photos.map(p => ({ data: p.uri, timestamp: p.timestamp })),
+      timestamp: new Date().toISOString(),
+    };
+    if (type === 'uren') {
+      return {
+        ...base,
+        week_nummer: urenData.weekNummer,
+        jaar: urenData.jaar,
+        uren: urenData.urenRegels.filter(r => r.teamlidNaam.trim()).map(r => ({
+          naam: r.teamlidNaam,
+          maandag: r.maandag || 0, dinsdag: r.dinsdag || 0, woensdag: r.woensdag || 0,
+          donderdag: r.donderdag || 0, vrijdag: r.vrijdag || 0, zaterdag: r.zaterdag || 0, zondag: r.zondag || 0,
+        })),
+        uitgevoerde_werken: urenData.uitgevoerdeWerken || '',
+      };
+    }
+    return base;
   };
 
   const handleProceedToSign = () => {
@@ -417,7 +451,7 @@ export default function WerkbonReview() {
           <Ionicons name="arrow-back" size={20} color="#6C7A89" />
           <Text style={styles.backButtonFooterText}>Terug</Text>
         </TouchableOpacity>
-        
+
         <TouchableOpacity
           style={styles.signButton}
           onPress={handleProceedToSign}
@@ -608,11 +642,12 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
+    flexWrap: 'nowrap',
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#E8E9ED',
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingTop: 12,
   },
   backButtonFooter: {
@@ -627,14 +662,14 @@ const styles = StyleSheet.create({
   },
   backButtonFooterText: { fontSize: 15, fontWeight: '500', color: '#6C7A89' },
   signButton: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
     paddingVertical: 14,
+    paddingHorizontal: 14,
     borderRadius: 12,
-    backgroundColor: '#FFD966', // Light yellow for better visibility
+    backgroundColor: '#FFD966',
   },
-  signButtonText: { fontSize: 16, fontWeight: '600', color: '#1A1A2E' },
+  signButtonText: { fontSize: 14, fontWeight: '600', color: '#1A1A2E' },
 });

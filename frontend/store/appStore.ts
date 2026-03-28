@@ -409,7 +409,16 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const params: any = {};
       if (klantEmail && klantEmail.trim()) params.klant_email = klantEmail.trim();
-      const response = await axios.post(`${BACKEND_URL}/api/werkbonnen/${id}/verzenden`, null, { params });
+      // Route to correct endpoint based on werkbon type
+      const state = get();
+      const werkbon = state.werkbonnen.find((w: any) => w.id === id) || state.lastUpdatedWerkbon;
+      const type = (werkbon as any)?.type || 'uren';
+      const basePath =
+        type === 'oplevering' ? '/api/oplevering-werkbonnen' :
+        type === 'project'    ? '/api/project-werkbonnen' :
+        type === 'prestatie'  ? '/api/productie-werkbonnen' :
+        '/api/werkbonnen';
+      const response = await axios.post(`${BACKEND_URL}${basePath}/${id}/verzenden`, null, { params });
       set(state => ({
         werkbonnen: state.werkbonnen.map(w => 
           w.id === id

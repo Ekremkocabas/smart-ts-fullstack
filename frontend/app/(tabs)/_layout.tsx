@@ -79,6 +79,15 @@ export default function TabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="documenten"
+        options={{
+          title: 'Documenten',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="folder" size={size} color={color} />
+          ),
+        }}
+      />
       {/* Beheer tab - only visible for admin/manager roles */}
       <Tabs.Screen
         name="beheer"

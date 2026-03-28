@@ -20,6 +20,7 @@ interface Werkbon {
   klant_naam: string;
   werf_naam: string;
   status: string;
+  ingevuld_door_naam?: string;
   created_by_naam?: string;
   created_by?: string;
   user_id?: string;
@@ -83,9 +84,10 @@ export default function WerkbonDetail() {
       } else {
         alert('Fout bij genereren van PDF');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error:', error);
-      alert('Fout bij downloaden');
+      const msg = error?.response?.data?.detail || error?.message || 'Onbekende fout';
+      alert(`Fout bij downloaden: ${msg}`);
     } finally {
       setDownloading(false);
     }
@@ -95,20 +97,23 @@ export default function WerkbonDetail() {
     if (!werkbon) return;
     setSending(true);
     try {
-      await apiClient.post(`/api/werkbonnen/${werkbon.id}/verzenden`);
+      await apiClient.post(`/api/werkbonnen/${werkbon.id}/verzenden?force=true`);
       alert('E-mail succesvol verzonden!');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error:', error);
-      alert('Fout bij verzenden');
+      const msg = error?.response?.data?.detail || error?.message || 'Onbekende fout';
+      alert(`Fout bij verzenden: ${msg}`);
     } finally {
       setSending(false);
     }
   };
 
+  const parseUren = (v: any) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
+
   const calcTotalUren = () => {
     return werkbon?.uren?.reduce((acc, u) => {
-      return acc + (u.maandag || 0) + (u.dinsdag || 0) + (u.woensdag || 0) +
-        (u.donderdag || 0) + (u.vrijdag || 0) + (u.zaterdag || 0) + (u.zondag || 0);
+      return acc + parseUren(u.maandag) + parseUren(u.dinsdag) + parseUren(u.woensdag) +
+        parseUren(u.donderdag) + parseUren(u.vrijdag) + parseUren(u.zaterdag) + parseUren(u.zondag);
     }, 0) || 0;
   };
 
@@ -211,7 +216,7 @@ export default function WerkbonDetail() {
           <View style={styles.overviewCard}>
             <Ionicons name="person" size={24} color="#3498db" />
             <Text style={styles.overviewLabel}>Werknemer</Text>
-            <Text style={styles.overviewValue}>{werkbon.created_by_naam || '-'}</Text>
+            <Text style={styles.overviewValue}>{werkbon.ingevuld_door_naam || werkbon.created_by_naam || '-'}</Text>
           </View>
           <View style={styles.overviewCard}>
             <Ionicons name="timer" size={24} color="#F5A623" />
@@ -233,8 +238,8 @@ export default function WerkbonDetail() {
             <Text style={styles.tableHeaderCell}>Tot</Text>
           </View>
           {werkbon.uren?.map((uren, index) => {
-            const rowTotal = (uren.maandag || 0) + (uren.dinsdag || 0) + (uren.woensdag || 0) +
-              (uren.donderdag || 0) + (uren.vrijdag || 0) + (uren.zaterdag || 0) + (uren.zondag || 0);
+            const rowTotal = parseUren(uren.maandag) + parseUren(uren.dinsdag) + parseUren(uren.woensdag) +
+              parseUren(uren.donderdag) + parseUren(uren.vrijdag) + parseUren(uren.zaterdag) + parseUren(uren.zondag);
             return (
               <View key={index} style={[styles.tableRow, index % 2 === 0 && styles.tableRowAlt]}>
                 <Text style={[styles.tableCell, { flex: 2, fontWeight: '500' }]}>{uren.type || 'Normaal'}</Text>

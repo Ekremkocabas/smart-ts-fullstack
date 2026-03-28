@@ -185,10 +185,13 @@ interface WerkbonFormState {
   
   // GPS
   gps: GPSData;
-  
+
   // Photos
   photos: PhotoItem[];
-  
+
+  // KM afstand heen & terug (shared for all types)
+  kmAfstand: KmRegel;
+
   // Type-specific data
   urenData: UrenTypeData;
   opleveringData: OpleveringTypeData;
@@ -312,6 +315,7 @@ const initialState: WerkbonFormState = {
   opmerkingen: '',
   gps: initialGPS,
   photos: [],
+  kmAfstand: createEmptyKmRegel(),
   urenData: initialUrenData,
   opleveringData: initialOpleveringData,
   projectData: initialProjectData,
@@ -356,7 +360,11 @@ interface WerkbonFormActions {
   // Photos
   addPhoto: (photo: PhotoItem) => void;
   removePhoto: (id: string) => void;
-  
+
+  // KM afstand
+  updateKmAfstand: (dag: string, value: number) => void;
+  setKmAfstand: (km: KmRegel) => void;
+
   // Type-specific
   setUrenData: (data: Partial<UrenTypeData>) => void;
   addUrenRegel: (naam?: string) => void;
@@ -439,7 +447,11 @@ export const useWerkbonFormStore = create<WerkbonFormState & WerkbonFormActions>
       // Photos
       addPhoto: (photo) => set((state) => ({ photos: [...state.photos, photo] })),
       removePhoto: (id) => set((state) => ({ photos: state.photos.filter(p => p.id !== id) })),
-      
+
+      // KM afstand
+      updateKmAfstand: (dag, value) => set((state) => ({ kmAfstand: { ...state.kmAfstand, [dag]: value } })),
+      setKmAfstand: (km) => set({ kmAfstand: km }),
+
       // Uren specific
       setUrenData: (data) => set((state) => ({ urenData: { ...state.urenData, ...data } })),
       addUrenRegel: (naam = '') => set((state) => ({
@@ -671,6 +683,7 @@ export const useWerkbonFormStore = create<WerkbonFormState & WerkbonFormActions>
         opmerkingen: state.opmerkingen,
         gps: state.gps,
         photos: state.photos,
+        kmAfstand: state.kmAfstand,
         urenData: state.urenData,
         opleveringData: state.opleveringData,
         projectData: state.projectData,

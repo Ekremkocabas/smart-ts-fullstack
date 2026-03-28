@@ -119,7 +119,7 @@ export default function RapportScreen() {
     }
   };
 
-  const totalUren = rapport.reduce((s, w) => s + w.totaal_uren, 0);
+  const totalUren = parseFloat(rapport.reduce((s, w) => s + (Number(w.totaal_uren) || 0), 0).toFixed(2));
 
   const periodeLabel = periodeType === 'week'
     ? `Week ${week} / ${jaar}`
@@ -237,7 +237,7 @@ export default function RapportScreen() {
                   <Text style={styles.werknemerSub}>{werknemer.werven.length} werf{werknemer.werven.length !== 1 ? 'en' : ''}</Text>
                 </View>
                 <View style={styles.totalBadge}>
-                  <Text style={styles.totalBadgeValue}>{werknemer.totaal_uren}</Text>
+                  <Text style={styles.totalBadgeValue}>{parseFloat(Number(werknemer.totaal_uren).toFixed(2))}</Text>
                   <Text style={styles.totalBadgeLabel}>uur</Text>
                 </View>
               </View>
@@ -246,7 +246,7 @@ export default function RapportScreen() {
                 <View key={wi} style={styles.werfRow}>
                   <View style={styles.werfDot} />
                   <Text style={styles.werfNaam} numberOfLines={1}>{werf.werf_naam}</Text>
-                  <Text style={styles.werfUren}>{werf.uren} uur</Text>
+                  <Text style={styles.werfUren}>{parseFloat(Number(werf.uren).toFixed(2))} uur</Text>
                 </View>
               ))}
             </View>

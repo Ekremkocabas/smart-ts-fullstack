@@ -71,11 +71,18 @@ export default function RapportenAdmin() {
 
       setTotaalWerkbonnen(werkbonnenList.length);
 
+      // Parse a day value: only count numeric hours, skip string afkortingen (V, Z, BV, etc.)
+      const parseUren = (val: any): number => {
+        if (typeof val === 'number') return val;
+        if (typeof val === 'string') { const n = parseFloat(val); return isNaN(n) ? 0 : n; }
+        return 0;
+      };
+
       // Calculate total hours from a werkbon
       const calcUren = (wb: any) => {
         return wb.uren?.reduce((sum: number, u: any) => {
-          return sum + (u.maandag || 0) + (u.dinsdag || 0) + (u.woensdag || 0) +
-            (u.donderdag || 0) + (u.vrijdag || 0) + (u.zaterdag || 0) + (u.zondag || 0);
+          return sum + parseUren(u.maandag) + parseUren(u.dinsdag) + parseUren(u.woensdag) +
+            parseUren(u.donderdag) + parseUren(u.vrijdag) + parseUren(u.zaterdag) + parseUren(u.zondag);
         }, 0) || 0;
       };
 
@@ -86,7 +93,7 @@ export default function RapportenAdmin() {
       // Uren per werknemer
       const werknemerMap: { [key: string]: { uren: number; count: number } } = {};
       werkbonnenList.forEach((wb: any) => {
-        const naam = wb.created_by_naam || 'Onbekend';
+        const naam = wb.ingevuld_door_naam || wb.created_by_naam || 'Onbekend';
         if (!werknemerMap[naam]) werknemerMap[naam] = { uren: 0, count: 0 };
         werknemerMap[naam].uren += calcUren(wb);
         werknemerMap[naam].count += 1;
@@ -168,7 +175,7 @@ export default function RapportenAdmin() {
           datum: wb.created_at ? new Date(wb.created_at).toLocaleDateString('nl-BE') : '',
           week: wb.week_nummer || '',
           jaar: wb.jaar || '',
-          werknemer: wb.created_by_naam || '',
+          werknemer: wb.ingevuld_door_naam || wb.created_by_naam || '',
           team: wb.team_naam || '',
           klant: wb.klant_naam || '',
           werf: wb.werf_naam || '',
