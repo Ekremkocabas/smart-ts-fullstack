@@ -5,7 +5,7 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorGridFSBucket
 from bson import ObjectId
 import os
-import logging
+import loggingh
 import asyncio
 import base64
 import io
@@ -2084,7 +2084,7 @@ _DAGEN_KM_KORT = ["Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo"]
 def build_km_pdf_block(werkbon: dict, styles: Any) -> list:
     """Return a list of story elements for the KM section, or empty list if no KM."""
     km = werkbon.get("km_afstand") or {}
-    km_total = sum(float(km.get(d, 0) or 0) for d in _DAGEN_KM)
+    km_total = sum(safe_float(km.get(d, 0) or 0) for d in _DAGEN_KM)
     if km_total <= 0:
         return []
     from reportlab.platypus import Spacer as _Spacer
@@ -2328,7 +2328,7 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     hours_header = [["Werknemer"] + [f"{label}\n{werkbon.get(date_key, '')}" for _, label, date_key, _ in DAY_COLUMNS] + ["Totaal"]]
     hours_rows = []
     for regel in werkbon.get("uren", []):
-        totaal = sum(float(regel.get(dag, 0) or 0) for dag, _, _, _ in DAY_COLUMNS)
+        totaal = sum(safe_float(regel.get(dag, 0) or 0) for dag, _, _, _ in DAY_COLUMNS)
         hours_rows.append(
             [regel.get("teamlid_naam", "-")]
             + [get_hours_pdf(regel, dag) for dag, _, _, _ in DAY_COLUMNS]
@@ -2361,7 +2361,7 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     story.append(hours_table)
 
     # ── KM ──
-    km_total = sum(float(werkbon.get("km_afstand", {}).get(dag, 0) or 0) for dag, _, _, _ in DAY_COLUMNS)
+    km_total = sum(safe_float(werkbon.get("km_afstand", {}).get(dag, 0) or 0) for dag, _, _, _ in DAY_COLUMNS)
     if km_total > 0:
         story.append(Spacer(1, 6))
         story.append(Paragraph("KM-afstand (heen & terug)", styles["SectionTitle"]))
