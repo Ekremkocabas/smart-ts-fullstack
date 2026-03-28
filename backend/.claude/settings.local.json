@@ -21,7 +21,9 @@
       "Bash(eas env:list --environment production)",
       "Bash(eas env:list --environment preview)",
       "Bash(eas secret:create --scope project --name GOOGLE_SERVICES_JSON --type file --value ./google-services.json)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(rm -rf ../backend/dist/*)",
+      "Bash(cp -r dist/* ../backend/dist/)"
     ]
   }
 }
