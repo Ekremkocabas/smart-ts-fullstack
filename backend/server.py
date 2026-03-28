@@ -2275,7 +2275,7 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
         )),
     ]
 
-    header_table = Table([[logo_cell, center_cell, right_cell]], colWidths=[55 * mm, 120 * mm, 96 * mm])
+    header_table = Table([[logo_cell, center_cell, right_cell]], colWidths=[55 * mm, 120 * mm, 96 * mm], rowHeights=[32 * mm])
     header_table.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#F5A623")),
@@ -2408,7 +2408,8 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
         if has_mat:
             right_cell.append(Paragraph("<b>Extra materialen</b>", styles["BodySmall"]))
             right_cell.append(Paragraph(werkbon.get("extra_materialen", "-").replace("\n", "<br/>"), styles["BodySmall"]))
-        desc_table = Table([[left_cell or [""], right_cell or [""]]], colWidths=[130 * mm, 130 * mm])
+        _empty_cell = [Paragraph("", styles["BodySmall"])]
+        desc_table = Table([[left_cell or _empty_cell, right_cell or _empty_cell]], colWidths=[130 * mm, 130 * mm])
         desc_table.setStyle(TableStyle([
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
             ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
