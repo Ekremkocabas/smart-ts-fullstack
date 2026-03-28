@@ -2430,6 +2430,8 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
         ["Totaal uren", format_number(total_uren)],
         ["Uurtarief", f"€ {klant.get('uurtarief', 0):.2f}"],
     ]
+    if km_totaal_voor_vergoeding > 0:
+        summary_rows.append(["Totaal KM", f"{format_number(km_totaal_voor_vergoeding)} km"])
     if klant.get("prijsafspraak"):
         summary_rows.append(["Prijsafspraak", klant.get("prijsafspraak")])
     if km_tarief > 0 and km_totaal_voor_vergoeding > 0:
@@ -2502,6 +2504,14 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     else:
         sig_content.append(Paragraph("Nog niet ondertekend", styles["BodySmall"]))
 
+    footer_text = instellingen.get("pdf_voettekst") or LEGAL_TEXT
+    footer_para = Paragraph(footer_text.replace("\n", "<br/>"), ParagraphStyle(
+        "FooterInline", parent=styles["FooterText"], fontSize=6, leading=8,
+        textColor=colors.HexColor("#777777"),
+    ))
+    sig_content.append(Spacer(1, 4))
+    sig_content.append(footer_para)
+
     bottom_table = Table([[summary_table, sig_content or [""]]], colWidths=[100 * mm, 160 * mm])
     bottom_table.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
@@ -2538,10 +2548,6 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
             story.append(photo_row)
             story.append(Spacer(1, 4))
 
-    story.append(Spacer(1, 8))
-    # Use custom footer from settings, or fall back to default LEGAL_TEXT
-    footer_text = instellingen.get("pdf_voettekst") or LEGAL_TEXT
-    story.append(Paragraph(footer_text.replace("\n", "<br/>"), styles["FooterText"]))
 
     pdf.build(story)
     pdf_bytes = buffer.getvalue()
