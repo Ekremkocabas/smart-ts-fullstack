@@ -55,7 +55,7 @@ jobs:
       - name: Prepare CI workspace
         run: |
           mkdir -p credentials
-          base64 -d credentials/smartts.jks.base64 > credentials/smartts.jks
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > credentials/smartts.jks
           cat > credentials.json <<'EOF'
           {
             "android": {
