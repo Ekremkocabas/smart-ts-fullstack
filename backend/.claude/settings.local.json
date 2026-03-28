@@ -23,7 +23,10 @@
       "Bash(eas secret:create --scope project --name GOOGLE_SERVICES_JSON --type file --value ./google-services.json)",
       "Bash(ls:*)",
       "Bash(rm -rf ../backend/dist/*)",
-      "Bash(cp -r dist/* ../backend/dist/)"
+      "Bash(cp -r dist/* ../backend/dist/)",
+      "Bash(eas build:*)",
+      "Bash(eas build:view 4d98043b-96ee-4195-8b6a-bb97436558c7)",
+      "Bash(eas build:view 4d98043b-96ee-4195-8b6a-bb97436558c7 --json)"
     ]
   }
 }

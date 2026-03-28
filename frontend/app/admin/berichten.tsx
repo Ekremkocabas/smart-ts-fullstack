@@ -404,20 +404,6 @@ export default function BerichtenAdmin() {
         }
       }
 
-      // Send push notifications to selected workers
-      if (form.naar_ids.length > 0) {
-        for (const naarId of form.naar_ids) {
-          try {
-            await apiClient.post('/api/notifications/send', {
-              user_id: naarId,
-              title: `Nieuw bericht van ${userName}`,
-              body: form.onderwerp,
-              data: { type: 'bericht', from: userId }
-            });
-          } catch (pushErr) { console.error('Push notification error:', pushErr); }
-        }
-      }
-
       if (form.ook_email && selectedWorkerEmails.length > 0) {
         for (const worker of selectedWorkerEmails) {
           try {
