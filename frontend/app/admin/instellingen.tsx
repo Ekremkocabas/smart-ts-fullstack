@@ -74,6 +74,12 @@ interface PdfTexts {
   prestatie_bevestiging: string;
 }
 
+interface WerkbonPdfColors {
+  primary: string;
+  secondary: string;
+  accent: string;
+}
+
 interface Instellingen {
   id?: string;
   company_id?: string;
@@ -88,6 +94,7 @@ interface Instellingen {
   website: string;
   branding: Branding;
   pdf_texts: PdfTexts;
+  werkbon_pdf_colors: WerkbonPdfColors;
   // Legacy fields for backward compatibility
   logo_base64?: string;
   primary_color?: string;
@@ -127,6 +134,11 @@ const defaultInstellingen: Instellingen = {
     project_bevestiging: '',
     prestatie_bevestiging: '',
   },
+  werkbon_pdf_colors: {
+    primary: '#E8A020',
+    secondary: '#1a1a2e',
+    accent: '#F5A623',
+  },
 };
 
 export default function InstellingenAdmin() {
@@ -138,6 +150,7 @@ export default function InstellingenAdmin() {
   const [screenSize, setScreenSize] = useState(getScreenSize());
   const [colorPickerVisible, setColorPickerVisible] = useState(false);
   const [activeColorField, setActiveColorField] = useState<'primary' | 'secondary' | 'accent'>('primary');
+  const [colorPickerContext, setColorPickerContext] = useState<'branding' | 'pdf'>('branding');
   const [tempColor, setTempColor] = useState('#F5A623');
 
   // Handle screen resize
@@ -186,6 +199,11 @@ export default function InstellingenAdmin() {
             oplevering_bevestiging: data.pdf_texts?.oplevering_bevestiging || data.oplevering_confirmation_text || '',
             project_bevestiging: data.pdf_texts?.project_bevestiging || data.project_confirmation_text || '',
           },
+          werkbon_pdf_colors: {
+            primary:   data.werkbon_primary_color   || data.werkbon_pdf_colors?.primary   || '#E8A020',
+            secondary: data.werkbon_secondary_color || data.werkbon_pdf_colors?.secondary || '#1a1a2e',
+            accent:    data.werkbon_accent_color    || data.werkbon_pdf_colors?.accent    || '#F5A623',
+          },
         };
         setInstellingen(merged);
       }
@@ -212,25 +230,34 @@ export default function InstellingenAdmin() {
     }
   };
 
-  const openColorPicker = (field: 'primary' | 'secondary' | 'accent') => {
+  const openColorPicker = (field: 'primary' | 'secondary' | 'accent', context: 'branding' | 'pdf' = 'branding') => {
     setActiveColorField(field);
-    const currentColor = field === 'primary' 
-      ? instellingen.branding.primary_color 
-      : field === 'secondary' 
-        ? instellingen.branding.secondary_color 
-        : instellingen.branding.accent_color;
+    setColorPickerContext(context);
+    const currentColor = context === 'pdf'
+      ? (field === 'primary' ? instellingen.werkbon_pdf_colors.primary : field === 'secondary' ? instellingen.werkbon_pdf_colors.secondary : instellingen.werkbon_pdf_colors.accent)
+      : (field === 'primary' ? instellingen.branding.primary_color : field === 'secondary' ? instellingen.branding.secondary_color : instellingen.branding.accent_color);
     setTempColor(currentColor);
     setColorPickerVisible(true);
   };
 
   const applyColor = () => {
-    setInstellingen({
-      ...instellingen,
-      branding: {
-        ...instellingen.branding,
-        [activeColorField === 'primary' ? 'primary_color' : activeColorField === 'secondary' ? 'secondary_color' : 'accent_color']: tempColor,
-      },
-    });
+    if (colorPickerContext === 'pdf') {
+      setInstellingen({
+        ...instellingen,
+        werkbon_pdf_colors: {
+          ...instellingen.werkbon_pdf_colors,
+          [activeColorField]: tempColor,
+        },
+      });
+    } else {
+      setInstellingen({
+        ...instellingen,
+        branding: {
+          ...instellingen.branding,
+          [activeColorField === 'primary' ? 'primary_color' : activeColorField === 'secondary' ? 'secondary_color' : 'accent_color']: tempColor,
+        },
+      });
+    }
     setColorPickerVisible(false);
   };
 
@@ -249,6 +276,10 @@ export default function InstellingenAdmin() {
         uren_confirmation_text: instellingen.pdf_texts.uren_bevestiging,
         oplevering_confirmation_text: instellingen.pdf_texts.oplevering_bevestiging,
         project_confirmation_text: instellingen.pdf_texts.project_bevestiging,
+        // Werkbon PDF colors — separate from branding
+        werkbon_primary_color:   instellingen.werkbon_pdf_colors.primary,
+        werkbon_secondary_color: instellingen.werkbon_pdf_colors.secondary,
+        werkbon_accent_color:    instellingen.werkbon_pdf_colors.accent,
       };
       
       await apiClient.put('/api/instellingen', payload);
@@ -437,6 +468,58 @@ export default function InstellingenAdmin() {
           </View>
         </View>
 
+        {/* Werkbon PDF Kleuren Section */}
+        <View style={[styles.section, isCompact && styles.sectionCompact]}>
+          <Text style={styles.sectionTitle}>Werkbon PDF Kleuren</Text>
+          <Text style={styles.sectionSubtitle}>Losstaan van de branding kleuren — alleen voor werkbon PDF's</Text>
+
+          <View style={[styles.colorGrid, isCompact && styles.colorGridCompact]}>
+            <TouchableOpacity style={styles.colorCard} onPress={() => openColorPicker('primary', 'pdf')}>
+              <View style={[styles.colorSwatch, { backgroundColor: instellingen.werkbon_pdf_colors.primary }]} />
+              <Text style={styles.colorLabel}>Primair</Text>
+              <Text style={styles.colorValue}>{instellingen.werkbon_pdf_colors.primary}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.colorCard} onPress={() => openColorPicker('secondary', 'pdf')}>
+              <View style={[styles.colorSwatch, { backgroundColor: instellingen.werkbon_pdf_colors.secondary }]} />
+              <Text style={styles.colorLabel}>Secundair</Text>
+              <Text style={styles.colorValue}>{instellingen.werkbon_pdf_colors.secondary}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.colorCard} onPress={() => openColorPicker('accent', 'pdf')}>
+              <View style={[styles.colorSwatch, { backgroundColor: instellingen.werkbon_pdf_colors.accent }]} />
+              <Text style={styles.colorLabel}>Accent</Text>
+              <Text style={styles.colorValue}>{instellingen.werkbon_pdf_colors.accent}</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* PDF Mini Preview */}
+          <View style={styles.pdfPreview}>
+            <Text style={styles.previewTitle}>Voorbeeld PDF tabel</Text>
+            {Platform.OS === 'web' && (
+              <table style={{ width: '100%', borderCollapse: 'collapse' as any, fontSize: 12 }}>
+                <thead>
+                  <tr>
+                    {['Werknemer','Ma','Di','Wo','Do','Vr','Totaal'].map(h => (
+                      <th key={h} style={{ backgroundColor: instellingen.werkbon_pdf_colors.secondary, color: '#fff', padding: '4px 8px', textAlign: 'center' as any }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    {['Jan Janssen','8','8','8','8','8','40'].map((v,i) => (
+                      <td key={i} style={{ padding: '3px 8px', textAlign: 'center' as any, borderBottom: '1px solid #ddd' }}>{v}</td>
+                    ))}
+                  </tr>
+                  <tr>
+                    {['TOTAAL','8','8','8','8','8','40'].map((v,i) => (
+                      <td key={i} style={{ backgroundColor: instellingen.werkbon_pdf_colors.accent, padding: '4px 8px', textAlign: 'center' as any, fontWeight: 'bold' as any }}>{v}</td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
+            )}
+          </View>
+        </View>
+
         {/* PDF Texts Section - Only Voettekst */}
         <View style={[styles.section, isCompact && styles.sectionCompact]}>
           <Text style={styles.sectionTitle}>PDF Teksten</Text>
@@ -549,6 +632,8 @@ const styles = StyleSheet.create({
   previewButton: { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
   previewButtonText: { color: '#fff', fontWeight: '600' },
   
+  pdfPreview: { marginTop: 16, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: '#E8E9ED' },
+
   // Save button
   saveBtn: { backgroundColor: '#28a745', padding: 18, borderRadius: 12, alignItems: 'center', marginBottom: 40 },
   saveBtnText: { color: '#fff', fontSize: 18, fontWeight: '600' },

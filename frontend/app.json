@@ -24,7 +24,7 @@
       "versionCode": 14,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#FFFFFF"
+        "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
       "permissions": [
@@ -50,7 +50,7 @@
       ["expo-image-picker", {"photosPermission": "Foto selecteren voor selfie verificatie", "cameraPermission": "Selfie nemen bij handtekening verificatie"}],
       ["expo-location", {"locationAlwaysAndWhenInUsePermission": "Locatie ophalen voor werkbon registratie"}],
       ["expo-notifications", {"icon": "./assets/images/icon.png", "color": "#F5A623"}],
-      ["expo-splash-screen", {"image": "./assets/images/splash-image.png", "imageWidth": 200, "resizeMode": "contain", "backgroundColor": "#FFFFFF"}]
+      ["expo-splash-screen", {"image": "./assets/images/splash-image.png", "imageWidth": 200, "resizeMode": "contain", "backgroundColor": "#000000"}]
     ],
     "experiments": {"typedRoutes": true},
     "extra": {

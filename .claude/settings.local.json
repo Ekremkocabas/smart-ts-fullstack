@@ -5,7 +5,23 @@
       "Bash(python -c \"import ast; ast.parse\\(open\\(''server.py'', encoding=''utf-8''\\).read\\(\\)\\); print\\(''Syntax OK''\\)\")",
       "Bash(npx expo:*)",
       "Bash(rm -rf backend/dist/*)",
-      "Bash(cp -r frontend/dist/* backend/dist/)"
+      "Bash(cp -r frontend/dist/* backend/dist/)",
+      "Bash(grep -rn \"smarttech-logo\\\\|logo-square\\\\|new-logo\\\\|require.*logo\\\\|assets.*logo\\\\|logo.*png\\\\|logo_base64\" /c/Users/ekrem/OneDrive/Desktop/smart-ts-fullstack/frontend/ --include=*.tsx --include=*.ts)",
+      "Bash(xargs grep:*)",
+      "Bash(identify /c/Users/ekrem/OneDrive/Desktop/smart-ts-fullstack/logo_dark.jpg)",
+      "Bash(python3 -c \":*)",
+      "Bash(python -c \":*)",
+      "Bash(LOGO_SRC=\"/c/Users/ekrem/OneDrive/Desktop/SMART - TS 2026/LOGO SMART TS.png\")",
+      "Bash(ASSETS=\"/c/Users/ekrem/OneDrive/Desktop/smart-ts-fullstack/frontend/assets/images\")",
+      "Bash(__NEW_LINE_6ff413f24471aada__ python3:*)",
+      "Bash(python3 -c \"from PIL import Image; print\\(''''PIL ok''''\\)\")",
+      "Bash(pip3 install:*)",
+      "Bash(python:*)",
+      "Bash(for f:*)",
+      "Bash(do file:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ]
   }
 }

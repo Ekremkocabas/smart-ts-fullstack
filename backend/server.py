@@ -525,13 +525,34 @@ def get_company_email(settings: dict, email_type: str = "uitgaand_algemeen") -> 
     # Fallback to legacy
     return settings.get("email") or COMPANY_EMAIL
 
+def is_dark_color(hex_color: str) -> bool:
+    """Return True if hex_color has low luminance (needs white text on top)."""
+    try:
+        h = hex_color.lstrip('#')
+        r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+        luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+        return luminance < 0.5
+    except Exception:
+        return True  # assume dark if invalid
+
 def get_pdf_colors(instellingen: dict) -> dict:
-    """Get PDF brand colors from instellingen — fallback to Smart-Tech defaults."""
-    return {
-        "primary": instellingen.get("primary_color") or "#E8A020",
-        "secondary": instellingen.get("secondary_color") or "#1a1a2e",
-        "accent": instellingen.get("accent_color") or "#F5A623",
-    }
+    """Get werkbon PDF colors — ONLY from werkbon_* fields, never from branding colors.
+    Defaults: primary=#E8A020 secondary=#1a1a2e accent=#F5A623"""
+    primary   = instellingen.get("werkbon_primary_color")   or "#E8A020"
+    secondary = instellingen.get("werkbon_secondary_color") or "#1a1a2e"
+    accent    = instellingen.get("werkbon_accent_color")    or "#F5A623"
+    return {"primary": primary, "secondary": secondary, "accent": accent}
+
+def get_company_address_2lines(settings: dict) -> tuple[str, str]:
+    """Return (straat+nr, postcode+stad) as two separate lines for PDF headers."""
+    gestructureerd = settings.get("adres_gestructureerd") or {}
+    if gestructureerd and isinstance(gestructureerd, dict):
+        straat = " ".join(filter(None, [gestructureerd.get("straat", ""), gestructureerd.get("huisnummer", "")])).strip()
+        postcode_stad = " ".join(filter(None, [gestructureerd.get("postcode", ""), gestructureerd.get("stad", "")])).strip()
+        if straat or postcode_stad:
+            return straat, postcode_stad
+    # Legacy fallback
+    return settings.get("adres", ""), " ".join(filter(None, [settings.get("postcode", ""), settings.get("stad", "")])).strip()
 
 def get_company_logo(settings: dict) -> Optional[str]:
     """Get company logo - prefer new URL, fallback to base64"""
@@ -2231,10 +2252,13 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     _accent    = _C["accent"]
 
     styles = getSampleStyleSheet()
-    styles.add(ParagraphStyle(name="SectionTitle", parent=styles["Heading2"], fontSize=10, textColor=colors.HexColor(_secondary), spaceAfter=2, spaceBefore=1))
-    styles.add(ParagraphStyle(name="BodySmall", parent=styles["BodyText"], fontSize=8, leading=10))
+    styles.add(ParagraphStyle(name="SectionTitle", parent=styles["Heading2"], fontSize=9, textColor=colors.HexColor(_secondary), spaceAfter=1, spaceBefore=0))
+    styles.add(ParagraphStyle(name="BodySmall", parent=styles["BodyText"], fontSize=7, leading=9))
     styles.add(ParagraphStyle(name="FooterText", parent=styles["BodyText"], fontSize=7, leading=9, textColor=colors.HexColor("#555555")))
     styles.add(ParagraphStyle(name="WeekHeader", parent=styles["Title"], fontSize=20, textColor=colors.HexColor(_secondary), fontName="Helvetica-Bold", alignment=2))
+    # Auto-contrast text colors
+    _hdr_text = colors.white if is_dark_color(_secondary) else colors.black
+    _accent_text = colors.white if is_dark_color(_accent) else colors.black
 
     story = []
 
@@ -2257,29 +2281,30 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
         seq_num = str(hash(str(werkbon.get('created_at', ''))))[-4:]
     werkbon_nummer = f"{werkbon_jaar}-W{werkbon_week:0>2}-{seq_num}"
 
-    # 3A: Smaller fonts to prevent overlap
+    # TIMESHEET: font 20pt, compact spacing
     center_cell: list = [
         Paragraph("TIMESHEET", ParagraphStyle(
-            "TSBig", fontName="Helvetica-Bold", fontSize=16,
-            textColor=colors.HexColor(_secondary), alignment=1,
+            "TSBig", fontName="Helvetica-Bold", fontSize=20,
+            textColor=colors.HexColor(_secondary), alignment=1, spaceBefore=0, spaceAfter=1,
         )),
         Paragraph(f"WEEK {werkbon_week}-{werkbon_jaar}", ParagraphStyle(
             "TSWeek", fontName="Helvetica-Bold", fontSize=13,
-            textColor=colors.HexColor(_secondary), alignment=1,
+            textColor=colors.HexColor(_secondary), alignment=1, spaceBefore=0, spaceAfter=0,
         )),
         Spacer(1, 2),
         Paragraph(f"Werkbon nr: {werkbon_nummer}", ParagraphStyle(
             "TSNr", fontName="Helvetica", fontSize=9,
-            textColor=colors.HexColor("#555555"), alignment=1,
+            textColor=colors.HexColor("#555555"), alignment=1, spaceBefore=0,
         )),
     ]
 
-    # 3B: Use get_company_address to support both legacy and structured address fields
+    # Adres 2 aparte regels: straat+nr / postcode+stad
     bedrijfsnaam_pdf = instellingen.get("bedrijfsnaam", "Smart-Tech BV")
-    _company_adres = get_company_address(instellingen)
+    _adres_line1, _adres_line2 = get_company_address_2lines(instellingen)
     company_lines = [
         f"<b>{bedrijfsnaam_pdf}</b>",
-        _company_adres or "",
+        _adres_line1 or "",
+        _adres_line2 or "",
         instellingen.get("telefoon") or "",
         instellingen.get("email") or COMPANY_EMAIL,
         f"BTW: {instellingen['btw_nummer']}" if instellingen.get("btw_nummer") else "",
@@ -2306,7 +2331,7 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
         ("BACKGROUND", (0, 0), (0, 0), colors.HexColor("#fff8ee")),
     ]))
     story.append(header_table)
-    story.append(Spacer(1, 3))
+    story.append(Spacer(1, 2))
 
     # ── INFO SECTION ──
     info_left = [
@@ -2332,15 +2357,15 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
             ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#dddddd")),
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
             ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
-            ("FONTSIZE", (0, 0), (-1, -1), 8.5),
-            ("LEFTPADDING", (0, 0), (-1, -1), 6),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-            ("TOPPADDING", (0, 0), (-1, -1), 4),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
+            ("LEFTPADDING", (0, 0), (-1, -1), 4),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            ("TOPPADDING", (0, 0), (-1, -1), 2),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
         ]))
 
     story.append(Table([[left_table, right_table]], colWidths=[125 * mm, 135 * mm], style=[("VALIGN", (0, 0), (-1, -1), "TOP")]))
-    story.append(Spacer(1, 4))
+    story.append(Spacer(1, 2))
 
     # ── UREN TABEL (geen afkortingen) ──
     story.append(Paragraph("Gewerkte uren", styles["SectionTitle"]))
@@ -2371,9 +2396,9 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     hours_table = Table(hours_header + hours_rows, colWidths=[58 * mm] + [22 * mm] * 7 + [22 * mm])
     hours_table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(_secondary)),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("TEXTCOLOR", (0, 0), (-1, 0), _hdr_text),
         ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor(_accent)),
-        ("TEXTCOLOR", (0, -1), (-1, -1), colors.white),
+        ("TEXTCOLOR", (0, -1), (-1, -1), _accent_text),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
         ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor("#cccccc")),
@@ -2391,25 +2416,26 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     # ── KM ──
     km_total = sum(safe_float(werkbon.get("km_afstand", {}).get(dag, 0)) for dag, _, _, _ in DAY_COLUMNS)
     if km_total > 0:
-        story.append(Spacer(1, 6))
+        story.append(Spacer(1, 3))
         story.append(Paragraph("KM-afstand (heen & terug)", styles["SectionTitle"]))
         km_header = [[
-            *[Paragraph(f"<b>{label}</b>", ParagraphStyle("kmhdr", textColor=colors.white, fontSize=8, fontName="Helvetica-Bold", alignment=1))
+            *[Paragraph(f"<b>{label}</b>", ParagraphStyle("kmhdr", textColor=_hdr_text, fontSize=7, fontName="Helvetica-Bold", alignment=1))
               for _, label, _, _ in DAY_COLUMNS],
-            Paragraph("<b>Totaal</b>", ParagraphStyle("kmhdr2", textColor=colors.white, fontSize=8, fontName="Helvetica-Bold", alignment=1))
+            Paragraph("<b>Totaal</b>", ParagraphStyle("kmhdr2", textColor=_hdr_text, fontSize=7, fontName="Helvetica-Bold", alignment=1))
         ]]
         km_row = [[format_number(werkbon.get("km_afstand", {}).get(dag, 0)) for dag, _, _, _ in DAY_COLUMNS] + [format_number(km_total)]]
         km_table = Table(km_header + km_row, colWidths=[22 * mm] * 7 + [22 * mm])
         km_table.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(_secondary)),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("TEXTCOLOR", (0, 0), (-1, 0), _hdr_text),
             ("BACKGROUND", (-1, 1), (-1, 1), colors.HexColor(_accent)),
+            ("TEXTCOLOR", (-1, 1), (-1, 1), _accent_text),
             ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor("#cccccc")),
             ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#d9d9d9")),
             ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-            ("FONTSIZE", (0, 0), (-1, -1), 8),
-            ("TOPPADDING", (0, 0), (-1, -1), 3),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ("FONTSIZE", (0, 0), (-1, -1), 7),
+            ("TOPPADDING", (0, 0), (-1, -1), 2),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
         ]))
         story.append(km_table)
 
@@ -2418,7 +2444,7 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     has_opmerkingen = bool(werkbon.get("opmerkingen") or werkbon.get("extra_opmerkingen"))
     has_mat = bool(werkbon.get("extra_materialen"))
     if has_werken or has_opmerkingen or has_mat:
-        story.append(Spacer(1, 4))
+        story.append(Spacer(1, 2))
         left_cell = []
         right_cell = []
         if has_werken:
@@ -2445,7 +2471,7 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
         story.append(desc_table)
 
     # ── SAMENVATTING + HANDTEKENING (naast elkaar) ──
-    story.append(Spacer(1, 4))
+    story.append(Spacer(1, 2))
     km_tarief = safe_float(werkbon.get("km_vergoeding_tarief", 0))
     km_totaal_voor_vergoeding = sum(safe_float(werkbon.get("km_afstand", {}).get(dag, 0)) for dag, _, _, _ in DAY_COLUMNS)
     km_bedrag = km_totaal_voor_vergoeding * km_tarief if km_tarief > 0 else 0.0
@@ -2466,15 +2492,17 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     summary_table = Table(summary_rows, colWidths=[40 * mm, 55 * mm])
     summary_table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#f5f5f5")),
-        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#fff3cd")),
+        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor(_accent)),
+        ("TEXTCOLOR", (0, -1), (-1, -1), _accent_text),
         ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor(_accent)),
         ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#dddddd")),
         ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
         ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 0), (-1, -1), 9),
-        ("LEFTPADDING", (0, 0), (-1, -1), 6),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("LEFTPADDING", (0, 0), (-1, -1), 5),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
     ]))
 
     # Signature cell - BACKWARD COMPATIBLE: check both field names
@@ -2495,7 +2523,7 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
             sig_content.append(Paragraph(f"Datum: {datum_text}", styles["BodySmall"]))
         sig_content.append(Spacer(1, 3))
         sig_bytes = decode_base64_data(signature_data)
-        sig_img = make_safe_reportlab_image(sig_bytes, 70 * mm, 26 * mm)
+        sig_img = make_safe_reportlab_image(sig_bytes, 60 * mm, 20 * mm)
         
         # Check for selfie - BACKWARD COMPATIBLE: check both field names
         selfie_col: list = []
@@ -2540,10 +2568,10 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     # 3D: Legal text below summary table (left column), not in signature area
     footer_text = instellingen.get("pdf_voettekst") or LEGAL_TEXT
     footer_para = Paragraph(footer_text.replace("\n", "<br/>"), ParagraphStyle(
-        "FooterInline", parent=styles["FooterText"], fontSize=5, leading=7,
-        textColor=colors.HexColor("#888888"),
+        "FooterInline", parent=styles["FooterText"], fontSize=4, leading=6,
+        textColor=colors.HexColor("#999999"),
     ))
-    left_col_content = [summary_table, Spacer(1, 4), footer_para]
+    left_col_content = [summary_table, Spacer(1, 2), footer_para]
 
     bottom_table = Table([[left_col_content, sig_content or [""]]], colWidths=[100 * mm, 160 * mm])
     bottom_table.setStyle(TableStyle([
@@ -6421,9 +6449,12 @@ async def get_app_settings():
     settings = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0})
     if not settings:
         settings = {}
+    # Resolve logo: check branding.logo_base64 first, then top-level logo_base64
+    branding = settings.get("branding") or {}
+    logo_b64 = branding.get("logo_base64") or settings.get("logo_base64")
     return {
         "bedrijfsnaam": settings.get("bedrijfsnaam", "Smart-Tech BV"),
-        "logo_base64": settings.get("logo_base64"),
+        "logo_base64": logo_b64,
         "primary_color": settings.get("primary_color", "#1a1a2e"),
         "secondary_color": settings.get("secondary_color", "#F5A623"),
         "accent_color": settings.get("accent_color", "#16213e"),
