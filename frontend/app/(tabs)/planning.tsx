@@ -100,10 +100,9 @@ export default function PlanningTab() {
   const [bevestigingLoading, setBevestigingLoading] = useState<string | null>(null);
 
   const maakWerkbonVanPlanning = (item: PlanningItem) => {
-    const dagIndex = PLANNING_DAGEN.indexOf(item.dag);
-    const uren = parseHoursFromPlanning(item.start_uur, item.eind_uur, item.voorziene_uur);
+    const dagUren = parseHoursFromPlanning(item.start_uur, item.eind_uur, item.voorziene_uur);
 
-    // Initialize form with planning data
+    // Ma-Vr get the planned hours; Za-Zo stay 0
     startNewDraft();
     setType('uren');
     setManualKlant(item.klant_naam);
@@ -113,13 +112,13 @@ export default function PlanningTab() {
       jaar: item.jaar,
       urenRegels: (item.werknemer_namen || [user?.naam || '']).map((naam) => ({
         teamlidNaam: naam,
-        maandag: dagIndex === 0 ? uren : 0,
-        dinsdag: dagIndex === 1 ? uren : 0,
-        woensdag: dagIndex === 2 ? uren : 0,
-        donderdag: dagIndex === 3 ? uren : 0,
-        vrijdag: dagIndex === 4 ? uren : 0,
-        zaterdag: dagIndex === 5 ? uren : 0,
-        zondag: dagIndex === 6 ? uren : 0,
+        maandag: dagUren,
+        dinsdag: dagUren,
+        woensdag: dagUren,
+        donderdag: dagUren,
+        vrijdag: dagUren,
+        zaterdag: 0,
+        zondag: 0,
         afkortingMa: '', afkortingDi: '', afkortingWo: '', afkortingDo: '',
         afkortingVr: '', afkortingZa: '', afkortingZo: '',
       })),

@@ -495,27 +495,34 @@ export default function InstellingenAdmin() {
           <View style={styles.pdfPreview}>
             <Text style={styles.previewTitle}>Voorbeeld PDF tabel</Text>
             {Platform.OS === 'web' && (
-              <table style={{ width: '100%', borderCollapse: 'collapse' as any, fontSize: 12 }}>
-                <thead>
-                  <tr>
-                    {['Werknemer','Ma','Di','Wo','Do','Vr','Totaal'].map(h => (
-                      <th key={h} style={{ backgroundColor: instellingen.werkbon_pdf_colors.secondary, color: '#fff', padding: '4px 8px', textAlign: 'center' as any }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    {['Jan Janssen','8','8','8','8','8','40'].map((v,i) => (
-                      <td key={i} style={{ padding: '3px 8px', textAlign: 'center' as any, borderBottom: '1px solid #ddd' }}>{v}</td>
-                    ))}
-                  </tr>
-                  <tr>
-                    {['TOTAAL','8','8','8','8','8','40'].map((v,i) => (
-                      <td key={i} style={{ backgroundColor: instellingen.werkbon_pdf_colors.accent, padding: '4px 8px', textAlign: 'center' as any, fontWeight: 'bold' as any }}>{v}</td>
-                    ))}
-                  </tr>
-                </tbody>
-              </table>
+              <div style={{ fontFamily: 'sans-serif', fontSize: 12 }}>
+                {/* TIMESHEET banner */}
+                <div style={{ backgroundColor: instellingen.werkbon_pdf_colors.primary, color: '#fff', padding: '8px 12px', textAlign: 'center' as any, fontWeight: 'bold' as any, fontSize: 14, letterSpacing: 2 }}>
+                  TIMESHEET — WEEK 26-2026
+                </div>
+                {/* Uren tabel */}
+                <table style={{ width: '100%', borderCollapse: 'collapse' as any }}>
+                  <thead>
+                    <tr>
+                      {['Werknemer','Ma','Di','Wo','Do','Vr','Totaal'].map(h => (
+                        <th key={h} style={{ backgroundColor: instellingen.werkbon_pdf_colors.secondary, color: '#fff', padding: '4px 8px', textAlign: 'center' as any }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      {['Jan Janssen','8','8','8','8','8','40'].map((v,i) => (
+                        <td key={i} style={{ padding: '3px 8px', textAlign: 'center' as any, borderBottom: '1px solid #ddd' }}>{v}</td>
+                      ))}
+                    </tr>
+                    <tr>
+                      {['TOTAAL','8','8','8','8','8','40'].map((v,i) => (
+                        <td key={i} style={{ backgroundColor: instellingen.werkbon_pdf_colors.accent, padding: '4px 8px', textAlign: 'center' as any, fontWeight: 'bold' as any }}>{v}</td>
+                      ))}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             )}
           </View>
         </View>

@@ -1110,7 +1110,12 @@ class BedrijfsInstellingen(BaseModel):
     primary_color: str = "#1a1a2e"
     secondary_color: str = "#F5A623"
     accent_color: str = "#16213e"
-    
+
+    # Werkbon PDF colors — separate from web branding
+    werkbon_primary_color: str = "#E8A020"
+    werkbon_secondary_color: str = "#1a1a2e"
+    werkbon_accent_color: str = "#F5A623"
+
     ondernemingsnummer: Optional[str] = None  # Belgian enterprise number
 
     # === NEW STRUCTURED FIELDS (Phase 1) ===
@@ -1143,6 +1148,10 @@ class BedrijfsInstellingenUpdate(BaseModel):
     primary_color: Optional[str] = None
     secondary_color: Optional[str] = None
     accent_color: Optional[str] = None
+    # Werkbon PDF colors — separate from web branding
+    werkbon_primary_color: Optional[str] = None
+    werkbon_secondary_color: Optional[str] = None
+    werkbon_accent_color: Optional[str] = None
     # NEW structured fields - support both naming conventions
     adres_gestructureerd: Optional[Dict] = None
     adres_structured: Optional[Dict] = None    # Frontend sends this
@@ -4731,6 +4740,15 @@ async def update_instellingen(update_data: BedrijfsInstellingenUpdate, current_u
     if 'pdf_texts' in update_dict:
         update_dict['pdf_teksten'] = update_dict.pop('pdf_texts')
 
+    # Sync logo: if branding.logo_base64 is sent, also persist at top level and vice versa
+    branding_dict = update_dict.get('branding') or {}
+    if isinstance(branding_dict, dict):
+        if branding_dict.get('logo_base64') and not update_dict.get('logo_base64'):
+            update_dict['logo_base64'] = branding_dict['logo_base64']
+        elif update_dict.get('logo_base64') and not branding_dict.get('logo_base64'):
+            branding_dict['logo_base64'] = update_dict['logo_base64']
+            update_dict['branding'] = branding_dict
+
     await db.instellingen.update_one(
         {"id": "company_settings"},
         {"$set": update_dict},
@@ -6443,13 +6461,8 @@ async def get_mijn_documenten(current_user: Dict = Depends(get_current_user)):
 
 # ==================== THEME / APP SETTINGS ROUTE ====================
 
-@api_router.get("/app-settings")
-async def get_app_settings():
-    """Get app theme settings - used by mobile app for remote theming"""
-    settings = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0})
-    if not settings:
-        settings = {}
-    # Resolve logo: check branding.logo_base64 first, then top-level logo_base64
+async def _build_app_settings_response(settings: dict) -> dict:
+    """Shared logic for /app-settings and /public/branding."""
     branding = settings.get("branding") or {}
     logo_b64 = branding.get("logo_base64") or settings.get("logo_base64")
     return {
@@ -6463,6 +6476,18 @@ async def get_app_settings():
         "oplevering_confirmation_text": settings.get("oplevering_confirmation_text"),
         "project_confirmation_text": settings.get("project_confirmation_text"),
     }
+
+@api_router.get("/app-settings")
+async def get_app_settings():
+    """Get app theme settings - used by mobile app for remote theming (no auth)"""
+    settings = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0}) or {}
+    return await _build_app_settings_response(settings)
+
+@api_router.get("/public/branding")
+async def get_public_branding():
+    """Public endpoint — returns logo + bedrijfsnaam for login page (no auth required)"""
+    settings = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0}) or {}
+    return await _build_app_settings_response(settings)
 
 # ==================== DASHBOARD STATS ====================
 

@@ -67,7 +67,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     // Wait for auth to complete and verify we have a valid admin user
     if (Platform.OS === 'web' && !authLoading && token && user) {
-      const isAdmin = user?.rol === 'admin' || user?.rol === 'master_admin' || user?.rol === 'manager';
+      const isAdmin = ['admin', 'master_admin', 'manager', 'beheerder'].includes(user?.rol || '');
       if (isAdmin) {
         // Small delay to ensure apiClient has the token set
         const timer = setTimeout(() => {
@@ -184,7 +184,7 @@ export default function AdminDashboard() {
 
   if (Platform.OS !== 'web') return null;
 
-  if (user?.rol !== 'beheerder' && user?.rol !== 'admin') {
+  if (!['beheerder', 'admin', 'master_admin', 'manager'].includes(user?.rol || '')) {
     return (
       <View style={styles.container}>
         <View style={styles.noAccess}>
