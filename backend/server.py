@@ -4374,7 +4374,7 @@ async def get_werkbonnen(user_id: str, is_admin: bool = Query(False), dashboard:
     }
 
     if is_admin:
-        limit = 50 if dashboard else 500
+        limit = 50 if dashboard else 100
         cursor = db.werkbonnen.find({}, projection).sort("created_at", -1).limit(limit)
         try:
             werkbonnen = await asyncio.wait_for(cursor.to_list(limit), timeout=10.0)
@@ -4408,8 +4408,8 @@ async def get_werkbonnen_by_user(user_id: str):
         "handtekening": 0,
         "foto_data": 0
     }
-    cursor = db.werkbonnen.find({"ingevuld_door_id": user_id}, projection).sort("created_at", -1).limit(500)
-    werkbonnen = await cursor.to_list(500)
+    cursor = db.werkbonnen.find({"ingevuld_door_id": user_id}, projection).sort("created_at", -1).limit(100)
+    werkbonnen = await cursor.to_list(100)
     return [Werkbon(**wb) for wb in werkbonnen]
 
 @api_router.get("/werkbonnen/count")
