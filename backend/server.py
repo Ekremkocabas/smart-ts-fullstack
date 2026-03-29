@@ -20,6 +20,30 @@ from typing import List, Optional, Dict, Set, Any, Union
 import uuid
 from datetime import datetime, timedelta, timezone
 import hashlib
+import time
+
+# ==================== IN-MEMORY CACHE ====================
+_cache: Dict[str, Any] = {}
+_cache_ttl: Dict[str, float] = {}
+
+def get_cache(key: str, ttl_seconds: int = 60):
+    if key in _cache and time.time() - _cache_ttl.get(key, 0) < ttl_seconds:
+        return _cache[key]
+    return None
+
+def set_cache(key: str, value: Any):
+    _cache[key] = value
+    _cache_ttl[key] = time.time()
+
+def clear_cache(prefix: str = None):
+    if prefix:
+        for k in [k for k in list(_cache.keys()) if k.startswith(prefix)]:
+            _cache.pop(k, None)
+            _cache_ttl.pop(k, None)
+    else:
+        _cache.clear()
+        _cache_ttl.clear()
+# =========================================================
 import resend
 import requests
 import jwt
@@ -2250,8 +2274,8 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
         pagesize=landscape(A4),
         leftMargin=8 * mm,
         rightMargin=8 * mm,
-        topMargin=6 * mm,
-        bottomMargin=6 * mm,
+        topMargin=15 * mm,
+        bottomMargin=10 * mm,
     )
 
     # Dynamic brand colors from instellingen
@@ -2261,8 +2285,8 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     _accent    = _C["accent"]
 
     styles = getSampleStyleSheet()
-    styles.add(ParagraphStyle(name="SectionTitle", parent=styles["Heading2"], fontSize=9, textColor=colors.HexColor(_secondary), spaceAfter=1, spaceBefore=0))
-    styles.add(ParagraphStyle(name="BodySmall", parent=styles["BodyText"], fontSize=7, leading=9))
+    styles.add(ParagraphStyle(name="SectionTitle", parent=styles["Heading2"], fontSize=9, textColor=colors.HexColor(_primary), spaceAfter=1, spaceBefore=0))
+    styles.add(ParagraphStyle(name="BodySmall", parent=styles["BodyText"], fontSize=6, leading=8))
     styles.add(ParagraphStyle(name="FooterText", parent=styles["BodyText"], fontSize=7, leading=9, textColor=colors.HexColor("#555555")))
     styles.add(ParagraphStyle(name="WeekHeader", parent=styles["Title"], fontSize=20, textColor=colors.HexColor(_secondary), fontName="Helvetica-Bold", alignment=2))
     # Auto-contrast text colors
@@ -2290,20 +2314,16 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
         seq_num = str(hash(str(werkbon.get('created_at', ''))))[-4:]
     werkbon_nummer = f"{werkbon_jaar}-W{werkbon_week:0>2}-{seq_num}"
 
-    # TIMESHEET: font 20pt, compact spacing
+    # Center column: WEEK + Werkbon nr only (TIMESHEET moved to right col)
     center_cell: list = [
-        Paragraph("TIMESHEET", ParagraphStyle(
-            "TSBig", fontName="Helvetica-Bold", fontSize=20,
-            textColor=colors.HexColor(_secondary), alignment=1, spaceBefore=0, spaceAfter=1,
-        )),
         Paragraph(f"WEEK {werkbon_week}-{werkbon_jaar}", ParagraphStyle(
             "TSWeek", fontName="Helvetica-Bold", fontSize=13,
             textColor=colors.HexColor(_secondary), alignment=1, spaceBefore=0, spaceAfter=0,
         )),
         Spacer(1, 2),
         Paragraph(f"Werkbon nr: {werkbon_nummer}", ParagraphStyle(
-            "TSNr", fontName="Helvetica", fontSize=9,
-            textColor=colors.HexColor("#555555"), alignment=1, spaceBefore=0,
+            "TSNr", fontName="Helvetica-Bold", fontSize=9,
+            textColor=colors.HexColor(_primary), alignment=1, spaceBefore=0,
         )),
     ]
 
@@ -2319,28 +2339,41 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
         f"BTW: {instellingen['btw_nummer']}" if instellingen.get("btw_nummer") else "",
     ]
     company_detail_text = "<br/>".join(line for line in company_lines if line)
-    right_cell: list = [
-        Paragraph(company_detail_text or "-", ParagraphStyle(
-            "CompRight", fontSize=8, leading=11, textColor=colors.HexColor("#333333"),
-            alignment=2,
-        )),
-    ]
 
-    # 3A: Adjusted col widths (logo smaller, more space for right) and taller row
-    header_table = Table([[logo_cell, center_cell, right_cell]], colWidths=[45 * mm, 85 * mm, 141 * mm], rowHeights=[36 * mm])
+    # Right column: nested table [TIMESHEET (left, centered) | Firma info (right)]
+    timesheet_para = Paragraph("TIMESHEET", ParagraphStyle(
+        "TSBig", fontName="Helvetica-Bold", fontSize=22,
+        textColor=colors.HexColor(_secondary), alignment=1, spaceBefore=0, spaceAfter=0,
+    ))
+    firma_para = Paragraph(company_detail_text or "-", ParagraphStyle(
+        "CompRight", fontSize=8, leading=11, textColor=colors.HexColor("#333333"), alignment=2,
+    ))
+    right_inner = Table([[timesheet_para, firma_para]], colWidths=[55 * mm, 101 * mm])
+    right_inner.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LINEAFTER", (0, 0), (0, -1), 0.5, colors.HexColor(_accent)),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+    ]))
+    right_cell: list = [right_inner]
+
+    # Logo(45) + Center(65) + Right(161) = 271mm
+    header_table = Table([[logo_cell, center_cell, right_cell]], colWidths=[45 * mm, 65 * mm, 161 * mm], rowHeights=[32 * mm])
     header_table.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("BOX", (0, 0), (-1, -1), 1, colors.HexColor(_accent)),
         ("LINEAFTER", (0, 0), (0, -1), 0.5, colors.HexColor(_accent)),
         ("LINEAFTER", (1, 0), (1, -1), 0.5, colors.HexColor(_accent)),
-        ("LEFTPADDING", (0, 0), (-1, -1), 8),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-        ("TOPPADDING", (0, 0), (-1, -1), 6),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
         ("BACKGROUND", (0, 0), (0, 0), colors.HexColor("#fff8ee")),
     ]))
     story.append(header_table)
-    story.append(Spacer(1, 2))
+    story.append(Spacer(1, 1))
 
     # ── INFO SECTION ──
     info_left = [
@@ -2366,24 +2399,25 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
             ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#dddddd")),
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
             ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
-            ("FONTSIZE", (0, 0), (-1, -1), 8),
-            ("LEFTPADDING", (0, 0), (-1, -1), 4),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-            ("TOPPADDING", (0, 0), (-1, -1), 2),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+            ("TEXTCOLOR", (0, 0), (0, -1), colors.HexColor(_primary)),
+            ("FONTSIZE", (0, 0), (-1, -1), 7),
+            ("LEFTPADDING", (0, 0), (-1, -1), 3),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+            ("TOPPADDING", (0, 0), (-1, -1), 1),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
         ]))
 
     story.append(Table([[left_table, right_table]], colWidths=[125 * mm, 135 * mm], style=[("VALIGN", (0, 0), (-1, -1), "TOP")]))
-    story.append(Spacer(1, 2))
+    story.append(Spacer(1, 1))
 
     # ── UREN TABEL (geen afkortingen) ──
     story.append(Paragraph("Gewerkte uren", styles["SectionTitle"]))
     hours_header = [[
-        Paragraph("<b>Werknemer</b>", ParagraphStyle("hdr", textColor=colors.white, fontSize=8, fontName="Helvetica-Bold")),
-        *[Paragraph(f"<b>{label}</b><br/><font size=7>{werkbon.get(date_key,'')}</font>",
-            ParagraphStyle("hdr2", textColor=colors.white, fontSize=8, fontName="Helvetica-Bold", alignment=1))
+        Paragraph("<b>Werknemer</b>", ParagraphStyle("hdr", textColor=_hdr_text, fontSize=7, fontName="Helvetica-Bold")),
+        *[Paragraph(f"<b>{label}</b><br/><font size=6>{werkbon.get(date_key,'')}</font>",
+            ParagraphStyle("hdr2", textColor=_hdr_text, fontSize=7, fontName="Helvetica-Bold", alignment=1))
           for _, label, date_key, _ in DAY_COLUMNS],
-        Paragraph("<b>Totaal</b>", ParagraphStyle("hdr3", textColor=colors.white, fontSize=8, fontName="Helvetica-Bold", alignment=1))
+        Paragraph("<b>Totaal</b>", ParagraphStyle("hdr3", textColor=_hdr_text, fontSize=7, fontName="Helvetica-Bold", alignment=1))
     ]]
     hours_rows = []
     for regel in werkbon.get("uren", []):
@@ -2414,23 +2448,23 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
         ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#d9d9d9")),
         ("ALIGN", (1, 0), (-1, -1), "CENTER"),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("FONTSIZE", (0, 0), (-1, -1), 7),
-        ("LEFTPADDING", (0, 0), (-1, -1), 3),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 3),
-        ("TOPPADDING", (0, 0), (-1, -1), 2),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+        ("FONTSIZE", (0, 0), (-1, -1), 6),
+        ("LEFTPADDING", (0, 0), (-1, -1), 2),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+        ("TOPPADDING", (0, 0), (-1, -1), 1),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
     ]))
     story.append(hours_table)
 
     # ── KM ──
     km_total = sum(safe_float(werkbon.get("km_afstand", {}).get(dag, 0)) for dag, _, _, _ in DAY_COLUMNS)
     if km_total > 0:
-        story.append(Spacer(1, 3))
+        story.append(Spacer(1, 1))
         story.append(Paragraph("KM-afstand (heen & terug)", styles["SectionTitle"]))
         km_header = [[
-            *[Paragraph(f"<b>{label}</b>", ParagraphStyle("kmhdr", textColor=_hdr_text, fontSize=7, fontName="Helvetica-Bold", alignment=1))
+            *[Paragraph(f"<b>{label}</b>", ParagraphStyle("kmhdr", textColor=_hdr_text, fontSize=6, fontName="Helvetica-Bold", alignment=1))
               for _, label, _, _ in DAY_COLUMNS],
-            Paragraph("<b>Totaal</b>", ParagraphStyle("kmhdr2", textColor=_hdr_text, fontSize=7, fontName="Helvetica-Bold", alignment=1))
+            Paragraph("<b>Totaal</b>", ParagraphStyle("kmhdr2", textColor=_hdr_text, fontSize=6, fontName="Helvetica-Bold", alignment=1))
         ]]
         km_row = [[format_number(werkbon.get("km_afstand", {}).get(dag, 0)) for dag, _, _, _ in DAY_COLUMNS] + [format_number(km_total)]]
         km_table = Table(km_header + km_row, colWidths=[22 * mm] * 7 + [22 * mm])
@@ -2442,9 +2476,9 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
             ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor("#cccccc")),
             ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#d9d9d9")),
             ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-            ("FONTSIZE", (0, 0), (-1, -1), 7),
-            ("TOPPADDING", (0, 0), (-1, -1), 2),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+            ("FONTSIZE", (0, 0), (-1, -1), 6),
+            ("TOPPADDING", (0, 0), (-1, -1), 1),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
         ]))
         story.append(km_table)
 
@@ -2453,34 +2487,35 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     has_opmerkingen = bool(werkbon.get("opmerkingen") or werkbon.get("extra_opmerkingen"))
     has_mat = bool(werkbon.get("extra_materialen"))
     if has_werken or has_opmerkingen or has_mat:
-        story.append(Spacer(1, 2))
-        left_cell = []
-        right_cell = []
+        story.append(Spacer(1, 1))
+        _sec_style = ParagraphStyle("SecLabel", parent=styles["BodySmall"], fontName="Helvetica-Bold", textColor=colors.HexColor(_primary))
+        left_cell_d = []
+        right_cell_d = []
         if has_werken:
-            left_cell.append(Paragraph("<b>Uitgevoerde werken:</b>", styles["BodySmall"]))
-            left_cell.append(Paragraph(werkbon.get("uitgevoerde_werken", "-").replace("\n", "<br/>"), styles["BodySmall"]))
+            left_cell_d.append(Paragraph("Uitgevoerde werken:", _sec_style))
+            left_cell_d.append(Paragraph(werkbon.get("uitgevoerde_werken", "-").replace("\n", "<br/>"), styles["BodySmall"]))
         opm_text = werkbon.get("opmerkingen") or werkbon.get("extra_opmerkingen") or ""
         if opm_text:
-            right_cell.append(Paragraph("<b>Opmerkingen:</b>", styles["BodySmall"]))
-            right_cell.append(Paragraph(opm_text.replace("\n", "<br/>"), styles["BodySmall"]))
+            right_cell_d.append(Paragraph("Opmerkingen:", _sec_style))
+            right_cell_d.append(Paragraph(opm_text.replace("\n", "<br/>"), styles["BodySmall"]))
         elif has_mat:
-            right_cell.append(Paragraph("<b>Extra materialen:</b>", styles["BodySmall"]))
-            right_cell.append(Paragraph(werkbon.get("extra_materialen", "-").replace("\n", "<br/>"), styles["BodySmall"]))
+            right_cell_d.append(Paragraph("Extra materialen:", _sec_style))
+            right_cell_d.append(Paragraph(werkbon.get("extra_materialen", "-").replace("\n", "<br/>"), styles["BodySmall"]))
         _empty_cell = [Paragraph("", styles["BodySmall"])]
-        desc_table = Table([[left_cell or _empty_cell, right_cell or _empty_cell]], colWidths=[130 * mm, 130 * mm])
+        desc_table = Table([[left_cell_d or _empty_cell, right_cell_d or _empty_cell]], colWidths=[130 * mm, 130 * mm])
         desc_table.setStyle(TableStyle([
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
             ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
             ("LINEBEFORE", (1, 0), (1, 0), 0.5, colors.HexColor("#cccccc")),
-            ("LEFTPADDING", (0, 0), (-1, -1), 6),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-            ("TOPPADDING", (0, 0), (-1, -1), 3),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ("LEFTPADDING", (0, 0), (-1, -1), 4),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            ("TOPPADDING", (0, 0), (-1, -1), 2),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
         ]))
         story.append(desc_table)
 
     # ── SAMENVATTING + HANDTEKENING (naast elkaar) ──
-    story.append(Spacer(1, 2))
+    story.append(Spacer(1, 1))
     km_tarief = safe_float(werkbon.get("km_vergoeding_tarief", 0))
     km_totaal_voor_vergoeding = sum(safe_float(werkbon.get("km_afstand", {}).get(dag, 0)) for dag, _, _, _ in DAY_COLUMNS)
     km_bedrag = km_totaal_voor_vergoeding * km_tarief if km_tarief > 0 else 0.0
@@ -2500,18 +2535,19 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
 
     summary_table = Table(summary_rows, colWidths=[40 * mm, 55 * mm])
     summary_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#f5f5f5")),
+        ("BACKGROUND", (0, 0), (0, -2), colors.HexColor("#f5f5f5")),
         ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor(_accent)),
         ("TEXTCOLOR", (0, -1), (-1, -1), _accent_text),
+        ("TEXTCOLOR", (0, 0), (0, -2), colors.HexColor(_primary)),
         ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor(_accent)),
         ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#dddddd")),
         ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
         ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 0), (-1, -1), 8),
-        ("LEFTPADDING", (0, 0), (-1, -1), 5),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
-        ("TOPPADDING", (0, 0), (-1, -1), 3),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ("FONTSIZE", (0, 0), (-1, -1), 7),
+        ("LEFTPADDING", (0, 0), (-1, -1), 4),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 2),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
     ]))
 
     # Signature cell - BACKWARD COMPATIBLE: check both field names
@@ -2530,34 +2566,50 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
             datum = werkbon.get("handtekening_datum")
             datum_text = datum.strftime("%d-%m-%Y %H:%M") if isinstance(datum, datetime) else str(datum)[:16]
             sig_content.append(Paragraph(f"Datum: {datum_text}", styles["BodySmall"]))
-        sig_content.append(Spacer(1, 3))
+        sig_content.append(Spacer(1, 2))
         sig_bytes = decode_base64_data(signature_data)
-        sig_img = make_safe_reportlab_image(sig_bytes, 60 * mm, 20 * mm)
-        
+        sig_img = make_safe_reportlab_image(sig_bytes, 50 * mm, 18 * mm)
+
+        # GPS locatie
+        gps_locatie = werkbon.get("gps_locatie") or ""
+        gps_lat = werkbon.get("gps_lat")
+        gps_lng = werkbon.get("gps_lng")
+
         # Check for selfie - BACKWARD COMPATIBLE: check both field names
         selfie_col: list = []
         selfie_data = werkbon.get("selfie_data") or werkbon.get("selfie")
         if selfie_data:
             selfie_bytes = decode_base64_data(selfie_data)
-            selfie_img = make_safe_reportlab_image(selfie_bytes, 24 * mm, 24 * mm)
+            selfie_img = make_safe_reportlab_image(selfie_bytes, 20 * mm, 20 * mm)
             if selfie_img:
                 selfie_col = [
                     Paragraph("<b>Foto</b>", styles["BodySmall"]),
-                    Spacer(1, 2),
+                    Spacer(1, 1),
                     selfie_img,
                 ]
+                # GPS next to selfie (same column → same row as signature)
+                if gps_locatie:
+                    selfie_col.append(Paragraph(f"<b>GPS:</b> {gps_locatie}", styles["BodySmall"]))
+                elif gps_lat and gps_lng:
+                    selfie_col.append(Paragraph(f"<b>GPS:</b> {gps_lat:.5f}, {gps_lng:.5f}", styles["BodySmall"]))
+        elif gps_locatie or (gps_lat and gps_lng):
+            # No selfie: GPS below signature
+            if gps_locatie:
+                sig_content.append(Paragraph(f"<b>GPS:</b> {gps_locatie}", styles["BodySmall"]))
+            else:
+                sig_content.append(Paragraph(f"<b>GPS:</b> {gps_lat:.5f}, {gps_lng:.5f}", styles["BodySmall"]))
 
         if sig_img:
             if selfie_col:
-                # Side-by-side: signature | selfie photo
+                # Side-by-side: signature | selfie+GPS
                 inner_sig_table = Table(
                     [[sig_img, selfie_col]],
-                    colWidths=[80 * mm, 30 * mm],
+                    colWidths=[75 * mm, 28 * mm],
                 )
                 inner_sig_table.setStyle(TableStyle([
                     ("VALIGN", (0, 0), (-1, -1), "TOP"),
                     ("LINEAFTER", (0, 0), (0, -1), 0.5, colors.HexColor("#2d3a5f")),
-                    ("LEFTPADDING", (1, 0), (1, -1), 6),
+                    ("LEFTPADDING", (1, 0), (1, -1), 4),
                 ]))
                 sig_content.append(inner_sig_table)
             else:
@@ -2565,22 +2617,13 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     else:
         sig_content.append(Paragraph("Nog niet ondertekend", styles["BodySmall"]))
 
-    # 3G: GPS locatie in handtekening zone
-    gps_locatie = werkbon.get("gps_locatie") or ""
-    gps_lat = werkbon.get("gps_lat")
-    gps_lng = werkbon.get("gps_lng")
-    if gps_locatie:
-        sig_content.append(Paragraph(f"<b>GPS Locatie:</b> {gps_locatie}", styles["BodySmall"]))
-    elif gps_lat and gps_lng:
-        sig_content.append(Paragraph(f"<b>GPS:</b> {gps_lat:.5f}, {gps_lng:.5f}", styles["BodySmall"]))
-
     # 3D: Legal text below summary table (left column), not in signature area
     footer_text = instellingen.get("pdf_voettekst") or LEGAL_TEXT
     footer_para = Paragraph(footer_text.replace("\n", "<br/>"), ParagraphStyle(
-        "FooterInline", parent=styles["FooterText"], fontSize=4, leading=6,
-        textColor=colors.HexColor("#999999"),
+        "FooterInline", parent=styles["FooterText"], fontSize=5, leading=7,
+        textColor=colors.HexColor("#777777"),
     ))
-    left_col_content = [summary_table, Spacer(1, 2), footer_para]
+    left_col_content = [summary_table, Spacer(1, 1), footer_para]
 
     bottom_table = Table([[left_col_content, sig_content or [""]]], colWidths=[100 * mm, 160 * mm])
     bottom_table.setStyle(TableStyle([
@@ -3690,6 +3733,9 @@ async def login_user(request: Request, login_data: UserLogin):
 @api_router.get("/auth/users", response_model=List[UserResponse])
 async def get_all_users(current_user: Dict = Depends(require_web_access())):
     """Get all users. Only web panel users can access."""
+    cached = get_cache("auth:users", ttl_seconds=60)
+    if cached is not None:
+        return cached
     users = await db.users.find().to_list(1000)
     result = []
     for user in users:
@@ -3710,6 +3756,7 @@ async def get_all_users(current_user: Dict = Depends(require_web_access())):
             app_access=has_app_access(normalized_role),
             push_token=user.get("push_token"),
         ))
+    set_cache("auth:users", result)
     return result
 
 @api_router.put("/auth/users/{user_id}", response_model=UserResponse)
@@ -3732,7 +3779,7 @@ async def update_user(user_id: str, update_data: UserUpdate):
     result = await db.users.update_one({"id": user_id}, {"$set": update_dict})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
-    
+    clear_cache("auth:users")
     updated = await db.users.find_one({"id": user_id})
     normalized_role = normalize_role(updated.get("rol", "worker"))
     return UserResponse(
@@ -3925,7 +3972,7 @@ async def assign_user_role(
         {"id": user_id},
         {"$set": {"rol": normalized_new_role}}
     )
-    
+    clear_cache("auth:users")
     updated = await db.users.find_one({"id": user_id})
     return UserResponse(
         id=updated["id"],
@@ -3957,6 +4004,7 @@ async def delete_user(user_id: str, current_user: Dict = Depends(require_roles([
     result = await db.users.delete_one({"id": user_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
+    clear_cache("auth:users")
     return {"message": "Gebruiker verwijderd"}
 
 @api_router.post("/auth/users/{user_id}/push-token")
@@ -4075,8 +4123,13 @@ async def send_notification_api(data: dict):
 
 @api_router.get("/teams", response_model=List[Team])
 async def get_teams():
+    cached = get_cache("teams:active", ttl_seconds=60)
+    if cached is not None:
+        return cached
     teams = await db.teams.find({"actief": True}).to_list(1000)
-    return [Team(**team) for team in teams]
+    result = [Team(**team) for team in teams]
+    set_cache("teams:active", result)
+    return result
 
 @api_router.get("/teams/{team_id}", response_model=Team)
 async def get_team(team_id: str):
@@ -4090,6 +4143,7 @@ async def create_team(team_data: TeamCreate, current_user: Dict = Depends(requir
     """Create a new team. Only admin/master_admin can create teams."""
     team = Team(**team_data.dict())
     await db.teams.insert_one(team.dict())
+    clear_cache("teams")
     return team
 
 @api_router.put("/teams/{team_id}", response_model=Team)
@@ -4100,6 +4154,7 @@ async def update_team(team_id: str, team_data: TeamUpdate, current_user: Dict = 
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Team niet gevonden")
     updated = await db.teams.find_one({"id": team_id})
+    clear_cache("teams")
     return Team(**updated)
 
 @api_router.delete("/teams/{team_id}")
@@ -4108,6 +4163,7 @@ async def delete_team(team_id: str, current_user: Dict = Depends(require_roles([
     result = await db.teams.update_one({"id": team_id}, {"$set": {"actief": False}})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Team niet gevonden")
+    clear_cache("teams")
     return {"message": "Team verwijderd"}
 
 # ==================== KLANT ROUTES ====================
@@ -4115,10 +4171,15 @@ async def delete_team(team_id: str, current_user: Dict = Depends(require_roles([
 @api_router.get("/klanten", response_model=List[dict])
 async def get_klanten(include_inactive: bool = Query(False)):
     """Get all klanten with migration to new structure"""
+    cache_key = f"klanten:{'all' if include_inactive else 'active'}"
+    cached = get_cache(cache_key, ttl_seconds=60)
+    if cached is not None:
+        return cached
     query = {} if include_inactive else {"actief": {"$ne": False}}
     klanten = await db.klanten.find(query).to_list(1000)
-    # Migrate each klant to new structure
-    return [migrate_klant_data(klant) for klant in klanten]
+    result = [migrate_klant_data(klant) for klant in klanten]
+    set_cache(cache_key, result)
+    return result
 
 @api_router.get("/klanten/{klant_id}")
 async def get_klant(klant_id: str):
@@ -4164,6 +4225,7 @@ async def create_klant(klant_data: KlantCreate, current_user: Dict = Depends(req
         }
     
     await db.klanten.insert_one(klant_dict)
+    clear_cache("klanten")
     return migrate_klant_data(klant_dict)
 
 @api_router.put("/klanten/{klant_id}", response_model=dict)
@@ -4188,6 +4250,7 @@ async def update_klant(klant_id: str, klant_data: dict, current_user: Dict = Dep
     update_dict.pop("_id", None)
     
     await db.klanten.replace_one({"id": klant_id}, update_dict)
+    clear_cache("klanten")
     return migrate_klant_data(update_dict)
 
 @api_router.delete("/klanten/{klant_id}")
@@ -4196,6 +4259,7 @@ async def delete_klant(klant_id: str, current_user: Dict = Depends(require_roles
     result = await db.klanten.update_one({"id": klant_id}, {"$set": {"actief": False}})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Klant niet gevonden")
+    clear_cache("klanten")
     return {"message": "Klant verwijderd"}
 
 @api_router.get("/klanten/contact-functies")
@@ -4230,8 +4294,13 @@ async def send_klant_welcome(klant_id: str, current_user: Dict = Depends(require
 
 @api_router.get("/werven", response_model=List[Werf])
 async def get_werven():
+    cached = get_cache("werven:active", ttl_seconds=60)
+    if cached is not None:
+        return cached
     werven = await db.werven.find({"actief": True}).to_list(1000)
-    return [Werf(**werf) for werf in werven]
+    result = [Werf(**werf) for werf in werven]
+    set_cache("werven:active", result)
+    return result
 
 @api_router.get("/werven/klant/{klant_id}", response_model=List[Werf])
 async def get_werven_by_klant(klant_id: str):
@@ -4246,6 +4315,7 @@ async def create_werf(werf_data: WerfCreate, current_user: Dict = Depends(requir
         raise HTTPException(status_code=404, detail="Klant niet gevonden")
     werf = Werf(**werf_data.dict())
     await db.werven.insert_one(werf.dict())
+    clear_cache("werven")
     return werf
 
 @api_router.put("/werven/{werf_id}", response_model=Werf)
@@ -4255,6 +4325,7 @@ async def update_werf(werf_id: str, werf_data: WerfCreate, current_user: Dict = 
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Werf niet gevonden")
     updated = await db.werven.find_one({"id": werf_id})
+    clear_cache("werven")
     return Werf(**updated)
 
 @api_router.delete("/werven/{werf_id}")
@@ -4263,6 +4334,7 @@ async def delete_werf(werf_id: str, current_user: Dict = Depends(require_roles([
     result = await db.werven.update_one({"id": werf_id}, {"$set": {"actief": False}})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Werf niet gevonden")
+    clear_cache("werven")
     return {"message": "Werf verwijderd"}
 
 # ==================== USER SEARCH ====================
@@ -4283,30 +4355,6 @@ async def search_users(q: str = Query(""), current_user: Dict = Depends(get_curr
 
 @api_router.get("/werkbonnen", response_model=List[Werkbon])
 async def get_werkbonnen(user_id: str, is_admin: bool = Query(False)):
-    if is_admin:
-        # Admin can see all werkbonnen
-        # Exclude large binary fields to reduce memory usage during sort
-        projection = {
-            "_id": 0,
-            "selfie_data": 0,
-            "selfie": 0,
-            "handtekening_data": 0,
-            "handtekening": 0,
-            "foto_data": 0
-        }
-        # Use find with projection to exclude large fields, then sort
-        cursor = db.werkbonnen.find({}, projection).sort("created_at", -1).limit(500)
-        werkbonnen = await cursor.to_list(500)
-        return [Werkbon(**wb) for wb in werkbonnen]
-    
-    user = await db.users.find_one({"id": user_id}, {"_id": 0})
-    if not user:
-        raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
-
-    # V1: Use has_web_access for admin check instead of hardcoded list
-    query = {} if has_web_access(user.get("rol", "")) else {
-        "$or": [{"ingevuld_door_id": user_id}, {"toegewezen_aan": user_id}]
-    }
     projection = {
         "_id": 0,
         "selfie_data": 0,
@@ -4315,8 +4363,29 @@ async def get_werkbonnen(user_id: str, is_admin: bool = Query(False)):
         "handtekening": 0,
         "foto_data": 0
     }
-    cursor = db.werkbonnen.find(query, projection).sort("created_at", -1).limit(500)
-    werkbonnen = await cursor.to_list(500)
+
+    if is_admin:
+        cursor = db.werkbonnen.find({}, projection).sort("created_at", -1).limit(500)
+        try:
+            werkbonnen = await asyncio.wait_for(cursor.to_list(500), timeout=10.0)
+        except asyncio.TimeoutError:
+            logging.warning("[werkbonnen] Admin query timed out, returning empty list")
+            return []
+        return [Werkbon(**wb) for wb in werkbonnen]
+
+    user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
+
+    query = {} if has_web_access(user.get("rol", "")) else {
+        "$or": [{"ingevuld_door_id": user_id}, {"toegewezen_aan": user_id}]
+    }
+    cursor = db.werkbonnen.find(query, projection).sort("created_at", -1).limit(200)
+    try:
+        werkbonnen = await asyncio.wait_for(cursor.to_list(200), timeout=10.0)
+    except asyncio.TimeoutError:
+        logging.warning("[werkbonnen] User query timed out for user_id=%s", user_id)
+        return []
     return [Werkbon(**wb) for wb in werkbonnen]
 
 @api_router.get("/werkbonnen/user/{user_id}", response_model=List[Werkbon])
@@ -4710,11 +4779,15 @@ async def dupliceer_werkbon(werkbon_id: str, current_user: Dict = Depends(get_cu
 @api_router.get("/instellingen")
 async def get_instellingen(current_user: Dict = Depends(require_web_access())):
     """Get company settings. Web panel users can read."""
+    cached = get_cache("instellingen:company", ttl_seconds=120)
+    if cached is not None:
+        return cached
     settings = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0})
     if not settings:
         default = BedrijfsInstellingen()
         default_dict = default.dict()
         await db.instellingen.insert_one(default_dict.copy())
+        set_cache("instellingen:company", default_dict)
         return default_dict
 
     # Add frontend-compatible field name aliases (without removing Dutch originals)
@@ -4727,12 +4800,17 @@ async def get_instellingen(current_user: Dict = Depends(require_web_access())):
         if emails.get('werkbon'):
             settings['werkbon_email'] = emails['werkbon']
 
+    set_cache("instellingen:company", settings)
     return settings
 
 @api_router.put("/instellingen")
 async def update_instellingen(update_data: BedrijfsInstellingenUpdate, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Update company settings. Only admin/master_admin can modify."""
     update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
+    logger.info("[instellingen PUT] Update keys: %s | has logo_base64: %s | branding keys: %s",
+                list(update_dict.keys()),
+                'logo_base64' in update_dict,
+                list(update_dict.get('branding', {}).keys()) if isinstance(update_dict.get('branding'), dict) else 'n/a')
 
     # Normalize field names: frontend sends adres_structured / pdf_texts
     if 'adres_structured' in update_dict:
@@ -4754,6 +4832,8 @@ async def update_instellingen(update_data: BedrijfsInstellingenUpdate, current_u
         {"$set": update_dict},
         upsert=True
     )
+    clear_cache("instellingen")
+    clear_cache("app-settings")
 
     updated = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0})
     if updated.get('adres_gestructureerd') and not updated.get('adres_structured'):
@@ -6480,8 +6560,13 @@ async def _build_app_settings_response(settings: dict) -> dict:
 @api_router.get("/app-settings")
 async def get_app_settings():
     """Get app theme settings - used by mobile app for remote theming (no auth)"""
+    cached = get_cache("app-settings:main", ttl_seconds=300)
+    if cached is not None:
+        return cached
     settings = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0}) or {}
-    return await _build_app_settings_response(settings)
+    result = await _build_app_settings_response(settings)
+    set_cache("app-settings:main", result)
+    return result
 
 @api_router.get("/public/branding")
 async def get_public_branding():
@@ -6591,6 +6676,33 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+async def ensure_indexes():
+    """Create MongoDB indexes for query performance."""
+    try:
+        # werkbonnen
+        await db.werkbonnen.create_index([("ingevuld_door_id", 1), ("created_at", -1)])
+        await db.werkbonnen.create_index([("created_at", -1)])
+        await db.werkbonnen.create_index([("klant_id", 1)])
+        await db.werkbonnen.create_index([("werf_id", 1)])
+        await db.werkbonnen.create_index([("week_nummer", 1), ("jaar", 1)])
+        await db.werkbonnen.create_index([("status", 1)])
+        # users
+        await db.users.create_index([("email", 1)], unique=True)
+        await db.users.create_index([("company_id", 1)])
+        # klanten
+        await db.klanten.create_index([("id", 1)], unique=True)
+        await db.klanten.create_index([("actief", 1)])
+        # werven
+        await db.werven.create_index([("klant_id", 1)])
+        # teams
+        await db.teams.create_index([("id", 1)], unique=True)
+        # berichten
+        await db.berichten.create_index([("ontvanger_ids", 1), ("created_at", -1)])
+        logging.info("[DB] Indexes ensured successfully")
+    except Exception as idx_err:
+        logging.warning(f"[DB] Index creation warning (may already exist): {idx_err}")
+
+
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
@@ -6619,12 +6731,8 @@ async def startup_migrate():
 
         # === CREATE INDEXES for performance ===
         # This prevents "Sort exceeded memory limit" errors
-        try:
-            await db.werkbonnen.create_index([("created_at", -1)])
-            await db.werkbonnen.create_index([("ingevuld_door_id", 1), ("created_at", -1)])
-            logging.info("Database indexes created successfully")
-        except Exception as idx_err:
-            logging.warning(f"Index creation warning (may already exist): {idx_err}")
+        await ensure_indexes()
+
         
         # === PHASE 1: User migrations ===
         

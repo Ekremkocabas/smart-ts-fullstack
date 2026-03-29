@@ -24,7 +24,7 @@ const getBackendUrl = (): string => {
 };
 
 // Create axios instance WITHOUT baseURL - we'll set it dynamically
-export const apiClient = axios.create();
+export const apiClient = axios.create({ timeout: 10000 });
 
 // INTERCEPTOR: Set baseURL dynamically on EVERY request
 apiClient.interceptors.request.use(

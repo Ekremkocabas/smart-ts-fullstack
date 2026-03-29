@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -58,6 +58,8 @@ export default function AdminDashboard() {
   const [recentWerkbonnen, setRecentWerkbonnen] = useState<RecentWerkbon[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [werkbonnenError, setWerkbonnenError] = useState<string | null>(null);
+  const fetchRetryCount = useRef(0);
 
   // Debug: Log component state
   useEffect(() => {
@@ -81,11 +83,19 @@ export default function AdminDashboard() {
   const fetchData = async () => {
     if (!token) {
       console.warn('No token available');
+      setLoading(false);
       return;
     }
+    if (fetchRetryCount.current >= 2) {
+      setError('Maximale pogingen bereikt. Herlaad de pagina.');
+      setLoading(false);
+      return;
+    }
+    fetchRetryCount.current += 1;
     try {
       setLoading(true);
       setError(null);
+      setWerkbonnenError(null);
       const now = new Date();
       const getISOWeek = (d: Date) => {
         const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
@@ -98,21 +108,33 @@ export default function AdminDashboard() {
       const currentMonth = now.getMonth() + 1;
       const currentYear = now.getFullYear();
 
-      const [werknemersRes, teamsRes, klantenRes, wervenRes, werkbonnenRes, planningRes, maandUrenRes] = await Promise.all([
+      // Core data — separate from werkbonnen to avoid one hanging request blocking everything
+      const [werknemersRes, teamsRes, klantenRes, wervenRes, planningRes, maandUrenRes] = await Promise.all([
         apiClient.get('/api/auth/users'),
         apiClient.get('/api/teams'),
         apiClient.get('/api/klanten'),
         apiClient.get('/api/werven'),
-        apiClient.get(`/api/werkbonnen?user_id=${user?.id}&is_admin=true`),
         apiClient.get(`/api/planning?week_nummer=${currentWeek}&jaar=${currentYear}`),
         apiClient.get(`/api/dashboard/uren-maand?jaar=${currentYear}&maand=${currentMonth}`),
       ]);
+
+      // Werkbonnen fetched separately with its own error handling
+      let werkbonnen: any[] = [];
+      try {
+        const werkbonnenRes = await apiClient.get(
+          `/api/werkbonnen?user_id=${user?.id}&is_admin=true`,
+          { timeout: 10000 }
+        );
+        werkbonnen = Array.isArray(werkbonnenRes.data) ? werkbonnenRes.data : [];
+      } catch (wbErr: any) {
+        console.error('[Dashboard] Werkbonnen fetch failed:', wbErr?.message);
+        setWerkbonnenError('Kan werkbonnen niet laden');
+      }
 
       const werknemers = werknemersRes.data;
       const teams = teamsRes.data;
       const klanten = klantenRes.data;
       const werven = wervenRes.data;
-      const werkbonnen = werkbonnenRes.data;
       const planningData = planningRes.data;
       const maandUrenData = maandUrenRes.data;
 
@@ -290,6 +312,14 @@ export default function AdminDashboard() {
               <Text style={styles.statLabel}>Planning deze week</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Werkbonnen error banner */}
+          {werkbonnenError && (
+            <View style={{ backgroundColor: '#fff3cd', borderRadius: 10, padding: 12, marginHorizontal: 8, marginBottom: 8, borderWidth: 1, borderColor: '#ffc107', flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <Ionicons name="warning-outline" size={20} color="#e67e22" />
+              <Text style={{ flex: 1, fontSize: 13, color: '#856404' }}>{werkbonnenError}</Text>
+            </View>
+          )}
 
           {/* Werkbonnen Stats */}
           <Text style={styles.sectionTitle}>Werkbonnen overzicht</Text>

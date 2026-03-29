@@ -2,7 +2,18 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
-const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_BACKEND_URL || '';
+// Web: always use current origin (avoids hardcoded Railway URLs baked into app.json)
+const getThemeApiUrl = (): string => {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return 'http://localhost:8001';
+    }
+    return window.location.origin;
+  }
+  return process.env.EXPO_PUBLIC_BACKEND_URL || '';
+};
+const API_URL = getThemeApiUrl();
 
 interface AppTheme {
   primaryColor: string;
