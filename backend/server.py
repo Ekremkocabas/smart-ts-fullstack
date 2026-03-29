@@ -4366,6 +4366,11 @@ async def get_werkbonnen(user_id: str, is_admin: bool = Query(False), dashboard:
         "foto_data": 0,
         "fotos": 0,
         "photos": 0,
+        "extra_materialen": 0,
+        "uitgevoerde_werken": 0,
+        "opmerkingen": 0,
+        "gps": 0,
+        "locatie": 0,
     }
 
     if is_admin:
@@ -6700,6 +6705,31 @@ async def get_dashboard_stats(current_user: Dict = Depends(get_current_user)):
         "week_nummer": current_week,
         "jaar": current_year,
     }
+
+@api_router.get("/dashboard/recent-werkbonnen")
+async def get_recent_werkbonnen(
+    limit: int = Query(20, le=50),
+    current_user: Dict = Depends(require_web_access()),
+):
+    """Lightweight endpoint for dashboard — returns only metadata fields, no heavy blobs."""
+    projection = {
+        "_id": 0,
+        "id": 1,
+        "klant_naam": 1,
+        "werf_naam": 1,
+        "week_nummer": 1,
+        "jaar": 1,
+        "status": 1,
+        "created_at": 1,
+        "ingevuld_door_naam": 1,
+    }
+    cursor = db.werkbonnen.find({}, projection).sort("created_at", -1).limit(limit)
+    try:
+        werkbonnen = await asyncio.wait_for(cursor.to_list(limit), timeout=5.0)
+    except asyncio.TimeoutError:
+        logging.warning("[recent-werkbonnen] Query timed out")
+        return []
+    return werkbonnen
 
 @api_router.get("/dashboard/uren-maand")
 async def get_uren_deze_maand(jaar: int, maand: int):

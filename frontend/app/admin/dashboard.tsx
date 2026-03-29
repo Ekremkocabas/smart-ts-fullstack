@@ -122,8 +122,8 @@ export default function AdminDashboard() {
       let werkbonnen: any[] = [];
       try {
         const werkbonnenRes = await apiClient.get(
-          `/api/werkbonnen?user_id=${user?.id}&is_admin=true&dashboard=true`,
-          { timeout: 10000 }
+          `/api/dashboard/recent-werkbonnen?limit=20`,
+          { timeout: 8000 }
         );
         werkbonnen = Array.isArray(werkbonnenRes.data) ? werkbonnenRes.data : [];
       } catch (wbErr: any) {
@@ -157,25 +157,10 @@ export default function AdminDashboard() {
       );
 
       const werkbonnenWachtend = werkbonnenList.filter(
-        (wb: any) => wb.status === 'concept' || !wb.handtekening_data
+        (wb: any) => wb.status === 'concept'
       );
 
-      const totaalUren = werkbonnenDezeWeek.reduce((acc: number, wb: any) => {
-        const wbUren = wb.uren?.reduce((sum: number, uren: any) => {
-          // Parse values as floats, treating non-numeric strings (like "V", "OV") as 0
-          const parseHours = (val: any): number => {
-            if (typeof val === 'number') return val;
-            if (typeof val === 'string') {
-              const parsed = parseFloat(val);
-              return isNaN(parsed) ? 0 : parsed;
-            }
-            return 0;
-          };
-          return sum + parseHours(uren.maandag) + parseHours(uren.dinsdag) + parseHours(uren.woensdag) +
-            parseHours(uren.donderdag) + parseHours(uren.vrijdag) + parseHours(uren.zaterdag) + parseHours(uren.zondag);
-        }, 0) || 0;
-        return acc + wbUren;
-      }, 0);
+      const totaalUren = 0; // uren not included in lightweight dashboard endpoint; use totaalUrenDezeMaand instead
 
       setStats({
         totaalWerknemers: werknemerCount,
@@ -365,7 +350,7 @@ export default function AdminDashboard() {
                     <View>
                       <Text style={styles.recentKlant}>{wb.klant_naam}</Text>
                       <Text style={styles.recentWerf}>{wb.werf_naam}</Text>
-                      <Text style={styles.recentMeta}>{wb.created_by_naam}</Text>
+                      <Text style={styles.recentMeta}>{wb.ingevuld_door_naam}</Text>
                     </View>
                   </View>
                   <View style={[styles.statusBadge, { backgroundColor: getStatusColor(wb.status) }]}>
