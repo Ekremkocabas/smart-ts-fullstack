@@ -122,7 +122,7 @@ export default function AdminDashboard() {
       let werkbonnen: any[] = [];
       try {
         const werkbonnenRes = await apiClient.get(
-          `/api/werkbonnen?user_id=${user?.id}&is_admin=true`,
+          `/api/werkbonnen?user_id=${user?.id}&is_admin=true&dashboard=true`,
           { timeout: 10000 }
         );
         werkbonnen = Array.isArray(werkbonnenRes.data) ? werkbonnenRes.data : [];
@@ -233,7 +233,7 @@ export default function AdminDashboard() {
     { icon: 'business', label: 'Nieuwe werf', route: '/admin/werven', color: '#e67e22' },
     { icon: 'document-text', label: 'Bekijk werkbonnen', route: '/admin/werkbonnen', color: '#F5A623' },
     { icon: 'bar-chart', label: 'Rapporten', route: '/admin/rapporten', color: '#9b59b6' },
-    { icon: 'download', label: 'Export CSV', route: '/admin/rapporten', color: '#34495e' },
+    { icon: 'archive', label: 'Download werkbonnen', route: '/admin/werkbonnen', color: '#0056b3' },
   ];
 
   return (

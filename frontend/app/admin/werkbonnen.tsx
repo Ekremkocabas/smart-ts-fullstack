@@ -84,6 +84,12 @@ export default function WerkbonnenAdmin() {
   const [filterKlant, setFilterKlant] = useState<string | null>(null);
   const [filterWerf, setFilterWerf] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [zipStartDate, setZipStartDate] = useState(() => {
+    const d = new Date(); d.setDate(1);
+    return d.toISOString().slice(0, 10);
+  });
+  const [zipEndDate, setZipEndDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [zipLoading, setZipLoading] = useState(false);
 
   useEffect(() => { 
     if (Platform.OS === 'web' && ['beheerder', 'admin', 'manager', 'master_admin'].includes(user?.rol || '')) {
@@ -222,6 +228,29 @@ export default function WerkbonnenAdmin() {
       setProjectWerkbonnen(prev => prev.filter((wb: any) => wb.id !== id));
     } catch (error) {
       console.error('Error:', error);
+    }
+  };
+
+  const downloadZip = async () => {
+    if (!zipStartDate || !zipEndDate) return;
+    setZipLoading(true);
+    try {
+      const res = await apiClient.get(
+        `/api/werkbonnen/export/zip?start_date=${zipStartDate}&end_date=${zipEndDate}`,
+        { responseType: 'blob', timeout: 60000 }
+      );
+      const url = URL.createObjectURL(new Blob([res.data], { type: 'application/zip' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `werkbonnen_${zipStartDate}_${zipEndDate}.zip`;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a); URL.revokeObjectURL(url);
+      showToast('ZIP gedownload!');
+    } catch (err: any) {
+      const status = err?.response?.status;
+      showToast(status === 404 ? 'Geen werkbonnen in deze periode.' : 'ZIP download mislukt.', 'error');
+    } finally {
+      setZipLoading(false);
     }
   };
 
@@ -422,7 +451,7 @@ export default function WerkbonnenAdmin() {
             }
           </Text>
         </View>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
+        <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           <TouchableOpacity
             style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#27ae60', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8 }}
             onPress={() => activeTab === 'werkbonnen' ? exportWerkbonnen('csv') : exportProductie('csv')}>
@@ -436,6 +465,45 @@ export default function WerkbonnenAdmin() {
             <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>PDF</Text>
           </TouchableOpacity>
         </View>
+      </View>
+
+      {/* ZIP Download Sectie */}
+      <View style={{ backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: '#E8E9ED', flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <Ionicons name="archive-outline" size={20} color="#6c757d" />
+        <Text style={{ fontSize: 14, fontWeight: '600', color: '#1A1A2E', marginRight: 4 }}>Download werkbonnen als ZIP</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={{ fontSize: 13, color: '#6c757d' }}>Van:</Text>
+          {Platform.OS === 'web' ? (
+            <input
+              type="date"
+              value={zipStartDate}
+              onChange={(e: any) => setZipStartDate(e.target.value)}
+              style={{ fontSize: 13, padding: '4px 8px', borderRadius: 6, border: '1px solid #ced4da', outline: 'none' }}
+            />
+          ) : (
+            <TextInput value={zipStartDate} onChangeText={setZipStartDate} style={{ fontSize: 13, borderWidth: 1, borderColor: '#ced4da', borderRadius: 6, padding: 4, width: 110 }} />
+          )}
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={{ fontSize: 13, color: '#6c757d' }}>Tot:</Text>
+          {Platform.OS === 'web' ? (
+            <input
+              type="date"
+              value={zipEndDate}
+              onChange={(e: any) => setZipEndDate(e.target.value)}
+              style={{ fontSize: 13, padding: '4px 8px', borderRadius: 6, border: '1px solid #ced4da', outline: 'none' }}
+            />
+          ) : (
+            <TextInput value={zipEndDate} onChangeText={setZipEndDate} style={{ fontSize: 13, borderWidth: 1, borderColor: '#ced4da', borderRadius: 6, padding: 4, width: 110 }} />
+          )}
+        </View>
+        <TouchableOpacity
+          onPress={downloadZip}
+          disabled={zipLoading}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: zipLoading ? '#aaa' : '#0056b3', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 }}>
+          <Ionicons name={zipLoading ? 'hourglass-outline' : 'download-outline'} size={16} color="#fff" />
+          <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>{zipLoading ? 'Laden...' : 'Download ZIP'}</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Tab Switcher */}

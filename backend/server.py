@@ -28,12 +28,15 @@ _cache_ttl: Dict[str, float] = {}
 
 def get_cache(key: str, ttl_seconds: int = 60):
     if key in _cache and time.time() - _cache_ttl.get(key, 0) < ttl_seconds:
+        logging.debug("Cache HIT: %s", key)
         return _cache[key]
+    logging.debug("Cache MISS: %s", key)
     return None
 
 def set_cache(key: str, value: Any):
     _cache[key] = value
     _cache_ttl[key] = time.time()
+    logging.debug("Cache SET: %s", key)
 
 def clear_cache(prefix: str = None):
     if prefix:
@@ -2351,7 +2354,6 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     right_inner = Table([[timesheet_para, firma_para]], colWidths=[55 * mm, 101 * mm])
     right_inner.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("LINEAFTER", (0, 0), (0, -1), 0.5, colors.HexColor(_accent)),
         ("LEFTPADDING", (0, 0), (-1, -1), 6),
         ("RIGHTPADDING", (0, 0), (-1, -1), 6),
         ("TOPPADDING", (0, 0), (-1, -1), 0),
@@ -4354,7 +4356,7 @@ async def search_users(q: str = Query(""), current_user: Dict = Depends(get_curr
 # ==================== WERKBON ROUTES ====================
 
 @api_router.get("/werkbonnen", response_model=List[Werkbon])
-async def get_werkbonnen(user_id: str, is_admin: bool = Query(False)):
+async def get_werkbonnen(user_id: str, is_admin: bool = Query(False), dashboard: bool = Query(False)):
     projection = {
         "_id": 0,
         "handtekening_data": 0,
@@ -4367,9 +4369,10 @@ async def get_werkbonnen(user_id: str, is_admin: bool = Query(False)):
     }
 
     if is_admin:
-        cursor = db.werkbonnen.find({}, projection).sort("created_at", -1).limit(500)
+        limit = 50 if dashboard else 500
+        cursor = db.werkbonnen.find({}, projection).sort("created_at", -1).limit(limit)
         try:
-            werkbonnen = await asyncio.wait_for(cursor.to_list(500), timeout=10.0)
+            werkbonnen = await asyncio.wait_for(cursor.to_list(limit), timeout=10.0)
         except asyncio.TimeoutError:
             logging.warning("[werkbonnen] Admin query timed out, returning empty list")
             return []
@@ -4409,6 +4412,63 @@ async def count_werkbonnen(current_user: Dict = Depends(get_current_user)):
     """Lightweight endpoint — returns total werkbon count for change detection"""
     total = await db.werkbonnen.count_documents({})
     return {"total": total}
+
+@api_router.get("/werkbonnen/export/zip")
+async def export_werkbonnen_zip(
+    start_date: str = Query(..., description="Start datum YYYY-MM-DD"),
+    end_date: str = Query(..., description="Eind datum YYYY-MM-DD"),
+    current_user: Dict = Depends(require_roles(["admin", "master_admin", "manager", "beheerder"])),
+):
+    """Generate ZIP archive of werkbon PDFs for a date range (max 100 werkbonnen)."""
+    import zipfile
+    from fastapi.responses import StreamingResponse
+
+    try:
+        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+        end_dt = datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Ongeldig datumformaat. Gebruik YYYY-MM-DD")
+
+    # Query by created_at ISO string (indexed field)
+    query = {
+        "created_at": {
+            "$gte": start_dt.isoformat(),
+            "$lte": end_dt.isoformat(),
+        }
+    }
+    werkbonnen_raw = await db.werkbonnen.find(query, {"_id": 0}).sort("created_at", -1).to_list(100)
+
+    if not werkbonnen_raw:
+        raise HTTPException(status_code=404, detail="Geen werkbonnen gevonden in de opgegeven periode")
+
+    instellingen = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0}) or {}
+
+    zip_buffer = io.BytesIO()
+    added = 0
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for wb in werkbonnen_raw:
+            try:
+                klant = await db.klanten.find_one({"id": wb.get("klant_id", "")}, {"_id": 0}) or {}
+                werf = await db.werven.find_one({"id": wb.get("werf_id", "")}, {"_id": 0}) or {}
+                uurtarief = safe_float(klant.get("uurtarief", 0))
+                total_uren = calculate_total_uren(wb)
+                totaal_bedrag = total_uren * uurtarief
+                pdf_bytes, pdf_filename = generate_werkbon_pdf(wb, klant, werf, instellingen, total_uren, totaal_bedrag)
+                zf.writestr(pdf_filename, pdf_bytes)
+                added += 1
+            except Exception as exc:
+                logging.warning("[ZIP] Skipping werkbon %s: %s", wb.get("id", "?"), exc)
+
+    if added == 0:
+        raise HTTPException(status_code=500, detail="PDF genereren mislukt voor alle werkbonnen")
+
+    zip_buffer.seek(0)
+    filename = f"werkbonnen_{start_date}_{end_date}.zip"
+    return StreamingResponse(
+        zip_buffer,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 @api_router.get("/werkbonnen/{werkbon_id}", response_model=Werkbon)
 async def get_werkbon(werkbon_id: str, response: Response):
@@ -4836,6 +4896,7 @@ async def update_instellingen(update_data: BedrijfsInstellingenUpdate, current_u
     )
     clear_cache("instellingen")
     clear_cache("app-settings")
+    clear_cache("app-settings:logo")
 
     updated = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0})
     if updated.get('adres_gestructureerd') and not updated.get('adres_structured'):
@@ -6544,12 +6605,9 @@ async def get_mijn_documenten(current_user: Dict = Depends(get_current_user)):
 # ==================== THEME / APP SETTINGS ROUTE ====================
 
 async def _build_app_settings_response(settings: dict) -> dict:
-    """Shared logic for /app-settings and /public/branding."""
-    branding = settings.get("branding") or {}
-    logo_b64 = branding.get("logo_base64") or settings.get("logo_base64")
+    """Shared logic for /app-settings — lightweight, no logo_base64."""
     return {
         "bedrijfsnaam": settings.get("bedrijfsnaam", "Smart-Tech BV"),
-        "logo_base64": logo_b64,
         "primary_color": settings.get("primary_color", "#1a1a2e"),
         "secondary_color": settings.get("secondary_color", "#F5A623"),
         "accent_color": settings.get("accent_color", "#16213e"),
@@ -6561,7 +6619,7 @@ async def _build_app_settings_response(settings: dict) -> dict:
 
 @api_router.get("/app-settings")
 async def get_app_settings():
-    """Get app theme settings - used by mobile app for remote theming (no auth)"""
+    """Get app theme settings - lightweight, no logo (use /app-settings/logo for logo)."""
     cached = get_cache("app-settings:main", ttl_seconds=300)
     if cached is not None:
         return cached
@@ -6570,11 +6628,28 @@ async def get_app_settings():
     set_cache("app-settings:main", result)
     return result
 
+@api_router.get("/app-settings/logo")
+async def get_app_settings_logo():
+    """Separate endpoint for logo_base64 — large payload, fetched independently."""
+    cached = get_cache("app-settings:logo", ttl_seconds=600)
+    if cached is not None:
+        return cached
+    settings = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0}) or {}
+    branding = settings.get("branding") or {}
+    logo_b64 = branding.get("logo_base64") or settings.get("logo_base64")
+    result = {"logo_base64": logo_b64, "bedrijfsnaam": settings.get("bedrijfsnaam", "Smart-Tech BV")}
+    set_cache("app-settings:logo", result)
+    return result
+
 @api_router.get("/public/branding")
 async def get_public_branding():
-    """Public endpoint — returns logo + bedrijfsnaam for login page (no auth required)"""
+    """Public endpoint — returns logo + bedrijfsnaam for login page (no auth required)."""
     settings = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0}) or {}
-    return await _build_app_settings_response(settings)
+    branding = settings.get("branding") or {}
+    logo_b64 = branding.get("logo_base64") or settings.get("logo_base64")
+    result = await _build_app_settings_response(settings)
+    result["logo_base64"] = logo_b64
+    return result
 
 # ==================== DASHBOARD STATS ====================
 

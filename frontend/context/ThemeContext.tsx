@@ -49,15 +49,24 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const refreshTheme = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/app-settings`);
-      if (res.ok) {
-        const data = await res.json();
+      // Lightweight settings (no logo) + logo fetched separately to avoid 106KB payload
+      const [settingsRes, logoRes] = await Promise.all([
+        fetch(`${API_URL}/api/app-settings`),
+        fetch(`${API_URL}/api/app-settings/logo`),
+      ]);
+      if (settingsRes.ok) {
+        const data = await settingsRes.json();
+        let logoBase64: string | undefined = undefined;
+        if (logoRes.ok) {
+          const logoData = await logoRes.json();
+          logoBase64 = logoData.logo_base64 || undefined;
+        }
         setTheme({
           primaryColor: data.primaire_kleur || data.primary_color || defaultTheme.primaryColor,
           secondaryColor: data.secundaire_kleur || data.secondary_color || defaultTheme.secondaryColor,
           accentColor: data.accent_color || defaultTheme.accentColor,
           bedrijfsnaam: data.bedrijfsnaam || defaultTheme.bedrijfsnaam,
-          logoBase64: data.logo_base64 || undefined,
+          logoBase64,
           pdfFooterText: data.pdf_voettekst || undefined,
           urenConfirmationText: data.uren_confirmation_text || undefined,
           opleveringConfirmationText: data.oplevering_confirmation_text || undefined,
