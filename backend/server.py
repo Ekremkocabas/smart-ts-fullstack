@@ -4357,11 +4357,13 @@ async def search_users(q: str = Query(""), current_user: Dict = Depends(get_curr
 async def get_werkbonnen(user_id: str, is_admin: bool = Query(False)):
     projection = {
         "_id": 0,
-        "selfie_data": 0,
-        "selfie": 0,
         "handtekening_data": 0,
         "handtekening": 0,
-        "foto_data": 0
+        "selfie_data": 0,
+        "selfie": 0,
+        "foto_data": 0,
+        "fotos": 0,
+        "photos": 0,
     }
 
     if is_admin:
