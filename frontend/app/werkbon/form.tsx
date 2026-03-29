@@ -69,7 +69,7 @@ export default function WerkbonForm() {
     werfId, werfNaam, manualWerfNaam,
     datum, opmerkingen, gps, photos,
     urenData, opleveringData, projectData, prestatieData,
-    kmAfstand, updateKmAfstand, kmVergoedingtarief, setKmVergoedingtarief,
+    kmAfstand, updateKmAfstand, kmVergoedingtarief,
     setKlant, setManualKlant, setWerf, setManualWerf,
     setDatum, setOpmerkingen, setGPS,
     addPhoto, removePhoto,
@@ -432,19 +432,6 @@ export default function WerkbonForm() {
               </View>
             );
           })()}
-
-          {/* KM vergoeding tarief */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>KM vergoeding (€/km)</Text>
-            <TextInput
-              style={styles.input}
-              value={kmVergoedingtarief === 0 ? '' : String(kmVergoedingtarief)}
-              onChangeText={(val) => setKmVergoedingtarief(parseFloat(val) || 0)}
-              keyboardType="numeric"
-              placeholder="0.00"
-              placeholderTextColor="#ccc"
-            />
-          </View>
 
           {/* Photos */}
           <View style={styles.section}>

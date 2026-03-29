@@ -26,7 +26,10 @@
       "Bash(cp -r dist/* ../backend/dist/)",
       "Bash(eas build:*)",
       "Bash(eas build:view 4d98043b-96ee-4195-8b6a-bb97436558c7)",
-      "Bash(eas build:view 4d98043b-96ee-4195-8b6a-bb97436558c7 --json)"
+      "Bash(eas build:view 4d98043b-96ee-4195-8b6a-bb97436558c7 --json)",
+      "Bash(clip)",
+      "Bash(rm -rf \"C:\\\\Users\\\\ekrem\\\\OneDrive\\\\Desktop\\\\smart-ts-fullstack\\\\backend\\\\dist\"/*)",
+      "Bash(cp -r \"C:\\\\Users\\\\ekrem\\\\OneDrive\\\\Desktop\\\\smart-ts-fullstack\\\\frontend\\\\dist\"/* \"C:\\\\Users\\\\ekrem\\\\OneDrive\\\\Desktop\\\\smart-ts-fullstack\\\\backend\\\\dist/\")"
     ]
   }
 }

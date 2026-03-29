@@ -525,6 +525,14 @@ def get_company_email(settings: dict, email_type: str = "uitgaand_algemeen") -> 
     # Fallback to legacy
     return settings.get("email") or COMPANY_EMAIL
 
+def get_pdf_colors(instellingen: dict) -> dict:
+    """Get PDF brand colors from instellingen — fallback to Smart-Tech defaults."""
+    return {
+        "primary": instellingen.get("primary_color") or "#E8A020",
+        "secondary": instellingen.get("secondary_color") or "#1a1a2e",
+        "accent": instellingen.get("accent_color") or "#F5A623",
+    }
+
 def get_company_logo(settings: dict) -> Optional[str]:
     """Get company logo - prefer new URL, fallback to base64"""
     branding = settings.get("branding")
@@ -2096,7 +2104,7 @@ def make_safe_reportlab_image(image_bytes: Optional[bytes], width: float, height
 _DAGEN_KM = ["maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag"]
 _DAGEN_KM_KORT = ["Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo"]
 
-def build_km_pdf_block(werkbon: dict, styles: Any) -> list:
+def build_km_pdf_block(werkbon: dict, styles: Any, secondary_color: str = "#1a1a2e", accent_color: str = "#F5A623") -> list:
     """Return a list of story elements for the KM section, or empty list if no KM."""
     km = werkbon.get("km_afstand") or {}
     km_total = sum(safe_float(km.get(d, 0)) for d in _DAGEN_KM)
@@ -2109,9 +2117,9 @@ def build_km_pdf_block(werkbon: dict, styles: Any) -> list:
     row = [format_number(km.get(d, 0)) for d in _DAGEN_KM] + [format_number(km_total)]
     t = _Table([header, row], colWidths=[22 * mm] * 8)
     t.setStyle(_TStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), _colors.HexColor("#1a1a2e")),
+        ("BACKGROUND", (0, 0), (-1, 0), _colors.HexColor(secondary_color)),
         ("TEXTCOLOR", (0, 0), (-1, 0), _colors.white),
-        ("BACKGROUND", (-1, 1), (-1, 1), _colors.HexColor("#F5A623")),
+        ("BACKGROUND", (-1, 1), (-1, 1), _colors.HexColor(accent_color)),
         ("BOX", (0, 0), (-1, -1), 0.8, _colors.HexColor("#cccccc")),
         ("INNERGRID", (0, 0), (-1, -1), 0.5, _colors.HexColor("#d9d9d9")),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
@@ -2216,16 +2224,23 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
         bottomMargin=6 * mm,
     )
 
+    # Dynamic brand colors from instellingen
+    _C = get_pdf_colors(instellingen)
+    _primary   = _C["primary"]
+    _secondary = _C["secondary"]
+    _accent    = _C["accent"]
+
     styles = getSampleStyleSheet()
-    styles.add(ParagraphStyle(name="SectionTitle", parent=styles["Heading2"], fontSize=10, textColor=colors.HexColor("#1a1a2e"), spaceAfter=2, spaceBefore=1))
+    styles.add(ParagraphStyle(name="SectionTitle", parent=styles["Heading2"], fontSize=10, textColor=colors.HexColor(_secondary), spaceAfter=2, spaceBefore=1))
     styles.add(ParagraphStyle(name="BodySmall", parent=styles["BodyText"], fontSize=8, leading=10))
     styles.add(ParagraphStyle(name="FooterText", parent=styles["BodyText"], fontSize=7, leading=9, textColor=colors.HexColor("#555555")))
-    styles.add(ParagraphStyle(name="WeekHeader", parent=styles["Title"], fontSize=20, textColor=colors.HexColor("#1a1a2e"), fontName="Helvetica-Bold", alignment=2))
+    styles.add(ParagraphStyle(name="WeekHeader", parent=styles["Title"], fontSize=20, textColor=colors.HexColor(_secondary), fontName="Helvetica-Bold", alignment=2))
 
     story = []
 
     # ── MAIN HEADER: 3-column [Logo | TIMESHEET + Week | Firma info] ──
-    logo_bytes = decode_base64_data(instellingen.get("logo_base64"))
+    # 3C: logo dynamically from instellingen (supports both base64 and URL)
+    logo_bytes = decode_base64_data(get_company_logo(instellingen))
     logo = make_safe_reportlab_image(logo_bytes, 38 * mm, 28 * mm)
     logo_cell: list = [logo] if logo else []
 
@@ -2242,14 +2257,15 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
         seq_num = str(hash(str(werkbon.get('created_at', ''))))[-4:]
     werkbon_nummer = f"{werkbon_jaar}-W{werkbon_week:0>2}-{seq_num}"
 
+    # 3A: Smaller fonts to prevent overlap
     center_cell: list = [
         Paragraph("TIMESHEET", ParagraphStyle(
-            "TSBig", fontName="Helvetica-Bold", fontSize=20,
-            textColor=colors.HexColor("#1a1a2e"), alignment=1,
+            "TSBig", fontName="Helvetica-Bold", fontSize=16,
+            textColor=colors.HexColor(_secondary), alignment=1,
         )),
         Paragraph(f"WEEK {werkbon_week}-{werkbon_jaar}", ParagraphStyle(
-            "TSWeek", fontName="Helvetica-Bold", fontSize=16,
-            textColor=colors.HexColor("#1a1a2e"), alignment=1,
+            "TSWeek", fontName="Helvetica-Bold", fontSize=13,
+            textColor=colors.HexColor(_secondary), alignment=1,
         )),
         Spacer(1, 2),
         Paragraph(f"Werkbon nr: {werkbon_nummer}", ParagraphStyle(
@@ -2258,11 +2274,12 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
         )),
     ]
 
+    # 3B: Use get_company_address to support both legacy and structured address fields
     bedrijfsnaam_pdf = instellingen.get("bedrijfsnaam", "Smart-Tech BV")
+    _company_adres = get_company_address(instellingen)
     company_lines = [
         f"<b>{bedrijfsnaam_pdf}</b>",
-        instellingen.get("adres") or "",
-        " ".join(filter(None, [instellingen.get("postcode"), instellingen.get("stad")])).strip(),
+        _company_adres or "",
         instellingen.get("telefoon") or "",
         instellingen.get("email") or COMPANY_EMAIL,
         f"BTW: {instellingen['btw_nummer']}" if instellingen.get("btw_nummer") else "",
@@ -2275,12 +2292,13 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
         )),
     ]
 
-    header_table = Table([[logo_cell, center_cell, right_cell]], colWidths=[55 * mm, 120 * mm, 96 * mm], rowHeights=[32 * mm])
+    # 3A: Adjusted col widths (logo smaller, more space for right) and taller row
+    header_table = Table([[logo_cell, center_cell, right_cell]], colWidths=[45 * mm, 85 * mm, 141 * mm], rowHeights=[36 * mm])
     header_table.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#F5A623")),
-        ("LINEAFTER", (0, 0), (0, -1), 0.5, colors.HexColor("#F5A623")),
-        ("LINEAFTER", (1, 0), (1, -1), 0.5, colors.HexColor("#F5A623")),
+        ("BOX", (0, 0), (-1, -1), 1, colors.HexColor(_accent)),
+        ("LINEAFTER", (0, 0), (0, -1), 0.5, colors.HexColor(_accent)),
+        ("LINEAFTER", (1, 0), (1, -1), 0.5, colors.HexColor(_accent)),
         ("LEFTPADDING", (0, 0), (-1, -1), 8),
         ("RIGHTPADDING", (0, 0), (-1, -1), 8),
         ("TOPPADDING", (0, 0), (-1, -1), 6),
@@ -2352,9 +2370,9 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     hours_rows.append(["TOTAAL"] + dag_totalen + [format_number(total_uren)])
     hours_table = Table(hours_header + hours_rows, colWidths=[58 * mm] + [22 * mm] * 7 + [22 * mm])
     hours_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(_secondary)),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#F5A623")),
+        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor(_accent)),
         ("TEXTCOLOR", (0, -1), (-1, -1), colors.white),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
@@ -2362,11 +2380,11 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
         ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#d9d9d9")),
         ("ALIGN", (1, 0), (-1, -1), "CENTER"),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("FONTSIZE", (0, 0), (-1, -1), 8),
-        ("LEFTPADDING", (0, 0), (-1, -1), 4),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-        ("TOPPADDING", (0, 0), (-1, -1), 3),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ("FONTSIZE", (0, 0), (-1, -1), 7),
+        ("LEFTPADDING", (0, 0), (-1, -1), 3),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+        ("TOPPADDING", (0, 0), (-1, -1), 2),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
     ]))
     story.append(hours_table)
 
@@ -2383,9 +2401,9 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
         km_row = [[format_number(werkbon.get("km_afstand", {}).get(dag, 0)) for dag, _, _, _ in DAY_COLUMNS] + [format_number(km_total)]]
         km_table = Table(km_header + km_row, colWidths=[22 * mm] * 7 + [22 * mm])
         km_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(_secondary)),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("BACKGROUND", (-1, 1), (-1, 1), colors.HexColor("#F5A623")),
+            ("BACKGROUND", (-1, 1), (-1, 1), colors.HexColor(_accent)),
             ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor("#cccccc")),
             ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#d9d9d9")),
             ("ALIGN", (0, 0), (-1, -1), "CENTER"),
@@ -2395,18 +2413,23 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
         ]))
         story.append(km_table)
 
-    # ── WERKEN & MATERIALEN (naast elkaar) ──
+    # ── WERKEN & OPMERKINGEN (naast elkaar) ──
     has_werken = bool(werkbon.get("uitgevoerde_werken"))
+    has_opmerkingen = bool(werkbon.get("opmerkingen") or werkbon.get("extra_opmerkingen"))
     has_mat = bool(werkbon.get("extra_materialen"))
-    if has_werken or has_mat:
-        story.append(Spacer(1, 6))
+    if has_werken or has_opmerkingen or has_mat:
+        story.append(Spacer(1, 4))
         left_cell = []
         right_cell = []
         if has_werken:
-            left_cell.append(Paragraph("<b>Uitgevoerde werken</b>", styles["BodySmall"]))
+            left_cell.append(Paragraph("<b>Uitgevoerde werken:</b>", styles["BodySmall"]))
             left_cell.append(Paragraph(werkbon.get("uitgevoerde_werken", "-").replace("\n", "<br/>"), styles["BodySmall"]))
-        if has_mat:
-            right_cell.append(Paragraph("<b>Extra materialen</b>", styles["BodySmall"]))
+        opm_text = werkbon.get("opmerkingen") or werkbon.get("extra_opmerkingen") or ""
+        if opm_text:
+            right_cell.append(Paragraph("<b>Opmerkingen:</b>", styles["BodySmall"]))
+            right_cell.append(Paragraph(opm_text.replace("\n", "<br/>"), styles["BodySmall"]))
+        elif has_mat:
+            right_cell.append(Paragraph("<b>Extra materialen:</b>", styles["BodySmall"]))
             right_cell.append(Paragraph(werkbon.get("extra_materialen", "-").replace("\n", "<br/>"), styles["BodySmall"]))
         _empty_cell = [Paragraph("", styles["BodySmall"])]
         desc_table = Table([[left_cell or _empty_cell, right_cell or _empty_cell]], colWidths=[130 * mm, 130 * mm])
@@ -2416,8 +2439,8 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
             ("LINEBEFORE", (1, 0), (1, 0), 0.5, colors.HexColor("#cccccc")),
             ("LEFTPADDING", (0, 0), (-1, -1), 6),
             ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-            ("TOPPADDING", (0, 0), (-1, -1), 4),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
         ]))
         story.append(desc_table)
 
@@ -2444,7 +2467,7 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     summary_table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#f5f5f5")),
         ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#fff3cd")),
-        ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor("#F5A623")),
+        ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor(_accent)),
         ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#dddddd")),
         ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
         ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
@@ -2505,24 +2528,34 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     else:
         sig_content.append(Paragraph("Nog niet ondertekend", styles["BodySmall"]))
 
+    # 3G: GPS locatie in handtekening zone
+    gps_locatie = werkbon.get("gps_locatie") or ""
+    gps_lat = werkbon.get("gps_lat")
+    gps_lng = werkbon.get("gps_lng")
+    if gps_locatie:
+        sig_content.append(Paragraph(f"<b>GPS Locatie:</b> {gps_locatie}", styles["BodySmall"]))
+    elif gps_lat and gps_lng:
+        sig_content.append(Paragraph(f"<b>GPS:</b> {gps_lat:.5f}, {gps_lng:.5f}", styles["BodySmall"]))
+
+    # 3D: Legal text below summary table (left column), not in signature area
     footer_text = instellingen.get("pdf_voettekst") or LEGAL_TEXT
     footer_para = Paragraph(footer_text.replace("\n", "<br/>"), ParagraphStyle(
-        "FooterInline", parent=styles["FooterText"], fontSize=6, leading=8,
-        textColor=colors.HexColor("#777777"),
+        "FooterInline", parent=styles["FooterText"], fontSize=5, leading=7,
+        textColor=colors.HexColor("#888888"),
     ))
-    sig_content.append(Spacer(1, 4))
-    sig_content.append(footer_para)
+    left_col_content = [summary_table, Spacer(1, 4), footer_para]
 
-    bottom_table = Table([[summary_table, sig_content or [""]]], colWidths=[100 * mm, 160 * mm])
+    bottom_table = Table([[left_col_content, sig_content or [""]]], colWidths=[100 * mm, 160 * mm])
     bottom_table.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
     ]))
     story.append(bottom_table)
 
-    # ── WERKFOTO'S ──
+    # ── WERKFOTO'S (altijd op nieuwe pagina voor compact 1-pagina layout) ──
     fotos = werkbon.get("fotos") or []
     if fotos:
-        story.append(Spacer(1, 6))
+        from reportlab.platypus import PageBreak
+        story.append(PageBreak())
         story.append(Paragraph("Werkfoto's", styles["SectionTitle"]))
         foto_images = []
         for foto in fotos[:6]:
@@ -2567,8 +2600,14 @@ def generate_oplevering_pdf(werkbon: dict, instellingen: dict) -> tuple[bytes, s
         bottomMargin=12 * mm,
     )
 
+    # Dynamic brand colors from instellingen
+    _C = get_pdf_colors(instellingen)
+    _primary   = _C["primary"]
+    _secondary = _C["secondary"]
+    _accent    = _C["accent"]
+
     styles = getSampleStyleSheet()
-    styles.add(ParagraphStyle(name="OVSection", parent=styles["Heading2"], fontSize=11, textColor=colors.HexColor("#1a1a2e"), spaceAfter=5, spaceBefore=4))
+    styles.add(ParagraphStyle(name="OVSection", parent=styles["Heading2"], fontSize=11, textColor=colors.HexColor(_secondary), spaceAfter=5, spaceBefore=4))
     styles.add(ParagraphStyle(name="OVBody", parent=styles["BodyText"], fontSize=9, leading=12))
     styles.add(ParagraphStyle(name="OVSmall", parent=styles["BodyText"], fontSize=8, leading=10, textColor=colors.HexColor("#555555")))
     styles.add(ParagraphStyle(name="OVLegal", parent=styles["BodyText"], fontSize=7, leading=9, textColor=colors.HexColor("#666666"), fontName="Helvetica-Oblique"))
@@ -2592,20 +2631,20 @@ BTW: {COMPANY_INFO['btw']}<br/>
         left_cell.append(Spacer(1, 4))
     left_cell.append(Paragraph(company_info_text, ParagraphStyle("CompInfo", fontSize=8, leading=10, textColor=colors.HexColor("#333333"))))
     
-    title_style = ParagraphStyle("OVTitle", fontName="Helvetica-Bold", fontSize=18, textColor=colors.HexColor("#1a1a2e"), alignment=2)
+    title_style = ParagraphStyle("OVTitle", fontName="Helvetica-Bold", fontSize=18, textColor=colors.HexColor(_secondary), alignment=2)
     date_style = ParagraphStyle("OVDate", fontSize=9, textColor=colors.HexColor("#555555"), alignment=2)
-    status_color = colors.HexColor("#28a745") if werkbon.get('status') == 'ondertekend' else colors.HexColor("#F5A623")
-    
+    status_color = colors.HexColor("#28a745") if werkbon.get('status') == 'ondertekend' else colors.HexColor(_accent)
+
     title_box = [
         Paragraph("<b>OPLEVERING WERKBON</b>", title_style),
         Spacer(1, 8),
         Paragraph(f"Datum: {werkbon.get('datum') or '-'}", date_style),
         Paragraph(f"Status: {(werkbon.get('status') or 'concept').upper()}", ParagraphStyle("OVStatus", fontSize=9, textColor=status_color, alignment=2, fontName="Helvetica-Bold")),
     ]
-    
+
     header_table = Table([[left_cell, title_box]], colWidths=[100 * mm, 80 * mm])
     header_table.setStyle(TableStyle([
-        ("BOX", (0, 0), (-1, -1), 1.5, colors.HexColor("#F5A623")),
+        ("BOX", (0, 0), (-1, -1), 1.5, colors.HexColor(_accent)),
         ("BACKGROUND", (0, 0), (-1, -1), colors.white),
         ("VALIGN", (0, 0), (0, -1), "TOP"),
         ("VALIGN", (1, 0), (1, -1), "MIDDLE"),
@@ -2692,7 +2731,7 @@ BTW: {COMPANY_INFO['btw']}<br/>
         rating_rows.append([categorie, "★" * int(score) + "☆" * max(0, 5 - int(score))])
     ratings_table = Table(rating_rows, colWidths=[110 * mm, 60 * mm])
     ratings_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(_secondary)),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#cccccc")),
         ("INNERGRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#dddddd")),
@@ -2705,7 +2744,7 @@ BTW: {COMPANY_INFO['btw']}<br/>
     story.extend([Paragraph("Klantbeoordeling", styles["OVSection"]), ratings_table, Spacer(1, 8)])
 
     # KM afstand
-    for el in build_km_pdf_block(werkbon, styles):
+    for el in build_km_pdf_block(werkbon, styles, _secondary, _accent):
         story.append(el)
 
     fotos = werkbon.get("fotos") or []
@@ -2791,8 +2830,14 @@ def generate_productie_pdf(werkbon: dict, instellingen: dict) -> tuple[bytes, st
     buffer = io.BytesIO()
     pdf = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=14 * mm, rightMargin=14 * mm, topMargin=12 * mm, bottomMargin=12 * mm)
 
+    # Dynamic brand colors from instellingen
+    _C = get_pdf_colors(instellingen)
+    _primary   = _C["primary"]
+    _secondary = _C["secondary"]
+    _accent    = _C["accent"]
+
     styles = getSampleStyleSheet()
-    styles.add(ParagraphStyle(name="PSec", parent=styles["Heading2"], fontSize=11, textColor=colors.HexColor("#1a1a2e"), spaceAfter=5, spaceBefore=4))
+    styles.add(ParagraphStyle(name="PSec", parent=styles["Heading2"], fontSize=11, textColor=colors.HexColor(_secondary), spaceAfter=5, spaceBefore=4))
     styles.add(ParagraphStyle(name="PBody", parent=styles["BodyText"], fontSize=9, leading=12))
     styles.add(ParagraphStyle(name="PSmall", parent=styles["BodyText"], fontSize=8, leading=10, textColor=colors.HexColor("#555555")))
     styles.add(ParagraphStyle(name="PLegal", parent=styles["BodyText"], fontSize=7, leading=9, textColor=colors.HexColor("#666666"), fontName="Helvetica-Oblique"))
@@ -2817,20 +2862,20 @@ BTW: {COMPANY_INFO['btw']}<br/>
     left_cell.append(Paragraph(company_info_text, ParagraphStyle("CompInfo", fontSize=8, leading=10, textColor=colors.HexColor("#333333"))))
     
     # Right side: Werkbon type and info
-    title_style = ParagraphStyle("PTitle", fontName="Helvetica-Bold", fontSize=18, textColor=colors.HexColor("#1a1a2e"), alignment=2)
+    title_style = ParagraphStyle("PTitle", fontName="Helvetica-Bold", fontSize=18, textColor=colors.HexColor(_secondary), alignment=2)
     date_style = ParagraphStyle("PDate", fontSize=9, textColor=colors.HexColor("#555555"), alignment=2)
-    status_color = colors.HexColor("#28a745") if werkbon.get('status') == 'ondertekend' else colors.HexColor("#F5A623")
-    
+    status_color = colors.HexColor("#28a745") if werkbon.get('status') == 'ondertekend' else colors.HexColor(_accent)
+
     title_box = [
         Paragraph("<b>PRODUCTIE WERKBON</b>", title_style),
         Spacer(1, 8),
         Paragraph(f"Datum: {werkbon.get('datum') or '-'}", date_style),
         Paragraph(f"Status: {(werkbon.get('status') or 'concept').upper()}", ParagraphStyle("PStatus", fontSize=9, textColor=status_color, alignment=2, fontName="Helvetica-Bold")),
     ]
-    
+
     header_table = Table([[left_cell, title_box]], colWidths=[100 * mm, 80 * mm])
     header_table.setStyle(TableStyle([
-        ("BOX", (0, 0), (-1, -1), 1.5, colors.HexColor("#F5A623")),
+        ("BOX", (0, 0), (-1, -1), 1.5, colors.HexColor(_accent)),
         ("BACKGROUND", (0, 0), (-1, -1), colors.white),
         ("VALIGN", (0, 0), (0, -1), "TOP"),
         ("VALIGN", (1, 0), (1, -1), "MIDDLE"),
@@ -2902,9 +2947,9 @@ BTW: {COMPANY_INFO['btw']}<br/>
     ]
     pur_table = Table(pur_rows, colWidths=[60 * mm, 55 * mm, 55 * mm])
     pur_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(_secondary)),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#FFF3CD")),
+        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor(_accent)),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("FONTNAME", (0, -1), (0, -1), "Helvetica-Bold"),
         ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#cccccc")),
@@ -2925,7 +2970,7 @@ BTW: {COMPANY_INFO['btw']}<br/>
     ]
     extra_table = Table(extra_rows, colWidths=[60 * mm, 55 * mm, 55 * mm])
     extra_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(_secondary)),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#cccccc")),
@@ -2987,7 +3032,7 @@ BTW: {COMPANY_INFO['btw']}<br/>
             story.append(Spacer(1, 8))
 
     # KM afstand
-    for el in build_km_pdf_block(werkbon, styles):
+    for el in build_km_pdf_block(werkbon, styles, _secondary, _accent):
         story.append(el)
 
     # Signature section - Klanthandtekening with white background
@@ -3220,8 +3265,13 @@ def build_project_pdf_filename(werkbon: dict) -> str:
 def generate_project_werkbon_pdf(werkbon: dict, instellingen: dict) -> tuple[bytes, str]:
     buffer = io.BytesIO()
     pdf = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=14 * mm, rightMargin=14 * mm, topMargin=12 * mm, bottomMargin=12 * mm)
+    # Dynamic brand colors from instellingen
+    _C = get_pdf_colors(instellingen)
+    _primary   = _C["primary"]
+    _secondary = _C["secondary"]
+    _accent    = _C["accent"]
     styles = getSampleStyleSheet()
-    styles.add(ParagraphStyle(name="PJSection", parent=styles["Heading2"], fontSize=11, textColor=colors.HexColor("#1a1a2e"), spaceAfter=6, spaceBefore=6))
+    styles.add(ParagraphStyle(name="PJSection", parent=styles["Heading2"], fontSize=11, textColor=colors.HexColor(_secondary), spaceAfter=6, spaceBefore=6))
     styles.add(ParagraphStyle(name="PJBody", parent=styles["BodyText"], fontSize=9, leading=12))
     styles.add(ParagraphStyle(name="PJSmall", parent=styles["BodyText"], fontSize=8, leading=10, textColor=colors.HexColor("#555555")))
     story = []
@@ -3229,16 +3279,16 @@ def generate_project_werkbon_pdf(werkbon: dict, instellingen: dict) -> tuple[byt
     logo = make_safe_reportlab_image(decode_base64_data(instellingen.get("logo_base64")), 26 * mm, 18 * mm)
     bedrijfsnaam = instellingen.get("bedrijfsnaam") or "Smart-Tech BV"
     header_left = [logo, Spacer(1, 3)] if logo else []
-    header_left.append(Paragraph(f"<b>{bedrijfsnaam}</b>", ParagraphStyle("PJCompany", fontName="Helvetica-Bold", fontSize=14, textColor=colors.HexColor("#1a1a2e"))))
+    header_left.append(Paragraph(f"<b>{bedrijfsnaam}</b>", ParagraphStyle("PJCompany", fontName="Helvetica-Bold", fontSize=14, textColor=colors.HexColor(_secondary))))
     header_left.append(Paragraph(instellingen.get("email") or COMPANY_EMAIL, styles["PJSmall"]))
     header_right = [
-        Paragraph("<b>PROJECT WERKBON</b>", ParagraphStyle("PJTitle", fontName="Helvetica-Bold", fontSize=16, textColor=colors.HexColor("#1a1a2e"), alignment=2)),
+        Paragraph("<b>PROJECT WERKBON</b>", ParagraphStyle("PJTitle", fontName="Helvetica-Bold", fontSize=16, textColor=colors.HexColor(_secondary), alignment=2)),
         Paragraph(f"Status: {(werkbon.get('status') or 'ondertekend').capitalize()}", styles["PJBody"]),
         Paragraph(f"Periode start: {(werkbon.get('dag_regels') or [{}])[0].get('datum', werkbon.get('datum', '-'))}", styles["PJBody"]),
     ]
     header = Table([[header_left, header_right]], colWidths=[90 * mm, 80 * mm])
     header.setStyle(TableStyle([
-        ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#F5A623")),
+        ("BOX", (0, 0), (-1, -1), 1, colors.HexColor(_accent)),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("LEFTPADDING", (0, 0), (-1, -1), 8),
         ("RIGHTPADDING", (0, 0), (-1, -1), 8),
@@ -3275,7 +3325,7 @@ def generate_project_werkbon_pdf(werkbon: dict, instellingen: dict) -> tuple[byt
         ])
     dag_table = Table(dag_rows, colWidths=[28 * mm, 18 * mm, 18 * mm, 20 * mm, 16 * mm, 70 * mm])
     dag_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(_secondary)),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#cccccc")),
         ("INNERGRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#dddddd")),
@@ -3292,7 +3342,7 @@ def generate_project_werkbon_pdf(werkbon: dict, instellingen: dict) -> tuple[byt
     feedback_rows.append(["Algemene score", "★" * _score + "☆" * (3 - _score)])
     feedback_table = Table(feedback_rows, colWidths=[120 * mm, 50 * mm])
     feedback_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F5A623")),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(_accent)),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.black),
         ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#cccccc")),
         ("INNERGRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#dddddd")),
@@ -3315,7 +3365,7 @@ def generate_project_werkbon_pdf(werkbon: dict, instellingen: dict) -> tuple[byt
     ])
 
     # KM afstand
-    for el in build_km_pdf_block(werkbon, styles):
+    for el in build_km_pdf_block(werkbon, styles, _secondary, _accent):
         story.append(el)
 
     confirmation_text = instellingen.get("project_confirmation_text") or "Hierbij bevestigt de klant dat deze ingevulde project werkbon juist is ingevuld."
