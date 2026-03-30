@@ -82,9 +82,13 @@ interface Klant {
   prijsmodel: string;
   standaard_uurtarief: number;
   km_vergoeding_tarief?: number;
-  standaard_dagtarief: number;
+  standaard_dagtarief?: number;
+  dag_prijs?: number;
+  halve_dag_prijs?: number;
+  kwart_prijs?: number;
   standaard_vaste_prijs: number;
-  betaaltermijn: number;
+  betaaltermijn?: number;
+  betaaltermijn_keuze?: string;
   interne_opmerking_prijsafspraak: string;
   facturatie_email: string;
   facturatie_telefoon: string;
@@ -110,15 +114,72 @@ const CONTACT_FUNCTIES = [
 const PRIJS_MODELLEN = [
   { key: 'uurtarief', label: 'Uurtarief' },
   { key: 'vaste_prijs', label: 'Vaste Prijs' },
-  { key: 'regie', label: 'Regie' },
-  { key: 'nog_te_bepalen', label: 'Nog te bepalen' },
+  { key: 'dagvergoeding', label: 'Dagvergoeding' },
 ];
 
-const BETAALTERMIJNEN = [30, 45, 60];
+const BETAALTERMIJN_OPTIES = [
+  { key: '15', label: '15 dagen' },
+  { key: '30', label: '30 dagen' },
+  { key: '45', label: '45 dagen' },
+  { key: '60', label: '60 dagen' },
+  { key: 'zo_snel_mogelijk', label: 'Zo snel mogelijk' },
+];
+
+function normalizePrijsmodel(p: string): string {
+  if (p === 'regie') return 'dagvergoeding';
+  if (p === 'nog_te_bepalen') return 'uurtarief';
+  return p;
+}
+
+function betaaltermijnKeuzeFromKlant(k: Klant): string {
+  const keuze = k.betaaltermijn_keuze;
+  if (keuze && ['15', '30', '45', '60', 'zo_snel_mogelijk'].includes(keuze)) return keuze;
+  const b = k.betaaltermijn;
+  if (b === 15 || b === 30 || b === 45 || b === 60) return String(b);
+  return '30';
+}
+
+function formatBetaaltermijnDisplay(k: Klant): string {
+  const keuze = k.betaaltermijn_keuze || betaaltermijnKeuzeFromKlant(k);
+  if (keuze === 'zo_snel_mogelijk') return 'Zo snel mogelijk';
+  return `${keuze} dagen`;
+}
 
 const emptyAdres: KlantAdres = {
   straat: '', huisnummer: '', bus: '', postcode: '', stad: '', land: 'België'
 };
+
+/** Prijsvelden: losse string i.v.m. 0, 0., 45,68 tijdens typen (niet falsy/parseFloat-bugs). */
+const emptyPrijsInputs = () => ({
+  standaard_uurtarief: '',
+  km_vergoeding_tarief: '',
+  standaard_vaste_prijs: '',
+  dag_prijs: '',
+  halve_dag_prijs: '',
+  kwart_prijs: '',
+});
+
+function sanitizeDecimalInput(raw: string): string {
+  let t = raw.replace(',', '.');
+  t = t.replace(/[^\d.]/g, '');
+  const firstDot = t.indexOf('.');
+  if (firstDot !== -1) {
+    t = t.slice(0, firstDot + 1) + t.slice(firstDot + 1).replace(/\./g, '');
+  }
+  return t;
+}
+
+function parseDecimalToNumber(s: string): number {
+  const t = s.trim().replace(',', '.');
+  if (t === '' || t === '.' || t === '-') return 0;
+  const n = parseFloat(t);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function numberToPrijsString(n: number | undefined | null): string {
+  if (n === null || n === undefined || Number.isNaN(n)) return '';
+  return String(n);
+}
 
 const emptyKlant: Klant = {
   id: '',
@@ -137,9 +198,12 @@ const emptyKlant: Klant = {
   prijsmodel: 'uurtarief',
   standaard_uurtarief: 0,
   km_vergoeding_tarief: 0,
-  standaard_dagtarief: 0,
   standaard_vaste_prijs: 0,
+  dag_prijs: 0,
+  halve_dag_prijs: 0,
+  kwart_prijs: 0,
   betaaltermijn: 30,
+  betaaltermijn_keuze: '30',
   interne_opmerking_prijsafspraak: '',
   facturatie_email: '',
   facturatie_telefoon: '',
@@ -169,6 +233,7 @@ export default function KlantenAdmin() {
     id: '', naam: '', functie: '', email: '', telefoon: '', gsm: '', opmerkingen: '', is_primair: false
   });
   const [customFunctie, setCustomFunctie] = useState('');
+  const [prijsInputs, setPrijsInputs] = useState(emptyPrijsInputs);
 
   // Helper to create auth headers
   const getAuthConfig = () => ({
@@ -213,18 +278,30 @@ export default function KlantenAdmin() {
   const openAddModal = () => {
     setEditingKlant(null);
     setFormData({ ...emptyKlant });
+    setPrijsInputs(emptyPrijsInputs());
     setActiveSection(0);
     setShowModal(true);
   };
 
   const openEditModal = (k: Klant) => {
     setEditingKlant(k);
+    const prijsmodelN = normalizePrijsmodel(k.prijsmodel || 'uurtarief');
     setFormData({
       ...emptyKlant,
       ...k,
+      prijsmodel: prijsmodelN,
+      betaaltermijn_keuze: betaaltermijnKeuzeFromKlant(k),
       adres_structured: k.adres_structured || { ...emptyAdres },
       contactpersonen: k.contactpersonen || [],
       facturatie_adres: k.facturatie_adres || { ...emptyAdres },
+    });
+    setPrijsInputs({
+      standaard_uurtarief: numberToPrijsString(k.standaard_uurtarief),
+      km_vergoeding_tarief: numberToPrijsString(k.km_vergoeding_tarief ?? 0),
+      standaard_vaste_prijs: numberToPrijsString(k.standaard_vaste_prijs),
+      dag_prijs: numberToPrijsString(k.dag_prijs ?? 0),
+      halve_dag_prijs: numberToPrijsString(k.halve_dag_prijs ?? 0),
+      kwart_prijs: numberToPrijsString(k.kwart_prijs ?? 0),
     });
     setActiveSection(0);
     setShowModal(true);
@@ -236,8 +313,18 @@ export default function KlantenAdmin() {
     
     setSaving(true);
     try {
+      const keuze = formData.betaaltermijn_keuze || '30';
+      const betaaltermijnLegacy = keuze === 'zo_snel_mogelijk' ? 0 : parseInt(keuze, 10) || 30;
       const payload = {
         ...formData,
+        standaard_uurtarief: parseDecimalToNumber(prijsInputs.standaard_uurtarief),
+        km_vergoeding_tarief: parseDecimalToNumber(prijsInputs.km_vergoeding_tarief),
+        standaard_vaste_prijs: parseDecimalToNumber(prijsInputs.standaard_vaste_prijs),
+        dag_prijs: parseDecimalToNumber(prijsInputs.dag_prijs),
+        halve_dag_prijs: parseDecimalToNumber(prijsInputs.halve_dag_prijs),
+        kwart_prijs: parseDecimalToNumber(prijsInputs.kwart_prijs),
+        betaaltermijn_keuze: keuze,
+        betaaltermijn: betaaltermijnLegacy,
         naam: formData.bedrijfsnaam, // Sync legacy field
         email: formData.algemeen_email, // Sync legacy field
       };
@@ -443,9 +530,9 @@ export default function KlantenAdmin() {
                     </View>
                   </View>
                   <View style={styles.klantActions}>
-                    <View style={[styles.prijsmodelBadge, { backgroundColor: klant.prijsmodel === 'uurtarief' ? '#3498db20' : klant.prijsmodel === 'vaste_prijs' ? '#27ae6020' : '#F5A62320' }]}>
-                      <Text style={[styles.prijsmodelText, { color: klant.prijsmodel === 'uurtarief' ? '#3498db' : klant.prijsmodel === 'vaste_prijs' ? '#27ae60' : '#F5A623' }]}>
-                        {PRIJS_MODELLEN.find(p => p.key === klant.prijsmodel)?.label || klant.prijsmodel}
+                    <View style={[styles.prijsmodelBadge, { backgroundColor: klant.prijsmodel === 'uurtarief' ? '#3498db20' : klant.prijsmodel === 'vaste_prijs' ? '#27ae6020' : klant.prijsmodel === 'dagvergoeding' ? '#9b59b620' : '#F5A62320' }]}>
+                      <Text style={[styles.prijsmodelText, { color: klant.prijsmodel === 'uurtarief' ? '#3498db' : klant.prijsmodel === 'vaste_prijs' ? '#27ae60' : klant.prijsmodel === 'dagvergoeding' ? '#9b59b6' : '#F5A623' }]}>
+                        {PRIJS_MODELLEN.find(p => p.key === normalizePrijsmodel(klant.prijsmodel))?.label || normalizePrijsmodel(klant.prijsmodel)}
                       </Text>
                     </View>
                     <TouchableOpacity style={styles.deleteBtn} onPress={(e) => { e.stopPropagation(); deleteKlant(klant.id); }}>
@@ -467,10 +554,10 @@ export default function KlantenAdmin() {
                         <Text style={styles.detailValue}>€{klant.standaard_uurtarief.toFixed(2)}</Text>
                       </View>
                     )}
-                    {klant.betaaltermijn && (
+                    {(klant.betaaltermijn_keuze || klant.betaaltermijn != null) && (
                       <View style={styles.detailItem}>
                         <Text style={styles.detailLabel}>Betaaltermijn:</Text>
-                        <Text style={styles.detailValue}>{klant.betaaltermijn} dagen</Text>
+                        <Text style={styles.detailValue}>{formatBetaaltermijnDisplay(klant)}</Text>
                       </View>
                     )}
                     {klant.contactpersonen?.length > 0 && (
@@ -699,20 +786,32 @@ export default function KlantenAdmin() {
                     ))}
                   </View>
                   
-                  {(formData.prijsmodel === 'uurtarief' || formData.prijsmodel === 'regie') && (
+                  {formData.prijsmodel === 'uurtarief' && (
                     <>
-                      <Text style={styles.label}>Standaard uurtarief (€)</Text>
+                      <Text style={styles.label}>Uurtarief (€)</Text>
                       {Platform.OS === 'web' ? (
                         <input
                           type="text"
                           inputMode="decimal"
-                          value={formData.standaard_uurtarief ? String(formData.standaard_uurtarief) : ''}
-                          onChange={(e) => { const v = e.target.value.replace(',', '.'); setFormData({ ...formData, standaard_uurtarief: v === '' ? 0 : parseFloat(v) || 0 }); }}
-                          placeholder="45.00"
+                          autoComplete="off"
+                          value={prijsInputs.standaard_uurtarief}
+                          onChange={(e) =>
+                            setPrijsInputs((p) => ({ ...p, standaard_uurtarief: sanitizeDecimalInput(e.target.value) }))
+                          }
+                          placeholder="45,68 of 45.68"
                           style={{ width: '100%', padding: '12px', fontSize: '16px', borderRadius: '8px', border: '1px solid #e0e0e0', backgroundColor: '#f5f5f5', boxSizing: 'border-box', outline: 'none' }}
                         />
                       ) : (
-                        <TextInput style={styles.input} value={formData.standaard_uurtarief ? String(formData.standaard_uurtarief) : ''} onChangeText={(v) => setFormData({ ...formData, standaard_uurtarief: parseFloat(v.replace(',', '.')) || 0 })} placeholder="45.00" placeholderTextColor="#6c757d" keyboardType="decimal-pad" />
+                        <TextInput
+                          style={styles.input}
+                          value={prijsInputs.standaard_uurtarief}
+                          onChangeText={(v) =>
+                            setPrijsInputs((p) => ({ ...p, standaard_uurtarief: sanitizeDecimalInput(v) }))
+                          }
+                          placeholder="45,68 of 45.68"
+                          placeholderTextColor="#6c757d"
+                          keyboardType="decimal-pad"
+                        />
                       )}
 
                       <Text style={styles.label}>KM vergoeding (€/km)</Text>
@@ -720,27 +819,133 @@ export default function KlantenAdmin() {
                         <input
                           type="text"
                           inputMode="decimal"
-                          value={formData.km_vergoeding_tarief ? String(formData.km_vergoeding_tarief) : ''}
-                          onChange={(e) => { const v = e.target.value.replace(',', '.'); setFormData({ ...formData, km_vergoeding_tarief: v === '' ? 0 : parseFloat(v) || 0 }); }}
-                          placeholder="0.00"
+                          autoComplete="off"
+                          value={prijsInputs.km_vergoeding_tarief}
+                          onChange={(e) =>
+                            setPrijsInputs((p) => ({ ...p, km_vergoeding_tarief: sanitizeDecimalInput(e.target.value) }))
+                          }
+                          placeholder="0 of 0,35"
                           style={{ width: '100%', padding: '12px', fontSize: '16px', borderRadius: '8px', border: '1px solid #e0e0e0', backgroundColor: '#f5f5f5', boxSizing: 'border-box', outline: 'none' }}
                         />
                       ) : (
-                        <TextInput style={styles.input} value={formData.km_vergoeding_tarief ? String(formData.km_vergoeding_tarief) : ''} onChangeText={(v) => setFormData({ ...formData, km_vergoeding_tarief: parseFloat(v.replace(',', '.')) || 0 })} placeholder="0.00" placeholderTextColor="#6c757d" keyboardType="decimal-pad" />
+                        <TextInput
+                          style={styles.input}
+                          value={prijsInputs.km_vergoeding_tarief}
+                          onChangeText={(v) =>
+                            setPrijsInputs((p) => ({ ...p, km_vergoeding_tarief: sanitizeDecimalInput(v) }))
+                          }
+                          placeholder="0 of 0,35"
+                          placeholderTextColor="#6c757d"
+                          keyboardType="decimal-pad"
+                        />
                       )}
+                    </>
+                  )}
 
-                      <Text style={styles.label}>Standaard dagtarief (€)</Text>
+                  {formData.prijsmodel === 'dagvergoeding' && (
+                    <>
+                      <Text style={styles.label}>Dag prijs (€)</Text>
                       {Platform.OS === 'web' ? (
                         <input
                           type="text"
                           inputMode="decimal"
-                          value={formData.standaard_dagtarief ? String(formData.standaard_dagtarief) : ''}
-                          onChange={(e) => { const v = e.target.value.replace(',', '.'); setFormData({ ...formData, standaard_dagtarief: v === '' ? 0 : parseFloat(v) || 0 }); }}
-                          placeholder="350.00"
+                          autoComplete="off"
+                          value={prijsInputs.dag_prijs}
+                          onChange={(e) =>
+                            setPrijsInputs((p) => ({ ...p, dag_prijs: sanitizeDecimalInput(e.target.value) }))
+                          }
+                          placeholder="0"
                           style={{ width: '100%', padding: '12px', fontSize: '16px', borderRadius: '8px', border: '1px solid #e0e0e0', backgroundColor: '#f5f5f5', boxSizing: 'border-box', outline: 'none' }}
                         />
                       ) : (
-                        <TextInput style={styles.input} value={formData.standaard_dagtarief ? String(formData.standaard_dagtarief) : ''} onChangeText={(v) => setFormData({ ...formData, standaard_dagtarief: parseFloat(v.replace(',', '.')) || 0 })} placeholder="350.00" placeholderTextColor="#6c757d" keyboardType="decimal-pad" />
+                        <TextInput
+                          style={styles.input}
+                          value={prijsInputs.dag_prijs}
+                          onChangeText={(v) =>
+                            setPrijsInputs((p) => ({ ...p, dag_prijs: sanitizeDecimalInput(v) }))
+                          }
+                          placeholder="0"
+                          placeholderTextColor="#6c757d"
+                          keyboardType="decimal-pad"
+                        />
+                      )}
+
+                      <Text style={styles.label}>Halve dag prijs (€)</Text>
+                      {Platform.OS === 'web' ? (
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          autoComplete="off"
+                          value={prijsInputs.halve_dag_prijs}
+                          onChange={(e) =>
+                            setPrijsInputs((p) => ({ ...p, halve_dag_prijs: sanitizeDecimalInput(e.target.value) }))
+                          }
+                          placeholder="0"
+                          style={{ width: '100%', padding: '12px', fontSize: '16px', borderRadius: '8px', border: '1px solid #e0e0e0', backgroundColor: '#f5f5f5', boxSizing: 'border-box', outline: 'none' }}
+                        />
+                      ) : (
+                        <TextInput
+                          style={styles.input}
+                          value={prijsInputs.halve_dag_prijs}
+                          onChangeText={(v) =>
+                            setPrijsInputs((p) => ({ ...p, halve_dag_prijs: sanitizeDecimalInput(v) }))
+                          }
+                          placeholder="0"
+                          placeholderTextColor="#6c757d"
+                          keyboardType="decimal-pad"
+                        />
+                      )}
+
+                      <Text style={styles.label}>Kwart prijs (€)</Text>
+                      {Platform.OS === 'web' ? (
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          autoComplete="off"
+                          value={prijsInputs.kwart_prijs}
+                          onChange={(e) =>
+                            setPrijsInputs((p) => ({ ...p, kwart_prijs: sanitizeDecimalInput(e.target.value) }))
+                          }
+                          placeholder="0"
+                          style={{ width: '100%', padding: '12px', fontSize: '16px', borderRadius: '8px', border: '1px solid #e0e0e0', backgroundColor: '#f5f5f5', boxSizing: 'border-box', outline: 'none' }}
+                        />
+                      ) : (
+                        <TextInput
+                          style={styles.input}
+                          value={prijsInputs.kwart_prijs}
+                          onChangeText={(v) =>
+                            setPrijsInputs((p) => ({ ...p, kwart_prijs: sanitizeDecimalInput(v) }))
+                          }
+                          placeholder="0"
+                          placeholderTextColor="#6c757d"
+                          keyboardType="decimal-pad"
+                        />
+                      )}
+
+                      <Text style={styles.label}>KM vergoeding (€/km)</Text>
+                      {Platform.OS === 'web' ? (
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          autoComplete="off"
+                          value={prijsInputs.km_vergoeding_tarief}
+                          onChange={(e) =>
+                            setPrijsInputs((p) => ({ ...p, km_vergoeding_tarief: sanitizeDecimalInput(e.target.value) }))
+                          }
+                          placeholder="0 of 0,35"
+                          style={{ width: '100%', padding: '12px', fontSize: '16px', borderRadius: '8px', border: '1px solid #e0e0e0', backgroundColor: '#f5f5f5', boxSizing: 'border-box', outline: 'none' }}
+                        />
+                      ) : (
+                        <TextInput
+                          style={styles.input}
+                          value={prijsInputs.km_vergoeding_tarief}
+                          onChangeText={(v) =>
+                            setPrijsInputs((p) => ({ ...p, km_vergoeding_tarief: sanitizeDecimalInput(v) }))
+                          }
+                          placeholder="0 of 0,35"
+                          placeholderTextColor="#6c757d"
+                          keyboardType="decimal-pad"
+                        />
                       )}
                     </>
                   )}
@@ -748,22 +953,32 @@ export default function KlantenAdmin() {
                   {formData.prijsmodel === 'vaste_prijs' && (
                     <>
                       <Text style={styles.label}>Standaard vaste prijs (€)</Text>
-                      <TextInput style={styles.input} value={formData.standaard_vaste_prijs ? String(formData.standaard_vaste_prijs) : ''} onChangeText={(v) => setFormData({ ...formData, standaard_vaste_prijs: parseFloat(v.replace(',', '.')) || 0 })} placeholder="5000.00" placeholderTextColor="#6c757d" keyboardType="decimal-pad" {...(Platform.OS === 'web' ? { type: 'text', inputMode: 'decimal' } : {})} />
+                      {Platform.OS === 'web' ? (
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          autoComplete="off"
+                          value={prijsInputs.standaard_vaste_prijs}
+                          onChange={(e) =>
+                            setPrijsInputs((p) => ({ ...p, standaard_vaste_prijs: sanitizeDecimalInput(e.target.value) }))
+                          }
+                          placeholder="5000.00"
+                          style={{ width: '100%', padding: '12px', fontSize: '16px', borderRadius: '8px', border: '1px solid #e0e0e0', backgroundColor: '#f5f5f5', boxSizing: 'border-box', outline: 'none' }}
+                        />
+                      ) : (
+                        <TextInput
+                          style={styles.input}
+                          value={prijsInputs.standaard_vaste_prijs}
+                          onChangeText={(v) =>
+                            setPrijsInputs((p) => ({ ...p, standaard_vaste_prijs: sanitizeDecimalInput(v) }))
+                          }
+                          placeholder="5000.00"
+                          placeholderTextColor="#6c757d"
+                          keyboardType="decimal-pad"
+                        />
+                      )}
                     </>
                   )}
-                  
-                  <Text style={styles.label}>Betaaltermijn</Text>
-                  <View style={styles.betaaltermijnRow}>
-                    {BETAALTERMIJNEN.map((term) => (
-                      <TouchableOpacity
-                        key={term}
-                        style={[styles.betaaltermijnBtn, formData.betaaltermijn === term && styles.betaaltermijnBtnActive]}
-                        onPress={() => setFormData({ ...formData, betaaltermijn: term })}
-                      >
-                        <Text style={[styles.betaaltermijnText, formData.betaaltermijn === term && styles.betaaltermijnTextActive]}>{term} dagen</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
                   
                   <Text style={styles.label}>Interne opmerking prijsafspraak</Text>
                   <TextInput style={[styles.input, styles.textArea]} value={formData.interne_opmerking_prijsafspraak} onChangeText={(v) => setFormData({ ...formData, interne_opmerking_prijsafspraak: v })} placeholder="Interne notities over prijsafspraken..." placeholderTextColor="#6c757d" multiline />
@@ -783,6 +998,19 @@ export default function KlantenAdmin() {
                   
                   <Text style={styles.label}>Facturatie contactpersoon</Text>
                   <TextInput style={styles.input} value={formData.facturatie_contactpersoon} onChangeText={(v) => setFormData({ ...formData, facturatie_contactpersoon: v })} placeholder="Naam contactpersoon" placeholderTextColor="#6c757d" />
+                  
+                  <Text style={styles.label}>Betaaltermijn</Text>
+                  <View style={styles.betaaltermijnRowWrap}>
+                    {BETAALTERMIJN_OPTIES.map((opt) => (
+                      <TouchableOpacity
+                        key={opt.key}
+                        style={[styles.betaaltermijnBtn, formData.betaaltermijn_keuze === opt.key && styles.betaaltermijnBtnActive]}
+                        onPress={() => setFormData({ ...formData, betaaltermijn_keuze: opt.key })}
+                      >
+                        <Text style={[styles.betaaltermijnText, formData.betaaltermijn_keuze === opt.key && styles.betaaltermijnTextActive]}>{opt.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
                   
                   <View style={styles.toggleRow}>
                     <View style={styles.toggleInfo}>
@@ -1014,7 +1242,8 @@ const styles = StyleSheet.create({
   prijsmodelOptionText: { fontSize: 14, color: '#6c757d' },
   prijsmodelOptionTextActive: { color: '#fff', fontWeight: '600' },
   betaaltermijnRow: { flexDirection: 'row', gap: 10, marginTop: 8 },
-  betaaltermijnBtn: { flex: 1, padding: 14, borderRadius: 10, borderWidth: 1, borderColor: '#E8E9ED', backgroundColor: '#F5F6FA', alignItems: 'center' },
+  betaaltermijnRowWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 8 },
+  betaaltermijnBtn: { flexGrow: 1, minWidth: '28%', padding: 14, borderRadius: 10, borderWidth: 1, borderColor: '#E8E9ED', backgroundColor: '#F5F6FA', alignItems: 'center' },
   betaaltermijnBtnActive: { backgroundColor: '#28a745', borderColor: '#28a745' },
   betaaltermijnText: { fontSize: 14, color: '#6c757d' },
   betaaltermijnTextActive: { color: '#fff', fontWeight: '600' },

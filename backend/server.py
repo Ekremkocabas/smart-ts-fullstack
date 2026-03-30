@@ -768,8 +768,8 @@ CONTACT_FUNCTIE_SUGGESTIONS = [
     "zaakvoerder",
 ]
 
-# Pricing models
-PRIJS_MODELLEN = ["uurtarief", "vaste_prijs", "regie", "nog_te_bepalen"]
+# Pricing models (legacy: regie → dagvergoeding, nog_te_bepalen → uurtarief in migrate_klant_data)
+PRIJS_MODELLEN = ["uurtarief", "vaste_prijs", "dagvergoeding"]
 
 class Klant(BaseModel):
     """
@@ -804,13 +804,17 @@ class Klant(BaseModel):
     cc_mail_recipient: str = ""               # CC email
     
     # E. COMMERCIEEL / PRIJSAFSPRAKEN
-    prijsmodel: str = "uurtarief"             # uurtarief / vaste_prijs / regie / nog_te_bepalen
+    prijsmodel: str = "uurtarief"             # uurtarief / vaste_prijs / dagvergoeding
     standaard_uurtarief: float = 0.0
     uurtarief: float = 0.0                    # Legacy field - maps to standaard_uurtarief
     km_vergoeding_tarief: Optional[float] = 0.0
-    standaard_dagtarief: float = 0.0
+    standaard_dagtarief: float = 0.0           # Legacy; UI no longer edits
+    dag_prijs: float = 0.0
+    halve_dag_prijs: float = 0.0
+    kwart_prijs: float = 0.0
     standaard_vaste_prijs: float = 0.0
-    betaaltermijn: int = 30                   # Payment terms in days: 30 / 45 / 60
+    betaaltermijn: int = 30                   # Legacy days; prefer betaaltermijn_keuze
+    betaaltermijn_keuze: str = "30"           # "15"|"30"|"45"|"60"|"zo_snel_mogelijk"
     interne_opmerking_prijsafspraak: str = ""
     prijsafspraak: Optional[str] = None       # Legacy field
     
@@ -868,8 +872,12 @@ class KlantCreate(BaseModel):
     uurtarief: float = 0.0                    # Legacy
     km_vergoeding_tarief: float = 0.0
     standaard_dagtarief: float = 0.0
+    dag_prijs: float = 0.0
+    halve_dag_prijs: float = 0.0
+    kwart_prijs: float = 0.0
     standaard_vaste_prijs: float = 0.0
     betaaltermijn: int = 30
+    betaaltermijn_keuze: str = "30"
     interne_opmerking_prijsafspraak: str = ""
     prijsafspraak: Optional[str] = None       # Legacy
     
@@ -951,6 +959,8 @@ def migrate_klant_data(klant_dict: dict) -> dict:
     
     if not klant_dict.get("standaard_uurtarief") and klant_dict.get("uurtarief"):
         klant_dict["standaard_uurtarief"] = klant_dict["uurtarief"]
+    if klant_dict.get("standaard_uurtarief") and not klant_dict.get("uurtarief"):
+        klant_dict["uurtarief"] = klant_dict["standaard_uurtarief"]
     
     if not klant_dict.get("interne_opmerking_prijsafspraak") and klant_dict.get("prijsafspraak"):
         klant_dict["interne_opmerking_prijsafspraak"] = klant_dict["prijsafspraak"]
@@ -974,8 +984,30 @@ def migrate_klant_data(klant_dict: dict) -> dict:
     klant_dict.setdefault("cc_mail_recipient", "")
     klant_dict.setdefault("prijsmodel", "uurtarief")
     klant_dict.setdefault("standaard_dagtarief", 0.0)
+    klant_dict.setdefault("dag_prijs", 0.0)
+    klant_dict.setdefault("halve_dag_prijs", 0.0)
+    klant_dict.setdefault("kwart_prijs", 0.0)
     klant_dict.setdefault("standaard_vaste_prijs", 0.0)
     klant_dict.setdefault("betaaltermijn", 30)
+
+    # Prijsmodel legacy → nieuw
+    pm = klant_dict.get("prijsmodel")
+    if pm == "regie":
+        klant_dict["prijsmodel"] = "dagvergoeding"
+    elif pm == "nog_te_bepalen":
+        klant_dict["prijsmodel"] = "uurtarief"
+
+    # Betaaltermijn: voorkeur string; vul van legacy int
+    if not klant_dict.get("betaaltermijn_keuze"):
+        b = klant_dict.get("betaaltermijn")
+        try:
+            bi = int(b) if b is not None else 30
+        except (TypeError, ValueError):
+            bi = 30
+        if bi in (15, 30, 45, 60):
+            klant_dict["betaaltermijn_keuze"] = str(bi)
+        else:
+            klant_dict["betaaltermijn_keuze"] = "30"
     klant_dict.setdefault("facturatie_email", "")
     klant_dict.setdefault("facturatie_telefoon", "")
     klant_dict.setdefault("facturatie_contactpersoon", "")
@@ -2016,6 +2048,45 @@ def calculate_total_uren(werkbon: dict) -> float:
     return total_uren
 
 
+def klant_standaard_uurtarief_eur(klant: dict) -> float:
+    """Prefer standaard_uurtarief, fallback to legacy uurtarief."""
+    v = klant.get("standaard_uurtarief")
+    if v is not None and v != "":
+        return safe_float(v)
+    return safe_float(klant.get("uurtarief", 0))
+
+
+def werkbon_km_tot_km(werkbon: dict) -> float:
+    km = werkbon.get("km_afstand") or {}
+    return sum(safe_float(km.get(dag, 0)) for dag, _, _, _ in DAY_COLUMNS)
+
+
+def klant_km_tarief_eur_per_km(klant: dict) -> float:
+    return safe_float(klant.get("km_vergoeding_tarief", 0))
+
+
+def compute_werkbon_financials(werkbon: dict, klant: dict) -> dict:
+    """
+    Urenbedrag = total_uren × klant uurtarief; KM-bedrag = totaal km × klant km-tarief (niet werkbon-snapshot).
+    """
+    total_uren = calculate_total_uren(werkbon)
+    uurtarief = klant_standaard_uurtarief_eur(klant)
+    km_tot = werkbon_km_tot_km(werkbon)
+    km_tarief = klant_km_tarief_eur_per_km(klant)
+    uren_bedrag = total_uren * uurtarief
+    km_bedrag = km_tot * km_tarief if km_tarief > 0 else 0.0
+    totaal_bedrag = uren_bedrag + km_bedrag
+    return {
+        "total_uren": total_uren,
+        "uurtarief": uurtarief,
+        "km_tot": km_tot,
+        "km_tarief": km_tarief,
+        "uren_bedrag": uren_bedrag,
+        "km_bedrag": km_bedrag,
+        "totaal_bedrag": totaal_bedrag,
+    }
+
+
 def decode_base64_data(data_uri: Optional[str], max_size_mb: float = 2.0) -> Optional[bytes]:
     """
     Decode base64 data URI to bytes.
@@ -2518,21 +2589,27 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
 
     # ── SAMENVATTING + HANDTEKENING (naast elkaar) ──
     story.append(Spacer(1, 1))
-    km_tarief = safe_float(werkbon.get("km_vergoeding_tarief", 0))
-    km_totaal_voor_vergoeding = sum(safe_float(werkbon.get("km_afstand", {}).get(dag, 0)) for dag, _, _, _ in DAY_COLUMNS)
-    km_bedrag = km_totaal_voor_vergoeding * km_tarief if km_tarief > 0 else 0.0
-    totaal_bedrag_incl_km = totaal_bedrag + km_bedrag
+    fin = compute_werkbon_financials(werkbon, klant)
+    uurtarief_pdf = fin["uurtarief"]
+    km_totaal_voor_vergoeding = fin["km_tot"]
+    km_tarief = fin["km_tarief"]
+    km_bedrag = fin["km_bedrag"]
+    totaal_bedrag_incl_km = fin["totaal_bedrag"]
     summary_rows = [
         ["Totaal uren", format_number(total_uren)],
-        ["Uurtarief", f"€ {klant.get('uurtarief', 0):.2f}"],
+        ["Uurtarief", f"€ {uurtarief_pdf:.2f}"],
     ]
     if km_totaal_voor_vergoeding > 0:
         summary_rows.append(["Totaal KM", f"{format_number(km_totaal_voor_vergoeding)} km"])
     if klant.get("prijsafspraak"):
         summary_rows.append(["Prijsafspraak", klant.get("prijsafspraak")])
-    if km_tarief > 0 and km_totaal_voor_vergoeding > 0:
-        summary_rows.append(["KM vergoeding", f"{format_number(km_totaal_voor_vergoeding)} km × € {km_tarief:.2f}"])
-        summary_rows.append(["KM bedrag", f"€ {km_bedrag:.2f}"])
+    if km_totaal_voor_vergoeding > 0 and km_tarief > 0:
+        summary_rows.append([
+            "KM vergoeding",
+            f"{format_number(km_totaal_voor_vergoeding)} km × € {km_tarief:.2f} = € {km_bedrag:.2f}",
+        ])
+    elif km_totaal_voor_vergoeding > 0 and km_tarief <= 0:
+        summary_rows.append(["KM vergoeding", f"{format_number(km_totaal_voor_vergoeding)} km (geen €/km)"])
     summary_rows.append(["Totaalbedrag", f"€ {totaal_bedrag_incl_km:.2f}"])
 
     summary_table = Table(summary_rows, colWidths=[40 * mm, 55 * mm])
@@ -4500,9 +4577,9 @@ async def export_werkbonnen_zip(
             try:
                 klant = await db.klanten.find_one({"id": wb.get("klant_id", "")}, {"_id": 0}) or {}
                 werf = await db.werven.find_one({"id": wb.get("werf_id", "")}, {"_id": 0}) or {}
-                uurtarief = safe_float(klant.get("uurtarief", 0))
-                total_uren = calculate_total_uren(wb)
-                totaal_bedrag = total_uren * uurtarief
+                fin = compute_werkbon_financials(wb, klant)
+                total_uren = fin["total_uren"]
+                totaal_bedrag = fin["totaal_bedrag"]
                 pdf_bytes, pdf_filename = generate_werkbon_pdf(wb, klant, werf, instellingen, total_uren, totaal_bedrag)
                 zf.writestr(pdf_filename, pdf_bytes)
                 added += 1
@@ -4992,6 +5069,33 @@ async def send_werkbon_email(
     
     klant_btw = klant.get("btw_nummer", "")
     klant_btw_row = f"<tr><td>BTW Nr. Klant</td><td>{klant_btw}</td></tr>" if klant_btw else ""
+    fin = compute_werkbon_financials(werkbon, klant)
+    totaal_uren_mail = fin["total_uren"]
+    uurtarief_mail = fin["uurtarief"]
+    totaal_bedrag_mail = fin["totaal_bedrag"]
+    km_tot_mail = fin["km_tot"]
+    km_tarief_mail = fin["km_tarief"]
+    km_bedrag_mail = fin["km_bedrag"]
+    km_rows_html = ""
+    if km_tot_mail > 0:
+        if km_tarief_mail > 0:
+            km_rows_html = f"""
+                <tr>
+                    <td>Totaal KM</td>
+                    <td><strong>{km_tot_mail} km</strong></td>
+                </tr>
+                <tr>
+                    <td>KM vergoeding</td>
+                    <td>{km_tot_mail} km × €{km_tarief_mail:.2f} = €{km_bedrag_mail:.2f}</td>
+                </tr>
+            """
+        else:
+            km_rows_html = f"""
+                <tr>
+                    <td>Totaal KM</td>
+                    <td><strong>{km_tot_mail} km</strong></td>
+                </tr>
+            """
     
     # Build HTML email
     html_content = f"""
@@ -5043,16 +5147,17 @@ async def send_werkbon_email(
                 </tr>
                 <tr>
                     <td>Totaal gewerkte uren</td>
-                    <td><strong>{total_uren} uur</strong></td>
+                    <td><strong>{totaal_uren_mail} uur</strong></td>
                 </tr>
                 <tr>
                     <td>Uurtarief</td>
-                    <td>€{klant.get('uurtarief', 0):.2f}</td>
+                    <td>€{uurtarief_mail:.2f}</td>
                 </tr>
+                {km_rows_html}
                 {klant_btw_row}
                 <tr class="total-row">
                     <td>Totaal bedrag</td>
-                    <td>€{totaal_bedrag:.2f}</td>
+                    <td>€{totaal_bedrag_mail:.2f}</td>
                 </tr>
             </table>
 
@@ -5187,16 +5292,12 @@ async def verzend_werkbon(werkbon_id: str, klant_email: Optional[str] = Query(No
     
     # Get klant for hourly rate
     klant = await db.klanten.find_one({"id": werkbon["klant_id"]}, {"_id": 0})
-    uurtarief = klant.get("uurtarief", 0) if klant else 0
     werf = await db.werven.find_one({"id": werkbon["werf_id"]}, {"_id": 0}) or {}
     
     # Get company settings
     instellingen = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0})
     if not instellingen:
         instellingen = {}
-    
-    total_uren = calculate_total_uren(werkbon)
-    totaal_bedrag = total_uren * uurtarief
 
     try:
         import gc
@@ -5204,6 +5305,10 @@ async def verzend_werkbon(werkbon_id: str, klant_email: Optional[str] = Query(No
         gc.collect()
         
         werkbon_prepared = await prepare_werkbon_for_pdf(werkbon)
+        fin_pdf = compute_werkbon_financials(werkbon_prepared, klant or {})
+        total_uren = fin_pdf["total_uren"]
+        uurtarief = fin_pdf["uurtarief"]
+        totaal_bedrag = fin_pdf["totaal_bedrag"]
         pdf_bytes, pdf_filename = generate_werkbon_pdf(werkbon_prepared, klant or {}, werf, instellingen, total_uren, totaal_bedrag)
         
         # Force garbage collection after PDF generation
@@ -5263,14 +5368,15 @@ async def get_werkbon_pdf(werkbon_id: str):
     
     # Get klant for hourly rate
     klant = await db.klanten.find_one({"id": werkbon["klant_id"]}, {"_id": 0}) or {}
-    uurtarief = klant.get("uurtarief", 0)
     werf = await db.werven.find_one({"id": werkbon["werf_id"]}, {"_id": 0}) or {}
     
     # Get company settings
     instellingen = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0}) or {}
     
-    total_uren = calculate_total_uren(werkbon)
-    totaal_bedrag = total_uren * uurtarief
+    fin = compute_werkbon_financials(werkbon, klant)
+    total_uren = fin["total_uren"]
+    uurtarief = fin["uurtarief"]
+    totaal_bedrag = fin["totaal_bedrag"]
 
     try:
         pdf_bytes, pdf_filename = generate_werkbon_pdf(werkbon, klant, werf, instellingen, total_uren, totaal_bedrag)
