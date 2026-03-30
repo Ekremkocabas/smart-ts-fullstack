@@ -23,7 +23,9 @@
       "Bash(git commit:*)",
       "Bash(git push:*)",
       "Bash(eas build:*)",
-      "Bash(grep -rn \"maak.*werkbon\\\\|werkbon.*maken\\\\|router.*push.*werkbon\\\\|createWerkbon\\\\|uren.*maandag\\\\|maandag.*8\" /c/Users/ekrem/OneDrive/Desktop/smart-ts-fullstack/frontend/ --include=*.tsx --include=*.ts)"
+      "Bash(grep -rn \"maak.*werkbon\\\\|werkbon.*maken\\\\|router.*push.*werkbon\\\\|createWerkbon\\\\|uren.*maandag\\\\|maandag.*8\" /c/Users/ekrem/OneDrive/Desktop/smart-ts-fullstack/frontend/ --include=*.tsx --include=*.ts)",
+      "Bash(rm -rf /c/Users/ekrem/OneDrive/Desktop/smart-ts-fullstack/backend/dist/*)",
+      "Bash(cp -r /c/Users/ekrem/OneDrive/Desktop/smart-ts-fullstack/frontend/dist/* /c/Users/ekrem/OneDrive/Desktop/smart-ts-fullstack/backend/dist/)"
     ]
   }
 }
