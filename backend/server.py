@@ -4355,8 +4355,38 @@ async def search_users(q: str = Query(""), current_user: Dict = Depends(get_curr
 
 # ==================== WERKBON ROUTES ====================
 
+def _werkbonnen_admin_filter_query(
+    week_nummer: Optional[int],
+    jaar: Optional[int],
+    maand: Optional[int],
+) -> Dict:
+    """Build Mongo filter for admin werkbonnen list (calendar jaar + ISO week numbers)."""
+    import calendar
+    if week_nummer is not None and jaar is not None:
+        return {"week_nummer": week_nummer, "jaar": jaar}
+    if maand is not None and jaar is not None:
+        weeks_set = set()
+        _, num_days = calendar.monthrange(jaar, maand)
+        for day in range(1, num_days + 1):
+            d = datetime(jaar, maand, day)
+            weeks_set.add(d.isocalendar()[1])
+        return {"jaar": jaar, "week_nummer": {"$in": list(weeks_set)}}
+    if jaar is not None and week_nummer is None and maand is None:
+        return {"jaar": jaar}
+    return {}
+
+
 @api_router.get("/werkbonnen", response_model=List[Werkbon])
-async def get_werkbonnen(user_id: str, is_admin: bool = Query(False), dashboard: bool = Query(False)):
+async def get_werkbonnen(
+    user_id: str,
+    is_admin: bool = Query(False),
+    dashboard: bool = Query(False),
+    week_nummer: Optional[int] = Query(None, description="ISO week filter (use with jaar)"),
+    jaar: Optional[int] = Query(None, description="Calendar year (with week_nummer, maand, or alone)"),
+    maand: Optional[int] = Query(None, ge=1, le=12, description="Month 1-12 (with jaar)"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
+):
     projection = {
         "_id": 0,
         "handtekening_data": 0,
@@ -4374,10 +4404,12 @@ async def get_werkbonnen(user_id: str, is_admin: bool = Query(False), dashboard:
     }
 
     if is_admin:
-        limit = 50 if dashboard else 100
-        cursor = db.werkbonnen.find({}, projection).sort("created_at", -1).limit(limit)
+        query = _werkbonnen_admin_filter_query(week_nummer, jaar, maand)
+        eff_limit = 50 if dashboard else limit
+        eff_skip = 0 if dashboard else skip
+        cursor = db.werkbonnen.find(query, projection).sort("created_at", -1).skip(eff_skip).limit(eff_limit)
         try:
-            werkbonnen = await asyncio.wait_for(cursor.to_list(limit), timeout=10.0)
+            werkbonnen = await asyncio.wait_for(cursor.to_list(eff_limit), timeout=10.0)
         except asyncio.TimeoutError:
             logging.warning("[werkbonnen] Admin query timed out, returning empty list")
             return []
@@ -4417,6 +4449,19 @@ async def count_werkbonnen(current_user: Dict = Depends(get_current_user)):
     """Lightweight endpoint — returns total werkbon count for change detection"""
     total = await db.werkbonnen.count_documents({})
     return {"total": total}
+
+
+@api_router.get("/werkbonnen/filter-count")
+async def werkbonnen_filter_count(
+    week_nummer: Optional[int] = Query(None),
+    jaar: Optional[int] = Query(None),
+    maand: Optional[int] = Query(None, ge=1, le=12),
+    current_user: Dict = Depends(require_web_access()),
+):
+    """Count werkbonnen matching the same filters as GET /werkbonnen (admin)."""
+    q = _werkbonnen_admin_filter_query(week_nummer, jaar, maand)
+    count = await db.werkbonnen.count_documents(q)
+    return {"count": count}
 
 @api_router.get("/werkbonnen/export/zip")
 async def export_werkbonnen_zip(
@@ -6662,8 +6707,12 @@ async def get_public_branding():
 async def get_dashboard_stats(current_user: Dict = Depends(get_current_user)):
     """Get comprehensive dashboard statistics"""
     now = datetime.now(timezone.utc)
-    current_week = now.isocalendar()[1]
-    current_year = now.isocalendar()[0]
+    iso = now.isocalendar()
+    current_week = iso[1]
+    iso_year = iso[0]
+    cal_year = now.year
+    # Werkbonnen store `jaar` as calendar year from clients; ISO week-year can differ at year boundaries
+    jaar_match = list({iso_year, cal_year})
     
     # V1: Count active mobile users (worker, onderaannemer) - excluding web panel roles
     total_werknemers = await db.users.count_documents({"actief": True, "rol": {"$in": ["worker", "onderaannemer"]}})
@@ -6672,7 +6721,7 @@ async def get_dashboard_stats(current_user: Dict = Depends(get_current_user)):
     total_werven = await db.werven.count_documents({})  # Count all werven
     
     # Werkbonnen stats
-    werkbonnen_week = await db.werkbonnen.count_documents({"week_nummer": current_week, "jaar": current_year})
+    werkbonnen_week = await db.werkbonnen.count_documents({"week_nummer": current_week, "jaar": {"$in": jaar_match}})
     werkbonnen_ondertekend = await db.werkbonnen.count_documents({"status": "ondertekend"})
     werkbonnen_concept = await db.werkbonnen.count_documents({"status": "concept"})
     
@@ -6683,8 +6732,8 @@ async def get_dashboard_stats(current_user: Dict = Depends(get_current_user)):
     project_total = await db.project_werkbonnen.count_documents({})
     
     # Planning stats
-    planning_week = await db.planning.count_documents({"week_nummer": current_week, "jaar": current_year})
-    planning_afgerond = await db.planning.count_documents({"week_nummer": current_week, "jaar": current_year, "status": "afgerond"})
+    planning_week = await db.planning.count_documents({"week_nummer": current_week, "jaar": {"$in": jaar_match}})
+    planning_afgerond = await db.planning.count_documents({"week_nummer": current_week, "jaar": {"$in": jaar_match}, "status": "afgerond"})
     
     # Unread messages
     ongelezen_berichten = await db.berichten.count_documents({"gelezen_door": {"$size": 0}})
@@ -6703,7 +6752,8 @@ async def get_dashboard_stats(current_user: Dict = Depends(get_current_user)):
         "planning_afgerond": planning_afgerond,
         "ongelezen_berichten": ongelezen_berichten,
         "week_nummer": current_week,
-        "jaar": current_year,
+        "jaar": cal_year,
+        "jaar_iso": iso_year,
     }
 
 @api_router.get("/dashboard/recent-werkbonnen")
@@ -6731,29 +6781,57 @@ async def get_recent_werkbonnen(
         return []
     return werkbonnen
 
-@api_router.get("/dashboard/uren-maand")
-async def get_uren_deze_maand(jaar: int, maand: int):
-    """Get total uren for a given month across all werkbonnen."""
-    import calendar
-    weeks_set = set()
-    _, num_days = calendar.monthrange(jaar, maand)
-    for day in range(1, num_days + 1):
-        d = datetime(jaar, maand, day)
-        weeks_set.add(d.isocalendar()[1])
-    werkbonnen = await db.werkbonnen.find(
-        {"jaar": jaar, "week_nummer": {"$in": list(weeks_set)}},
-        {"_id": 0, "uren": 1}
-    ).to_list(1000)
+def _sum_uren_from_werkbonnen_docs(werkbonnen: List[Dict]) -> float:
     totaal = 0.0
     for wb in werkbonnen:
-        for uren_regel in wb.get("uren", []):
+        for uren_regel in wb.get("uren", []) or []:
             for dag in ["maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag"]:
                 val = uren_regel.get(dag, 0)
                 try:
                     totaal += float(val)
                 except (ValueError, TypeError):
                     pass
-    return {"totaal_uren": round(totaal, 1), "jaar": jaar, "maand": maand}
+    return totaal
+
+
+@api_router.get("/dashboard/uren-week")
+async def get_uren_deze_week(
+    week_nummer: int,
+    jaar: int,
+    current_user: Dict = Depends(get_current_user),
+):
+    """Total uren for all werkbonnen in the given ISO week (jaar aligns with stats + dashboard week boundaries)."""
+    now = datetime.now(timezone.utc)
+    iso_y = now.isocalendar()[0]
+    cal_y = now.year
+    jaar_opts = list({jaar, iso_y, cal_y})
+    werkbonnen = await db.werkbonnen.find(
+        {"week_nummer": week_nummer, "jaar": {"$in": jaar_opts}},
+        {"_id": 0, "uren": 1},
+    ).to_list(2000)
+    totaal = _sum_uren_from_werkbonnen_docs(werkbonnen)
+    return {"totaal_uren": round(totaal, 1), "week_nummer": week_nummer, "jaar": jaar}
+
+
+@api_router.get("/dashboard/uren-maand")
+async def get_uren_deze_maand(jaar: int, maand: int, current_user: Dict = Depends(get_current_user)):
+    """Get total uren and werkbon count for a given month across all werkbonnen."""
+    import calendar
+    weeks_set = set()
+    _, num_days = calendar.monthrange(jaar, maand)
+    for day in range(1, num_days + 1):
+        d = datetime(jaar, maand, day)
+        weeks_set.add(d.isocalendar()[1])
+    query = {"jaar": jaar, "week_nummer": {"$in": list(weeks_set)}}
+    werkbonnen_aantal = await db.werkbonnen.count_documents(query)
+    werkbonnen = await db.werkbonnen.find(query, {"_id": 0, "uren": 1}).to_list(5000)
+    totaal = _sum_uren_from_werkbonnen_docs(werkbonnen)
+    return {
+        "totaal_uren": round(totaal, 1),
+        "werkbonnen_aantal": werkbonnen_aantal,
+        "jaar": jaar,
+        "maand": maand,
+    }
 
 @api_router.get("/")
 async def root():

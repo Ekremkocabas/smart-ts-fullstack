@@ -11,22 +11,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth, apiClient } from '../../context/AuthContext';
-import Constants from 'expo-constants';
-
-// Determine API URL - ALWAYS use window.location.origin for web production
-const getApiUrl = () => {
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    const hostname = window.location.hostname;
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return 'http://localhost:8001';
-    }
-    // Production - use current origin, NO env variables
-    return window.location.origin;
-  }
-  // Mobile only
-  return process.env.EXPO_PUBLIC_BACKEND_URL || '';
-};
-const API_URL = getApiUrl();
 
 interface DashboardStats {
   totaalWerknemers: number;
@@ -38,43 +22,23 @@ interface DashboardStats {
   werkbonnenWachtend: number;
   totaalUrenDezeWeek: number;
   totaalUrenDezeMaand: number;
+  werkbonnenDezeMaandAantal: number;
   planningDezeWeek: number;
   planningAfgerond: number;
-}
-
-interface RecentWerkbon {
-  id: string;
-  klant_naam: string;
-  werf_naam: string;
-  created_by_naam: string;
-  week_nummer: number;
-  status: string;
-  created_at: string;
 }
 
 export default function AdminDashboard() {
   const { user, token, isLoading: authLoading } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [recentWerkbonnen, setRecentWerkbonnen] = useState<RecentWerkbon[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [werkbonnenError, setWerkbonnenError] = useState<string | null>(null);
   const fetchRetryCount = useRef(0);
 
-  // Debug: Log component state
   useEffect(() => {
-    console.log('[Dashboard] Component mounted. authLoading:', authLoading, 'token:', token?.substring(0, 20), 'user:', user?.naam);
-  }, [authLoading, token, user]);
-
-  useEffect(() => {
-    // Wait for auth to complete and verify we have a valid admin user
     if (Platform.OS === 'web' && !authLoading && token && user) {
       const isAdmin = ['admin', 'master_admin', 'manager', 'beheerder'].includes(user?.rol || '');
       if (isAdmin) {
-        // Small delay to ensure apiClient has the token set
-        const timer = setTimeout(() => {
-          fetchData();
-        }, 100);
+        const timer = setTimeout(() => fetchData(), 100);
         return () => clearTimeout(timer);
       }
     }
@@ -82,7 +46,6 @@ export default function AdminDashboard() {
 
   const fetchData = async () => {
     if (!token) {
-      console.warn('No token available');
       setLoading(false);
       return;
     }
@@ -95,72 +58,41 @@ export default function AdminDashboard() {
     try {
       setLoading(true);
       setError(null);
-      setWerkbonnenError(null);
-      const now = new Date();
-      const getISOWeek = (d: Date) => {
-        const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-        const day = date.getUTCDay() || 7;
-        date.setUTCDate(date.getUTCDate() + 4 - day);
-        const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
-        return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-      };
-      const currentWeek = getISOWeek(now);
-      const currentMonth = now.getMonth() + 1;
-      const currentYear = now.getFullYear();
 
-      // Core data — separate from werkbonnen to avoid one hanging request blocking everything
-      const [werknemersRes, teamsRes, klantenRes, wervenRes, planningRes, maandUrenRes] = await Promise.all([
+      const [statsRes, werknemersRes, teamsRes, klantenRes, wervenRes] = await Promise.all([
+        apiClient.get('/api/dashboard/stats'),
         apiClient.get('/api/auth/users'),
         apiClient.get('/api/teams'),
         apiClient.get('/api/klanten'),
         apiClient.get('/api/werven'),
-        apiClient.get(`/api/planning?week_nummer=${currentWeek}&jaar=${currentYear}`),
-        apiClient.get(`/api/dashboard/uren-maand?jaar=${currentYear}&maand=${currentMonth}`),
       ]);
 
-      // Werkbonnen fetched separately with its own error handling
-      let werkbonnen: any[] = [];
-      try {
-        const werkbonnenRes = await apiClient.get(
-          `/api/dashboard/recent-werkbonnen?limit=20`,
-          { timeout: 8000 }
-        );
-        werkbonnen = Array.isArray(werkbonnenRes.data) ? werkbonnenRes.data : [];
-      } catch (wbErr: any) {
-        console.error('[Dashboard] Werkbonnen fetch failed:', wbErr?.message);
-        setWerkbonnenError('Kan werkbonnen niet laden');
-      }
+      const ds = statsRes.data;
+      const weekNr = typeof ds?.week_nummer === 'number' ? ds.week_nummer : 1;
+      const jaarCal = typeof ds?.jaar === 'number' ? ds.jaar : new Date().getFullYear();
+      const now = new Date();
+      const currentMonth = now.getMonth() + 1;
+      const currentYear = now.getFullYear();
+
+      const [urenWeekOk, urenMaandOk] = await Promise.all([
+        apiClient.get(`/api/dashboard/uren-week?week_nummer=${weekNr}&jaar=${jaarCal}`),
+        apiClient.get(`/api/dashboard/uren-maand?jaar=${currentYear}&maand=${currentMonth}`),
+      ]);
 
       const werknemers = werknemersRes.data;
       const teams = teamsRes.data;
       const klanten = klantenRes.data;
       const werven = wervenRes.data;
-      const planningData = planningRes.data;
-      const maandUrenData = maandUrenRes.data;
-
       const werknemersList = Array.isArray(werknemers) ? werknemers : [];
       const teamsList = Array.isArray(teams) ? teams : [];
       const klantenList = Array.isArray(klanten) ? klanten : [];
       const wervenList = Array.isArray(werven) ? werven : [];
-      const werkbonnenList = Array.isArray(werkbonnen) ? werkbonnen : [];
-      const planningList = Array.isArray(planningData) ? planningData : [];
 
-      // Separate werknemers and onderaannemers — consistent with planning page (exclude admin roles)
       const actieveWerknemers = werknemersList.filter((w: any) => w.actief !== false);
-      const werknemerCount = actieveWerknemers.filter((w: any) =>
-        !['beheerder', 'admin', 'master_admin', 'onderaannemer'].includes(w.rol)
+      const werknemerCount = actieveWerknemers.filter(
+        (w: any) => !['beheerder', 'admin', 'master_admin', 'onderaannemer'].includes(w.rol)
       ).length;
       const onderaannemerCount = actieveWerknemers.filter((w: any) => w.rol === 'onderaannemer').length;
-
-      const werkbonnenDezeWeek = werkbonnenList.filter(
-        (wb: any) => wb.week_nummer === currentWeek && wb.jaar === now.getFullYear()
-      );
-
-      const werkbonnenWachtend = werkbonnenList.filter(
-        (wb: any) => wb.status === 'concept'
-      );
-
-      const totaalUren = 0; // uren not included in lightweight dashboard endpoint; use totaalUrenDezeMaand instead
 
       setStats({
         totaalWerknemers: werknemerCount,
@@ -168,21 +100,17 @@ export default function AdminDashboard() {
         totaalTeams: teamsList.length,
         totaalKlanten: klantenList.filter((k: any) => k.actief !== false).length,
         totaalWerven: wervenList.filter((w: any) => w.actief !== false).length,
-        werkbonnenDezeWeek: werkbonnenDezeWeek.length,
-        werkbonnenWachtend: werkbonnenWachtend.length,
-        totaalUrenDezeWeek: totaalUren,
-        totaalUrenDezeMaand: maandUrenData?.totaal_uren || 0,
-        planningDezeWeek: planningList.length,
-        planningAfgerond: planningList.filter((p: any) => p.status === 'afgerond').length,
+        werkbonnenDezeWeek: ds?.werkbonnen_deze_week ?? 0,
+        werkbonnenWachtend: ds?.werkbonnen_concept ?? 0,
+        totaalUrenDezeWeek: urenWeekOk.data?.totaal_uren ?? 0,
+        totaalUrenDezeMaand: urenMaandOk.data?.totaal_uren ?? 0,
+        werkbonnenDezeMaandAantal: urenMaandOk.data?.werkbonnen_aantal ?? 0,
+        planningDezeWeek: ds?.planning_deze_week ?? 0,
+        planningAfgerond: ds?.planning_afgerond ?? 0,
       });
-
-      // Sort by created_at descending and take last 5
-      const sorted = werkbonnenList
-        .sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
-        .slice(0, 5);
-      setRecentWerkbonnen(sorted);
-    } catch (error) {
-      console.error('Error fetching stats:', error);
+      fetchRetryCount.current = 0;
+    } catch (err) {
+      console.error('Error fetching stats:', err);
       setError('Kon gegevens niet laden. Controleer de verbinding en probeer opnieuw.');
     } finally {
       setLoading(false);
@@ -203,53 +131,67 @@ export default function AdminDashboard() {
     );
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'concept': return '#ffc107';
-      case 'ondertekend': return '#28a745';
-      case 'verzonden': return '#F5A623';
-      default: return '#6c757d';
-    }
-  };
-
   const quickActions = [
     { icon: 'person-add', label: 'Nieuwe werknemer', route: '/admin/werknemers', color: '#3498db' },
     { icon: 'add-circle', label: 'Nieuwe klant', route: '/admin/klanten', color: '#1abc9c' },
     { icon: 'business', label: 'Nieuwe werf', route: '/admin/werven', color: '#e67e22' },
     { icon: 'document-text', label: 'Bekijk werkbonnen', route: '/admin/werkbonnen', color: '#F5A623' },
     { icon: 'bar-chart', label: 'Rapporten', route: '/admin/rapporten', color: '#9b59b6' },
-    { icon: 'archive', label: 'Download werkbonnen', route: '/admin/werkbonnen', color: '#0056b3' },
+    { icon: 'archive', label: 'Download werkbonnen', route: '/admin/werkbonnen/volledig', color: '#0056b3' },
   ];
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Page Header */}
       <View style={styles.pageHeader}>
         <View>
           <Text style={styles.greeting}>Welkom terug,</Text>
           <Text style={styles.pageTitle}>{user?.naam || 'Beheerder'}</Text>
         </View>
-        <Text style={styles.dateText}>{new Date().toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</Text>
+        <Text style={styles.dateText}>
+          {new Date().toLocaleDateString('nl-BE', {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+          })}
+        </Text>
       </View>
 
       {loading ? (
         <ActivityIndicator size="large" color="#F5A623" style={{ marginVertical: 40 }} />
       ) : error ? (
-        <View style={{ backgroundColor: '#fff3cd', borderRadius: 12, padding: 20, margin: 8, borderWidth: 1, borderColor: '#ffc107', flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <View
+          style={{
+            backgroundColor: '#fff3cd',
+            borderRadius: 12,
+            padding: 20,
+            margin: 8,
+            borderWidth: 1,
+            borderColor: '#ffc107',
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12,
+          }}
+        >
           <Ionicons name="warning-outline" size={24} color="#e67e22" />
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 15, fontWeight: '600', color: '#1A1A2E' }}>Fout bij laden</Text>
             <Text style={{ fontSize: 13, color: '#6c757d', marginTop: 4 }}>{error}</Text>
           </View>
-          <TouchableOpacity onPress={fetchData} style={{ backgroundColor: '#F5A623', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 }}>
+          <TouchableOpacity
+            onPress={fetchData}
+            style={{ backgroundColor: '#F5A623', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 }}
+          >
             <Text style={{ color: '#fff', fontWeight: '600' }}>Opnieuw</Text>
           </TouchableOpacity>
         </View>
       ) : (
         <>
-          {/* Stats Grid */}
           <View style={styles.statsGrid}>
-            <TouchableOpacity style={[styles.statCard, styles.statCardLarge]} onPress={() => router.push('/admin/werknemers')}>
+            <TouchableOpacity
+              style={[styles.statCard, styles.statCardLarge]}
+              onPress={() => router.push('/admin/werknemers')}
+            >
               <View style={[styles.statIcon, { backgroundColor: '#3498db15' }]}>
                 <Ionicons name="people" size={28} color="#3498db" />
               </View>
@@ -257,7 +199,10 @@ export default function AdminDashboard() {
               <Text style={styles.statLabel}>Werknemers</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.statCard, styles.statCardLarge]} onPress={() => router.push('/admin/werknemers')}>
+            <TouchableOpacity
+              style={[styles.statCard, styles.statCardLarge]}
+              onPress={() => router.push('/admin/werknemers')}
+            >
               <View style={[styles.statIcon, { backgroundColor: '#e67e2215' }]}>
                 <Ionicons name="construct" size={28} color="#e67e22" />
               </View>
@@ -265,7 +210,10 @@ export default function AdminDashboard() {
               <Text style={styles.statLabel}>Onderaannemers</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.statCard, styles.statCardLarge]} onPress={() => router.push('/admin/teams')}>
+            <TouchableOpacity
+              style={[styles.statCard, styles.statCardLarge]}
+              onPress={() => router.push('/admin/teams')}
+            >
               <View style={[styles.statIcon, { backgroundColor: '#9b59b615' }]}>
                 <Ionicons name="git-branch" size={28} color="#9b59b6" />
               </View>
@@ -273,7 +221,10 @@ export default function AdminDashboard() {
               <Text style={styles.statLabel}>Teams</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.statCard, styles.statCardLarge]} onPress={() => router.push('/admin/klanten')}>
+            <TouchableOpacity
+              style={[styles.statCard, styles.statCardLarge]}
+              onPress={() => router.push('/admin/klanten')}
+            >
               <View style={[styles.statIcon, { backgroundColor: '#1abc9c15' }]}>
                 <Ionicons name="briefcase" size={28} color="#1abc9c" />
               </View>
@@ -281,7 +232,10 @@ export default function AdminDashboard() {
               <Text style={styles.statLabel}>Klanten</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.statCard, styles.statCardLarge]} onPress={() => router.push('/admin/werven')}>
+            <TouchableOpacity
+              style={[styles.statCard, styles.statCardLarge]}
+              onPress={() => router.push('/admin/werven')}
+            >
               <View style={[styles.statIcon, { backgroundColor: '#F5A62315' }]}>
                 <Ionicons name="business" size={28} color="#F5A623" />
               </View>
@@ -289,80 +243,69 @@ export default function AdminDashboard() {
               <Text style={styles.statLabel}>Werven</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.statCard, styles.statCardLarge]} onPress={() => router.push('/admin/planning')}>
+            <TouchableOpacity
+              style={[styles.statCard, styles.statCardLarge]}
+              onPress={() => router.push('/admin/planning')}
+            >
               <View style={[styles.statIcon, { backgroundColor: '#28a74515' }]}>
                 <Ionicons name="calendar" size={28} color="#28a745" />
               </View>
               <Text style={styles.statValue}>{stats?.planningDezeWeek || 0}</Text>
               <Text style={styles.statLabel}>Planning deze week</Text>
+              {typeof stats?.planningAfgerond === 'number' && stats.planningAfgerond > 0 && (
+                <Text style={styles.statHint}>{stats.planningAfgerond} afgerond</Text>
+              )}
             </TouchableOpacity>
           </View>
 
-          {/* Werkbonnen error banner */}
-          {werkbonnenError && (
-            <View style={{ backgroundColor: '#fff3cd', borderRadius: 10, padding: 12, marginHorizontal: 8, marginBottom: 8, borderWidth: 1, borderColor: '#ffc107', flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <Ionicons name="warning-outline" size={20} color="#e67e22" />
-              <Text style={{ flex: 1, fontSize: 13, color: '#856404' }}>{werkbonnenError}</Text>
-            </View>
-          )}
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Werkbonnen overzicht</Text>
+            <TouchableOpacity onPress={() => router.push('/admin/werkbonnen' as any)} style={styles.bekijkAlleBtn}>
+              <Text style={styles.bekijkAlleText}>Bekijk alle werkbonnen</Text>
+              <Ionicons name="arrow-forward" size={16} color="#F5A623" />
+            </TouchableOpacity>
+          </View>
 
-          {/* Werkbonnen Stats */}
-          <Text style={styles.sectionTitle}>Werkbonnen overzicht</Text>
           <View style={styles.werkbonStats}>
-            <View style={[styles.werkbonStatCard, { borderLeftColor: '#F5A623' }]}>
-              <Text style={styles.werkbonStatValue}>{stats?.werkbonnenDezeWeek || 0}</Text>
+            <TouchableOpacity
+              style={[styles.werkbonStatCard, { borderLeftColor: '#F5A623' }]}
+              onPress={() => router.push('/admin/werkbonnen/week' as any)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.werkbonStatValue}>{stats?.werkbonnenDezeWeek ?? 0}</Text>
               <Text style={styles.werkbonStatLabel}>Werkbonnen deze week</Text>
-            </View>
-            <View style={[styles.werkbonStatCard, { borderLeftColor: '#3498db' }]}>
-              <Text style={styles.werkbonStatValue}>{stats?.totaalUrenDezeWeek || 0}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.werkbonStatCard, { borderLeftColor: '#3498db' }]}
+              onPress={() => router.push('/admin/werkbonnen/week' as any)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.werkbonStatValue}>{stats?.totaalUrenDezeWeek ?? 0}</Text>
               <Text style={styles.werkbonStatLabel}>Uren deze week</Text>
-            </View>
-            <View style={[styles.werkbonStatCard, { borderLeftColor: '#28a745' }]}>
-              <Text style={styles.werkbonStatValue}>{stats?.totaalUrenDezeMaand || 0}</Text>
-              <Text style={styles.werkbonStatLabel}>Uren deze maand</Text>
-            </View>
-          </View>
-
-          {/* Recent Werkbonnen */}
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent aangemaakte werkbonnen</Text>
-            <TouchableOpacity onPress={() => router.push('/admin/werkbonnen')}>
-              <Text style={styles.viewAllLink}>Bekijk alle</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.werkbonStatCard, { borderLeftColor: '#28a745' }]}
+              onPress={() => router.push('/admin/werkbonnen/month' as any)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.werkbonStatValue}>{stats?.totaalUrenDezeMaand ?? 0}</Text>
+              <Text style={styles.werkbonStatLabel}>Uren deze maand (totaal)</Text>
+              <Text style={styles.werkbonStatSub}>
+                {stats?.werkbonnenDezeMaandAantal ?? 0} werkbonnen deze maand
+              </Text>
             </TouchableOpacity>
           </View>
-          <View style={styles.recentList}>
-            {recentWerkbonnen.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Ionicons name="document-text-outline" size={48} color="#E8E9ED" />
-                <Text style={styles.emptyText}>Geen recente werkbonnen</Text>
-              </View>
-            ) : (
-              recentWerkbonnen.map((wb) => (
-                <TouchableOpacity
-                  key={wb.id}
-                  style={styles.recentCard}
-                  onPress={() => router.push(`/admin/werkbon-detail?id=${wb.id}` as any)}
-                >
-                  <View style={styles.recentCardLeft}>
-                    <View style={styles.weekBadge}>
-                      <Text style={styles.weekBadgeText}>W{wb.week_nummer}</Text>
-                    </View>
-                    <View>
-                      <Text style={styles.recentKlant}>{wb.klant_naam}</Text>
-                      <Text style={styles.recentWerf}>{wb.werf_naam}</Text>
-                      <Text style={styles.recentMeta}>{wb.ingevuld_door_naam}</Text>
-                    </View>
-                  </View>
-                  <View style={[styles.statusBadge, { backgroundColor: getStatusColor(wb.status) }]}>
-                    <Text style={styles.statusText}>{wb.status}</Text>
-                  </View>
-                </TouchableOpacity>
-              ))
-            )}
+
+          <View style={styles.wachtendCard}>
+            <Ionicons name="hourglass-outline" size={22} color="#856404" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.wachtendLabel}>Wachtend op handtekening (concept)</Text>
+              <Text style={styles.wachtendHint}>Totaal in het systeem, niet alleen deze week</Text>
+            </View>
+            <Text style={styles.wachtendValue}>{stats?.werkbonnenWachtend ?? 0}</Text>
           </View>
 
-          {/* Quick Actions */}
-          <Text style={styles.sectionTitle}>Snelle acties</Text>
+          <Text style={[styles.sectionTitle, { marginTop: 8 }]}>Snelle acties</Text>
           <View style={styles.quickActionsGrid}>
             {quickActions.map((action, index) => (
               <TouchableOpacity
@@ -413,7 +356,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 16,
-    marginBottom: 32,
+    marginBottom: 28,
   },
   statCard: {
     backgroundColor: '#FFFFFF',
@@ -444,30 +387,51 @@ const styles = StyleSheet.create({
     color: '#6c757d',
     marginTop: 4,
   },
-  sectionHeader: {
+  statHint: {
+    fontSize: 12,
+    color: '#28a745',
+    marginTop: 6,
+    fontWeight: '600',
+  },
+  sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
+    flexWrap: 'wrap',
+    gap: 12,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#1A1A2E',
-    marginBottom: 16,
+    marginBottom: 0,
   },
-  viewAllLink: {
+  bekijkAlleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#F5A62340',
+  },
+  bekijkAlleText: {
     fontSize: 14,
     color: '#F5A623',
-    fontWeight: '500',
+    fontWeight: '600',
   },
   werkbonStats: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 16,
-    marginBottom: 32,
+    marginBottom: 20,
   },
   werkbonStatCard: {
     flex: 1,
+    minWidth: 160,
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
@@ -485,73 +449,37 @@ const styles = StyleSheet.create({
     color: '#6c757d',
     marginTop: 4,
   },
-  recentList: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E8E9ED',
-    marginBottom: 32,
-    overflow: 'hidden',
-  },
-  recentCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E8E9ED',
-  },
-  recentCardLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  weekBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    backgroundColor: '#F5A62315',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  weekBadgeText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#F5A623',
-  },
-  recentKlant: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1A1A2E',
-  },
-  recentWerf: {
-    fontSize: 13,
-    color: '#6c757d',
-  },
-  recentMeta: {
+  werkbonStatSub: {
     fontSize: 12,
     color: '#adb5bd',
+    marginTop: 8,
+  },
+  wachtendCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    backgroundColor: '#fff3cd',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 28,
+    borderWidth: 1,
+    borderColor: '#ffc107',
+  },
+  wachtendLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#856404',
+  },
+  wachtendHint: {
+    fontSize: 12,
+    color: '#856404',
+    opacity: 0.85,
     marginTop: 2,
   },
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 40,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#6c757d',
-    marginTop: 12,
+  wachtendValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#856404',
   },
   quickActionsGrid: {
     flexDirection: 'row',

@@ -13,6 +13,7 @@ const menuItems = [
   { icon: 'git-branch-outline', label: 'Teams', route: '/admin/teams' },
   { icon: 'briefcase-outline', label: 'Klanten', route: '/admin/klanten' },
   { icon: 'business-outline', label: 'Werven', route: '/admin/werven' },
+  { icon: 'document-text-outline', label: 'Werkbonnen', route: '/admin/werkbonnen' },
   { icon: 'chatbubbles-outline', label: 'Berichten', route: '/admin/berichten' },
   { icon: 'bar-chart-outline', label: 'Rapporten', route: '/admin/rapporten' },
   { icon: 'settings-outline', label: 'Instellingen', route: '/admin/instellingen' },
@@ -270,6 +271,10 @@ export default function AdminLayout() {
             <Stack.Screen name="werven" />
             <Stack.Screen name="werf-detail" />
             <Stack.Screen name="werkbonnen" />
+            <Stack.Screen name="werkbonnen/week" />
+            <Stack.Screen name="werkbonnen/month" />
+            <Stack.Screen name="werkbonnen/year" />
+            <Stack.Screen name="werkbonnen/volledig" />
             <Stack.Screen name="werkbon-detail" />
             <Stack.Screen name="planning" />
             <Stack.Screen name="berichten" />
@@ -297,6 +302,10 @@ export default function AdminLayout() {
           <Stack.Screen name="werven" />
           <Stack.Screen name="werf-detail" />
           <Stack.Screen name="werkbonnen" />
+          <Stack.Screen name="werkbonnen/week" />
+          <Stack.Screen name="werkbonnen/month" />
+          <Stack.Screen name="werkbonnen/year" />
+          <Stack.Screen name="werkbonnen/volledig" />
           <Stack.Screen name="werkbon-detail" />
           <Stack.Screen name="planning" />
           <Stack.Screen name="berichten" />

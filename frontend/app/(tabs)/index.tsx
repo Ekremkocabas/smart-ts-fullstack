@@ -17,7 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAppStore, Werkbon } from '../../store/appStore';
 import { useAuth } from '../../context/AuthContext';
 import { showAlert, showConfirm } from '../../utils/alerts';
-import { useWerkbonFormStore, WerkbonType } from '../../store/werkbonFormStore';
+import { useWerkbonFormStore, WerkbonType, getCurrentWeekNumber } from '../../store/werkbonFormStore';
 const getStatusColor = (status: string) => {
   switch (status) {
     case 'concept': return '#ffc107';
@@ -34,13 +34,6 @@ const getStatusLabel = (status: string) => {
     case 'verzonden': return 'Verzonden';
     default: return status;
   }
-};
-
-const getCurrentWeek = () => {
-  const now = new Date();
-  const startOfYear = new Date(now.getFullYear(), 0, 1);
-  const dayOfYear = Math.floor((now.getTime() - startOfYear.getTime()) / 86400000) + 1;
-  return Math.ceil(dayOfYear / 7);
 };
 
 // Helper to safely get numeric value (skip afkortingen like V, OV, Z)
@@ -78,7 +71,8 @@ export default function WerkbonnenScreen() {
   const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
   const [showTypeModal, setShowTypeModal] = useState(false);
   const isAdmin = user?.rol === 'admin' || user?.rol === 'master_admin';
-  const currentWeek = getCurrentWeek();
+  // ISO week — must match werkbon.week_nummer in DB (same as nieuwe werkbon flow)
+  const currentWeek = getCurrentWeekNumber();
 
   useEffect(() => {
     if (user?.id) fetchWerkbonnen({ userId: user.id, isAdmin });
@@ -99,22 +93,25 @@ export default function WerkbonnenScreen() {
     return new Date(`${year}-${month}-${day}`);
   };
 
-  // Unique week numbers from werkbonnen, sorted descending
+  // Unique week numbers from werkbonnen, sorted descending (normalize string/number from API)
   const weekNumbers = useMemo(() => {
-    const weeks = Array.from(new Set(
-      werkbonnen.map(w => w.week_nummer).filter(Boolean)
-    )).sort((a, b) => b - a);
-    return weeks;
+    const raw = werkbonnen
+      .map((w) => {
+        const n = Number(w.week_nummer);
+        return Number.isFinite(n) && n > 0 ? n : null;
+      })
+      .filter((n): n is number => n !== null);
+    return Array.from(new Set(raw)).sort((a, b) => b - a);
   }, [werkbonnen]);
 
   const filtered = useMemo(() => {
     if (selectedWeek === null) return werkbonnen;
-    return werkbonnen.filter(w => w.week_nummer === selectedWeek);
+    return werkbonnen.filter((w) => Number(w.week_nummer) === selectedWeek);
   }, [werkbonnen, selectedWeek]);
 
   // Weekly stats
   const weekStats = useMemo(() => {
-    const thisWeek = werkbonnen.filter(w => w.week_nummer === currentWeek);
+    const thisWeek = werkbonnen.filter((w) => Number(w.week_nummer) === currentWeek);
     const totalUren = thisWeek.reduce((sum, w) => sum + calcTotalUren(w), 0);
     return { count: thisWeek.length, uren: totalUren };
   }, [werkbonnen, currentWeek]);
@@ -270,17 +267,25 @@ export default function WerkbonnenScreen() {
             style={[styles.weekChip, selectedWeek === null && styles.weekChipActive]}
             onPress={() => setSelectedWeek(null)}
           >
-            <Text style={[styles.weekChipText, selectedWeek === null && styles.weekChipTextActive]}>
+            <Text
+              style={[styles.weekChipText, selectedWeek === null && styles.weekChipTextActive]}
+              numberOfLines={1}
+              allowFontScaling={false}
+            >
               Alles
             </Text>
           </TouchableOpacity>
-          {weekNumbers.map(w => (
+          {weekNumbers.map((w) => (
             <TouchableOpacity
-              key={w}
+              key={`week-${w}`}
               style={[styles.weekChip, selectedWeek === w && styles.weekChipActive]}
               onPress={() => setSelectedWeek(selectedWeek === w ? null : w)}
             >
-              <Text style={[styles.weekChipText, selectedWeek === w && styles.weekChipTextActive]}>
+              <Text
+                style={[styles.weekChipText, selectedWeek === w && styles.weekChipTextActive]}
+                numberOfLines={1}
+                allowFontScaling={false}
+              >
                 W{w}
               </Text>
             </TouchableOpacity>
@@ -430,20 +435,26 @@ const styles = StyleSheet.create({
   },
   statValue: { fontSize: 22, fontWeight: 'bold', color: '#1A1A2E' },
   statLabel: { fontSize: 10, color: '#6c757d', marginTop: 2 },
-  filterScroll: { maxHeight: 46 },
+  filterScroll: { maxHeight: 48 },
   filterContent: {
     paddingHorizontal: 16,
     gap: 8,
     alignItems: 'center',
     paddingBottom: 8,
+    flexDirection: 'row',
+    flexGrow: 0,
   },
   weekChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    flexShrink: 0,
+    minWidth: 40,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 16,
     backgroundColor: 'transparent',
     borderWidth: 1,
     borderColor: '#D0D3D9',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   weekChipActive: {
     backgroundColor: '#F5A623',

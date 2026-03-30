@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useAuth, apiClient } from '../../context/AuthContext';
+import { useAuth, apiClient } from '../../../context/AuthContext';
 import Constants from 'expo-constants';
 
 // Determine API URL - ALWAYS use window.location.origin for web production
@@ -90,6 +90,9 @@ export default function WerkbonnenAdmin() {
   });
   const [zipEndDate, setZipEndDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [zipLoading, setZipLoading] = useState(false);
+  const PAGE_SIZE = 100;
+  const [werkbonTotal, setWerkbonTotal] = useState(0);
+  const [werkbonLoadingMore, setWerkbonLoadingMore] = useState(false);
 
   useEffect(() => { 
     if (Platform.OS === 'web' && ['beheerder', 'admin', 'manager', 'master_admin'].includes(user?.rol || '')) {
@@ -107,8 +110,9 @@ export default function WerkbonnenAdmin() {
       setLoading(true);
       setError(null);
       const userId = user?.id || '';
-      const [werkbonnenRes, werknemersRes, teamsRes, klantenRes, wervenRes, productieRes, opleveringRes, projectRes] = await Promise.all([
-        apiClient.get(`/api/werkbonnen?user_id=${userId}&is_admin=true`),
+      const [werkbonnenRes, countRes, werknemersRes, teamsRes, klantenRes, wervenRes, productieRes, opleveringRes, projectRes] = await Promise.all([
+        apiClient.get(`/api/werkbonnen?user_id=${userId}&is_admin=true&skip=0&limit=${PAGE_SIZE}`),
+        apiClient.get(`/api/werkbonnen/filter-count`),
         apiClient.get(`/api/auth/users`),
         apiClient.get(`/api/teams`),
         apiClient.get(`/api/klanten`),
@@ -119,6 +123,7 @@ export default function WerkbonnenAdmin() {
       ]);
       const data = werkbonnenRes.data;
       setWerkbonnen(Array.isArray(data) ? data.sort((a: Werkbon, b: Werkbon) => b.week_nummer - a.week_nummer) : []);
+      setWerkbonTotal(typeof countRes.data?.count === 'number' ? countRes.data.count : (Array.isArray(data) ? data.length : 0));
       const werknemersData = werknemersRes.data;
       setWerknemers(Array.isArray(werknemersData) ? werknemersData : []);
       const teamsData = teamsRes.data;
@@ -138,6 +143,28 @@ export default function WerkbonnenAdmin() {
       setError('Kon werkbonnen niet laden. Probeer opnieuw.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadMoreWerkbonnen = async () => {
+    if (werkbonLoadingMore || werkbonnen.length >= werkbonTotal) return;
+    const userId = user?.id || '';
+    try {
+      setWerkbonLoadingMore(true);
+      const res = await apiClient.get(
+        `/api/werkbonnen?user_id=${userId}&is_admin=true&skip=${werkbonnen.length}&limit=${PAGE_SIZE}`
+      );
+      const data = res.data;
+      if (Array.isArray(data) && data.length > 0) {
+        setWerkbonnen((prev) => {
+          const merged = [...prev, ...data];
+          return merged.sort((a: Werkbon, b: Werkbon) => b.week_nummer - a.week_nummer);
+        });
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setWerkbonLoadingMore(false);
     }
   };
 
@@ -443,10 +470,14 @@ export default function WerkbonnenAdmin() {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.title}>Werkbonnen</Text>
+          <TouchableOpacity onPress={() => router.push('/admin/werkbonnen' as any)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <Ionicons name="arrow-back" size={22} color="#F5A623" />
+            <Text style={{ fontSize: 15, fontWeight: '600', color: '#F5A623' }}>Terug naar werkbonnen</Text>
+          </TouchableOpacity>
+          <Text style={styles.title}>Volledig overzicht</Text>
           <Text style={styles.subtitle}>
             {activeTab === 'werkbonnen'
-              ? `${werkbonnen.length} totaal, ${filtered.length} gefilterd`
+              ? `${werkbonnen.length}${werkbonTotal > werkbonnen.length ? ` van ${werkbonTotal}` : ''} geladen, ${filtered.length} gefilterd`
               : `${productieWerkbonnen.length} productie, ${filteredProductie.length} gefilterd`
             }
           </Text>
@@ -724,6 +755,21 @@ export default function WerkbonnenAdmin() {
                 </View>
               </TouchableOpacity>
             ))
+          )}
+          {activeTab === 'werkbonnen' && !filterWeek && !filterStatus && !filterWerknemer && !filterKlant && !filterWerf && !search && werkbonnen.length < werkbonTotal && (
+            <TouchableOpacity
+              style={{ padding: 16, alignItems: 'center', borderTopWidth: 1, borderTopColor: '#E8E9ED', backgroundColor: '#FAFAFA' }}
+              onPress={loadMoreWerkbonnen}
+              disabled={werkbonLoadingMore}
+            >
+              {werkbonLoadingMore ? (
+                <ActivityIndicator color="#F5A623" />
+              ) : (
+                <Text style={{ fontSize: 14, fontWeight: '600', color: '#F5A623' }}>
+                  Meer laden ({werkbonnen.length} / {werkbonTotal})
+                </Text>
+              )}
+            </TouchableOpacity>
           )}
         </View>
       ) : activeTab === 'productie' ? (
