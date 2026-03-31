@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth, apiClient } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 
 interface DashboardStats {
   totaalWerknemers: number;
@@ -29,6 +30,7 @@ interface DashboardStats {
 
 export default function AdminDashboard() {
   const { user, token, isLoading: authLoading } = useAuth();
+  const { theme } = useTheme();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -135,7 +137,7 @@ export default function AdminDashboard() {
     { icon: 'person-add', label: 'Nieuwe werknemer', route: '/admin/werknemers', color: '#3498db' },
     { icon: 'add-circle', label: 'Nieuwe klant', route: '/admin/klanten', color: '#1abc9c' },
     { icon: 'business', label: 'Nieuwe werf', route: '/admin/werven', color: '#e67e22' },
-    { icon: 'document-text', label: 'Bekijk werkbonnen', route: '/admin/werkbonnen', color: '#F5A623' },
+    { icon: 'document-text', label: 'Bekijk werkbonnen', route: '/admin/werkbonnen', color: theme.primaryColor || '#F5A623' },
     { icon: 'bar-chart', label: 'Rapporten', route: '/admin/rapporten', color: '#9b59b6' },
     { icon: 'archive', label: 'Download werkbonnen', route: '/admin/werkbonnen/volledig', color: '#0056b3' },
   ];
@@ -158,7 +160,7 @@ export default function AdminDashboard() {
       </View>
 
       {loading ? (
-        <ActivityIndicator size="large" color="#F5A623" style={{ marginVertical: 40 }} />
+        <ActivityIndicator size="large" color={theme.primaryColor} style={{ marginVertical: 40 }} />
       ) : error ? (
         <View
           style={{
@@ -180,7 +182,7 @@ export default function AdminDashboard() {
           </View>
           <TouchableOpacity
             onPress={fetchData}
-            style={{ backgroundColor: '#F5A623', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 }}
+            style={{ backgroundColor: theme.primaryColor, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 }}
           >
             <Text style={{ color: '#fff', fontWeight: '600' }}>Opnieuw</Text>
           </TouchableOpacity>
@@ -236,8 +238,8 @@ export default function AdminDashboard() {
               style={[styles.statCard, styles.statCardLarge]}
               onPress={() => router.push('/admin/werven')}
             >
-              <View style={[styles.statIcon, { backgroundColor: '#F5A62315' }]}>
-                <Ionicons name="business" size={28} color="#F5A623" />
+              <View style={[styles.statIcon, { backgroundColor: (theme.primaryColor || '#F5A623') + '20' }]}>
+                <Ionicons name="business" size={28} color={theme.primaryColor} />
               </View>
               <Text style={styles.statValue}>{stats?.totaalWerven || 0}</Text>
               <Text style={styles.statLabel}>Werven</Text>
@@ -260,15 +262,15 @@ export default function AdminDashboard() {
 
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionTitle}>Werkbonnen overzicht</Text>
-            <TouchableOpacity onPress={() => router.push('/admin/werkbonnen' as any)} style={styles.bekijkAlleBtn}>
-              <Text style={styles.bekijkAlleText}>Bekijk alle werkbonnen</Text>
-              <Ionicons name="arrow-forward" size={16} color="#F5A623" />
+            <TouchableOpacity onPress={() => router.push('/admin/werkbonnen' as any)} style={[styles.bekijkAlleBtn, { borderColor: (theme.primaryColor || '#F5A623') + '40' }]}>
+              <Text style={[styles.bekijkAlleText, { color: theme.primaryColor }]}>Bekijk alle werkbonnen</Text>
+              <Ionicons name="arrow-forward" size={16} color={theme.primaryColor} />
             </TouchableOpacity>
           </View>
 
           <View style={styles.werkbonStats}>
             <TouchableOpacity
-              style={[styles.werkbonStatCard, { borderLeftColor: '#F5A623' }]}
+              style={[styles.werkbonStatCard, { borderLeftColor: theme.primaryColor }]}
               onPress={() => router.push('/admin/werkbonnen/week' as any)}
               activeOpacity={0.85}
             >
@@ -294,15 +296,6 @@ export default function AdminDashboard() {
                 {stats?.werkbonnenDezeMaandAantal ?? 0} werkbonnen deze maand
               </Text>
             </TouchableOpacity>
-          </View>
-
-          <View style={styles.wachtendCard}>
-            <Ionicons name="hourglass-outline" size={22} color="#856404" />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.wachtendLabel}>Wachtend op handtekening (concept)</Text>
-              <Text style={styles.wachtendHint}>Totaal in het systeem, niet alleen deze week</Text>
-            </View>
-            <Text style={styles.wachtendValue}>{stats?.werkbonnenWachtend ?? 0}</Text>
           </View>
 
           <Text style={[styles.sectionTitle, { marginTop: 8 }]}>Snelle acties</Text>
@@ -453,33 +446,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#adb5bd',
     marginTop: 8,
-  },
-  wachtendCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    backgroundColor: '#fff3cd',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 28,
-    borderWidth: 1,
-    borderColor: '#ffc107',
-  },
-  wachtendLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#856404',
-  },
-  wachtendHint: {
-    fontSize: 12,
-    color: '#856404',
-    opacity: 0.85,
-    marginTop: 2,
-  },
-  wachtendValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#856404',
   },
   quickActionsGrid: {
     flexDirection: 'row',

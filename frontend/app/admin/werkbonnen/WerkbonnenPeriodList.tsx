@@ -69,6 +69,11 @@ const getStatusColor = (status: string) => {
   }
 };
 
+interface BillitConfig {
+  billit_actief: boolean;
+  billit_auto_versturen: boolean;
+}
+
 export function WerkbonnenPeriodList({ title, description, weekNummer, jaar, maand, extraHeader }: Props) {
   const { user } = useAuth();
   const [items, setItems] = useState<Werkbon[]>([]);
@@ -76,6 +81,8 @@ export function WerkbonnenPeriodList({ title, description, weekNummer, jaar, maa
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [search, setSearch] = useState('');
+  const [billitConfig, setBillitConfig] = useState<BillitConfig>({ billit_actief: false, billit_auto_versturen: false });
+  const [billitSending, setBillitSending] = useState<string | null>(null);
 
   const countUrl = React.useMemo(() => {
     const p = new URLSearchParams();
@@ -118,12 +125,20 @@ export function WerkbonnenPeriodList({ title, description, weekNummer, jaar, maa
       setLoading(true);
       setItems([]);
       try {
-        const [cRes, lRes] = await Promise.all([apiClient.get(countUrl), apiClient.get(buildListUrl(0))]);
+        const [cRes, lRes, billitRes] = await Promise.all([
+          apiClient.get(countUrl),
+          apiClient.get(buildListUrl(0)),
+          apiClient.get('/api/instellingen/facturatie').catch(() => ({ data: {} })),
+        ]);
         if (cancelled) return;
         const count = typeof cRes.data?.count === 'number' ? cRes.data.count : 0;
         const list = Array.isArray(lRes.data) ? lRes.data : [];
         setTotal(count);
         setItems(list.sort((a: Werkbon, b: Werkbon) => b.week_nummer - a.week_nummer));
+        setBillitConfig({
+          billit_actief: billitRes.data?.billit_actief ?? false,
+          billit_auto_versturen: billitRes.data?.billit_auto_versturen ?? false,
+        });
       } catch (e) {
         console.error(e);
       } finally {
@@ -175,6 +190,34 @@ export function WerkbonnenPeriodList({ title, description, weekNummer, jaar, maa
     }
   };
 
+  const deleteWerkbon = async (id: string) => {
+    if (!confirm('Zeker weten? Deze werkbon wordt permanent verwijderd.')) return;
+    try {
+      await apiClient.delete(`/api/werkbonnen/${id}`);
+      setItems(prev => prev.filter(wb => wb.id !== id));
+      setTotal(prev => Math.max(0, prev - 1));
+    } catch (e) {
+      console.error(e);
+      alert('Fout bij verwijderen werkbon.');
+    }
+  };
+
+  const sendToBillit = async (id: string) => {
+    if (billitSending) return;
+    setBillitSending(id);
+    try {
+      await apiClient.post(`/api/werkbonnen/${id}/verstuur-billit`);
+      alert('Werkbon succesvol naar Billit gestuurd!');
+    } catch (e: any) {
+      const msg = e?.response?.data?.detail || e?.message || 'Onbekende fout';
+      alert('Fout bij versturen naar Billit: ' + msg);
+    } finally {
+      setBillitSending(null);
+    }
+  };
+
+  const showBillitButton = billitConfig.billit_actief && !billitConfig.billit_auto_versturen;
+
   if (Platform.OS !== 'web') return null;
 
   return (
@@ -212,7 +255,9 @@ export function WerkbonnenPeriodList({ title, description, weekNummer, jaar, maa
             <Text style={styles.tableHeaderCell}>Werknemer</Text>
             <Text style={styles.tableHeaderCell}>Uren</Text>
             <Text style={styles.tableHeaderCell}>Status</Text>
-            <Text style={[styles.tableHeaderCell, { flex: 0.6, textAlign: 'center' }]}>PDF</Text>
+            <Text style={[styles.tableHeaderCell, { flex: showBillitButton ? 1.2 : 0.9, textAlign: 'center' }]}>
+              {showBillitButton ? 'PDF / Billit / Del' : 'PDF / Del'}
+            </Text>
           </View>
           {filtered.length === 0 ? (
             <View style={styles.emptyState}>
@@ -244,7 +289,7 @@ export function WerkbonnenPeriodList({ title, description, weekNummer, jaar, maa
                     <Text style={styles.statusText}>{wb.status}</Text>
                   </View>
                 </View>
-                <View style={[styles.tableCell, { flex: 0.6, alignItems: 'center' }]}>
+                <View style={[styles.tableCell, { flex: showBillitButton ? 1.2 : 0.9, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 10 }]}>
                   <TouchableOpacity
                     onPress={(e: any) => {
                       e?.stopPropagation?.();
@@ -252,6 +297,32 @@ export function WerkbonnenPeriodList({ title, description, weekNummer, jaar, maa
                     }}
                   >
                     <Ionicons name="download-outline" size={18} color="#3498db" />
+                  </TouchableOpacity>
+                  {showBillitButton && (
+                    <TouchableOpacity
+                      onPress={(e: any) => {
+                        e?.stopPropagation?.();
+                        sendToBillit(wb.id);
+                      }}
+                      disabled={billitSending === wb.id}
+                      style={styles.billitBtn}
+                    >
+                      {billitSending === wb.id ? (
+                        <ActivityIndicator size="small" color="#0066CC" />
+                      ) : (
+                        <View style={styles.billitBtnInner}>
+                          <Text style={styles.billitBtnText}>B</Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity
+                    onPress={(e: any) => {
+                      e?.stopPropagation?.();
+                      deleteWerkbon(wb.id);
+                    }}
+                  >
+                    <Ionicons name="trash-outline" size={17} color="#dc3545" />
                   </TouchableOpacity>
                 </View>
               </TouchableOpacity>
@@ -346,4 +417,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#FAFAFA',
   },
   moreBtnText: { fontSize: 14, fontWeight: '600', color: '#F5A623' },
+  billitBtn: { alignItems: 'center', justifyContent: 'center' },
+  billitBtnInner: {
+    width: 22,
+    height: 22,
+    borderRadius: 5,
+    backgroundColor: '#0066CC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  billitBtnText: { fontSize: 12, fontWeight: '800', color: '#fff' },
 });

@@ -1183,6 +1183,13 @@ class BedrijfsInstellingen(BaseModel):
     branding: Optional[Dict] = None
     pdf_teksten: Optional[Dict] = None
 
+    # === FACTURATIE KOPPELING ===
+    billit_api_key: Optional[str] = None
+    billit_omschrijving_template: str = "Werkzaamheden week {week} - {werf}"
+    billit_referentie_veld: str = "Reference"          # "Reference" or "OrderTitle"
+    billit_actief: bool = False
+    billit_auto_versturen: bool = False
+
 class BedrijfsInstellingenUpdate(BaseModel):
     bedrijfsnaam: Optional[str] = None
     email: Optional[str] = None
@@ -1218,6 +1225,12 @@ class BedrijfsInstellingenUpdate(BaseModel):
     branding: Optional[Dict] = None
     pdf_teksten: Optional[Dict] = None
     pdf_texts: Optional[Dict] = None           # Frontend sends this
+    # Facturatie koppeling
+    billit_api_key: Optional[str] = None
+    billit_omschrijving_template: Optional[str] = None
+    billit_referentie_veld: Optional[str] = None
+    billit_actief: Optional[bool] = None
+    billit_auto_versturen: Optional[bool] = None
 
 # ==================== OPLEVERING WERKBON (Customer Satisfaction) ====================
 
@@ -5032,6 +5045,178 @@ async def update_instellingen(update_data: BedrijfsInstellingenUpdate, current_u
         updated['pdf_texts'] = updated['pdf_teksten']
     return updated
 
+# ==================== FACTURATIE KOPPELING ROUTES ====================
+
+@api_router.get("/instellingen/facturatie")
+async def get_facturatie_instellingen(current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
+    """Facturatie koppeling instellingen ophalen."""
+    settings = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0})
+    if not settings:
+        return {
+            "billit_api_key": None,
+            "billit_omschrijving_template": "Werkzaamheden week {week} - {werf}",
+            "billit_referentie_veld": "Reference",
+            "billit_actief": False,
+            "billit_auto_versturen": False,
+        }
+    return {
+        "billit_api_key": settings.get("billit_api_key"),
+        "billit_omschrijving_template": settings.get("billit_omschrijving_template", "Werkzaamheden week {week} - {werf}"),
+        "billit_referentie_veld": settings.get("billit_referentie_veld", "Reference"),
+        "billit_actief": settings.get("billit_actief", False),
+        "billit_auto_versturen": settings.get("billit_auto_versturen", False),
+    }
+
+@api_router.put("/instellingen/facturatie")
+async def update_facturatie_instellingen(update_data: Dict, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
+    """Facturatie koppeling instellingen opslaan."""
+    allowed_keys = {"billit_api_key", "billit_omschrijving_template", "billit_referentie_veld", "billit_actief", "billit_auto_versturen"}
+    update_dict = {k: v for k, v in update_data.items() if k in allowed_keys}
+    await db.instellingen.update_one(
+        {"id": "company_settings"},
+        {"$set": update_dict},
+        upsert=True
+    )
+    clear_cache("instellingen")
+    updated = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0})
+    return {
+        "billit_api_key": updated.get("billit_api_key"),
+        "billit_omschrijving_template": updated.get("billit_omschrijving_template", "Werkzaamheden week {week} - {werf}"),
+        "billit_referentie_veld": updated.get("billit_referentie_veld", "Reference"),
+        "billit_actief": updated.get("billit_actief", False),
+        "billit_auto_versturen": updated.get("billit_auto_versturen", False),
+    }
+
+# ==================== BILLIT INTEGRATION ====================
+
+async def send_werkbon_to_billit(werkbon: dict, klant: dict, instellingen: dict) -> dict:
+    """Werkbon verisi Billit API'sine gönderir. Hata olursa loglar ve False döner."""
+    billit_api_key = instellingen.get("billit_api_key")
+    if not billit_api_key:
+        logging.warning("[Billit] API key niet geconfigureerd, stuur overgeslagen.")
+        return {"success": False, "error": "Billit API key niet geconfigureerd"}
+
+    omschrijving_template = instellingen.get("billit_omschrijving_template", "Werkzaamheden week {week} - {werf}")
+    referentie_veld = instellingen.get("billit_referentie_veld", "Reference")
+
+    # Omschrijving invullen
+    week_nr = werkbon.get("week_nummer", "")
+    jaar = werkbon.get("jaar", "")
+    werf_naam = werkbon.get("werf_naam") or "Onbekend"
+    klant_naam = werkbon.get("klant_naam") or klant.get("bedrijfsnaam") or klant.get("naam") or "Onbekend"
+    omschrijving = (
+        omschrijving_template
+        .replace("{week}", str(week_nr))
+        .replace("{werf}", werf_naam)
+        .replace("{klant}", klant_naam)
+        .replace("{jaar}", str(jaar))
+    )
+
+    # Werkbon referentienummer
+    werkbon_ref = f"WB-{jaar}-W{week_nr}-{werkbon['id'][:6].upper()}"
+
+    # Datum berekenen
+    datum_ma = werkbon.get("datum_maandag")
+    if datum_ma:
+        try:
+            if isinstance(datum_ma, str):
+                order_date = datum_ma[:10]
+            else:
+                order_date = datum_ma.strftime("%Y-%m-%d")
+        except Exception:
+            order_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    else:
+        order_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    try:
+        expiry_dt = datetime.strptime(order_date, "%Y-%m-%d") + timedelta(days=30)
+        expiry_date = expiry_dt.strftime("%Y-%m-%d")
+    except Exception:
+        expiry_date = order_date
+
+    # Financials
+    fin = compute_werkbon_financials(werkbon, klant)
+    totaal_bedrag = fin.get("totaal_bedrag", 0.0)
+    btw_percentage = float(klant.get("btw_percentage", 21))
+
+    # Billit JSON payload
+    payload: dict = {
+        "OrderType": "Invoice",
+        "OrderDirection": "Income",
+        "OrderNumber": werkbon_ref,
+        "OrderDate": order_date,
+        "ExpiryDate": expiry_date,
+        "Customer": {
+            "Name": klant_naam,
+            "VATNumber": klant.get("btw_nummer") or "",
+            "PartyType": "Customer"
+        },
+        "OrderLines": [
+            {
+                "Quantity": 1,
+                "UnitPriceExcl": totaal_bedrag,
+                "Description": omschrijving,
+                "VATPercentage": btw_percentage
+            }
+        ],
+    }
+    payload[referentie_veld] = werkbon_ref
+
+    # Authorization header: Basic base64(api_key + ":")
+    credentials = base64.b64encode(f"{billit_api_key}:".encode()).decode()
+    headers = {
+        "Authorization": f"Basic {credentials}",
+        "Content-Type": "application/json",
+    }
+
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post("https://api.billit.be/v1/orders", json=payload, headers=headers)
+        if resp.status_code in (200, 201):
+            logging.info("[Billit] Werkbon %s succesvol verstuurd. Status: %s", werkbon["id"], resp.status_code)
+            return {"success": True, "billit_order_id": resp.json().get("Id") or resp.json().get("id")}
+        else:
+            logging.error("[Billit] Fout bij versturen werkbon %s. Status: %s | Body: %s", werkbon["id"], resp.status_code, resp.text[:500])
+            return {"success": False, "error": f"Billit API status {resp.status_code}: {resp.text[:200]}"}
+    except Exception as exc:
+        logging.error("[Billit] Uitzondering bij versturen werkbon %s: %s", werkbon["id"], str(exc))
+        return {"success": False, "error": str(exc)}
+
+@api_router.post("/werkbonnen/{werkbon_id}/verstuur-billit")
+async def verstuur_werkbon_naar_billit(werkbon_id: str, current_user: Dict = Depends(require_web_access())):
+    """Werkbon handmatig naar Billit sturen."""
+    werkbon = await db.werkbonnen.find_one({"id": werkbon_id}, {"_id": 0})
+    if not werkbon:
+        raise HTTPException(status_code=404, detail="Werkbon niet gevonden")
+
+    klant = await db.klanten.find_one({"id": werkbon.get("klant_id")}, {"_id": 0}) or {}
+    instellingen = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0}) or {}
+
+    result = await send_werkbon_to_billit(werkbon, klant, instellingen)
+
+    if result.get("success"):
+        await db.werkbonnen.update_one(
+            {"id": werkbon_id},
+            {"$set": {
+                "billit_verzonden": True,
+                "billit_verzonden_at": datetime.now(timezone.utc).isoformat(),
+                "billit_error": None,
+                "updated_at": datetime.now(timezone.utc)
+            }}
+        )
+    else:
+        await db.werkbonnen.update_one(
+            {"id": werkbon_id},
+            {"$set": {
+                "billit_verzonden": False,
+                "billit_error": result.get("error"),
+                "updated_at": datetime.now(timezone.utc)
+            }}
+        )
+
+    return result
+
 # ==================== EMAIL SERVICE ====================
 
 async def send_werkbon_email(
@@ -5346,6 +5531,25 @@ async def verzend_werkbon(werkbon_id: str, klant_email: Optional[str] = Query(No
         }}
     )
     
+    # Auto-send to Billit if enabled
+    billit_result = None
+    if instellingen.get("billit_actief") and instellingen.get("billit_auto_versturen"):
+        try:
+            werkbon_for_billit = await db.werkbonnen.find_one({"id": werkbon_id}, {"_id": 0}) or werkbon
+            billit_result = await send_werkbon_to_billit(werkbon_for_billit, klant or {}, instellingen)
+            billit_update: dict = {"updated_at": datetime.now(timezone.utc)}
+            if billit_result.get("success"):
+                billit_update["billit_verzonden"] = True
+                billit_update["billit_verzonden_at"] = datetime.now(timezone.utc).isoformat()
+                billit_update["billit_error"] = None
+            else:
+                billit_update["billit_verzonden"] = False
+                billit_update["billit_error"] = billit_result.get("error")
+            await db.werkbonnen.update_one({"id": werkbon_id}, {"$set": billit_update})
+        except Exception as billit_exc:
+            logging.error("[Billit auto] Fout bij automatisch versturen werkbon %s: %s", werkbon_id, str(billit_exc))
+            billit_result = {"success": False, "error": str(billit_exc)}
+
     return {
         "message": "Werkbon als PDF verzonden" if email_result.get("success") else "PDF gemaakt, maar e-mail kon niet worden verzonden",
         "status": nieuwe_status,
@@ -5356,6 +5560,8 @@ async def verzend_werkbon(werkbon_id: str, klant_email: Optional[str] = Query(No
         "recipients": email_result.get("recipients", []),
         "email_sent": email_result.get("success", False),
         "email_error": email_result.get("error"),
+        "billit_sent": billit_result.get("success") if billit_result else None,
+        "billit_error": billit_result.get("error") if billit_result and not billit_result.get("success") else None,
         "success": True
     }
 

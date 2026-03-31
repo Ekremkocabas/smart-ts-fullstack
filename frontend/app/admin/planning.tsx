@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth, apiClient } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import Constants from 'expo-constants';
 
 // Determine API URL - ALWAYS use window.location.origin for web production
@@ -95,8 +96,38 @@ function getWeekDates(year: number, week: number): Record<string, string> {
   return dates;
 }
 
+// Smart time parser: "8" → "08:00", "930" → "09:30", "1230" → "12:30"
+function parseSmartTime(val: string): string {
+  const cleaned = val.replace(/\s/g, '');
+  if (!cleaned) return '';
+  if (/^\d{1,2}:\d{2}$/.test(cleaned)) {
+    const [h, m] = cleaned.split(':').map(Number);
+    if (h >= 0 && h <= 23 && m >= 0 && m <= 59)
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    return cleaned;
+  }
+  if (/^\d+$/.test(cleaned)) {
+    if (cleaned.length <= 2) {
+      const h = parseInt(cleaned, 10);
+      if (h >= 0 && h <= 23) return `${String(h).padStart(2, '0')}:00`;
+    } else if (cleaned.length === 3) {
+      const h = parseInt(cleaned.slice(0, 1), 10);
+      const m = parseInt(cleaned.slice(1), 10);
+      if (h >= 0 && h <= 23 && m >= 0 && m <= 59)
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    } else if (cleaned.length === 4) {
+      const h = parseInt(cleaned.slice(0, 2), 10);
+      const m = parseInt(cleaned.slice(2), 10);
+      if (h >= 0 && h <= 23 && m >= 0 && m <= 59)
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    }
+  }
+  return val;
+}
+
 export default function PlanningAdmin() {
   const { user } = useAuth();
+  const { theme } = useTheme();
   const now = new Date();
   const [weekNummer, setWeekNummer] = useState(getISOWeek(now));
   const [jaar, setJaar] = useState(now.getFullYear());
@@ -116,6 +147,11 @@ export default function PlanningAdmin() {
   const [exportPeriode, setExportPeriode] = useState('week');
   const [exportFormaat, setExportFormaat] = useState('csv');
   const [isEditing, setIsEditing] = useState(false);
+  // Multi-day selection states
+  const [selectedDagen, setSelectedDagen] = useState<string[]>(['maandag']);
+  const [dagPickMode, setDagPickMode] = useState<'individueel' | 'range'>('individueel');
+  const [vanDatum, setVanDatum] = useState('');
+  const [totDatum, setTotDatum] = useState('');
 
   const emptyForm = {
     dag: 'maandag',
@@ -157,9 +193,21 @@ export default function PlanningAdmin() {
     setForm(prev => ({ ...prev, start_uur: v, voorziene_uur: calc || prev.voorziene_uur }));
   };
 
+  const handleStartUurBlur = () => {
+    const parsed = parseSmartTime(form.start_uur);
+    const calc = calcVoorzeineUur(parsed, form.eind_uur);
+    setForm(prev => ({ ...prev, start_uur: parsed, voorziene_uur: calc || prev.voorziene_uur }));
+  };
+
   const handleEindUur = (v: string) => {
     const calc = calcVoorzeineUur(form.start_uur, v);
     setForm(prev => ({ ...prev, eind_uur: v, voorziene_uur: calc || prev.voorziene_uur }));
+  };
+
+  const handleEindUurBlur = () => {
+    const parsed = parseSmartTime(form.eind_uur);
+    const calc = calcVoorzeineUur(form.start_uur, parsed);
+    setForm(prev => ({ ...prev, eind_uur: parsed, voorziene_uur: calc || prev.voorziene_uur }));
   };
 
   const fetchData = useCallback(async () => {
@@ -196,10 +244,36 @@ export default function PlanningAdmin() {
   };
 
   const openCreateModal = (dag?: string) => {
-    setForm({ ...emptyForm, dag: dag || 'maandag' });
+    const initialDag = dag || 'maandag';
+    setForm({ ...emptyForm, dag: initialDag });
+    setSelectedDagen([initialDag]);
+    setDagPickMode('individueel');
+    setVanDatum('');
+    setTotDatum('');
     setWaarschuwingen([]);
     setIsEditing(false);
     setShowModal(true);
+  };
+
+  const toggleDagSelection = (dag: string) => {
+    setSelectedDagen(prev =>
+      prev.includes(dag) ? prev.filter(d => d !== dag) : [...prev, dag]
+    );
+  };
+
+  const applyDateRange = () => {
+    if (!vanDatum || !totDatum) return;
+    const van = new Date(vanDatum);
+    const tot = new Date(totDatum);
+    const newSelected: string[] = [];
+    DAGEN.forEach(dag => {
+      const datumStr = weekDates[dag];
+      if (!datumStr) return;
+      const [dd, mm, yyyy] = datumStr.split('-').map(Number);
+      const d = new Date(yyyy, mm - 1, dd);
+      if (d >= van && d <= tot) newSelected.push(dag);
+    });
+    if (newSelected.length > 0) setSelectedDagen(newSelected);
   };
 
   const openEditModal = (item: PlanningItem) => {
@@ -248,22 +322,24 @@ export default function PlanningAdmin() {
       alert('Selecteer minimaal één werknemer');
       return;
     }
+    if (!isEditing && selectedDagen.length === 0) {
+      alert('Selecteer minimaal één dag');
+      return;
+    }
     setSaving(true);
     setWaarschuwingen([]);
     try {
       const materiaalItems = form.nodige_materiaal.split('\n').map(m => m.trim()).filter(Boolean);
-      const body = {
+      const baseBody = {
         week_nummer: weekNummer,
         jaar: jaar,
-        dag: form.dag,
-        datum: weekDates[form.dag] || '',
         werknemer_ids: form.werknemer_ids,
         werknemer_namen: [],
         team_id: form.team_id || null,
         klant_id: form.klant_id,
         werf_id: form.werf_id,
-        start_uur: form.start_uur,
-        eind_uur: form.eind_uur,
+        start_uur: parseSmartTime(form.start_uur) || form.start_uur,
+        eind_uur: parseSmartTime(form.eind_uur) || form.eind_uur,
         voorziene_uur: form.voorziene_uur || calcVoorzeineUur(form.start_uur, form.eind_uur),
         omschrijving: form.omschrijving,
         materiaallijst: materiaalItems,
@@ -276,13 +352,16 @@ export default function PlanningAdmin() {
       };
 
       if (isEditing && selectedItem) {
-        await apiClient.put(`/api/planning/${selectedItem.id}`, body);
+        await apiClient.put(`/api/planning/${selectedItem.id}`, { ...baseBody, dag: form.dag, datum: weekDates[form.dag] || '' });
       } else {
-        const res = await apiClient.post('/api/planning', body);
-        const result = res.data;
-        if (result.waarschuwingen?.length > 0) {
-          setWaarschuwingen(result.waarschuwingen);
+        // Create one entry per selected day
+        const allWaarschuwingen: string[] = [];
+        for (const dag of selectedDagen) {
+          const res = await apiClient.post('/api/planning', { ...baseBody, dag, datum: weekDates[dag] || '' });
+          const result = res.data;
+          if (result.waarschuwingen?.length > 0) allWaarschuwingen.push(...result.waarschuwingen);
         }
+        if (allWaarschuwingen.length > 0) setWaarschuwingen(allWaarschuwingen);
       }
       setShowModal(false);
       fetchData();
@@ -453,7 +532,7 @@ export default function PlanningAdmin() {
             <Ionicons name="download-outline" size={20} color="#fff" />
             <Text style={styles.addBtnText}>Exporteren</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.addBtn} onPress={() => openCreateModal()}>
+          <TouchableOpacity style={[styles.addBtn, { backgroundColor: theme.primaryColor || '#F5A623' }]} onPress={() => openCreateModal()}>
             <Ionicons name="add" size={22} color="#fff" />
             <Text style={styles.addBtnText}>Nieuwe taak</Text>
           </TouchableOpacity>
@@ -472,9 +551,9 @@ export default function PlanningAdmin() {
         <TouchableOpacity style={styles.weekArrow} onPress={() => changeWeek(1)}>
           <Ionicons name="chevron-forward" size={22} color="#1A1A2E" />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.todayBtn} onPress={() => { setWeekNummer(getISOWeek(new Date())); setJaar(new Date().getFullYear()); }}>
-          <Ionicons name="today-outline" size={18} color="#F5A623" />
-          <Text style={styles.todayBtnText}>Vandaag</Text>
+        <TouchableOpacity style={[styles.todayBtn, { backgroundColor: (theme.primaryColor || '#F5A623') + '10', borderColor: (theme.primaryColor || '#F5A623') + '30' }]} onPress={() => { setWeekNummer(getISOWeek(new Date())); setJaar(new Date().getFullYear()); }}>
+          <Ionicons name="today-outline" size={18} color={theme.primaryColor || '#F5A623'} />
+          <Text style={[styles.todayBtnText, { color: theme.primaryColor || '#F5A623' }]}>Vandaag</Text>
         </TouchableOpacity>
       </View>
 
@@ -500,13 +579,13 @@ export default function PlanningAdmin() {
         <View style={{ backgroundColor: '#fff3cd', borderRadius: 12, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#ffc107', flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <Ionicons name="warning-outline" size={22} color="#e67e22" />
           <Text style={{ flex: 1, fontSize: 14, color: '#1A1A2E' }}>{error}</Text>
-          <TouchableOpacity onPress={fetchData} style={{ backgroundColor: '#F5A623', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }}>
+          <TouchableOpacity onPress={fetchData} style={{ backgroundColor: theme.primaryColor || '#F5A623', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }}>
             <Text style={{ color: '#fff', fontWeight: '600', fontSize: 13 }}>Opnieuw</Text>
           </TouchableOpacity>
         </View>
       )}
       {loading ? (
-        <ActivityIndicator size="large" color="#F5A623" style={{ marginTop: 40 }} />
+        <ActivityIndicator size="large" color={theme.primaryColor || '#F5A623'} style={{ marginTop: 40 }} />
       ) : (
         /* Week Grid */
         <View style={styles.weekGrid}>
@@ -521,7 +600,7 @@ export default function PlanningAdmin() {
                   <Text style={styles.dagNaam}>{(DAG_KORT as any)[dag]}</Text>
                   <Text style={styles.dagDatum}>{datum}</Text>
                   <TouchableOpacity style={styles.dagAddBtn} onPress={() => openCreateModal(dag)}>
-                    <Ionicons name="add-circle" size={20} color="#F5A623" />
+                    <Ionicons name="add-circle" size={20} color={theme.primaryColor || '#F5A623'} />
                   </TouchableOpacity>
                 </View>
 
@@ -569,9 +648,9 @@ export default function PlanningAdmin() {
                           </View>
                         )}
                         {someConfirmed && (
-                          <View style={[styles.statusBadge, { backgroundColor: '#F5A62320', marginBottom: 4 }]}>
-                            <Ionicons name="time" size={12} color="#F5A623" />
-                            <Text style={{ fontSize: 10, color: '#F5A623', fontWeight: '600', marginLeft: 4 }}>{item.bevestigd_door?.length}/{item.werknemer_ids?.length} BEVESTIGD</Text>
+                          <View style={[styles.statusBadge, { backgroundColor: (theme.primaryColor || '#F5A623') + '20', marginBottom: 4 }]}>
+                            <Ionicons name="time" size={12} color={theme.primaryColor || '#F5A623'} />
+                            <Text style={{ fontSize: 10, color: theme.primaryColor || '#F5A623', fontWeight: '600', marginLeft: 4 }}>{item.bevestigd_door?.length}/{item.werknemer_ids?.length} BEVESTIGD</Text>
                           </View>
                         )}
                         {/* Status */}
@@ -610,14 +689,14 @@ export default function PlanningAdmin() {
       )}
       {waarschuwingen.length > 0 && (
         <View style={styles.warningBanner}>
-          <Ionicons name="warning" size={20} color="#F5A623" />
+          <Ionicons name="warning" size={20} color={theme.primaryColor || '#F5A623'} />
           <View style={{ flex: 1 }}>
             {waarschuwingen.map((w, i) => (
               <Text key={i} style={styles.warningText}>{w}</Text>
             ))}
           </View>
           <TouchableOpacity onPress={() => setWaarschuwingen([])}>
-            <Ionicons name="close" size={20} color="#F5A623" />
+            <Ionicons name="close" size={20} color={theme.primaryColor || '#F5A623'} />
           </TouchableOpacity>
         </View>
       )}
@@ -636,17 +715,110 @@ export default function PlanningAdmin() {
               <View style={styles.formSection}>
                 <Text style={styles.formSectionTitle}>📅 Wanneer</Text>
 
-                {/* Dag */}
-                <Text style={styles.label}>Dag *</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  <View style={styles.chipRow}>
-                    {DAGEN.map(dag => (
-                      <TouchableOpacity key={dag} style={[styles.chip, form.dag === dag && styles.chipActive]} onPress={() => setForm({ ...form, dag })}>
-                        <Text style={[styles.chipText, form.dag === dag && styles.chipTextActive]}>{(DAG_KORT as any)[dag]} {weekDates[dag]?.substring(0, 5)}</Text>
+                {/* Dag selectie modus (alleen bij aanmaken) */}
+                {!isEditing && (
+                  <>
+                    <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+                      <TouchableOpacity
+                        style={[styles.chip, dagPickMode === 'individueel' && { backgroundColor: theme.primaryColor || '#F5A623', borderColor: theme.primaryColor || '#F5A623' }]}
+                        onPress={() => setDagPickMode('individueel')}
+                      >
+                        <Text style={[styles.chipText, dagPickMode === 'individueel' && styles.chipTextActive]}>Dagen kiezen</Text>
                       </TouchableOpacity>
-                    ))}
-                  </View>
-                </ScrollView>
+                      <TouchableOpacity
+                        style={[styles.chip, dagPickMode === 'range' && { backgroundColor: theme.primaryColor || '#F5A623', borderColor: theme.primaryColor || '#F5A623' }]}
+                        onPress={() => setDagPickMode('range')}
+                      >
+                        <Text style={[styles.chipText, dagPickMode === 'range' && styles.chipTextActive]}>Van — Tot</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {dagPickMode === 'individueel' ? (
+                      <>
+                        <Text style={styles.label}>Selecteer dag(en) *  <Text style={{ color: '#999', fontWeight: '400' }}>({selectedDagen.length} geselecteerd)</Text></Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                          <View style={styles.chipRowScroll}>
+                            {DAGEN.map(dag => {
+                              const isSelected = selectedDagen.includes(dag);
+                              return (
+                                <TouchableOpacity
+                                  key={dag}
+                                  style={[styles.chip, isSelected && { backgroundColor: theme.primaryColor || '#F5A623', borderColor: theme.primaryColor || '#F5A623' }]}
+                                  onPress={() => toggleDagSelection(dag)}
+                                >
+                                  <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
+                                    {(DAG_KORT as any)[dag]} {weekDates[dag]?.substring(0, 5)}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                        </ScrollView>
+                      </>
+                    ) : (
+                      <>
+                        <Text style={styles.label}>Datum bereik *</Text>
+                        <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                          <View style={{ flex: 1, minWidth: 140 }}>
+                            <Text style={{ fontSize: 12, color: '#6c757d', marginBottom: 4 }}>Van</Text>
+                            {Platform.OS === 'web' ? (
+                              <input
+                                type="date"
+                                value={vanDatum}
+                                onChange={(e: any) => setVanDatum(e.target.value)}
+                                style={{ fontSize: 14, padding: '10px 12px', borderRadius: 8, border: '1px solid #E8E9ED', outline: 'none', width: '100%' }}
+                              />
+                            ) : (
+                              <TextInput style={styles.input} value={vanDatum} onChangeText={setVanDatum} placeholder="YYYY-MM-DD" placeholderTextColor="#999" />
+                            )}
+                          </View>
+                          <View style={{ flex: 1, minWidth: 140 }}>
+                            <Text style={{ fontSize: 12, color: '#6c757d', marginBottom: 4 }}>Tot</Text>
+                            {Platform.OS === 'web' ? (
+                              <input
+                                type="date"
+                                value={totDatum}
+                                onChange={(e: any) => setTotDatum(e.target.value)}
+                                style={{ fontSize: 14, padding: '10px 12px', borderRadius: 8, border: '1px solid #E8E9ED', outline: 'none', width: '100%' }}
+                              />
+                            ) : (
+                              <TextInput style={styles.input} value={totDatum} onChangeText={setTotDatum} placeholder="YYYY-MM-DD" placeholderTextColor="#999" />
+                            )}
+                          </View>
+                          <TouchableOpacity
+                            style={[styles.chip, { backgroundColor: theme.primaryColor || '#F5A623', borderColor: theme.primaryColor || '#F5A623', marginTop: 20 }]}
+                            onPress={applyDateRange}
+                          >
+                            <Text style={styles.chipTextActive}>Toepassen</Text>
+                          </TouchableOpacity>
+                        </View>
+                        {selectedDagen.length > 0 && (
+                          <View style={{ backgroundColor: (theme.primaryColor || '#F5A623') + '15', borderRadius: 8, padding: 10, marginTop: 8 }}>
+                            <Text style={{ fontSize: 12, color: theme.primaryColor || '#F5A623', fontWeight: '600' }}>
+                              Geselecteerd: {selectedDagen.map(d => (DAG_KORT as any)[d]).join(', ')} ({selectedDagen.length} {selectedDagen.length === 1 ? 'dag' : 'dagen'})
+                            </Text>
+                          </View>
+                        )}
+                      </>
+                    )}
+                  </>
+                )}
+
+                {/* Bij bewerken: enkelvoudige dag selector */}
+                {isEditing && (
+                  <>
+                    <Text style={styles.label}>Dag *</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                      <View style={styles.chipRowScroll}>
+                        {DAGEN.map(dag => (
+                          <TouchableOpacity key={dag} style={[styles.chip, form.dag === dag && { backgroundColor: theme.primaryColor || '#F5A623', borderColor: theme.primaryColor || '#F5A623' }]} onPress={() => setForm({ ...form, dag })}>
+                            <Text style={[styles.chipText, form.dag === dag && styles.chipTextActive]}>{(DAG_KORT as any)[dag]} {weekDates[dag]?.substring(0, 5)}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </ScrollView>
+                  </>
+                )}
 
                 {/* Tijden */}
                 <View style={styles.timeRow}>
@@ -656,6 +828,7 @@ export default function PlanningAdmin() {
                       style={styles.input}
                       value={form.start_uur}
                       onChangeText={handleStartUur}
+                      onBlur={handleStartUurBlur}
                       placeholder="08:00"
                       placeholderTextColor="#999"
                       keyboardType="numbers-and-punctuation"
@@ -667,6 +840,7 @@ export default function PlanningAdmin() {
                       style={styles.input}
                       value={form.eind_uur}
                       onChangeText={handleEindUur}
+                      onBlur={handleEindUurBlur}
                       placeholder="16:30"
                       placeholderTextColor="#999"
                       keyboardType="numbers-and-punctuation"
@@ -675,7 +849,7 @@ export default function PlanningAdmin() {
                   <View style={{ flex: 1 }}>
                     <Text style={styles.label}>Voorziene uur</Text>
                     <TextInput
-                      style={[styles.input, form.voorziene_uur ? { borderColor: '#F5A623' } : {}]}
+                      style={[styles.input, form.voorziene_uur ? { borderColor: theme.primaryColor || '#F5A623' } : {}]}
                       value={form.voorziene_uur}
                       onChangeText={v => setForm({ ...form, voorziene_uur: v })}
                       placeholder="auto"
@@ -692,7 +866,7 @@ export default function PlanningAdmin() {
                 {/* Klant */}
                 <Text style={styles.label}>Klant / Bedrijf *</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  <View style={styles.chipRow}>
+                  <View style={styles.chipRowScroll}>
                     {klanten.map(k => (
                       <TouchableOpacity key={k.id} style={[styles.chip, form.klant_id === k.id && styles.chipActiveGreen]}
                         onPress={() => setForm({ ...form, klant_id: k.id, werf_id: '' })}>
@@ -708,7 +882,7 @@ export default function PlanningAdmin() {
                   <Text style={styles.noItemsText}>{form.klant_id ? 'Geen werven voor deze klant' : 'Selecteer eerst een klant'}</Text>
                 ) : (
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    <View style={styles.chipRow}>
+                    <View style={styles.chipRowScroll}>
                       {filteredWerven.map(w => (
                         <TouchableOpacity key={w.id} style={[styles.chip, form.werf_id === w.id && styles.chipActiveBlue]}
                           onPress={() => setForm({ ...form, werf_id: w.id })}>
@@ -731,16 +905,16 @@ export default function PlanningAdmin() {
                       {werknemerGroups.werknemers.map(w => {
                         const isSelected = form.werknemer_ids.includes(w.id);
                         return (
-                          <TouchableOpacity key={w.id} style={[styles.workerChip, isSelected && styles.workerChipActive]}
+                          <TouchableOpacity key={w.id} style={[styles.workerChip, isSelected && { borderColor: theme.primaryColor || '#F5A623', backgroundColor: (theme.primaryColor || '#F5A623') + '10' }]}
                             onPress={() => toggleWorker(w.id)}>
-                            <View style={[styles.workerAvatar, isSelected && { backgroundColor: '#F5A623' }]}>
+                            <View style={[styles.workerAvatar, isSelected && { backgroundColor: theme.primaryColor || '#F5A623' }]}>
                               <Text style={[styles.workerAvatarText, isSelected && { color: '#fff' }]}>{w.naam?.charAt(0)}</Text>
                             </View>
                             <View style={{ flex: 1 }}>
-                              <Text style={[styles.workerName, isSelected && { color: '#F5A623', fontWeight: '600' }]} numberOfLines={1}>{w.naam}</Text>
+                              <Text style={[styles.workerName, isSelected && { color: theme.primaryColor || '#F5A623', fontWeight: '600' }]} numberOfLines={1}>{w.naam}</Text>
                               <Text style={{ fontSize: 10, color: '#999' }}>{w.rol}</Text>
                             </View>
-                            {isSelected && <Ionicons name="checkmark-circle" size={18} color="#F5A623" />}
+                            {isSelected && <Ionicons name="checkmark-circle" size={18} color={theme.primaryColor || '#F5A623'} />}
                           </TouchableOpacity>
                         );
                       })}
@@ -831,10 +1005,10 @@ export default function PlanningAdmin() {
 
                 {/* Belangrijk toggle */}
                 <TouchableOpacity
-                  style={[styles.belangrijkToggle, form.belangrijk && styles.belangrijkToggleActive]}
+                  style={[styles.belangrijkToggle, { borderColor: theme.primaryColor || '#F5A623' }, form.belangrijk && { backgroundColor: theme.primaryColor || '#F5A623' }]}
                   onPress={() => setForm({ ...form, belangrijk: !form.belangrijk })}
                 >
-                  <Ionicons name={form.belangrijk ? 'warning' : 'warning-outline'} size={22} color={form.belangrijk ? '#fff' : '#F5A623'} />
+                  <Ionicons name={form.belangrijk ? 'warning' : 'warning-outline'} size={22} color={form.belangrijk ? '#fff' : (theme.primaryColor || '#F5A623')} />
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.belangrijkToggleText, form.belangrijk && { color: '#fff' }]}>Markeer als Belangrijk</Text>
                     <Text style={[{ fontSize: 11, color: form.belangrijk ? '#fff' : '#999', marginTop: 2 }]}>Werknemer ziet dit prominent op zijn app</Text>
@@ -858,7 +1032,7 @@ export default function PlanningAdmin() {
 
             </ScrollView>
 
-            <TouchableOpacity style={styles.saveBtn} onPress={savePlanning} disabled={saving}>
+            <TouchableOpacity style={[styles.saveBtn, { backgroundColor: theme.primaryColor || '#F5A623' }]} onPress={savePlanning} disabled={saving}>
               {saving ? <ActivityIndicator color="#fff" /> : (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <Ionicons name={isEditing ? 'save' : 'calendar'} size={20} color="#fff" />
@@ -984,9 +1158,9 @@ export default function PlanningAdmin() {
                           <View key={i} style={styles.workerDetailRow}>
                             <View style={styles.workerAvatarSmall}><Text style={styles.workerAvatarTextSmall}>{naam?.charAt(0)}</Text></View>
                             <Text style={styles.workerDetailName}>{naam}</Text>
-                            <View style={[styles.bevestigBadge, { backgroundColor: bevestigd ? '#28a74520' : '#F5A62320' }]}>
-                              <Ionicons name={bevestigd ? 'checkmark-circle' : 'time'} size={14} color={bevestigd ? '#28a745' : '#F5A623'} />
-                              <Text style={{ fontSize: 11, color: bevestigd ? '#28a745' : '#F5A623', fontWeight: '600' }}>
+                            <View style={[styles.bevestigBadge, { backgroundColor: bevestigd ? '#28a74520' : (theme.primaryColor || '#F5A623') + '20' }]}>
+                              <Ionicons name={bevestigd ? 'checkmark-circle' : 'time'} size={14} color={bevestigd ? '#28a745' : (theme.primaryColor || '#F5A623')} />
+                              <Text style={{ fontSize: 11, color: bevestigd ? '#28a745' : (theme.primaryColor || '#F5A623'), fontWeight: '600' }}>
                                 {bevestigd ? 'BEVESTIGD' : 'Wacht'}
                               </Text>
                               {bevestigd && tsLabel && (
@@ -1061,7 +1235,7 @@ export default function PlanningAdmin() {
                     <Ionicons name="pencil-outline" size={18} color="#3498db" />
                     <Text style={{ color: '#3498db', fontWeight: '600', fontSize: 14 }}>Bewerken</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.detailActionBtn, { backgroundColor: '#F5A623', flex: 1 }]} onPress={() => setShowDetailModal(false)}>
+                  <TouchableOpacity style={[styles.detailActionBtn, { backgroundColor: theme.primaryColor || '#F5A623', flex: 1 }]} onPress={() => setShowDetailModal(false)}>
                     <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Sluiten</Text>
                   </TouchableOpacity>
                 </View>
@@ -1089,7 +1263,7 @@ export default function PlanningAdmin() {
                 { key: '6maanden', label: '6 Maanden' },
                 { key: 'jaar', label: 'Jaarlijks' },
               ].map(p => (
-                <TouchableOpacity key={p.key} style={[styles.chip, exportPeriode === p.key && styles.chipActive]}
+                <TouchableOpacity key={p.key} style={[styles.chip, exportPeriode === p.key && { backgroundColor: theme.primaryColor || '#F5A623', borderColor: theme.primaryColor || '#F5A623' }]}
                   onPress={() => setExportPeriode(p.key)}>
                   <Text style={[styles.chipText, exportPeriode === p.key && styles.chipTextActive]}>{p.label}</Text>
                 </TouchableOpacity>
@@ -1120,7 +1294,7 @@ export default function PlanningAdmin() {
               </Text>
             </View>
 
-            <TouchableOpacity style={styles.saveBtn} onPress={exportPlanning}>
+            <TouchableOpacity style={[styles.saveBtn, { backgroundColor: theme.primaryColor || '#F5A623' }]} onPress={exportPlanning}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <Ionicons name="download" size={20} color="#fff" />
                 <Text style={styles.saveBtnText}>Exporteren</Text>
@@ -1195,6 +1369,7 @@ const styles = StyleSheet.create({
   noItemsText: { fontSize: 13, color: '#999', fontStyle: 'italic', padding: 10 },
 
   chipRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  chipRowScroll: { flexDirection: 'row', gap: 8 },
   chip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, backgroundColor: '#F5F6FA', borderWidth: 1.5, borderColor: '#E8E9ED' },
   chipActive: { backgroundColor: '#F5A623', borderColor: '#F5A623' },
   chipActiveGreen: { backgroundColor: '#27ae60', borderColor: '#27ae60' },

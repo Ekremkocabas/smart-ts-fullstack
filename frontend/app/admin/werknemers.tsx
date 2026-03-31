@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth, apiClient } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 
 // Determine API URL - ALWAYS use window.location.origin for web production
 const getApiUrl = () => {
@@ -57,6 +58,7 @@ const WERKBON_TYPES = [
 
 export default function WerknemersAdmin() {
   const { user, token, isLoading: authLoading } = useAuth();
+  const { theme } = useTheme();
   const [werknemers, setWerknemers] = useState<Werknemer[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
@@ -332,6 +334,8 @@ export default function WerknemersAdmin() {
     );
   }
 
+  const activeChipStyle = { backgroundColor: theme.primaryColor || '#F5A623', borderColor: theme.primaryColor || '#F5A623' };
+
   let filtered = werknemers;
   if (search) {
     filtered = filtered.filter(w =>
@@ -352,7 +356,7 @@ export default function WerknemersAdmin() {
 
   const getRolColor = (rol: string) => {
     switch (rol) {
-      case 'admin': case 'master_admin': return '#F5A623';
+      case 'admin': case 'master_admin': return theme.primaryColor || '#F5A623';
       case 'manager': return '#9b59b6';
       case 'planner': return '#3498db';
       case 'worker': return '#27ae60';
@@ -424,7 +428,7 @@ export default function WerknemersAdmin() {
             <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>PDF</Text>
           </TouchableOpacity>
           <TouchableOpacity 
-            style={styles.addBtn} 
+            style={[styles.addBtn, { backgroundColor: theme.primaryColor || '#F5A623' }]}
             onPress={openAddModal}
             testID="add-werknemer-button"
             accessibilityRole="button"
@@ -452,23 +456,23 @@ export default function WerknemersAdmin() {
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtersScroll}>
         <View style={styles.filters}>
-          <TouchableOpacity style={[styles.filterChip, !filterRol && styles.filterChipActive]} onPress={() => setFilterRol(null)}>
+          <TouchableOpacity style={[styles.filterChip, !filterRol && activeChipStyle]} onPress={() => setFilterRol(null)}>
             <Text style={[styles.filterText, !filterRol && styles.filterTextActive]}>Alle rollen</Text>
           </TouchableOpacity>
           {ROLLEN.map((rol) => (
-            <TouchableOpacity key={rol} style={[styles.filterChip, filterRol === rol && styles.filterChipActive]} onPress={() => setFilterRol(filterRol === rol ? null : rol)}>
+            <TouchableOpacity key={rol} style={[styles.filterChip, filterRol === rol && activeChipStyle]} onPress={() => setFilterRol(filterRol === rol ? null : rol)}>
               <Text style={[styles.filterText, filterRol === rol && styles.filterTextActive]}>{rol}</Text>
             </TouchableOpacity>
           ))}
           <View style={styles.filterDivider} />
-          <TouchableOpacity style={[styles.filterChip, filterActief === null && styles.filterChipActive]} onPress={() => setFilterActief(null)}>
+          <TouchableOpacity style={[styles.filterChip, filterActief === null && activeChipStyle]} onPress={() => setFilterActief(null)}>
             <Text style={[styles.filterText, filterActief === null && styles.filterTextActive]}>Alle statussen</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.filterChip, filterActief === true && styles.filterChipActive]} onPress={() => setFilterActief(filterActief === true ? null : true)}>
+          <TouchableOpacity style={[styles.filterChip, filterActief === true && activeChipStyle]} onPress={() => setFilterActief(filterActief === true ? null : true)}>
             <View style={[styles.statusDot, { backgroundColor: '#28a745' }]} />
             <Text style={[styles.filterText, filterActief === true && styles.filterTextActive]}>Actief</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.filterChip, filterActief === false && styles.filterChipActive]} onPress={() => setFilterActief(filterActief === false ? null : false)}>
+          <TouchableOpacity style={[styles.filterChip, filterActief === false && activeChipStyle]} onPress={() => setFilterActief(filterActief === false ? null : false)}>
             <View style={[styles.statusDot, { backgroundColor: '#dc3545' }]} />
             <Text style={[styles.filterText, filterActief === false && styles.filterTextActive]}>Inactief</Text>
           </TouchableOpacity>
@@ -476,7 +480,7 @@ export default function WerknemersAdmin() {
       </ScrollView>
 
       {loading ? (
-        <ActivityIndicator size="large" color="#F5A623" style={{ marginTop: 40 }} />
+        <ActivityIndicator size="large" color={theme.primaryColor} style={{ marginTop: 40 }} />
       ) : (
         <View style={styles.tableContainer}>
           {/* Table Header */}

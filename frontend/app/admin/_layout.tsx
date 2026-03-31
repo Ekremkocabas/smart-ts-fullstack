@@ -88,7 +88,7 @@ function Sidebar() {
       <View style={styles.sidebarFooter}>
         {!collapsed && (
           <View style={styles.userInfo}>
-            <View style={styles.userAvatar}>
+            <View style={[styles.userAvatar, { backgroundColor: theme.primaryColor || '#F5A623' }]}>
               <Text style={styles.userAvatarText}>{user?.naam?.charAt(0) || 'A'}</Text>
             </View>
             <View style={styles.userDetails}>
@@ -281,6 +281,8 @@ export default function AdminLayout() {
             <Stack.Screen name="rapporten" />
             <Stack.Screen name="instellingen" />
             <Stack.Screen name="account" />
+            <Stack.Screen name="facturatie-koppeling" />
+            <Stack.Screen name="billit-koppeling" />
           </Stack>
         </View>
       </View>
@@ -312,6 +314,8 @@ export default function AdminLayout() {
           <Stack.Screen name="rapporten" />
           <Stack.Screen name="instellingen" />
           <Stack.Screen name="account" />
+          <Stack.Screen name="facturatie-koppeling" />
+          <Stack.Screen name="billit-koppeling" />
         </Stack>
       </View>
     </View>

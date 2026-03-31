@@ -535,6 +535,21 @@ export default function InstellingenAdmin() {
           <TextInput style={[styles.input, styles.textArea]} value={instellingen.pdf_texts.voettekst} onChangeText={(v) => updatePdfText('voettekst', v)} placeholder="Tekst onderaan elke PDF" placeholderTextColor="#6c757d" multiline />
         </View>
 
+        {/* Facturatie Koppeling Button */}
+        <TouchableOpacity
+          style={styles.facturatieBtn}
+          onPress={() => router.push('/admin/facturatie-koppeling' as any)}
+        >
+          <View style={styles.facturaatieBtnInner}>
+            <Ionicons name="receipt-outline" size={22} color="#6C47FF" />
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={styles.facturaatieBtnTitle}>Facturatie Programma Koppelen</Text>
+              <Text style={styles.facturaatieBtnSub}>Koppel Billit, Exact Online, Octopus en meer</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#6C47FF" />
+          </View>
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.saveBtn} onPress={saveInstellingen} disabled={saving}>
           {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Instellingen opslaan</Text>}
         </TouchableOpacity>
@@ -640,6 +655,12 @@ const styles = StyleSheet.create({
   previewButtonText: { color: '#fff', fontWeight: '600' },
   
   pdfPreview: { marginTop: 16, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: '#E8E9ED' },
+
+  // Facturatie button
+  facturatieBtn: { backgroundColor: '#F0EEFF', borderRadius: 12, borderWidth: 1, borderColor: '#6C47FF', marginBottom: 16 },
+  facturaatieBtnInner: { flexDirection: 'row', alignItems: 'center', padding: 18 },
+  facturaatieBtnTitle: { fontSize: 16, fontWeight: '600', color: '#6C47FF' },
+  facturaatieBtnSub: { fontSize: 12, color: '#8B72E8', marginTop: 2 },
 
   // Save button
   saveBtn: { backgroundColor: '#28a745', padding: 18, borderRadius: 12, alignItems: 'center', marginBottom: 40 },
