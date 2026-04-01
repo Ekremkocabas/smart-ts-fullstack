@@ -27,7 +27,8 @@
       "Bash(rm -rf /c/Users/ekrem/OneDrive/Desktop/smart-ts-fullstack/backend/dist/*)",
       "Bash(cp -r /c/Users/ekrem/OneDrive/Desktop/smart-ts-fullstack/frontend/dist/* /c/Users/ekrem/OneDrive/Desktop/smart-ts-fullstack/backend/dist/)",
       "Bash(npx tsc:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(pip install:*)"
     ]
   }
 }

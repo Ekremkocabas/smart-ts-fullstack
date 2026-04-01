@@ -1185,6 +1185,7 @@ class BedrijfsInstellingen(BaseModel):
 
     # === FACTURATIE KOPPELING ===
     billit_api_key: Optional[str] = None
+    billit_party_id: Optional[int] = None
     billit_omschrijving_template: str = "Werkzaamheden week {week} - {werf}"
     billit_referentie_veld: str = "Reference"          # "Reference" or "OrderTitle"
     billit_actief: bool = False
@@ -1227,6 +1228,7 @@ class BedrijfsInstellingenUpdate(BaseModel):
     pdf_texts: Optional[Dict] = None           # Frontend sends this
     # Facturatie koppeling
     billit_api_key: Optional[str] = None
+    billit_party_id: Optional[int] = None
     billit_omschrijving_template: Optional[str] = None
     billit_referentie_veld: Optional[str] = None
     billit_actief: Optional[bool] = None
@@ -5068,6 +5070,7 @@ async def get_facturatie_instellingen(current_user: Dict = Depends(require_roles
     if not settings:
         return {
             "billit_api_key": None,
+            "billit_party_id": None,
             "billit_omschrijving_template": "Werkzaamheden week {week} - {werf}",
             "billit_referentie_veld": "Reference",
             "billit_actief": False,
@@ -5075,6 +5078,7 @@ async def get_facturatie_instellingen(current_user: Dict = Depends(require_roles
         }
     return {
         "billit_api_key": settings.get("billit_api_key"),
+        "billit_party_id": settings.get("billit_party_id"),
         "billit_omschrijving_template": settings.get("billit_omschrijving_template", "Werkzaamheden week {week} - {werf}"),
         "billit_referentie_veld": settings.get("billit_referentie_veld", "Reference"),
         "billit_actief": settings.get("billit_actief", False),
@@ -5084,7 +5088,7 @@ async def get_facturatie_instellingen(current_user: Dict = Depends(require_roles
 @api_router.put("/instellingen/facturatie")
 async def update_facturatie_instellingen(update_data: Dict, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Facturatie koppeling instellingen opslaan."""
-    allowed_keys = {"billit_api_key", "billit_omschrijving_template", "billit_referentie_veld", "billit_actief", "billit_auto_versturen"}
+    allowed_keys = {"billit_api_key", "billit_party_id", "billit_omschrijving_template", "billit_referentie_veld", "billit_actief", "billit_auto_versturen"}
     update_dict = {k: v for k, v in update_data.items() if k in allowed_keys}
     await db.instellingen.update_one(
         {"id": "company_settings"},
@@ -5095,6 +5099,7 @@ async def update_facturatie_instellingen(update_data: Dict, current_user: Dict =
     updated = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0})
     return {
         "billit_api_key": updated.get("billit_api_key"),
+        "billit_party_id": updated.get("billit_party_id"),
         "billit_omschrijving_template": updated.get("billit_omschrijving_template", "Werkzaamheden week {week} - {werf}"),
         "billit_referentie_veld": updated.get("billit_referentie_veld", "Reference"),
         "billit_actief": updated.get("billit_actief", False),
@@ -5176,10 +5181,10 @@ async def send_werkbon_to_billit(werkbon: dict, klant: dict, instellingen: dict)
     }
     payload[referentie_veld] = werkbon_ref
 
-    # Authorization header: Basic base64(api_key + ":")
-    credentials = base64.b64encode(f"{billit_api_key}:".encode()).decode()
+    billit_party_id = instellingen.get("billit_party_id")
     headers = {
-        "Authorization": f"Basic {credentials}",
+        "ApiKey": billit_api_key,
+        "PartyID": str(billit_party_id) if billit_party_id is not None else "",
         "Content-Type": "application/json",
     }
 

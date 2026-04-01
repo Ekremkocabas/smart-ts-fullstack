@@ -18,6 +18,7 @@ import { useTheme } from '../../context/ThemeContext';
 
 interface BillitSettings {
   billit_api_key: string;
+  billit_party_id: string;
   billit_omschrijving_template: string;
   billit_referentie_veld: string;
   billit_actief: boolean;
@@ -26,6 +27,7 @@ interface BillitSettings {
 
 const DEFAULT_SETTINGS: BillitSettings = {
   billit_api_key: '',
+  billit_party_id: '',
   billit_omschrijving_template: 'Werkzaamheden week {week} - {werf}',
   billit_referentie_veld: 'Reference',
   billit_actief: false,
@@ -57,6 +59,7 @@ export default function BillitKoppelingScreen() {
       const data = res.data;
       setSettings({
         billit_api_key: data.billit_api_key || '',
+        billit_party_id: data.billit_party_id || '',
         billit_omschrijving_template: data.billit_omschrijving_template || DEFAULT_SETTINGS.billit_omschrijving_template,
         billit_referentie_veld: data.billit_referentie_veld || 'Reference',
         billit_actief: data.billit_actief ?? false,
@@ -82,6 +85,7 @@ export default function BillitKoppelingScreen() {
     try {
       await apiClient.put('/api/instellingen/facturatie', {
         billit_api_key: settings.billit_api_key.trim(),
+        billit_party_id: settings.billit_party_id.trim() ? parseInt(settings.billit_party_id.trim(), 10) : null,
         billit_omschrijving_template: settings.billit_omschrijving_template.trim(),
         billit_referentie_veld: settings.billit_referentie_veld,
         billit_actief: settings.billit_actief,
@@ -183,7 +187,25 @@ export default function BillitKoppelingScreen() {
           <View style={styles.helpBox}>
             <Ionicons name="information-circle-outline" size={16} color="#0066CC" />
             <Text style={styles.helpText}>
-              Log in op <Text style={styles.helpLink}>my.billit.be</Text> → Instellingen → API → Genereer API Key en plak deze hier
+              Te vinden in MyBillit → Rechtsboven op uw naam klikken → Mijn profiel → onderaan de pagina bij "API" sectie. Klik op het oogje om de key te tonen en kopieer deze volledig.
+            </Text>
+          </View>
+
+          <Text style={[styles.label, { marginTop: 16 }]}>Party ID</Text>
+          <TextInput
+            style={styles.input}
+            value={settings.billit_party_id}
+            onChangeText={(v) => setSettings({ ...settings, billit_party_id: v.replace(/[^0-9]/g, '') })}
+            placeholder="bijv. 12345"
+            placeholderTextColor="#6c757d"
+            keyboardType="numeric"
+            autoCorrect={false}
+            autoCapitalize="none"
+          />
+          <View style={styles.helpBox}>
+            <Ionicons name="information-circle-outline" size={16} color="#0066CC" />
+            <Text style={styles.helpText}>
+              Te vinden in de URL van MyBillit wanneer u ingelogd bent. Ga naar Mijn bedrijf en kijk in de adresbalk van uw browser: my.billit.be/Manage/XXXXXXX/CompanyEdit — het getal tussen /Manage/ en /CompanyEdit is uw Party ID.
             </Text>
           </View>
         </View>
@@ -203,7 +225,7 @@ export default function BillitKoppelingScreen() {
           <View style={styles.helpBox}>
             <Ionicons name="information-circle-outline" size={16} color="#0066CC" />
             <Text style={styles.helpText}>
-              Deze tekst verschijnt als omschrijving op elke factuur. Gebruik <Text style={styles.tag}>{'{week}'}</Text>, <Text style={styles.tag}>{'{werf}'}</Text>, <Text style={styles.tag}>{'{klant}'}</Text> of <Text style={styles.tag}>{'{jaar}'}</Text> als variabelen.
+              Deze tekst verschijnt als omschrijving op de factuur. U kunt variabelen gebruiken: <Text style={styles.tag}>{'{week}'}</Text> = weeknummer, <Text style={styles.tag}>{'{jaar}'}</Text> = jaar, <Text style={styles.tag}>{'{werf}'}</Text> = werfnaam, <Text style={styles.tag}>{'{klant}'}</Text> = klantnaam. Voorbeeld: "Werkzaamheden week {'{week}'} - {'{werf}'}"
             </Text>
           </View>
 
@@ -236,6 +258,12 @@ export default function BillitKoppelingScreen() {
               ))}
             </View>
           )}
+          <View style={[styles.helpBox, { marginTop: 8 }]}>
+            <Ionicons name="information-circle-outline" size={16} color="#0066CC" />
+            <Text style={styles.helpText}>
+              Reference = het PO-nummer veld op de factuur. OrderTitle = het titel veld. Kies wat uw klant verwacht te zien als werkbon referentie.
+            </Text>
+          </View>
         </View>
 
         {/* Versturen opties */}
@@ -263,9 +291,7 @@ export default function BillitKoppelingScreen() {
                 Werkbon automatisch naar Billit sturen na verzenden
               </Text>
               <Text style={[styles.toggleDesc, !settings.billit_actief && styles.textDisabled]}>
-                {settings.billit_auto_versturen
-                  ? 'Werkbonnen worden automatisch naar Billit gestuurd na e-mailverzending.'
-                  : 'Automatisch versturen staat uit — u ziet een handmatig verstuur-icoon naast elke werkbon op de werkbonnen-pagina.'}
+                Aan: werkbon wordt automatisch naar Billit gestuurd na verzenden. Uit: er verschijnt een handmatig verstuur-icoon naast elke werkbon op de werkbonnen pagina.
               </Text>
             </View>
             <Switch
