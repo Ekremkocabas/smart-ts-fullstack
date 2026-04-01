@@ -13,21 +13,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth, apiClient } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
-import Constants from 'expo-constants';
+import { getApiUrl } from '../../utils/config';
 
-// Determine API URL - ALWAYS use window.location.origin for web production
-const getApiUrl = () => {
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    const hostname = window.location.hostname;
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return 'http://localhost:8001';
-    }
-    // Production - use current origin, NO env variables
-    return window.location.origin;
-  }
-  // Mobile only
-  return process.env.EXPO_PUBLIC_BACKEND_URL || '';
-};
 const API_URL = getApiUrl();
 
 const DAGEN = ['maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag', 'zondag'];
@@ -96,16 +83,27 @@ function getWeekDates(year: number, week: number): Record<string, string> {
   return dates;
 }
 
-// Smart time parser: "8" → "08:00", "930" → "09:30", "1230" → "12:30"
-function parseSmartTime(val: string): string {
+// Smart time parser: "8" → "08:00", "930" → "09:30", "1230" → "12:30", "8.30"/"8,30" → "08:30"
+// Returns parsed string on success, null on failure (unparseable)
+function parseSmartTime(val: string): string | null {
   const cleaned = val.replace(/\s/g, '');
   if (!cleaned) return '';
+  // Already correct HH:MM
   if (/^\d{1,2}:\d{2}$/.test(cleaned)) {
     const [h, m] = cleaned.split(':').map(Number);
     if (h >= 0 && h <= 23 && m >= 0 && m <= 59)
       return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-    return cleaned;
+    return null;
   }
+  // Dot or comma separator: "8.30", "8,30", "12.30"
+  if (/^\d{1,2}[.,]\d{2}$/.test(cleaned)) {
+    const sep = cleaned.includes('.') ? '.' : ',';
+    const [h, m] = cleaned.split(sep).map(Number);
+    if (h >= 0 && h <= 23 && m >= 0 && m <= 59)
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    return null;
+  }
+  // Pure digits
   if (/^\d+$/.test(cleaned)) {
     if (cleaned.length <= 2) {
       const h = parseInt(cleaned, 10);
@@ -122,7 +120,7 @@ function parseSmartTime(val: string): string {
         return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
     }
   }
-  return val;
+  return null;
 }
 
 export default function PlanningAdmin() {
@@ -152,6 +150,9 @@ export default function PlanningAdmin() {
   const [dagPickMode, setDagPickMode] = useState<'individueel' | 'range'>('individueel');
   const [vanDatum, setVanDatum] = useState('');
   const [totDatum, setTotDatum] = useState('');
+  // Time validation errors
+  const [startUurError, setStartUurError] = useState('');
+  const [eindUurError, setEindUurError] = useState('');
 
   const emptyForm = {
     dag: 'maandag',
@@ -194,7 +195,10 @@ export default function PlanningAdmin() {
   };
 
   const handleStartUurBlur = () => {
+    if (!form.start_uur) { setStartUurError(''); return; }
     const parsed = parseSmartTime(form.start_uur);
+    if (parsed === null) { setStartUurError('Vul een geldig tijdstip in (bijv. 08:00)'); return; }
+    setStartUurError('');
     const calc = calcVoorzeineUur(parsed, form.eind_uur);
     setForm(prev => ({ ...prev, start_uur: parsed, voorziene_uur: calc || prev.voorziene_uur }));
   };
@@ -205,7 +209,10 @@ export default function PlanningAdmin() {
   };
 
   const handleEindUurBlur = () => {
+    if (!form.eind_uur) { setEindUurError(''); return; }
     const parsed = parseSmartTime(form.eind_uur);
+    if (parsed === null) { setEindUurError('Vul een geldig tijdstip in (bijv. 08:00)'); return; }
+    setEindUurError('');
     const calc = calcVoorzeineUur(form.start_uur, parsed);
     setForm(prev => ({ ...prev, eind_uur: parsed, voorziene_uur: calc || prev.voorziene_uur }));
   };
@@ -338,8 +345,8 @@ export default function PlanningAdmin() {
         team_id: form.team_id || null,
         klant_id: form.klant_id,
         werf_id: form.werf_id,
-        start_uur: parseSmartTime(form.start_uur) || form.start_uur,
-        eind_uur: parseSmartTime(form.eind_uur) || form.eind_uur,
+        start_uur: parseSmartTime(form.start_uur) ?? form.start_uur,
+        eind_uur: parseSmartTime(form.eind_uur) ?? form.eind_uur,
         voorziene_uur: form.voorziene_uur || calcVoorzeineUur(form.start_uur, form.eind_uur),
         omschrijving: form.omschrijving,
         materiaallijst: materiaalItems,
@@ -825,26 +832,28 @@ export default function PlanningAdmin() {
                   <View style={{ flex: 1 }}>
                     <Text style={styles.label}>Start uur</Text>
                     <TextInput
-                      style={styles.input}
+                      style={[styles.input, startUurError ? { borderColor: '#dc3545' } : {}]}
                       value={form.start_uur}
-                      onChangeText={handleStartUur}
+                      onChangeText={v => { handleStartUur(v); setStartUurError(''); }}
                       onBlur={handleStartUurBlur}
                       placeholder="08:00"
                       placeholderTextColor="#999"
                       keyboardType="numbers-and-punctuation"
                     />
+                    {!!startUurError && <Text style={{ fontSize: 11, color: '#dc3545', marginTop: 4 }}>{startUurError}</Text>}
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.label}>Eind uur</Text>
                     <TextInput
-                      style={styles.input}
+                      style={[styles.input, eindUurError ? { borderColor: '#dc3545' } : {}]}
                       value={form.eind_uur}
-                      onChangeText={handleEindUur}
+                      onChangeText={v => { handleEindUur(v); setEindUurError(''); }}
                       onBlur={handleEindUurBlur}
                       placeholder="16:30"
                       placeholderTextColor="#999"
                       keyboardType="numbers-and-punctuation"
                     />
+                    {!!eindUurError && <Text style={{ fontSize: 11, color: '#dc3545', marginTop: 4 }}>{eindUurError}</Text>}
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.label}>Voorziene uur</Text>
@@ -865,7 +874,7 @@ export default function PlanningAdmin() {
 
                 {/* Klant */}
                 <Text style={styles.label}>Klant / Bedrijf *</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={true}>
                   <View style={styles.chipRowScroll}>
                     {klanten.map(k => (
                       <TouchableOpacity key={k.id} style={[styles.chip, form.klant_id === k.id && styles.chipActiveGreen]}
@@ -881,7 +890,7 @@ export default function PlanningAdmin() {
                 {filteredWerven.length === 0 ? (
                   <Text style={styles.noItemsText}>{form.klant_id ? 'Geen werven voor deze klant' : 'Selecteer eerst een klant'}</Text>
                 ) : (
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={true}>
                     <View style={styles.chipRowScroll}>
                       {filteredWerven.map(w => (
                         <TouchableOpacity key={w.id} style={[styles.chip, form.werf_id === w.id && styles.chipActiveBlue]}

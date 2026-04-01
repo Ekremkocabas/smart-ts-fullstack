@@ -9,6 +9,7 @@ import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import * as SplashScreen from 'expo-splash-screen';
 import { View, ActivityIndicator, Platform } from 'react-native';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 // Keep splash screen visible while loading fonts
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -36,27 +37,29 @@ export default function RootLayout() {
   }
 
   return (
-    <SafeAreaProvider>
-      <AuthProvider>
-        <ThemeProvider>
-          <NotificationProvider>
-            <StatusBar style="dark" />
-            <Stack
-              screenOptions={{
-                headerShown: false,
-                contentStyle: { backgroundColor: '#F5F6FA' },
-              }}
-            >
-              <Stack.Screen name="index" />
-              <Stack.Screen name="(auth)" />
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="werkbon" />
-              <Stack.Screen name="admin" />
-              <Stack.Screen name="handtekening" options={{ presentation: 'modal' }} />
-            </Stack>
-          </NotificationProvider>
-        </ThemeProvider>
-      </AuthProvider>
-    </SafeAreaProvider>
+    <ErrorBoundary>
+      <SafeAreaProvider>
+        <AuthProvider>
+          <ThemeProvider>
+            <NotificationProvider>
+              <StatusBar style="dark" />
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  contentStyle: { backgroundColor: '#F5F6FA' },
+                }}
+              >
+                <Stack.Screen name="index" />
+                <Stack.Screen name="(auth)" />
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="werkbon" />
+                <Stack.Screen name="admin" />
+                <Stack.Screen name="handtekening" options={{ presentation: 'modal' }} />
+              </Stack>
+            </NotificationProvider>
+          </ThemeProvider>
+        </AuthProvider>
+      </SafeAreaProvider>
+    </ErrorBoundary>
   );
 }

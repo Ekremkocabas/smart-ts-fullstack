@@ -2730,7 +2730,7 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
         story.append(PageBreak())
         story.append(Paragraph("Werkfoto's", styles["SectionTitle"]))
         foto_images = []
-        for foto in fotos[:6]:
+        for foto in fotos[:3]:
             foto_data = foto if isinstance(foto, str) else (foto.get("base64") or foto.get("data") or "")
             raw_bytes = decode_base64_data(foto_data)
             compressed = compress_image_bytes_for_pdf(raw_bytes, max_px=800, quality=40)
@@ -2925,7 +2925,7 @@ BTW: {COMPANY_INFO['btw']}<br/>
         story.append(Paragraph("Werkfoto's", styles["OVSection"]))
         # Build 2-column grid: 2 photos per row, up to 6 photos (3 rows)
         foto_images = []
-        for foto in fotos[:6]:
+        for foto in fotos[:3]:
             foto_data = foto if isinstance(foto, str) else foto.get("base64", "")
             img = make_safe_reportlab_image(decode_base64_data(foto_data), 82 * mm, 108 * mm)
             foto_images.append(img)
@@ -3164,7 +3164,7 @@ BTW: {COMPANY_INFO['btw']}<br/>
         story.append(Paragraph("Werkfoto's", styles["PSec"]))
         # Collect all photo images with captions
         foto_cells = []
-        for i, foto in enumerate(fotos[:4]):
+        for i, foto in enumerate(fotos[:3]):
             base64_data = foto.get("base64") if isinstance(foto, dict) else foto
             foto_ts = foto.get("timestamp", "") if isinstance(foto, dict) else ""
             foto_gps = foto.get("gps", "") if isinstance(foto, dict) else ""
@@ -4747,9 +4747,23 @@ async def create_unified_werkbon(data: UnifiedWerkbonCreate, current_user: Dict 
     toegewezen_ids = list({r.get("teamlid_id") for r in uren_list if r.get("teamlid_id")})
     base_doc["toegewezen_aan"] = toegewezen_ids
 
-    # Process photos
+    # Process photos — max 3, skip photos over 5MB
     if data.fotos:
-        base_doc["fotos"] = [f.get("data") or f.get("uri") for f in data.fotos if f]
+        accepted = []
+        for f in data.fotos:
+            if not f:
+                continue
+            foto_data = f.get("data") or f.get("uri") or ""
+            # Strip data URI prefix to get raw base64 for size check
+            raw_b64 = foto_data.split(",", 1)[-1] if "," in foto_data else foto_data
+            approx_bytes = len(raw_b64) * 3 // 4
+            if approx_bytes > 5 * 1024 * 1024:
+                logging.warning(f"[werkbon save] Skipping photo: size ~{approx_bytes // 1024}KB exceeds 5MB limit")
+                continue
+            accepted.append(foto_data)
+            if len(accepted) >= 3:
+                break
+        base_doc["fotos"] = accepted
     
     # Route by type
     if werkbon_type == "uren":
@@ -5803,14 +5817,20 @@ async def create_oplevering_werkbon(
     if not werf:
         raise HTTPException(status_code=404, detail="Werf niet gevonden")
     
-    # Process photos - store in GridFS and keep only file_ids
+    # Process photos - store in GridFS and keep only file_ids (max 3, skip >5MB)
     processed_fotos = []
     for i, foto in enumerate(data.fotos or []):
+        if len(processed_fotos) >= 3:
+            break
         try:
             base64_data = foto if isinstance(foto, str) else ""
             if base64_data and len(base64_data) > 100:  # Has actual image data
+                raw_b64 = base64_data.split(",", 1)[-1] if "," in base64_data else base64_data
+                if len(raw_b64) * 3 // 4 > 5 * 1024 * 1024:
+                    logging.warning(f"[oplevering save] Skipping photo {i}: exceeds 5MB limit")
+                    continue
                 file_id = await store_base64_to_gridfs(
-                    base64_data, 
+                    base64_data,
                     f"oplevering_foto_{final_user_id}_{i}_{uuid.uuid4().hex[:8]}.jpg",
                     "image/jpeg"
                 )
@@ -6206,14 +6226,20 @@ async def create_productie_werkbon(
     if not werf:
         raise HTTPException(status_code=404, detail="Werf niet gevonden")
 
-    # Process photos - store in GridFS and keep only file_ids
+    # Process photos - store in GridFS and keep only file_ids (max 3, skip >5MB)
     processed_fotos = []
     for i, foto in enumerate(data.fotos or []):
+        if len(processed_fotos) >= 3:
+            break
         try:
             base64_data = foto.get("base64", "") if isinstance(foto, dict) else str(foto)
             if base64_data and len(base64_data) > 100:  # Has actual image data
+                raw_b64 = base64_data.split(",", 1)[-1] if "," in base64_data else base64_data
+                if len(raw_b64) * 3 // 4 > 5 * 1024 * 1024:
+                    logging.warning(f"[productie save] Skipping photo {i}: exceeds 5MB limit")
+                    continue
                 file_id = await store_base64_to_gridfs(
-                    base64_data, 
+                    base64_data,
                     f"productie_foto_{final_user_id}_{i}_{uuid.uuid4().hex[:8]}.jpg",
                     "image/jpeg"
                 )

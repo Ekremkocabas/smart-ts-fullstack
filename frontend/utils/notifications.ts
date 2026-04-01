@@ -1,11 +1,7 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-// Get API URL for mobile
-const getApiUrl = () => {
-  return process.env.EXPO_PUBLIC_BACKEND_URL || Constants.expoConfig?.extra?.apiUrl || '';
-};
+import { getApiUrl } from './config';
 
 export async function registerForPushNotifications(userId: string): Promise<string | null> {
   if (Platform.OS === 'web') return null;

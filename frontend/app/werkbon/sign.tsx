@@ -41,6 +41,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useWerkbonFormStore } from '../../store/werkbonFormStore';
 import SignatureModal from '../../components/werkbon/SignatureModal';
+import ErrorBoundary from '../../components/ErrorBoundary';
 
 // Legal text
 const LEGAL_TEXT = `Door ondertekening van deze werkbon bevestigt de klant dat de hierboven beschreven werkzaamheden naar tevredenheid zijn uitgevoerd en dat de gegevens correct zijn. Deze werkbon dient als bewijs van uitgevoerde werkzaamheden en kan worden gebruikt voor facturatie.`;
@@ -600,6 +601,7 @@ export default function WerkbonSign() {
   }
 
   return (
+    <ErrorBoundary>
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
@@ -767,6 +769,9 @@ export default function WerkbonSign() {
             thumbColor={sendToCustomer ? primary : '#FFFFFF'}
           />
         </View>
+        <Text style={{ fontSize: 12, marginTop: -6, marginBottom: 10, marginLeft: 4, color: sendToCustomer ? '#28a745' : '#e67e22', fontWeight: '500' }}>
+          {sendToCustomer ? '✓ E-mail wordt verstuurd naar klant' : '⚠ E-mail wordt NIET verstuurd naar klant'}
+        </Text>
 
         {/* Confirmation Checkbox */}
         <TouchableOpacity 
@@ -813,6 +818,7 @@ export default function WerkbonSign() {
         </TouchableOpacity>
       </View>
     </SafeAreaView>
+    </ErrorBoundary>
   );
 }
 

@@ -55,17 +55,8 @@ interface WerknemerDocument {
   created_at: string;
 }
 
-// API URL for file download
-const getApiUrl = () => {
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    const hostname = window.location.hostname;
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return 'http://localhost:8001';
-    }
-    return window.location.origin;
-  }
-  return process.env.EXPO_PUBLIC_BACKEND_URL || '';
-};
+import { getApiUrl } from '../../utils/config';
+
 const API_URL = getApiUrl();
 
 export default function WerknemerDetail() {

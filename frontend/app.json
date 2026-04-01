@@ -55,7 +55,7 @@
     "experiments": {"typedRoutes": true},
     "extra": {
       "router": {},
-      "apiUrl": "https://web-production-7bce.up.railway.app",
+      "apiUrl": "https://web-test-ts.up.railway.app",
       "eas": {"projectId": "9dd093e7-a900-4295-b278-efe5315c1a87"}
     }
   }

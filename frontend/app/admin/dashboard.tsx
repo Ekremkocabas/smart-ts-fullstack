@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth, apiClient } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import ErrorBoundary from '../../components/ErrorBoundary';
 
 interface DashboardStats {
   totaalWerknemers: number;
@@ -143,6 +144,7 @@ export default function AdminDashboard() {
   ];
 
   return (
+    <ErrorBoundary>
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.pageHeader}>
         <View>
@@ -316,6 +318,7 @@ export default function AdminDashboard() {
         </>
       )}
     </ScrollView>
+    </ErrorBoundary>
   );
 }
 
