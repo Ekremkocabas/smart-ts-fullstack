@@ -5136,14 +5136,15 @@ async def send_werkbon_to_billit(werkbon: dict, klant: dict, instellingen: dict)
 
     # Datum berekenen
     datum_ma = werkbon.get("datum_maandag")
-    if datum_ma:
-        try:
-            if isinstance(datum_ma, str):
-                order_date = datum_ma[:10]
-            else:
-                order_date = datum_ma.strftime("%Y-%m-%d")
-        except Exception:
-            order_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    jaar_val = werkbon.get("jaar", datetime.now(timezone.utc).year)
+
+    if datum_ma and jaar_val:
+        parts = str(datum_ma).split("-")
+        if len(parts) == 2:
+            # "DD-MM" formaat → "YYYY-MM-DD"
+            order_date = f"{jaar_val}-{parts[1]}-{parts[0]}"
+        else:
+            order_date = str(datum_ma)[:10]
     else:
         order_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
@@ -5164,6 +5165,7 @@ async def send_werkbon_to_billit(werkbon: dict, klant: dict, instellingen: dict)
         "OrderDirection": "Income",
         "OrderNumber": werkbon_ref,
         "OrderDate": order_date,
+        "DeliveryDate": order_date,
         "ExpiryDate": expiry_date,
         "Customer": {
             "Name": klant_naam,
