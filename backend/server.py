@@ -5170,7 +5170,6 @@ async def send_werkbon_to_billit(werkbon: dict, klant: dict, instellingen: dict)
         "DeliveryDate": order_date,
         "ExpiryDate": expiry_date,
         "Customer": {
-            "Name": klant_naam,
             "VATNumber": klant.get("btw_nummer") or "",
             "PartyType": "Customer"
         },
@@ -5183,6 +5182,8 @@ async def send_werkbon_to_billit(werkbon: dict, klant: dict, instellingen: dict)
             }
         ],
     }
+    if btw_percentage == 0:
+        payload["VentilationCode"] = "21"
     payload[referentie_veld] = werkbon_ref
 
     billit_party_id = instellingen.get("billit_party_id")

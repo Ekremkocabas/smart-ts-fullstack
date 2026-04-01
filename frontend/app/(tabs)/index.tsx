@@ -284,7 +284,7 @@ export default function WerkbonnenScreen() {
       <View style={styles.statsRow}>
         <View style={[styles.statCard, { borderLeftColor: '#3498db' }]}>
           <Text style={[styles.statValue, { color: '#3498db' }]}>{maandStats.uren}</Text>
-          <Text style={styles.statLabel}>Gewerkte uren</Text>
+          <Text style={styles.statLabel}>Deze maand gewerkte uren</Text>
         </View>
         <View style={[styles.statCard, { borderLeftColor: '#28a745' }]}>
           <Text style={[styles.statValue, { color: '#28a745' }]}>{weekStats.uren}</Text>
@@ -292,7 +292,7 @@ export default function WerkbonnenScreen() {
         </View>
         <View style={[styles.statCard, { borderLeftColor: '#F5A623' }]}>
           <Text style={[styles.statValue, { color: '#F5A623' }]}>{maandStats.count}</Text>
-          <Text style={styles.statLabel}>Werkbonnen</Text>
+          <Text style={styles.statLabel}>Werkbonnen deze maand</Text>
         </View>
       </View>
 
