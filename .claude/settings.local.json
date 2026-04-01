@@ -28,7 +28,9 @@
       "Bash(cp -r /c/Users/ekrem/OneDrive/Desktop/smart-ts-fullstack/frontend/dist/* /c/Users/ekrem/OneDrive/Desktop/smart-ts-fullstack/backend/dist/)",
       "Bash(npx tsc:*)",
       "Bash(ls:*)",
-      "Bash(pip install:*)"
+      "Bash(pip install:*)",
+      "Bash(grep -n \"back\\\\|copy\\\\|kopie\\\\|duplicate\" /c/Users/ekrem/OneDrive/Desktop/smart-ts-fullstack/frontend/app/werkbon/[id].tsx)",
+      "Bash(grep:*)"
     ]
   }
 }

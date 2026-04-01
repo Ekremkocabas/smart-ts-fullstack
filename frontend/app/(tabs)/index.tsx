@@ -65,8 +65,8 @@ const getWeekMonday = (jaar: number, week: number): Date => {
 export default function WerkbonnenScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const { werkbonnen, fetchWerkbonnen, deleteWerkbon, duplicateWerkbon, isLoading } = useAppStore();
-  const { setType, clearDraft } = useWerkbonFormStore();
+  const { werkbonnen, fetchWerkbonnen, deleteWerkbon, fetchWerkbon, isLoading } = useAppStore();
+  const { setType, clearDraft, setKlant, setWerf, setUrenData, setKmAfstand, setOpmerkingen } = useWerkbonFormStore();
   const [refreshing, setRefreshing] = useState(false);
   const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
   const [showTypeModal, setShowTypeModal] = useState(false);
@@ -132,10 +132,51 @@ export default function WerkbonnenScreen() {
   const handleCopy = async (item: Werkbon) => {
     if (!user) return;
     try {
-      const newWerkbon = await duplicateWerkbon(item.id, user.id, user.naam);
-      router.push(`/werkbon/bewerken/${newWerkbon.id}`);
+      const w = await fetchWerkbon(item.id);
+
+      // Reset store en laad werkbon data erin
+      clearDraft();
+      setType('uren');
+
+      setKlant(w.klant_id || null, w.klant_naam || '');
+      setWerf(w.werf_id || null, w.werf_naam || '');
+
+      if (w.opmerkingen) setOpmerkingen(w.opmerkingen);
+
+      const mappedUrenRegels = (w.uren || []).map((r: any) => ({
+        teamlidNaam: r.teamlid_naam || r.teamlidNaam || '',
+        maandag: r.maandag ?? 0,
+        dinsdag: r.dinsdag ?? 0,
+        woensdag: r.woensdag ?? 0,
+        donderdag: r.donderdag ?? 0,
+        vrijdag: r.vrijdag ?? 0,
+        zaterdag: r.zaterdag ?? 0,
+        zondag: r.zondag ?? 0,
+        afkortingMa: r.afkorting_ma || r.afkortingMa || '',
+        afkortingDi: r.afkorting_di || r.afkortingDi || '',
+        afkortingWo: r.afkorting_wo || r.afkortingWo || '',
+        afkortingDo: r.afkorting_do || r.afkortingDo || '',
+        afkortingVr: r.afkorting_vr || r.afkortingVr || '',
+        afkortingZa: r.afkorting_za || r.afkortingZa || '',
+        afkortingZo: r.afkorting_zo || r.afkortingZo || '',
+      }));
+
+      const kmData = w.km_afstand || { maandag: 0, dinsdag: 0, woensdag: 0, donderdag: 0, vrijdag: 0, zaterdag: 0, zondag: 0 };
+
+      setUrenData({
+        weekNummer: w.week_nummer || getCurrentWeekNumber(),
+        jaar: w.jaar || new Date().getFullYear(),
+        urenRegels: mappedUrenRegels,
+        kmAfstand: kmData,
+        uitgevoerdeWerken: w.uitgevoerde_werken || '',
+        extraMaterialen: w.extra_materialen || '',
+      });
+
+      setKmAfstand(kmData);
+
+      router.push('/werkbon/form');
     } catch {
-      showAlert('Fout', 'Kopie kon niet worden aangemaakt');
+      showAlert('Fout', 'Werkbon kon niet worden gekopieerd');
     }
   };
 

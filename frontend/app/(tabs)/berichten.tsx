@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth, apiClient } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 
 interface Bericht {
   id: string;
@@ -33,6 +34,8 @@ interface Bericht {
 
 export default function BerichtenTab() {
   const { user } = useAuth();
+  const { theme } = useTheme();
+  const primaryColor = theme?.primaryColor || '#F5A623';
   const [berichten, setBerichten] = useState<Bericht[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -76,6 +79,28 @@ export default function BerichtenTab() {
     }
   };
 
+
+  const handleHideBericht = (bericht: Bericht) => {
+    Alert.alert(
+      'Bericht verwijderen',
+      'Weet je zeker dat je dit bericht wilt verwijderen?',
+      [
+        { text: 'Annuleren', style: 'cancel' },
+        {
+          text: 'Verwijderen',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await apiClient.delete(`/api/berichten/${bericht.id}/hide-for-user`);
+              setBerichten(prev => prev.filter(b => b.id !== bericht.id));
+            } catch (e) {
+              console.error(e);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const formatDate = (dateStr: string) => {
     if (!dateStr) return '';
@@ -160,17 +185,24 @@ export default function BerichtenTab() {
                 onPress={() => openBericht(bericht)}
               >
                 <View style={styles.berichtHeader}>
-                  <View style={[styles.berichtAvatar, unread && { backgroundColor: '#F5A623' }]}>
+                  <View style={[styles.berichtAvatar, unread && { backgroundColor: primaryColor }]}>
                     <Text style={[styles.berichtAvatarText, unread && { color: '#fff' }]}>{bericht.van_naam?.charAt(0) || '?'}</Text>
                   </View>
                   <View style={{ flex: 1 }}>
                     <View style={styles.berichtNameRow}>
                       <Text style={[styles.berichtFrom, unread && { fontWeight: '700' }]}>{bericht.van_naam || 'Onbekend'}</Text>
-                      {bericht.vastgepind && <Ionicons name="pin" size={14} color="#F5A623" />}
-                      {unread && <View style={styles.unreadDot} />}
+                      {bericht.vastgepind && <Ionicons name="pin" size={14} color={primaryColor} />}
+                      {unread && <View style={[styles.unreadDot, { backgroundColor: primaryColor }]} />}
                     </View>
                     <Text style={styles.berichtTime}>{formatDate(bericht.created_at)}</Text>
                   </View>
+                  <TouchableOpacity
+                    style={styles.deleteBtn}
+                    onPress={() => handleHideBericht(bericht)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="trash-outline" size={18} color="#dc3545" />
+                  </TouchableOpacity>
                 </View>
                 <Text style={[styles.berichtSubject, unread && { fontWeight: '700' }]} numberOfLines={1}>{bericht.onderwerp || ''}</Text>
                 <Text style={styles.berichtPreview} numberOfLines={2}>{bericht.inhoud || ''}</Text>
@@ -194,9 +226,6 @@ export default function BerichtenTab() {
             {selectedBericht && (
               <>
                 <View style={styles.modalHeader}>
-                  <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setSelectedBericht(null)}>
-                    <Ionicons name="arrow-back" size={24} color="#1A1A2E" />
-                  </TouchableOpacity>
                   <Text style={styles.modalTitle} numberOfLines={1}>Bericht</Text>
                 </View>
                 <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
@@ -211,15 +240,13 @@ export default function BerichtenTab() {
                   </View>
                   <Text style={styles.detailSubject}>{selectedBericht.onderwerp}</Text>
                   <Text style={styles.detailInhoud}>{selectedBericht.inhoud}</Text>
-                  
+
                   {/* Attachments / Bijlagen */}
                   {selectedBericht.bijlagen && Array.isArray(selectedBericht.bijlagen) && selectedBericht.bijlagen.length > 0 && (
                     <View style={styles.attachmentsContainer}>
                       <Text style={styles.attachmentsTitle}>Bijlagen ({selectedBericht.bijlagen.length})</Text>
                       {selectedBericht.bijlagen.map((att, index) => {
-                        if (!att) return null; // Skip null attachments
-                        
-                        // Build URL for opening
+                        if (!att) return null;
                         let url = '';
                         if (att.file_id) {
                           const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
@@ -228,25 +255,22 @@ export default function BerichtenTab() {
                           const base64Data = att.data.includes(',') ? att.data.split(',')[1] : att.data;
                           url = `data:${att.type || 'application/octet-stream'};base64,${base64Data}`;
                         }
-                        
                         return (
-                          <TouchableOpacity 
-                            key={index} 
+                          <TouchableOpacity
+                            key={index}
                             style={styles.attachmentItem}
                             onPress={() => {
                               if (url) {
-                                Linking.openURL(url).catch(e => 
-                                  Alert.alert('Fout', 'Kan bijlage niet openen')
-                                );
+                                Linking.openURL(url).catch(() => Alert.alert('Fout', 'Kan bijlage niet openen'));
                               } else {
                                 Alert.alert('Fout', 'Bijlage URL niet beschikbaar');
                               }
                             }}
                           >
-                            <Ionicons 
-                              name={att.type?.includes('pdf') ? 'document-text-outline' : 'image-outline'} 
-                              size={24} 
-                              color="#F5A623" 
+                            <Ionicons
+                              name={att.type?.includes('pdf') ? 'document-text-outline' : 'image-outline'}
+                              size={24}
+                              color={primaryColor}
                             />
                             <Text style={styles.attachmentName} numberOfLines={1}>{att.naam || 'Bijlage'}</Text>
                             <Ionicons name="download-outline" size={20} color="#6c757d" />
@@ -255,7 +279,16 @@ export default function BerichtenTab() {
                       })}
                     </View>
                   )}
+                  <View style={{ height: 20 }} />
                 </ScrollView>
+
+                {/* Terug knop — onderaan */}
+                <TouchableOpacity
+                  style={[styles.terugBtn, { borderColor: primaryColor }]}
+                  onPress={() => setSelectedBericht(null)}
+                >
+                  <Text style={[styles.terugBtnText, { color: primaryColor }]}>← Terug</Text>
+                </TouchableOpacity>
               </>
             )}
           </View>
@@ -321,6 +354,17 @@ const styles = StyleSheet.create({
   },
   modalCloseBtn: { padding: 4 },
   modalTitle: { fontSize: 18, fontWeight: '600', color: '#1A1A2E', flex: 1 },
+  deleteBtn: { padding: 6 },
+  terugBtn: {
+    margin: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  terugBtnText: { fontSize: 16, fontWeight: '700' },
 
   detailMeta: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 20, paddingBottom: 12 },
   detailAvatar: {

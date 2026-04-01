@@ -6595,9 +6595,12 @@ async def bevestig_planning(planning_id: str, werknemer_id: str, werknemer_naam:
 
 @api_router.get("/berichten")
 async def get_berichten(user_id: str):
-    """Get messages for a user (broadcasts + direct messages)"""
+    """Get messages for a user (broadcasts + direct messages). Excludes messages hidden by this user."""
     items = await db.berichten.find(
-        {"$or": [{"naar_id": user_id}, {"is_broadcast": True}, {"van_id": user_id}]},
+        {
+            "$or": [{"naar_id": user_id}, {"is_broadcast": True}, {"van_id": user_id}],
+            "hidden_for_users": {"$nin": [user_id]},
+        },
         {"_id": 0}
     ).sort("created_at", -1).to_list(200)
     return items
@@ -6719,6 +6722,16 @@ async def markeer_gelezen(bericht_id: str, user_id: str):
         {"$addToSet": {"gelezen_door": user_id}}
     )
     return {"message": "Bericht als gelezen gemarkeerd"}
+
+@api_router.delete("/berichten/{bericht_id}/hide-for-user")
+async def hide_bericht_for_user(bericht_id: str, current_user: Dict = Depends(get_current_user)):
+    """Hide a bericht for the current user only. Does NOT delete from database."""
+    current_user_id = current_user["user_id"]
+    await db.berichten.update_one(
+        {"id": bericht_id},
+        {"$addToSet": {"hidden_for_users": current_user_id}}
+    )
+    return {"success": True}
 
 @api_router.delete("/berichten/{bericht_id}")
 async def delete_bericht(bericht_id: str):
