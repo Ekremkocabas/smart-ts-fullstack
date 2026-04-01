@@ -892,6 +892,9 @@ class KlantCreate(BaseModel):
     interne_referentie: str = ""
     opmerkingen: str = ""
 
+    # H. Billing
+    btw_percentage: Optional[int] = 21
+
 # Helper function to generate klantnummer
 async def generate_klantnummer(db) -> str:
     """Generate unique klantnummer in format KL-YYYY-NNNN"""
@@ -5163,7 +5166,6 @@ async def send_werkbon_to_billit(werkbon: dict, klant: dict, instellingen: dict)
     payload: dict = {
         "OrderType": "Invoice",
         "OrderDirection": "Income",
-        "OrderNumber": werkbon_ref,
         "OrderDate": order_date,
         "DeliveryDate": order_date,
         "ExpiryDate": expiry_date,
@@ -5195,8 +5197,38 @@ async def send_werkbon_to_billit(werkbon: dict, klant: dict, instellingen: dict)
         async with httpx.AsyncClient(timeout=15.0) as client:
             resp = await client.post("https://api.billit.be/v1/orders", json=payload, headers=headers)
         if resp.status_code in (200, 201):
-            logging.info("[Billit] Werkbon %s succesvol verstuurd. Status: %s", werkbon["id"], resp.status_code)
-            return {"success": True, "billit_order_id": resp.json().get("Id") or resp.json().get("id")}
+            response_json = resp.json()
+            order_id = response_json.get("OrderID") or response_json.get("Id") or response_json.get("id")
+            logging.info("[Billit] Werkbon %s succesvol verstuurd. Status: %s | OrderID: %s", werkbon["id"], resp.status_code, order_id)
+
+            # PDF bijlage toevoegen
+            if order_id:
+                try:
+                    werf = await db.werven.find_one({"id": werkbon.get("werf_id")}, {"_id": 0}) or {}
+                    werkbon_prepared = await prepare_werkbon_for_pdf(werkbon)
+                    fin_pdf = compute_werkbon_financials(werkbon_prepared, klant)
+                    pdf_bytes, pdf_filename = generate_werkbon_pdf(
+                        werkbon_prepared, klant, werf, instellingen,
+                        fin_pdf["total_uren"], fin_pdf["totaal_bedrag"]
+                    )
+                    attachment_headers = {
+                        "ApiKey": billit_api_key,
+                        "PartyID": str(billit_party_id) if billit_party_id is not None else "",
+                    }
+                    async with httpx.AsyncClient(timeout=30.0) as client2:
+                        att_resp = await client2.post(
+                            f"https://api.billit.be/v1/orders/{order_id}/attachments",
+                            headers=attachment_headers,
+                            files={"file": (pdf_filename, pdf_bytes, "application/pdf")},
+                        )
+                    if att_resp.status_code in (200, 201):
+                        logging.info("[Billit] PDF bijlage succesvol toegevoegd aan order %s", order_id)
+                    else:
+                        logging.warning("[Billit] PDF bijlage mislukt voor order %s. Status: %s | Body: %s", order_id, att_resp.status_code, att_resp.text[:300])
+                except Exception as att_exc:
+                    logging.error("[Billit] Uitzondering bij PDF bijlage voor order %s: %s", order_id, str(att_exc))
+
+            return {"success": True, "billit_order_id": order_id}
         else:
             logging.error("[Billit] Fout bij versturen werkbon %s. Status: %s | Body: %s", werkbon["id"], resp.status_code, resp.text[:500])
             return {"success": False, "error": f"Billit API status {resp.status_code}: {resp.text[:200]}"}

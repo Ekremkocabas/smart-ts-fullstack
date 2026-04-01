@@ -27,6 +27,7 @@ interface Klant {
   contactpersoon?: string;
   actief: boolean;
   created_at?: string;
+  btw_percentage?: number;
 }
 
 interface Werf {
@@ -43,7 +44,7 @@ export default function KlantDetail() {
   const [werven, setWerven] = useState<Werf[]>([]);
   const [loading, setLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [formData, setFormData] = useState({ naam: '', email: '', telefoon: '', adres: '', contactpersoon: '' });
+  const [formData, setFormData] = useState({ naam: '', email: '', telefoon: '', adres: '', contactpersoon: '', btw_percentage: 21 });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -78,6 +79,7 @@ export default function KlantDetail() {
           telefoon: foundKlant.telefoon || '',
           adres: foundKlant.adres || '',
           contactpersoon: foundKlant.contactpersoon || '',
+          btw_percentage: foundKlant.btw_percentage ?? 21,
         });
       }
     } catch (error) {
@@ -98,6 +100,7 @@ export default function KlantDetail() {
         telefoon: formData.telefoon,
         adres: formData.adres,
         contactpersoon: formData.contactpersoon,
+        btw_percentage: formData.btw_percentage,
       });
       setShowEditModal(false);
       fetchData();
@@ -241,6 +244,18 @@ export default function KlantDetail() {
               <TextInput style={styles.input} value={formData.telefoon} onChangeText={(v) => setFormData({ ...formData, telefoon: v })} keyboardType="phone-pad" />
               <Text style={styles.label}>Adres</Text>
               <TextInput style={styles.input} value={formData.adres} onChangeText={(v) => setFormData({ ...formData, adres: v })} />
+              <Text style={styles.label}>BTW percentage (voor Billit)</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+                {([{ key: 0, label: '0% (Medecontractant)' }, { key: 6, label: '6%' }, { key: 21, label: '21%' }] as { key: number; label: string }[]).map((opt) => (
+                  <TouchableOpacity
+                    key={opt.key}
+                    onPress={() => setFormData({ ...formData, btw_percentage: opt.key })}
+                    style={{ flex: 1, padding: 10, borderRadius: 8, borderWidth: 1, borderColor: formData.btw_percentage === opt.key ? (theme.primaryColor || '#F5A623') : '#E8E9ED', backgroundColor: formData.btw_percentage === opt.key ? (theme.primaryColor || '#F5A623') : '#F5F6FA', alignItems: 'center' }}
+                  >
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: formData.btw_percentage === opt.key ? '#fff' : '#6c757d' }}>{opt.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </ScrollView>
             <TouchableOpacity style={styles.saveBtn} onPress={saveKlant} disabled={saving}>
               {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Opslaan</Text>}

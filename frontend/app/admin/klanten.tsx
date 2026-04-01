@@ -87,6 +87,7 @@ interface Klant {
   interne_referentie: string;
   opmerkingen: string;
   actief: boolean;
+  btw_percentage: number;
 }
 
 const CONTACT_FUNCTIES = [
@@ -202,6 +203,7 @@ const emptyKlant: Klant = {
   interne_referentie: '',
   opmerkingen: '',
   actief: true,
+  btw_percentage: 21,
 };
 
 export default function KlantenAdmin() {
@@ -283,6 +285,7 @@ export default function KlantenAdmin() {
       adres_structured: k.adres_structured || { ...emptyAdres },
       contactpersonen: k.contactpersonen || [],
       facturatie_adres: k.facturatie_adres || { ...emptyAdres },
+      btw_percentage: k.btw_percentage ?? 21,
     });
     setPrijsInputs({
       standaard_uurtarief: numberToPrijsString(k.standaard_uurtarief),
@@ -988,6 +991,19 @@ export default function KlantenAdmin() {
                   <Text style={styles.label}>Facturatie contactpersoon</Text>
                   <TextInput style={styles.input} value={formData.facturatie_contactpersoon} onChangeText={(v) => setFormData({ ...formData, facturatie_contactpersoon: v })} placeholder="Naam contactpersoon" placeholderTextColor="#6c757d" />
                   
+                  <Text style={styles.label}>BTW percentage (voor Billit)</Text>
+                  <View style={styles.betaaltermijnRowWrap}>
+                    {([{ key: 0, label: '0% (Medecontractant)' }, { key: 6, label: '6%' }, { key: 21, label: '21%' }] as { key: number; label: string }[]).map((opt) => (
+                      <TouchableOpacity
+                        key={opt.key}
+                        style={[styles.betaaltermijnBtn, formData.btw_percentage === opt.key && styles.betaaltermijnBtnActive]}
+                        onPress={() => setFormData({ ...formData, btw_percentage: opt.key })}
+                      >
+                        <Text style={[styles.betaaltermijnText, formData.btw_percentage === opt.key && styles.betaaltermijnTextActive]}>{opt.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
                   <Text style={styles.label}>Betaaltermijn</Text>
                   <View style={styles.betaaltermijnRowWrap}>
                     {BETAALTERMIJN_OPTIES.map((opt) => (
