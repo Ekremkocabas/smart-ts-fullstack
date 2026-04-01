@@ -25,6 +25,7 @@ interface Werkbon {
   werf_naam: string;
   status: string;
   created_by_naam?: string;
+  ingevuld_door_naam?: string;
   handtekening_data?: string;
   uren?: any[];
 }
@@ -174,6 +175,7 @@ export function WerkbonnenPeriodList({ title, description, weekNummer, jaar, maa
       !search ||
       wb.klant_naam?.toLowerCase().includes(search.toLowerCase()) ||
       wb.werf_naam?.toLowerCase().includes(search.toLowerCase()) ||
+      wb.ingevuld_door_naam?.toLowerCase().includes(search.toLowerCase()) ||
       wb.created_by_naam?.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -282,7 +284,7 @@ export function WerkbonnenPeriodList({ title, description, weekNummer, jaar, maa
                   <Text style={[styles.klantText, { color: theme.secondaryColor || '#1A1A2E' }]}>{wb.klant_naam}</Text>
                   <Text style={styles.werfText}>{wb.werf_naam}</Text>
                 </View>
-                <Text style={styles.tableCell}>{wb.created_by_naam || '-'}</Text>
+                <Text style={styles.tableCell}>{wb.ingevuld_door_naam || wb.created_by_naam || '-'}</Text>
                 <View style={styles.tableCell}>
                   <Text style={[styles.urenText, { color: theme.secondaryColor || '#1A1A2E' }]}>{calcTotalUren(wb)} u</Text>
                 </View>

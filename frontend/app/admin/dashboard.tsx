@@ -25,6 +25,7 @@ interface DashboardStats {
   totaalUrenDezeWeek: number;
   totaalUrenDezeMaand: number;
   werkbonnenDezeMaandAantal: number;
+  totaalWerkbonnen: number;
   planningDezeWeek: number;
   planningAfgerond: number;
 }
@@ -77,9 +78,10 @@ export default function AdminDashboard() {
       const currentMonth = now.getMonth() + 1;
       const currentYear = now.getFullYear();
 
-      const [urenWeekOk, urenMaandOk] = await Promise.all([
+      const [urenWeekOk, urenMaandOk, totaalCountRes] = await Promise.all([
         apiClient.get(`/api/dashboard/uren-week?week_nummer=${weekNr}&jaar=${jaarCal}`),
         apiClient.get(`/api/dashboard/uren-maand?jaar=${currentYear}&maand=${currentMonth}`),
+        apiClient.get('/api/werkbonnen/filter-count').catch(() => ({ data: { count: 0 } })),
       ]);
 
       const werknemers = werknemersRes.data;
@@ -108,6 +110,7 @@ export default function AdminDashboard() {
         totaalUrenDezeWeek: urenWeekOk.data?.totaal_uren ?? 0,
         totaalUrenDezeMaand: urenMaandOk.data?.totaal_uren ?? 0,
         werkbonnenDezeMaandAantal: urenMaandOk.data?.werkbonnen_aantal ?? 0,
+        totaalWerkbonnen: typeof totaalCountRes.data?.count === 'number' ? totaalCountRes.data.count : 0,
         planningDezeWeek: ds?.planning_deze_week ?? 0,
         planningAfgerond: ds?.planning_afgerond ?? 0,
       });
@@ -280,6 +283,22 @@ export default function AdminDashboard() {
               <Text style={styles.werkbonStatLabel}>Werkbonnen deze week</Text>
             </TouchableOpacity>
             <TouchableOpacity
+              style={[styles.werkbonStatCard, { borderLeftColor: '#e67e22' }]}
+              onPress={() => router.push('/admin/werkbonnen/month' as any)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.werkbonStatValue}>{stats?.werkbonnenDezeMaandAantal ?? 0}</Text>
+              <Text style={styles.werkbonStatLabel}>Werkbonnen deze maand</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.werkbonStatCard, { borderLeftColor: '#9b59b6' }]}
+              onPress={() => router.push('/admin/werkbonnen' as any)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.werkbonStatValue}>{stats?.totaalWerkbonnen ?? 0}</Text>
+              <Text style={styles.werkbonStatLabel}>Totaal werkbonnen</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
               style={[styles.werkbonStatCard, { borderLeftColor: '#3498db' }]}
               onPress={() => router.push('/admin/werkbonnen/week' as any)}
               activeOpacity={0.85}
@@ -293,10 +312,7 @@ export default function AdminDashboard() {
               activeOpacity={0.85}
             >
               <Text style={styles.werkbonStatValue}>{stats?.totaalUrenDezeMaand ?? 0}</Text>
-              <Text style={styles.werkbonStatLabel}>Uren deze maand (totaal)</Text>
-              <Text style={styles.werkbonStatSub}>
-                {stats?.werkbonnenDezeMaandAantal ?? 0} werkbonnen deze maand
-              </Text>
+              <Text style={styles.werkbonStatLabel}>Uren deze maand</Text>
             </TouchableOpacity>
           </View>
 
