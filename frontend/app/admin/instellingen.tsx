@@ -143,7 +143,7 @@ const defaultInstellingen: Instellingen = {
 
 export default function InstellingenAdmin() {
   const { user } = useAuth();
-  const { refreshTheme } = useTheme();
+  const { theme, refreshTheme } = useTheme();
   const [instellingen, setInstellingen] = useState<Instellingen>(defaultInstellingen);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -324,7 +324,7 @@ export default function InstellingenAdmin() {
   if (loading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="#F5A623" style={{ marginTop: 40 }} />
+        <ActivityIndicator size="large" color={theme.primaryColor || '#F5A623'} style={{ marginTop: 40 }} />
       </View>
     );
   }
@@ -336,7 +336,7 @@ export default function InstellingenAdmin() {
     <View style={styles.container}>
       <View style={[styles.header, isCompact && styles.headerCompact]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#1A1A2E" />
+          <Ionicons name="arrow-back" size={24} color={theme.secondaryColor || '#1A1A2E'} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={[styles.title, isCompact && styles.titleCompact]}>Bedrijfsinstellingen</Text>
@@ -562,7 +562,7 @@ export default function InstellingenAdmin() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Kies een kleur</Text>
               <TouchableOpacity onPress={() => setColorPickerVisible(false)}>
-                <Ionicons name="close" size={24} color="#1A1A2E" />
+                <Ionicons name="close" size={24} color={theme.secondaryColor || '#1A1A2E'} />
               </TouchableOpacity>
             </View>
             

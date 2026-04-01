@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth, apiClient } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import Constants from 'expo-constants';
 import * as DocumentPicker from 'expo-document-picker';
 
@@ -65,6 +66,7 @@ interface Werknemer {
 
 export default function BerichtenAdmin() {
   const { user, isLoading: authLoading } = useAuth();
+  const { theme } = useTheme();
   const [activeTab, setActiveTab] = useState<TabType>('werknemers');
   const [berichten, setBerichten] = useState<Bericht[]>([]);
   const [werknemers, setWerknemers] = useState<Werknemer[]>([]);
@@ -480,7 +482,7 @@ export default function BerichtenAdmin() {
     return (
       <View style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#F5A623" />
+          <ActivityIndicator size="large" color={theme.primaryColor || '#F5A623'} />
           <Text style={styles.loadingText}>Laden...</Text>
         </View>
       </View>
@@ -505,7 +507,7 @@ export default function BerichtenAdmin() {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.title}>Berichten</Text>
+          <Text style={[styles.title, { color: theme.secondaryColor || '#1A1A2E' }]}>Berichten</Text>
           <Text style={styles.subtitle}>Communicatie met werknemers en onderaannemers</Text>
         </View>
         <TouchableOpacity 
@@ -520,61 +522,61 @@ export default function BerichtenAdmin() {
       {/* Tabs */}
       <View style={styles.tabsContainer}>
         <View style={styles.tabs}>
-          <TouchableOpacity 
-            style={[styles.tab, activeTab === 'werknemers' && styles.tabActive]}
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'werknemers' && styles.tabActive, activeTab === 'werknemers' && { borderBottomColor: theme.primaryColor || '#F5A623' }]}
             onPress={() => setActiveTab('werknemers')}
           >
-            <Ionicons name="people" size={18} color={activeTab === 'werknemers' ? '#F5A623' : '#6c757d'} />
+            <Ionicons name="people" size={18} color={activeTab === 'werknemers' ? (theme.primaryColor || '#F5A623') : '#6c757d'} />
             <Text style={[styles.tabText, activeTab === 'werknemers' && styles.tabTextActive]}>
               Werknemers
             </Text>
-            <View style={[styles.tabBadge, activeTab === 'werknemers' && styles.tabBadgeActive]}>
-              <Text style={[styles.tabBadgeText, activeTab === 'werknemers' && styles.tabBadgeTextActive]}>
+            <View style={[styles.tabBadge, activeTab === 'werknemers' && styles.tabBadgeActive, activeTab === 'werknemers' && { backgroundColor: `${theme.primaryColor || '#F5A623'}20` }]}>
+              <Text style={[styles.tabBadgeText, activeTab === 'werknemers' && styles.tabBadgeTextActive, activeTab === 'werknemers' && { color: theme.primaryColor || '#F5A623' }]}>
                 {werknemersByType.werknemers.length}
               </Text>
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={[styles.tab, activeTab === 'onderaannemers' && styles.tabActive]}
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'onderaannemers' && styles.tabActive, activeTab === 'onderaannemers' && { borderBottomColor: theme.primaryColor || '#F5A623' }]}
             onPress={() => setActiveTab('onderaannemers')}
           >
-            <Ionicons name="construct" size={18} color={activeTab === 'onderaannemers' ? '#F5A623' : '#6c757d'} />
+            <Ionicons name="construct" size={18} color={activeTab === 'onderaannemers' ? (theme.primaryColor || '#F5A623') : '#6c757d'} />
             <Text style={[styles.tabText, activeTab === 'onderaannemers' && styles.tabTextActive]}>
               Onderaannemers
             </Text>
-            <View style={[styles.tabBadge, activeTab === 'onderaannemers' && styles.tabBadgeActive]}>
-              <Text style={[styles.tabBadgeText, activeTab === 'onderaannemers' && styles.tabBadgeTextActive]}>
+            <View style={[styles.tabBadge, activeTab === 'onderaannemers' && styles.tabBadgeActive, activeTab === 'onderaannemers' && { backgroundColor: `${theme.primaryColor || '#F5A623'}20` }]}>
+              <Text style={[styles.tabBadgeText, activeTab === 'onderaannemers' && styles.tabBadgeTextActive, activeTab === 'onderaannemers' && { color: theme.primaryColor || '#F5A623' }]}>
                 {werknemersByType.onderaannemers.length}
               </Text>
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={[styles.tab, activeTab === 'archief' && styles.tabActive]}
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'archief' && styles.tabActive, activeTab === 'archief' && { borderBottomColor: theme.primaryColor || '#F5A623' }]}
             onPress={() => setActiveTab('archief')}
           >
-            <Ionicons name="archive" size={18} color={activeTab === 'archief' ? '#F5A623' : '#6c757d'} />
+            <Ionicons name="archive" size={18} color={activeTab === 'archief' ? (theme.primaryColor || '#F5A623') : '#6c757d'} />
             <Text style={[styles.tabText, activeTab === 'archief' && styles.tabTextActive]}>
               Archief
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.tab, activeTab === 'per_werknemer' && styles.tabActive]}
+            style={[styles.tab, activeTab === 'per_werknemer' && styles.tabActive, activeTab === 'per_werknemer' && { borderBottomColor: theme.primaryColor || '#F5A623' }]}
             onPress={() => { setActiveTab('per_werknemer'); setSelectedWerknemer(null); }}
           >
-            <Ionicons name="folder-open" size={18} color={activeTab === 'per_werknemer' ? '#F5A623' : '#6c757d'} />
+            <Ionicons name="folder-open" size={18} color={activeTab === 'per_werknemer' ? (theme.primaryColor || '#F5A623') : '#6c757d'} />
             <Text style={[styles.tabText, activeTab === 'per_werknemer' && styles.tabTextActive]}>
               Per Werknemer
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.tab, activeTab === 'mappen' && styles.tabActive]}
+            style={[styles.tab, activeTab === 'mappen' && styles.tabActive, activeTab === 'mappen' && { borderBottomColor: theme.primaryColor || '#F5A623' }]}
             onPress={() => { setActiveTab('mappen'); setMappenWerknemer(null); setMappenDocs([]); }}
           >
-            <Ionicons name="folder" size={18} color={activeTab === 'mappen' ? '#F5A623' : '#6c757d'} />
+            <Ionicons name="folder" size={18} color={activeTab === 'mappen' ? (theme.primaryColor || '#F5A623') : '#6c757d'} />
             <Text style={[styles.tabText, activeTab === 'mappen' && styles.tabTextActive]}>
               Mappen
             </Text>
@@ -634,7 +636,7 @@ export default function BerichtenAdmin() {
               {werknemers.filter(w => w.actief).map((wn) => (
                 <TouchableOpacity
                   key={wn.id}
-                  style={[styles.werknemerItem, mappenWerknemer?.id === wn.id && styles.werknemerItemActive]}
+                  style={[styles.werknemerItem, mappenWerknemer?.id === wn.id && styles.werknemerItemActive, mappenWerknemer?.id === wn.id && { backgroundColor: `${theme.primaryColor || '#F5A623'}10`, borderLeftColor: theme.primaryColor || '#F5A623' }]}
                   onPress={() => selectMappenWerknemer(wn)}
                 >
                   <View style={styles.werknemerAvatar}>
@@ -669,7 +671,7 @@ export default function BerichtenAdmin() {
                 </View>
                 {mappenLoading ? (
                   <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                    <ActivityIndicator size="large" color="#F5A623" />
+                    <ActivityIndicator size="large" color={theme.primaryColor || '#F5A623'} />
                   </View>
                 ) : (
                   <ScrollView style={styles.werknemerMessagesScroll}>
@@ -683,7 +685,7 @@ export default function BerichtenAdmin() {
                       <View key={doc.id} style={[styles.messageCard, { flexDirection: 'row', alignItems: 'center' }]}>
                         <Ionicons
                           name={doc.type?.includes('pdf') ? 'document-text-outline' : 'image-outline'}
-                          size={24} color="#F5A623"
+                          size={24} color={theme.primaryColor || '#F5A623'}
                           style={{ marginRight: 12 }}
                         />
                         <View style={{ flex: 1 }}>
@@ -736,7 +738,8 @@ export default function BerichtenAdmin() {
                     key={wn.id}
                     style={[
                       styles.werknemerItem,
-                      selectedWerknemer?.id === wn.id && styles.werknemerItemActive
+                      selectedWerknemer?.id === wn.id && styles.werknemerItemActive,
+                      selectedWerknemer?.id === wn.id && { backgroundColor: `${theme.primaryColor || '#F5A623'}10`, borderLeftColor: theme.primaryColor || '#F5A623' }
                     ]}
                     onPress={() => setSelectedWerknemer(wn)}
                   >
@@ -834,7 +837,7 @@ export default function BerichtenAdmin() {
         <View style={styles.messagesList}>
           {loading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#F5A623" />
+              <ActivityIndicator size="large" color={theme.primaryColor || '#F5A623'} />
             </View>
           ) : filteredBerichten.length === 0 ? (
             <View style={styles.emptyState}>
@@ -858,6 +861,7 @@ export default function BerichtenAdmin() {
                     styles.messageCard,
                     selectedBericht?.id === bericht.id && styles.messageCardSelected,
                     bericht.vastgepind && styles.messageCardPinned,
+                    bericht.vastgepind && { backgroundColor: `${theme.primaryColor || '#F5A623'}08` },
                   ]}
                   onPress={() => setSelectedBericht(bericht)}
                 >
@@ -873,8 +877,8 @@ export default function BerichtenAdmin() {
                     </View>
                     <View style={styles.messageBadges}>
                       {bericht.vastgepind && (
-                        <View style={styles.pinBadge}>
-                          <Ionicons name="pin" size={12} color="#F5A623" />
+                        <View style={[styles.pinBadge, { backgroundColor: `${theme.primaryColor || '#F5A623'}20` }]}>
+                          <Ionicons name="pin" size={12} color={theme.primaryColor || '#F5A623'} />
                         </View>
                       )}
                       {bericht.is_broadcast && (
@@ -949,12 +953,12 @@ export default function BerichtenAdmin() {
               )}
 
               <View style={styles.detailActions}>
-                <TouchableOpacity 
-                  style={[styles.actionBtn, { backgroundColor: '#F5A62320' }]}
+                <TouchableOpacity
+                  style={[styles.actionBtn, { backgroundColor: `${theme.primaryColor || '#F5A623'}20` }]}
                   onPress={() => togglePin(selectedBericht)}
                 >
-                  <Ionicons name={selectedBericht.vastgepind ? 'pin' : 'pin-outline'} size={18} color="#F5A623" />
-                  <Text style={[styles.actionBtnText, { color: '#F5A623' }]}>
+                  <Ionicons name={selectedBericht.vastgepind ? 'pin' : 'pin-outline'} size={18} color={theme.primaryColor || '#F5A623'} />
+                  <Text style={[styles.actionBtnText, { color: theme.primaryColor || '#F5A623' }]}>
                     {selectedBericht.vastgepind ? 'Losmaken' : 'Vastpinnen'}
                   </Text>
                 </TouchableOpacity>
@@ -1114,8 +1118,8 @@ export default function BerichtenAdmin() {
                   style={[styles.optionBtn, form.vastgepind && styles.optionBtnActive]}
                   onPress={() => setForm(prev => ({ ...prev, vastgepind: !prev.vastgepind }))}
                 >
-                  <Ionicons name="pin" size={18} color={form.vastgepind ? '#F5A623' : '#6c757d'} />
-                  <Text style={[styles.optionText, form.vastgepind && styles.optionTextActive]}>Vastpinnen</Text>
+                  <Ionicons name="pin" size={18} color={form.vastgepind ? (theme.primaryColor || '#F5A623') : '#6c757d'} />
+                  <Text style={[styles.optionText, form.vastgepind && styles.optionTextActive, form.vastgepind && { color: theme.primaryColor || '#F5A623' }]}>Vastpinnen</Text>
                 </TouchableOpacity>
                 
                 <TouchableOpacity 

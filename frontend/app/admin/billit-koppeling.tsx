@@ -14,6 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth, apiClient } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 
 interface BillitSettings {
   billit_api_key: string;
@@ -38,6 +39,7 @@ const REFERENTIE_OPTIONS = [
 
 export default function BillitKoppelingScreen() {
   const { user } = useAuth();
+  const { theme } = useTheme();
   const [settings, setSettings] = useState<BillitSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -140,13 +142,13 @@ export default function BillitKoppelingScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.push('/admin/facturatie-koppeling' as any)}>
-          <Ionicons name="arrow-back" size={22} color="#F5A623" />
+          <Ionicons name="arrow-back" size={22} color={theme.primaryColor || '#F5A623'} />
         </TouchableOpacity>
         <View style={styles.headerIcon}>
           <Text style={styles.headerLetter}>B</Text>
         </View>
         <View style={styles.headerCenter}>
-          <Text style={styles.title}>Billit Koppeling</Text>
+          <Text style={[styles.title, { color: theme.secondaryColor || '#1A1A2E' }]}>Billit Koppeling</Text>
           <Text style={styles.subtitle}>Facturatie integratie instellen</Text>
         </View>
         {settings.billit_actief && (
@@ -278,7 +280,7 @@ export default function BillitKoppelingScreen() {
           {/* Info over handmatig */}
           {settings.billit_actief && !settings.billit_auto_versturen && (
             <View style={[styles.helpBox, { marginTop: 12 }]}>
-              <Ionicons name="hand-left-outline" size={16} color="#F5A623" />
+              <Ionicons name="hand-left-outline" size={16} color={theme.primaryColor || '#F5A623'} />
               <Text style={[styles.helpText, { color: '#7A5200' }]}>
                 Handmatige modus: naast elke verzonden werkbon verschijnt een Billit-icoon waarmee u de werkbon apart naar Billit kunt sturen.
               </Text>

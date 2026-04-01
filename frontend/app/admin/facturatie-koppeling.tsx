@@ -10,6 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth, apiClient } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 
 interface FacturatieSettings {
   billit_actief: boolean;
@@ -77,6 +78,7 @@ const SYSTEMS: SystemCard[] = [
 
 export default function FacturatieKoppelingScreen() {
   const { user } = useAuth();
+  const { theme } = useTheme();
   const [billitActief, setBillitActief] = useState(false);
 
   useEffect(() => {
@@ -108,10 +110,10 @@ export default function FacturatieKoppelingScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.push('/admin/instellingen' as any)}>
-          <Ionicons name="arrow-back" size={22} color="#F5A623" />
+          <Ionicons name="arrow-back" size={22} color={theme.primaryColor || '#F5A623'} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={styles.title}>Facturatie Koppeling</Text>
+          <Text style={[styles.title, { color: theme.secondaryColor || '#1A1A2E' }]}>Facturatie Koppeling</Text>
           <Text style={styles.subtitle}>Koppel uw facturatieprogramma aan het systeem</Text>
         </View>
       </View>

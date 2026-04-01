@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { WerkbonnenPeriodList } from './WerkbonnenPeriodList';
+import { useTheme } from '../../../context/ThemeContext';
 
 const MAANDEN = [
   'Januari',
@@ -19,6 +20,7 @@ const MAANDEN = [
 ];
 
 export default function WerkbonnenMonthScreen() {
+  const { theme } = useTheme();
   const now = new Date();
   const [jaar, setJaar] = useState(now.getFullYear());
   const [maand, setMaand] = useState(now.getMonth() + 1);
@@ -46,13 +48,13 @@ export default function WerkbonnenMonthScreen() {
   const extraHeader = (
     <View style={styles.nav}>
       <TouchableOpacity onPress={prev} style={styles.navBtn} accessibilityLabel="Vorige maand">
-        <Ionicons name="chevron-back" size={22} color="#1A1A2E" />
+        <Ionicons name="chevron-back" size={22} color={theme.secondaryColor || '#1A1A2E'} />
       </TouchableOpacity>
-      <Text style={styles.navLabel}>
+      <Text style={[styles.navLabel, { color: theme.secondaryColor || '#1A1A2E' }]}>
         {MAANDEN[maand - 1]} {jaar}
       </Text>
       <TouchableOpacity onPress={next} style={styles.navBtn} accessibilityLabel="Volgende maand">
-        <Ionicons name="chevron-forward" size={22} color="#1A1A2E" />
+        <Ionicons name="chevron-forward" size={22} color={theme.secondaryColor || '#1A1A2E'} />
       </TouchableOpacity>
     </View>
   );

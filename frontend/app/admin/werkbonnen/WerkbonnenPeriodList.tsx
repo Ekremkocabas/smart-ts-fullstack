@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth, apiClient } from '../../../context/AuthContext';
+import { useTheme } from '../../../context/ThemeContext';
 
 const PAGE_SIZE = 100;
 
@@ -76,6 +77,7 @@ interface BillitConfig {
 
 export function WerkbonnenPeriodList({ title, description, weekNummer, jaar, maand, extraHeader }: Props) {
   const { user } = useAuth();
+  const { theme } = useTheme();
   const [items, setItems] = useState<Werkbon[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -223,11 +225,11 @@ export function WerkbonnenPeriodList({ title, description, weekNummer, jaar, maa
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <TouchableOpacity onPress={() => router.push('/admin/werkbonnen' as any)} style={styles.backRow}>
-        <Ionicons name="arrow-back" size={22} color="#F5A623" />
-        <Text style={styles.backText}>Terug naar werkbonnen</Text>
+        <Ionicons name="arrow-back" size={22} color={theme.primaryColor || '#F5A623'} />
+        <Text style={[styles.backText, { color: theme.primaryColor || '#F5A623' }]}>Terug naar werkbonnen</Text>
       </TouchableOpacity>
       {extraHeader}
-      <Text style={styles.title}>{title}</Text>
+      <Text style={[styles.title, { color: theme.secondaryColor || '#1A1A2E' }]}>{title}</Text>
       <Text style={styles.desc}>{description}</Text>
       <Text style={styles.meta}>
         {total} werkbon{total !== 1 ? 'nen' : ''} in deze periode
@@ -246,7 +248,7 @@ export function WerkbonnenPeriodList({ title, description, weekNummer, jaar, maa
       </View>
 
       {loading ? (
-        <ActivityIndicator size="large" color="#F5A623" style={{ marginVertical: 40 }} />
+        <ActivityIndicator size="large" color={theme.primaryColor || '#F5A623'} style={{ marginVertical: 40 }} />
       ) : (
         <View style={styles.tableContainer}>
           <View style={styles.tableHeader}>
@@ -272,17 +274,17 @@ export function WerkbonnenPeriodList({ title, description, weekNummer, jaar, maa
                 onPress={() => router.push(`/admin/werkbon-detail?id=${wb.id}` as any)}
               >
                 <View style={styles.tableCell}>
-                  <View style={styles.weekBadge}>
-                    <Text style={styles.weekText}>W{wb.week_nummer}</Text>
+                  <View style={[styles.weekBadge, { backgroundColor: `${theme.primaryColor || '#F5A623'}15` }]}>
+                    <Text style={[styles.weekText, { color: theme.primaryColor || '#F5A623' }]}>W{wb.week_nummer}</Text>
                   </View>
                 </View>
                 <View style={[styles.tableCell, { flex: 1.5 }]}>
-                  <Text style={styles.klantText}>{wb.klant_naam}</Text>
+                  <Text style={[styles.klantText, { color: theme.secondaryColor || '#1A1A2E' }]}>{wb.klant_naam}</Text>
                   <Text style={styles.werfText}>{wb.werf_naam}</Text>
                 </View>
                 <Text style={styles.tableCell}>{wb.created_by_naam || '-'}</Text>
                 <View style={styles.tableCell}>
-                  <Text style={styles.urenText}>{calcTotalUren(wb)} u</Text>
+                  <Text style={[styles.urenText, { color: theme.secondaryColor || '#1A1A2E' }]}>{calcTotalUren(wb)} u</Text>
                 </View>
                 <View style={styles.tableCell}>
                   <View style={[styles.statusBadge, { backgroundColor: getStatusColor(wb.status) }]}>
@@ -335,9 +337,9 @@ export function WerkbonnenPeriodList({ title, description, weekNummer, jaar, maa
               disabled={loadingMore}
             >
               {loadingMore ? (
-                <ActivityIndicator color="#F5A623" />
+                <ActivityIndicator color={theme.primaryColor || '#F5A623'} />
               ) : (
-                <Text style={styles.moreBtnText}>
+                <Text style={[styles.moreBtnText, { color: theme.primaryColor || '#F5A623' }]}>
                   Meer laden ({items.length} / {total})
                 </Text>
               )}

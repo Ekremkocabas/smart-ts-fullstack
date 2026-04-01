@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth, apiClient } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 
 const getScreenSize = () => {
   const { width } = Dimensions.get('window');
@@ -23,6 +24,7 @@ const getScreenSize = () => {
 
 export default function AccountScreen() {
   const { user } = useAuth();
+  const { theme } = useTheme();
   const [screenSize, setScreenSize] = useState(getScreenSize());
   
   // Password change state
@@ -92,10 +94,10 @@ export default function AccountScreen() {
     <View style={styles.container}>
       <View style={[styles.header, isCompact && styles.headerCompact]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#1A1A2E" />
+          <Ionicons name="arrow-back" size={24} color={theme.secondaryColor || '#1A1A2E'} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={[styles.title, isCompact && styles.titleCompact]}>Account</Text>
+          <Text style={[styles.title, isCompact && styles.titleCompact, { color: theme.secondaryColor || '#1A1A2E' }]}>Account</Text>
           {!isCompact && <Text style={styles.subtitle}>Beheer uw accountinstellingen</Text>}
         </View>
       </View>
@@ -104,18 +106,18 @@ export default function AccountScreen() {
         {/* User Info Card */}
         <View style={[styles.card, isCompact && styles.cardCompact]}>
           <View style={styles.cardHeader}>
-            <Ionicons name="person-circle-outline" size={24} color="#F5A623" />
+            <Ionicons name="person-circle-outline" size={24} color={theme.primaryColor || '#F5A623'} />
             <Text style={styles.cardTitle}>Profiel</Text>
           </View>
           <View style={styles.profileInfo}>
-            <View style={styles.profileAvatar}>
+            <View style={[styles.profileAvatar, { backgroundColor: theme.primaryColor || '#F5A623' }]}>
               <Text style={styles.profileAvatarText}>{user?.naam?.charAt(0) || 'A'}</Text>
             </View>
             <View style={styles.profileDetails}>
               <Text style={styles.profileName}>{user?.naam || 'Gebruiker'}</Text>
               <Text style={styles.profileEmail}>{user?.email || '-'}</Text>
-              <View style={styles.roleBadge}>
-                <Text style={styles.roleText}>{user?.rol || 'Admin'}</Text>
+              <View style={[styles.roleBadge, { backgroundColor: `${theme.primaryColor || '#F5A623'}20` }]}>
+                <Text style={[styles.roleText, { color: theme.primaryColor || '#F5A623' }]}>{user?.rol || 'Admin'}</Text>
               </View>
             </View>
           </View>
@@ -124,7 +126,7 @@ export default function AccountScreen() {
         {/* Password Change Card */}
         <View style={[styles.card, isCompact && styles.cardCompact]}>
           <View style={styles.cardHeader}>
-            <Ionicons name="key-outline" size={24} color="#F5A623" />
+            <Ionicons name="key-outline" size={24} color={theme.primaryColor || '#F5A623'} />
             <Text style={styles.cardTitle}>Wachtwoord Wijzigen</Text>
           </View>
 

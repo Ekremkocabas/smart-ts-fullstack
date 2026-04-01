@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useAuth, apiClient } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import Constants from 'expo-constants';
 
 // Determine API URL - ALWAYS use window.location.origin for web production
@@ -49,6 +50,7 @@ interface Werf {
 
 export default function KlantDetail() {
   const { user } = useAuth();
+  const { theme } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [klant, setKlant] = useState<Klant | null>(null);
   const [werven, setWerven] = useState<Werf[]>([]);
@@ -135,7 +137,7 @@ export default function KlantDetail() {
   if (loading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="#F5A623" style={{ marginTop: 40 }} />
+        <ActivityIndicator size="large" color={theme.primaryColor || '#F5A623'} style={{ marginTop: 40 }} />
       </View>
     );
   }
@@ -145,9 +147,9 @@ export default function KlantDetail() {
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color="#1A1A2E" />
+            <Ionicons name="arrow-back" size={24} color={theme.secondaryColor || '#1A1A2E'} />
           </TouchableOpacity>
-          <Text style={styles.title}>Klant niet gevonden</Text>
+          <Text style={[styles.title, { color: theme.secondaryColor || '#1A1A2E' }]}>Klant niet gevonden</Text>
         </View>
       </View>
     );
@@ -158,10 +160,10 @@ export default function KlantDetail() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#1A1A2E" />
+          <Ionicons name="arrow-back" size={24} color={theme.secondaryColor || '#1A1A2E'} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={styles.title}>Klant details</Text>
+          <Text style={[styles.title, { color: theme.secondaryColor || '#1A1A2E' }]}>Klant details</Text>
           <Text style={styles.subtitle}>{klant.naam}</Text>
         </View>
         <TouchableOpacity style={styles.editBtn} onPress={() => setShowEditModal(true)}>
@@ -238,7 +240,7 @@ export default function KlantDetail() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Klant bewerken</Text>
               <TouchableOpacity onPress={() => setShowEditModal(false)}>
-                <Ionicons name="close" size={24} color="#1A1A2E" />
+                <Ionicons name="close" size={24} color={theme.secondaryColor || '#1A1A2E'} />
               </TouchableOpacity>
             </View>
             <ScrollView>

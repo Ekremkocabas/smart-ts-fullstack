@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useAuth, apiClient } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 
 interface Werkbon {
   id: string;
@@ -46,6 +47,7 @@ interface Uren {
 
 export default function WerkbonDetail() {
   const { user } = useAuth();
+  const { theme } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [werkbon, setWerkbon] = useState<Werkbon | null>(null);
   const [loading, setLoading] = useState(true);
@@ -121,7 +123,7 @@ export default function WerkbonDetail() {
     switch (status) {
       case 'concept': return { color: '#ffc107', label: 'Concept', icon: 'create-outline' };
       case 'ondertekend': return { color: '#28a745', label: 'Ondertekend', icon: 'checkmark-circle' };
-      case 'verzonden': return { color: '#F5A623', label: 'Verzonden', icon: 'send' };
+      case 'verzonden': return { color: theme.primaryColor || '#F5A623', label: 'Verzonden', icon: 'send' };
       default: return { color: '#6c757d', label: status, icon: 'help-circle-outline' };
     }
   };
@@ -142,7 +144,7 @@ export default function WerkbonDetail() {
   if (loading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="#F5A623" style={{ marginTop: 40 }} />
+        <ActivityIndicator size="large" color={theme.primaryColor || '#F5A623'} style={{ marginTop: 40 }} />
       </View>
     );
   }
@@ -152,9 +154,9 @@ export default function WerkbonDetail() {
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color="#1A1A2E" />
+            <Ionicons name="arrow-back" size={24} color={theme.secondaryColor || '#1A1A2E'} />
           </TouchableOpacity>
-          <Text style={styles.title}>Werkbon niet gevonden</Text>
+          <Text style={[styles.title, { color: theme.secondaryColor || '#1A1A2E' }]}>Werkbon niet gevonden</Text>
         </View>
       </View>
     );
@@ -169,17 +171,17 @@ export default function WerkbonDetail() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#1A1A2E" />
+          <Ionicons name="arrow-back" size={24} color={theme.secondaryColor || '#1A1A2E'} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={styles.title}>Werkbon details</Text>
+          <Text style={[styles.title, { color: theme.secondaryColor || '#1A1A2E' }]}>Werkbon details</Text>
           <Text style={styles.subtitle}>Week {werkbon.week_nummer}, {werkbon.jaar}</Text>
         </View>
         <View style={styles.headerActions}>
           <TouchableOpacity style={styles.pdfBtn} onPress={downloadPdf} disabled={downloading}>
             {downloading ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="download-outline" size={22} color="#fff" />}
           </TouchableOpacity>
-          <TouchableOpacity style={styles.emailBtn} onPress={resendEmail} disabled={sending}>
+          <TouchableOpacity style={[styles.emailBtn, { backgroundColor: theme.primaryColor || '#F5A623' }]} onPress={resendEmail} disabled={sending}>
             {sending ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="mail-outline" size={22} color="#fff" />}
           </TouchableOpacity>
         </View>
@@ -194,14 +196,14 @@ export default function WerkbonDetail() {
           <Text style={styles.statusLabel}>Status</Text>
           <Text style={[styles.statusValue, { color: statusInfo.color }]}>{statusInfo.label}</Text>
         </View>
-        <View style={styles.weekBadge}>
-          <Text style={styles.weekText}>Week {werkbon.week_nummer}</Text>
+        <View style={[styles.weekBadge, { backgroundColor: `${theme.primaryColor || '#F5A623'}20` }]}>
+          <Text style={[styles.weekText, { color: theme.primaryColor || '#F5A623' }]}>Week {werkbon.week_nummer}</Text>
         </View>
       </View>
 
       {/* Overview */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Overzicht</Text>
+        <Text style={[styles.sectionTitle, { color: theme.secondaryColor || '#1A1A2E' }]}>Overzicht</Text>
         <View style={styles.overviewGrid}>
           <View style={styles.overviewCard}>
             <Ionicons name="briefcase" size={24} color="#1abc9c" />
@@ -219,7 +221,7 @@ export default function WerkbonDetail() {
             <Text style={styles.overviewValue}>{werkbon.ingevuld_door_naam || werkbon.created_by_naam || '-'}</Text>
           </View>
           <View style={styles.overviewCard}>
-            <Ionicons name="timer" size={24} color="#F5A623" />
+            <Ionicons name="timer" size={24} color={theme.primaryColor || '#F5A623'} />
             <Text style={styles.overviewLabel}>Totaal uren</Text>
             <Text style={styles.overviewValue}>{calcTotalUren()} uur</Text>
           </View>
@@ -228,7 +230,7 @@ export default function WerkbonDetail() {
 
       {/* Uren Tabel */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Uren per dag</Text>
+        <Text style={[styles.sectionTitle, { color: theme.secondaryColor || '#1A1A2E' }]}>Uren per dag</Text>
         <View style={styles.urenTable}>
           <View style={styles.tableHeader}>
             <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Type</Text>
@@ -246,7 +248,7 @@ export default function WerkbonDetail() {
                 {days.map((day, i) => (
                   <Text key={i} style={styles.tableCell}>{(uren as any)[day] || 0}</Text>
                 ))}
-                <Text style={[styles.tableCell, { fontWeight: '600', color: '#F5A623' }]}>{rowTotal}</Text>
+                <Text style={[styles.tableCell, { fontWeight: '600', color: theme.primaryColor || '#F5A623' }]}>{rowTotal}</Text>
               </View>
             );
           })}
@@ -260,7 +262,7 @@ export default function WerkbonDetail() {
 
       {/* Handtekening */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Handtekening</Text>
+        <Text style={[styles.sectionTitle, { color: theme.secondaryColor || '#1A1A2E' }]}>Handtekening</Text>
         <View style={styles.signatureCard}>
           {werkbon.handtekening_data ? (
             <>
@@ -285,7 +287,7 @@ export default function WerkbonDetail() {
       {/* Foto */}
       {werkbon.foto_data && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Foto</Text>
+          <Text style={[styles.sectionTitle, { color: theme.secondaryColor || '#1A1A2E' }]}>Foto</Text>
           <View style={styles.fotoCard}>
             <Image source={{ uri: `data:image/jpeg;base64,${werkbon.foto_data}` }} style={styles.fotoImage} resizeMode="cover" />
           </View>
@@ -295,7 +297,7 @@ export default function WerkbonDetail() {
       {/* Opmerkingen */}
       {werkbon.opmerkingen && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Opmerkingen</Text>
+          <Text style={[styles.sectionTitle, { color: theme.secondaryColor || '#1A1A2E' }]}>Opmerkingen</Text>
           <View style={styles.opmerkingenCard}>
             <Text style={styles.opmerkingenText}>{werkbon.opmerkingen}</Text>
           </View>
@@ -304,13 +306,13 @@ export default function WerkbonDetail() {
 
       {/* Actions */}
       <View style={styles.actionsSection}>
-        <TouchableOpacity style={styles.actionBtn} onPress={downloadPdf} disabled={downloading}>
+        <TouchableOpacity style={[styles.actionBtn, { backgroundColor: theme.primaryColor || '#F5A623' }]} onPress={downloadPdf} disabled={downloading}>
           <Ionicons name="download" size={20} color="#fff" />
           <Text style={styles.actionBtnText}>{downloading ? 'Bezig...' : 'PDF downloaden'}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.actionBtn, styles.actionBtnSecondary]} onPress={resendEmail} disabled={sending}>
-          <Ionicons name="mail" size={20} color="#F5A623" />
-          <Text style={[styles.actionBtnText, { color: '#F5A623' }]}>{sending ? 'Bezig...' : 'Opnieuw verzenden'}</Text>
+        <TouchableOpacity style={[styles.actionBtn, styles.actionBtnSecondary, { backgroundColor: `${theme.primaryColor || '#F5A623'}20` }]} onPress={resendEmail} disabled={sending}>
+          <Ionicons name="mail" size={20} color={theme.primaryColor || '#F5A623'} />
+          <Text style={[styles.actionBtnText, { color: theme.primaryColor || '#F5A623' }]}>{sending ? 'Bezig...' : 'Opnieuw verzenden'}</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>

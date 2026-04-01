@@ -15,6 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth, apiClient } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import Constants from 'expo-constants';
 
 // Determine API URL - ALWAYS use window.location.origin for web production
@@ -218,6 +219,7 @@ const emptyKlant: Klant = {
 
 export default function KlantenAdmin() {
   const { user, token, isLoading: authLoading } = useAuth();
+  const { theme } = useTheme();
   const [klanten, setKlanten] = useState<Klant[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -425,7 +427,7 @@ export default function KlantenAdmin() {
     return (
       <View style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#F5A623" />
+          <ActivityIndicator size="large" color={theme.primaryColor || '#F5A623'} />
           <Text style={styles.loadingText}>Laden...</Text>
         </View>
       </View>
@@ -465,10 +467,10 @@ export default function KlantenAdmin() {
       {/* Header */}
       <View style={[styles.header, isCompact && styles.headerCompact]}>
         <View style={styles.headerLeft}>
-          <Text style={[styles.title, isCompact && styles.titleCompact]}>Klanten</Text>
+          <Text style={[styles.title, isCompact && styles.titleCompact, { color: theme.secondaryColor || '#1A1A2E' }]}>Klanten</Text>
           {!isCompact && <Text style={styles.subtitle}>{klanten.length} klanten • B2B klantenbeheer</Text>}
         </View>
-        <TouchableOpacity style={styles.addBtn} onPress={openAddModal}>
+        <TouchableOpacity style={[styles.addBtn, { backgroundColor: theme.primaryColor || '#F5A623' }]} onPress={openAddModal}>
           <Ionicons name="add" size={22} color="#fff" />
           {!isCompact && <Text style={styles.addBtnText}>Nieuwe Klant</Text>}
         </TouchableOpacity>
@@ -493,7 +495,7 @@ export default function KlantenAdmin() {
 
       {/* List */}
       {loading ? (
-        <ActivityIndicator size="large" color="#F5A623" style={{ marginTop: 40 }} />
+        <ActivityIndicator size="large" color={theme.primaryColor || '#F5A623'} style={{ marginTop: 40 }} />
       ) : (
         <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
           {filteredKlanten.length === 0 ? (
@@ -509,8 +511,8 @@ export default function KlantenAdmin() {
                     <View style={styles.klantNameRow}>
                       <Text style={styles.klantName}>{klant.bedrijfsnaam || klant.naam}</Text>
                       {klant.klantnummer && (
-                        <View style={styles.klantnummerBadge}>
-                          <Text style={styles.klantnummerText}>{klant.klantnummer}</Text>
+                        <View style={[styles.klantnummerBadge, { backgroundColor: `${theme.primaryColor || '#F5A623'}20` }]}>
+                          <Text style={[styles.klantnummerText, { color: theme.primaryColor || '#F5A623' }]}>{klant.klantnummer}</Text>
                         </View>
                       )}
                     </View>
@@ -530,8 +532,8 @@ export default function KlantenAdmin() {
                     </View>
                   </View>
                   <View style={styles.klantActions}>
-                    <View style={[styles.prijsmodelBadge, { backgroundColor: klant.prijsmodel === 'uurtarief' ? '#3498db20' : klant.prijsmodel === 'vaste_prijs' ? '#27ae6020' : klant.prijsmodel === 'dagvergoeding' ? '#9b59b620' : '#F5A62320' }]}>
-                      <Text style={[styles.prijsmodelText, { color: klant.prijsmodel === 'uurtarief' ? '#3498db' : klant.prijsmodel === 'vaste_prijs' ? '#27ae60' : klant.prijsmodel === 'dagvergoeding' ? '#9b59b6' : '#F5A623' }]}>
+                    <View style={[styles.prijsmodelBadge, { backgroundColor: klant.prijsmodel === 'uurtarief' ? '#3498db20' : klant.prijsmodel === 'vaste_prijs' ? '#27ae6020' : klant.prijsmodel === 'dagvergoeding' ? '#9b59b620' : `${theme.primaryColor || '#F5A623'}20` }]}>
+                      <Text style={[styles.prijsmodelText, { color: klant.prijsmodel === 'uurtarief' ? '#3498db' : klant.prijsmodel === 'vaste_prijs' ? '#27ae60' : klant.prijsmodel === 'dagvergoeding' ? '#9b59b6' : (theme.primaryColor || '#F5A623') }]}>
                         {PRIJS_MODELLEN.find(p => p.key === normalizePrijsmodel(klant.prijsmodel))?.label || normalizePrijsmodel(klant.prijsmodel)}
                       </Text>
                     </View>
@@ -582,7 +584,7 @@ export default function KlantenAdmin() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{editingKlant ? 'Klant Bewerken' : 'Nieuwe Klant'}</Text>
               <TouchableOpacity onPress={() => setShowModal(false)}>
-                <Ionicons name="close" size={28} color="#1A1A2E" />
+                <Ionicons name="close" size={28} color={theme.secondaryColor || '#1A1A2E'} />
               </TouchableOpacity>
             </View>
 
@@ -591,11 +593,11 @@ export default function KlantenAdmin() {
               {sections.map((section, index) => (
                 <TouchableOpacity
                   key={section.key}
-                  style={[styles.sectionTab, activeSection === index && styles.sectionTabActive]}
+                  style={[styles.sectionTab, activeSection === index && styles.sectionTabActive, activeSection === index && { backgroundColor: `${theme.primaryColor || '#F5A623'}20` }]}
                   onPress={() => setActiveSection(index)}
                 >
-                  <Ionicons name={section.icon as any} size={18} color={activeSection === index ? '#F5A623' : '#6c757d'} />
-                  {!isCompact && <Text style={[styles.sectionTabText, activeSection === index && styles.sectionTabTextActive]}>{section.label}</Text>}
+                  <Ionicons name={section.icon as any} size={18} color={activeSection === index ? (theme.primaryColor || '#F5A623') : '#6c757d'} />
+                  {!isCompact && <Text style={[styles.sectionTabText, activeSection === index && styles.sectionTabTextActive, activeSection === index && { color: theme.primaryColor || '#F5A623' }]}>{section.label}</Text>}
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -612,11 +614,11 @@ export default function KlantenAdmin() {
                   
                   <Text style={styles.label}>Type klant</Text>
                   <View style={styles.typeToggle}>
-                    <TouchableOpacity style={[styles.typeBtn, formData.type_klant === 'bedrijf' && styles.typeBtnActive]} onPress={() => setFormData({ ...formData, type_klant: 'bedrijf' })}>
+                    <TouchableOpacity style={[styles.typeBtn, formData.type_klant === 'bedrijf' && styles.typeBtnActive, formData.type_klant === 'bedrijf' && { backgroundColor: theme.primaryColor || '#F5A623', borderColor: theme.primaryColor || '#F5A623' }]} onPress={() => setFormData({ ...formData, type_klant: 'bedrijf' })}>
                       <Ionicons name="business" size={18} color={formData.type_klant === 'bedrijf' ? '#fff' : '#6c757d'} />
                       <Text style={[styles.typeBtnText, formData.type_klant === 'bedrijf' && styles.typeBtnTextActive]}>Bedrijf</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.typeBtn, formData.type_klant === 'particulier' && styles.typeBtnActive]} onPress={() => setFormData({ ...formData, type_klant: 'particulier' })}>
+                    <TouchableOpacity style={[styles.typeBtn, formData.type_klant === 'particulier' && styles.typeBtnActive, formData.type_klant === 'particulier' && { backgroundColor: theme.primaryColor || '#F5A623', borderColor: theme.primaryColor || '#F5A623' }]} onPress={() => setFormData({ ...formData, type_klant: 'particulier' })}>
                       <Ionicons name="person" size={18} color={formData.type_klant === 'particulier' ? '#fff' : '#6c757d'} />
                       <Text style={[styles.typeBtnText, formData.type_klant === 'particulier' && styles.typeBtnTextActive]}>Particulier</Text>
                     </TouchableOpacity>
@@ -692,7 +694,7 @@ export default function KlantenAdmin() {
                 <View style={styles.section}>
                   <View style={styles.sectionHeader}>
                     <Text style={styles.sectionTitle}>Contactpersonen</Text>
-                    <TouchableOpacity style={styles.addContactBtn} onPress={openAddContact}>
+                    <TouchableOpacity style={[styles.addContactBtn, { backgroundColor: theme.primaryColor || '#F5A623' }]} onPress={openAddContact}>
                       <Ionicons name="add" size={20} color="#fff" />
                       <Text style={styles.addContactBtnText}>Toevoegen</Text>
                     </TouchableOpacity>
@@ -728,7 +730,7 @@ export default function KlantenAdmin() {
                         </View>
                         <View style={styles.contactActions}>
                           <TouchableOpacity onPress={() => openEditContact(contact)}>
-                            <Ionicons name="create-outline" size={20} color="#F5A623" />
+                            <Ionicons name="create-outline" size={20} color={theme.primaryColor || '#F5A623'} />
                           </TouchableOpacity>
                           <TouchableOpacity onPress={() => deleteContact(contact.id)}>
                             <Ionicons name="trash-outline" size={20} color="#dc3545" />
@@ -776,7 +778,7 @@ export default function KlantenAdmin() {
                     {PRIJS_MODELLEN.map((model) => (
                       <TouchableOpacity
                         key={model.key}
-                        style={[styles.prijsmodelOption, formData.prijsmodel === model.key && styles.prijsmodelOptionActive]}
+                        style={[styles.prijsmodelOption, formData.prijsmodel === model.key && styles.prijsmodelOptionActive, formData.prijsmodel === model.key && { backgroundColor: theme.primaryColor || '#F5A623', borderColor: theme.primaryColor || '#F5A623' }]}
                         onPress={() => setFormData({ ...formData, prijsmodel: model.key })}
                       >
                         <Text style={[styles.prijsmodelOptionText, formData.prijsmodel === model.key && styles.prijsmodelOptionTextActive]}>
@@ -1061,9 +1063,9 @@ export default function KlantenAdmin() {
                   
                   {formData.klantnummer && (
                     <View style={styles.infoBox}>
-                      <Ionicons name="barcode-outline" size={20} color="#F5A623" />
+                      <Ionicons name="barcode-outline" size={20} color={theme.primaryColor || '#F5A623'} />
                       <Text style={styles.infoBoxLabel}>Klantnummer:</Text>
-                      <Text style={styles.infoBoxValue}>{formData.klantnummer}</Text>
+                      <Text style={[styles.infoBoxValue, { color: theme.primaryColor || '#F5A623' }]}>{formData.klantnummer}</Text>
                     </View>
                   )}
                   
@@ -1101,7 +1103,7 @@ export default function KlantenAdmin() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{editingContact ? 'Contact Bewerken' : 'Nieuw Contact'}</Text>
               <TouchableOpacity onPress={() => setShowContactModal(false)}>
-                <Ionicons name="close" size={24} color="#1A1A2E" />
+                <Ionicons name="close" size={24} color={theme.secondaryColor || '#1A1A2E'} />
               </TouchableOpacity>
             </View>
             

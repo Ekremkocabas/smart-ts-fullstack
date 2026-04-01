@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Platform, TouchableOpacity } from '
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth } from '../../../context/AuthContext';
+import { useTheme } from '../../../context/ThemeContext';
 
 const hubCards = [
   {
@@ -41,6 +42,7 @@ const hubCards = [
 
 export default function WerkbonnenHub() {
   const { user } = useAuth();
+  const { theme } = useTheme();
 
   if (Platform.OS !== 'web') return null;
   if (!['beheerder', 'admin', 'manager', 'master_admin'].includes(user?.rol || '')) {
@@ -53,30 +55,33 @@ export default function WerkbonnenHub() {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <Text style={styles.title}>Werkbonnen</Text>
+      <Text style={[styles.title, { color: theme.secondaryColor || '#1A1A2E' }]}>Werkbonnen</Text>
       <Text style={styles.subtitle}>
         Kies een periode of open het volledige overzicht met alle types werkbonnen.
       </Text>
 
       <View style={styles.grid}>
-        {hubCards.map((card) => (
+        {hubCards.map((card) => {
+          const resolvedColor = card.color === '#F5A623' ? (theme.primaryColor || '#F5A623') : card.color === '#1A1A2E' ? (theme.secondaryColor || '#1A1A2E') : card.color;
+          return (
           <TouchableOpacity
             key={card.key}
-            style={[styles.card, { borderLeftColor: card.color }]}
+            style={[styles.card, { borderLeftColor: resolvedColor }]}
             onPress={() => router.push(card.route as any)}
             activeOpacity={0.85}
           >
-            <View style={[styles.cardIcon, { backgroundColor: `${card.color}18` }]}>
-              <Ionicons name={card.icon} size={28} color={card.color} />
+            <View style={[styles.cardIcon, { backgroundColor: `${resolvedColor}18` }]}>
+              <Ionicons name={card.icon} size={28} color={resolvedColor} />
             </View>
-            <Text style={styles.cardTitle}>{card.title}</Text>
+            <Text style={[styles.cardTitle, { color: theme.secondaryColor || '#1A1A2E' }]}>{card.title}</Text>
             <Text style={styles.cardSub}>{card.subtitle}</Text>
             <View style={styles.cardFooter}>
-              <Text style={[styles.cardLink, { color: card.color }]}>Openen</Text>
-              <Ionicons name="chevron-forward" size={18} color={card.color} />
+              <Text style={[styles.cardLink, { color: resolvedColor }]}>Openen</Text>
+              <Ionicons name="chevron-forward" size={18} color={resolvedColor} />
             </View>
           </TouchableOpacity>
-        ))}
+          );
+        })}
       </View>
     </ScrollView>
   );

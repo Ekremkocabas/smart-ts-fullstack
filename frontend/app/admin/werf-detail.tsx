@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useAuth, apiClient } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 
 interface Werf {
   id: string;
@@ -41,6 +42,7 @@ interface Werkbon {
 
 export default function WerfDetail() {
   const { user } = useAuth();
+  const { theme } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [werf, setWerf] = useState<Werf | null>(null);
   const [klanten, setKlanten] = useState<Klant[]>([]);
@@ -145,7 +147,7 @@ export default function WerfDetail() {
   if (loading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="#F5A623" style={{ marginTop: 40 }} />
+        <ActivityIndicator size="large" color={theme.primaryColor || '#F5A623'} style={{ marginTop: 40 }} />
       </View>
     );
   }
@@ -155,9 +157,9 @@ export default function WerfDetail() {
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color="#1A1A2E" />
+            <Ionicons name="arrow-back" size={24} color={theme.secondaryColor || '#1A1A2E'} />
           </TouchableOpacity>
-          <Text style={styles.title}>Werf niet gevonden</Text>
+          <Text style={[styles.title, { color: theme.secondaryColor || '#1A1A2E' }]}>Werf niet gevonden</Text>
         </View>
       </View>
     );
@@ -170,10 +172,10 @@ export default function WerfDetail() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#1A1A2E" />
+          <Ionicons name="arrow-back" size={24} color={theme.secondaryColor || '#1A1A2E'} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={styles.title}>Werf details</Text>
+          <Text style={[styles.title, { color: theme.secondaryColor || '#1A1A2E' }]}>Werf details</Text>
           <Text style={styles.subtitle}>{werf.naam}</Text>
         </View>
         <TouchableOpacity style={styles.editBtn} onPress={() => setShowEditModal(true)}>
@@ -244,11 +246,11 @@ export default function WerfDetail() {
             {werkbonnen.slice(0, 5).map((wb) => (
               <TouchableOpacity key={wb.id} style={styles.werkbonCard} onPress={() => router.push(`/admin/werkbon-detail?id=${wb.id}` as any)}>
                 <View style={styles.werkbonLeft}>
-                  <Text style={styles.werkbonWeek}>Week {wb.week_nummer}</Text>
+                  <Text style={[styles.werkbonWeek, { color: theme.primaryColor || '#F5A623' }]}>Week {wb.week_nummer}</Text>
                   <Text style={styles.werkbonKlant}>{wb.klant_naam}</Text>
                   <Text style={styles.werkbonMeta}>{wb.created_by_naam}</Text>
                 </View>
-                <View style={[styles.wbStatusBadge, { backgroundColor: wb.status === 'verzonden' ? '#F5A623' : wb.status === 'ondertekend' ? '#28a745' : '#ffc107' }]}>
+                <View style={[styles.wbStatusBadge, { backgroundColor: wb.status === 'verzonden' ? (theme.primaryColor || '#F5A623') : wb.status === 'ondertekend' ? '#28a745' : '#ffc107' }]}>
                   <Text style={styles.wbStatusText}>{wb.status}</Text>
                 </View>
               </TouchableOpacity>
@@ -264,7 +266,7 @@ export default function WerfDetail() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Werf bewerken</Text>
               <TouchableOpacity onPress={() => setShowEditModal(false)}>
-                <Ionicons name="close" size={24} color="#1A1A2E" />
+                <Ionicons name="close" size={24} color={theme.secondaryColor || '#1A1A2E'} />
               </TouchableOpacity>
             </View>
             <ScrollView>

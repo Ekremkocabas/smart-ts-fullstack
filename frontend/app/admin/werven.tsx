@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth, apiClient } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import Constants from 'expo-constants';
 
 // Determine API URL - ALWAYS use window.location.origin for web production
@@ -48,6 +49,7 @@ interface Klant {
 
 export default function WervenAdmin() {
   const { user, token, isLoading: authLoading } = useAuth();
+  const { theme } = useTheme();
   const [werven, setWerven] = useState<Werf[]>([]);
   const [klanten, setKlanten] = useState<Klant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -204,7 +206,7 @@ export default function WervenAdmin() {
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.title}>Werven</Text>
+          <Text style={[styles.title, { color: theme.secondaryColor || '#1A1A2E' }]}>Werven</Text>
           <Text style={styles.subtitle}>{werven.length} werven, {werven.filter(w => w.actief !== false).length} actief</Text>
         </View>
         <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -213,7 +215,7 @@ export default function WervenAdmin() {
             <Ionicons name="document-outline" size={16} color="#fff" />
             <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>CSV</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#1A1A2E', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8 }}
+          <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: theme.secondaryColor || '#1A1A2E', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8 }}
             onPress={() => exportWerven('pdf')}>
             <Ionicons name="print-outline" size={16} color="#fff" />
             <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>PDF</Text>
@@ -234,14 +236,14 @@ export default function WervenAdmin() {
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtersScroll}>
         <View style={styles.filters}>
-          <TouchableOpacity style={[styles.filterChip, filterActief === null && styles.filterChipActive]} onPress={() => setFilterActief(null)}>
+          <TouchableOpacity style={[styles.filterChip, filterActief === null && styles.filterChipActive, filterActief === null && { backgroundColor: theme.primaryColor || '#F5A623', borderColor: theme.primaryColor || '#F5A623' }]} onPress={() => setFilterActief(null)}>
             <Text style={[styles.filterText, filterActief === null && styles.filterTextActive]}>Alle statussen</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.filterChip, filterActief === true && styles.filterChipActive]} onPress={() => setFilterActief(filterActief === true ? null : true)}>
+          <TouchableOpacity style={[styles.filterChip, filterActief === true && styles.filterChipActive, filterActief === true && { backgroundColor: theme.primaryColor || '#F5A623', borderColor: theme.primaryColor || '#F5A623' }]} onPress={() => setFilterActief(filterActief === true ? null : true)}>
             <View style={[styles.statusDot, { backgroundColor: '#28a745' }]} />
             <Text style={[styles.filterText, filterActief === true && styles.filterTextActive]}>Actief</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.filterChip, filterActief === false && styles.filterChipActive]} onPress={() => setFilterActief(filterActief === false ? null : false)}>
+          <TouchableOpacity style={[styles.filterChip, filterActief === false && styles.filterChipActive, filterActief === false && { backgroundColor: theme.primaryColor || '#F5A623', borderColor: theme.primaryColor || '#F5A623' }]} onPress={() => setFilterActief(filterActief === false ? null : false)}>
             <View style={[styles.statusDot, { backgroundColor: '#dc3545' }]} />
             <Text style={[styles.filterText, filterActief === false && styles.filterTextActive]}>Inactief</Text>
           </TouchableOpacity>
@@ -249,7 +251,7 @@ export default function WervenAdmin() {
       </ScrollView>
 
       {loading ? (
-        <ActivityIndicator size="large" color="#F5A623" style={{ marginTop: 40 }} />
+        <ActivityIndicator size="large" color={theme.primaryColor || '#F5A623'} style={{ marginTop: 40 }} />
       ) : (
         <View style={styles.tableContainer}>
           <View style={styles.tableHeader}>
@@ -320,7 +322,7 @@ export default function WervenAdmin() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{editingWerf ? 'Werf bewerken' : 'Nieuwe werf'}</Text>
               <TouchableOpacity onPress={() => setShowModal(false)}>
-                <Ionicons name="close" size={24} color="#1A1A2E" />
+                <Ionicons name="close" size={24} color={theme.secondaryColor || '#1A1A2E'} />
               </TouchableOpacity>
             </View>
             <ScrollView>

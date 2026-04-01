@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth, apiClient } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 
 interface Team {
   id: string;
@@ -30,6 +31,7 @@ interface Werknemer {
 
 export default function TeamsAdmin() {
   const { user, token, isLoading: authLoading } = useAuth();
+  const { theme } = useTheme();
   const [teams, setTeams] = useState<Team[]>([]);
   const [werknemers, setWerknemers] = useState<Werknemer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -126,7 +128,7 @@ export default function TeamsAdmin() {
     return (
       <View style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#F5A623" />
+          <ActivityIndicator size="large" color={theme.primaryColor || '#F5A623'} />
           <Text style={styles.loadingText}>Laden...</Text>
         </View>
       </View>
@@ -148,17 +150,17 @@ export default function TeamsAdmin() {
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.title}>Teams</Text>
+          <Text style={[styles.title, { color: theme.secondaryColor || '#1A1A2E' }]}>Teams</Text>
           <Text style={styles.subtitle}>{teams.length} teams</Text>
         </View>
-        <TouchableOpacity style={styles.addBtn} onPress={openAddModal}>
+        <TouchableOpacity style={[styles.addBtn, { backgroundColor: theme.primaryColor || '#F5A623' }]} onPress={openAddModal}>
           <Ionicons name="add" size={22} color="#fff" />
           <Text style={styles.addBtnText}>Nieuw team</Text>
         </TouchableOpacity>
       </View>
 
       {loading ? (
-        <ActivityIndicator size="large" color="#F5A623" style={{ marginTop: 40 }} />
+        <ActivityIndicator size="large" color={theme.primaryColor || '#F5A623'} style={{ marginTop: 40 }} />
       ) : (
         <View style={styles.tableContainer}>
           <View style={styles.tableHeader}>
@@ -189,9 +191,9 @@ export default function TeamsAdmin() {
                 </View>
                 <View style={styles.tableCell}>
                   {t.ploegbaas ? (
-                    <View style={styles.ploegbaasBadge}>
-                      <Ionicons name="star" size={12} color="#F5A623" />
-                      <Text style={styles.ploegbaasText}>{t.ploegbaas}</Text>
+                    <View style={[styles.ploegbaasBadge, { backgroundColor: `${theme.primaryColor || '#F5A623'}20` }]}>
+                      <Ionicons name="star" size={12} color={theme.primaryColor || '#F5A623'} />
+                      <Text style={[styles.ploegbaasText, { color: theme.primaryColor || '#F5A623' }]}>{t.ploegbaas}</Text>
                     </View>
                   ) : (
                     <Text style={styles.emptyValue}>-</Text>
@@ -223,7 +225,7 @@ export default function TeamsAdmin() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{editingTeam ? 'Team bewerken' : 'Nieuw team'}</Text>
               <TouchableOpacity onPress={() => setShowModal(false)}>
-                <Ionicons name="close" size={24} color="#1A1A2E" />
+                <Ionicons name="close" size={24} color={theme.secondaryColor || '#1A1A2E'} />
               </TouchableOpacity>
             </View>
             <ScrollView>
@@ -232,11 +234,11 @@ export default function TeamsAdmin() {
               
               <Text style={styles.label}>Ploegbaas</Text>
               <ScrollView horizontal style={styles.ploegbaasSelector}>
-                <TouchableOpacity style={[styles.selectOption, !formData.ploegbaas && styles.selectOptionActive]} onPress={() => setFormData({ ...formData, ploegbaas: '' })}>
+                <TouchableOpacity style={[styles.selectOption, !formData.ploegbaas && styles.selectOptionActive, !formData.ploegbaas && { backgroundColor: theme.primaryColor || '#F5A623', borderColor: theme.primaryColor || '#F5A623' }]} onPress={() => setFormData({ ...formData, ploegbaas: '' })}>
                   <Text style={[styles.selectOptionText, !formData.ploegbaas && styles.selectOptionTextActive]}>Geen</Text>
                 </TouchableOpacity>
                 {formData.leden.map((naam) => (
-                  <TouchableOpacity key={naam} style={[styles.selectOption, formData.ploegbaas === naam && styles.selectOptionActive]} onPress={() => setFormData({ ...formData, ploegbaas: naam })}>
+                  <TouchableOpacity key={naam} style={[styles.selectOption, formData.ploegbaas === naam && styles.selectOptionActive, formData.ploegbaas === naam && { backgroundColor: theme.primaryColor || '#F5A623', borderColor: theme.primaryColor || '#F5A623' }]} onPress={() => setFormData({ ...formData, ploegbaas: naam })}>
                     <Text style={[styles.selectOptionText, formData.ploegbaas === naam && styles.selectOptionTextActive]}>{naam}</Text>
                   </TouchableOpacity>
                 ))}

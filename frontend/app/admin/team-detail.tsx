@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useAuth, apiClient } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 
 interface Team {
   id: string;
@@ -31,6 +32,7 @@ interface Werknemer {
 
 export default function TeamDetail() {
   const { user } = useAuth();
+  const { theme } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [team, setTeam] = useState<Team | null>(null);
   const [werknemers, setWerknemers] = useState<Werknemer[]>([]);
@@ -116,7 +118,7 @@ export default function TeamDetail() {
   if (loading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="#F5A623" style={{ marginTop: 40 }} />
+        <ActivityIndicator size="large" color={theme.primaryColor || '#F5A623'} style={{ marginTop: 40 }} />
       </View>
     );
   }
@@ -126,9 +128,9 @@ export default function TeamDetail() {
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color="#1A1A2E" />
+            <Ionicons name="arrow-back" size={24} color={theme.secondaryColor || '#1A1A2E'} />
           </TouchableOpacity>
-          <Text style={styles.title}>Team niet gevonden</Text>
+          <Text style={[styles.title, { color: theme.secondaryColor || '#1A1A2E' }]}>Team niet gevonden</Text>
         </View>
       </View>
     );
@@ -142,10 +144,10 @@ export default function TeamDetail() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#1A1A2E" />
+          <Ionicons name="arrow-back" size={24} color={theme.secondaryColor || '#1A1A2E'} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={styles.title}>Team details</Text>
+          <Text style={[styles.title, { color: theme.secondaryColor || '#1A1A2E' }]}>Team details</Text>
           <Text style={styles.subtitle}>{team.naam}</Text>
         </View>
         <TouchableOpacity style={styles.editBtn} onPress={() => setShowEditModal(true)}>
@@ -167,16 +169,16 @@ export default function TeamDetail() {
         <Text style={styles.sectionTitle}>Ploegbaas</Text>
         {ploegbaasInfo ? (
           <TouchableOpacity style={styles.ploegbaasCard} onPress={() => router.push(`/admin/werknemer-detail?id=${ploegbaasInfo.id}` as any)}>
-            <View style={styles.ploegbaasAvatar}>
+            <View style={[styles.ploegbaasAvatar, { backgroundColor: theme.primaryColor || '#F5A623' }]}>
               <Text style={styles.ploegbaasAvatarText}>{ploegbaasInfo.naam.charAt(0)}</Text>
             </View>
             <View style={styles.ploegbaasInfo}>
               <Text style={styles.ploegbaasName}>{ploegbaasInfo.naam}</Text>
               <Text style={styles.ploegbaasEmail}>{ploegbaasInfo.email}</Text>
             </View>
-            <View style={styles.ploegbaasBadge}>
-              <Ionicons name="star" size={16} color="#F5A623" />
-              <Text style={styles.ploegbaasBadgeText}>Ploegbaas</Text>
+            <View style={[styles.ploegbaasBadge, { backgroundColor: `${theme.primaryColor || '#F5A623'}20` }]}>
+              <Ionicons name="star" size={16} color={theme.primaryColor || '#F5A623'} />
+              <Text style={[styles.ploegbaasBadgeText, { color: theme.primaryColor || '#F5A623' }]}>Ploegbaas</Text>
             </View>
           </TouchableOpacity>
         ) : (
@@ -208,7 +210,7 @@ export default function TeamDetail() {
                 </View>
                 {lid.naam === team.ploegbaas && (
                   <View style={styles.starBadge}>
-                    <Ionicons name="star" size={14} color="#F5A623" />
+                    <Ionicons name="star" size={14} color={theme.primaryColor || '#F5A623'} />
                   </View>
                 )}
                 <Ionicons name="chevron-forward" size={20} color="#6c757d" />
@@ -225,7 +227,7 @@ export default function TeamDetail() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Team bewerken</Text>
               <TouchableOpacity onPress={() => setShowEditModal(false)}>
-                <Ionicons name="close" size={24} color="#1A1A2E" />
+                <Ionicons name="close" size={24} color={theme.secondaryColor || '#1A1A2E'} />
               </TouchableOpacity>
             </View>
             <ScrollView>
@@ -234,11 +236,11 @@ export default function TeamDetail() {
               
               <Text style={styles.label}>Ploegbaas</Text>
               <ScrollView horizontal style={styles.ploegbaasSelector}>
-                <TouchableOpacity style={[styles.selectOption, !formData.ploegbaas && styles.selectOptionActive]} onPress={() => setFormData({ ...formData, ploegbaas: '' })}>
+                <TouchableOpacity style={[styles.selectOption, !formData.ploegbaas && styles.selectOptionActive, !formData.ploegbaas && { backgroundColor: theme.primaryColor || '#F5A623', borderColor: theme.primaryColor || '#F5A623' }]} onPress={() => setFormData({ ...formData, ploegbaas: '' })}>
                   <Text style={[styles.selectOptionText, !formData.ploegbaas && styles.selectOptionTextActive]}>Geen</Text>
                 </TouchableOpacity>
                 {formData.leden.map((naam) => (
-                  <TouchableOpacity key={naam} style={[styles.selectOption, formData.ploegbaas === naam && styles.selectOptionActive]} onPress={() => setFormData({ ...formData, ploegbaas: naam })}>
+                  <TouchableOpacity key={naam} style={[styles.selectOption, formData.ploegbaas === naam && styles.selectOptionActive, formData.ploegbaas === naam && { backgroundColor: theme.primaryColor || '#F5A623', borderColor: theme.primaryColor || '#F5A623' }]} onPress={() => setFormData({ ...formData, ploegbaas: naam })}>
                     <Text style={[styles.selectOptionText, formData.ploegbaas === naam && styles.selectOptionTextActive]}>{naam}</Text>
                   </TouchableOpacity>
                 ))}

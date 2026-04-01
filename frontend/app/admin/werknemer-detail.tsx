@@ -14,6 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useAuth, apiClient } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import * as Clipboard from 'expo-clipboard';
 import * as DocumentPicker from 'expo-document-picker';
 
@@ -69,6 +70,7 @@ const API_URL = getApiUrl();
 
 export default function WerknemerDetail() {
   const { user } = useAuth();
+  const { theme } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [werknemer, setWerknemer] = useState<Werknemer | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -283,7 +285,7 @@ export default function WerknemerDetail() {
 
   const getRolColor = (rol: string) => {
     switch (rol) {
-      case 'admin': case 'master_admin': return '#F5A623';
+      case 'admin': case 'master_admin': return theme.primaryColor || '#F5A623';
       case 'manager': return '#9b59b6';
       case 'planner': return '#3498db';
       case 'worker': return '#27ae60';
@@ -293,10 +295,10 @@ export default function WerknemerDetail() {
   };
 
   if (Platform.OS !== 'web') return null;
-  if (loading) return <View style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}><ActivityIndicator size="large" color="#F5A623" /></View>;
+  if (loading) return <View style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}><ActivityIndicator size="large" color={theme.primaryColor || '#F5A623'} /></View>;
   if (!werknemer) return (
     <View style={styles.container}>
-      <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}><Ionicons name="arrow-back" size={24} color="#1A1A2E" /></TouchableOpacity>
+      <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}><Ionicons name="arrow-back" size={24} color={theme.secondaryColor || '#1A1A2E'} /></TouchableOpacity>
       <Text style={styles.title}>Werknemer niet gevonden</Text>
     </View>
   );
@@ -309,17 +311,17 @@ export default function WerknemerDetail() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#1A1A2E" />
+          <Ionicons name="arrow-back" size={24} color={theme.secondaryColor || '#1A1A2E'} />
         </TouchableOpacity>
         <View style={{ flex: 1, marginLeft: 16 }}>
-          <Text style={styles.title}>Werknemer details</Text>
+          <Text style={[styles.title, { color: theme.secondaryColor || '#1A1A2E' }]}>Werknemer details</Text>
         </View>
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <TouchableOpacity style={[styles.headerBtn, { backgroundColor: '#27ae60' }]} onPress={resendEmail} disabled={sendingEmail}>
             {sendingEmail ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="mail-outline" size={20} color="#fff" />}
             <Text style={styles.headerBtnText}>Mail versturen</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.headerBtn, { backgroundColor: '#F5A623' }]} onPress={() => setShowEditModal(true)}>
+          <TouchableOpacity style={[styles.headerBtn, { backgroundColor: theme.primaryColor || '#F5A623' }]} onPress={() => setShowEditModal(true)}>
             <Ionicons name="create-outline" size={20} color="#fff" />
             <Text style={styles.headerBtnText}>Bewerken</Text>
           </TouchableOpacity>
@@ -329,7 +331,7 @@ export default function WerknemerDetail() {
       {/* Profile Card */}
       <View style={styles.card}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <View style={styles.avatar}><Text style={styles.avatarText}>{werknemer.naam?.charAt(0).toUpperCase()}</Text></View>
+          <View style={[styles.avatar, { backgroundColor: theme.primaryColor || '#F5A623' }]}><Text style={styles.avatarText}>{werknemer.naam?.charAt(0).toUpperCase()}</Text></View>
           <View style={{ flex: 1, marginLeft: 20 }}>
             <Text style={styles.profileName}>{werknemer.naam}</Text>
             <Text style={styles.profileEmail}>{werknemer.email}</Text>
@@ -358,8 +360,8 @@ export default function WerknemerDetail() {
             <Text style={styles.credLabel}>E-mail</Text>
             <Text style={styles.credValue}>{werknemer.email}</Text>
           </View>
-          <TouchableOpacity style={styles.copyBtn} onPress={() => copyToClipboard(werknemer.email, 'E-mail')}>
-            <Ionicons name="copy-outline" size={18} color="#F5A623" />
+          <TouchableOpacity style={[styles.copyBtn, { backgroundColor: `${theme.primaryColor || '#F5A623'}10` }]} onPress={() => copyToClipboard(werknemer.email, 'E-mail')}>
+            <Ionicons name="copy-outline" size={18} color={theme.primaryColor || '#F5A623'} />
           </TouchableOpacity>
         </View>
         <View style={styles.credRow}>
@@ -368,12 +370,12 @@ export default function WerknemerDetail() {
             <Text style={[styles.credValue, { fontFamily: 'monospace' }]}>{wachtwoord || '(niet beschikbaar - gebruik Mail versturen)'}</Text>
           </View>
           {wachtwoord ? (
-            <TouchableOpacity style={styles.copyBtn} onPress={() => copyToClipboard(wachtwoord, 'Wachtwoord')}>
-              <Ionicons name="copy-outline" size={18} color="#F5A623" />
+            <TouchableOpacity style={[styles.copyBtn, { backgroundColor: `${theme.primaryColor || '#F5A623'}10` }]} onPress={() => copyToClipboard(wachtwoord, 'Wachtwoord')}>
+              <Ionicons name="copy-outline" size={18} color={theme.primaryColor || '#F5A623'} />
             </TouchableOpacity>
           ) : null}
         </View>
-        <TouchableOpacity style={styles.copyAllBtn} onPress={() => copyToClipboard(`E-mail: ${werknemer.email}\nWachtwoord: ${wachtwoord || '(niet beschikbaar)'}`, 'Inloggegevens')}>
+        <TouchableOpacity style={[styles.copyAllBtn, { backgroundColor: theme.primaryColor || '#F5A623' }]} onPress={() => copyToClipboard(`E-mail: ${werknemer.email}\nWachtwoord: ${wachtwoord || '(niet beschikbaar)'}`, 'Inloggegevens')}>
           <Ionicons name="clipboard-outline" size={18} color="#fff" />
           <Text style={styles.copyAllText}>Kopieer alle inloggegevens</Text>
         </TouchableOpacity>
@@ -438,7 +440,7 @@ export default function WerknemerDetail() {
           <View style={{ gap: 8 }}>
             {documenten.map(doc => (
               <View key={doc.id} style={styles.docRow}>
-                <Ionicons name={getFileIcon(doc.type) as any} size={24} color="#F5A623" />
+                <Ionicons name={getFileIcon(doc.type) as any} size={24} color={theme.primaryColor || '#F5A623'} />
                 <View style={{ flex: 1, marginLeft: 12 }}>
                   <Text style={styles.docName} numberOfLines={1}>{doc.naam}</Text>
                   <Text style={styles.docMeta}>
@@ -483,9 +485,9 @@ export default function WerknemerDetail() {
           </View>
         ) : werkbonnen.slice(0, 5).map(wb => (
           <TouchableOpacity key={wb.id} style={styles.werkbonRow} onPress={() => router.push(`/admin/werkbon-detail?id=${wb.id}` as any)}>
-            <Text style={{ fontWeight: '600', color: '#F5A623' }}>Week {wb.week_nummer}</Text>
-            <Text style={{ flex: 1, marginLeft: 12, color: '#1A1A2E' }}>{wb.klant_naam} - {wb.werf_naam}</Text>
-            <View style={[styles.statusPill, { backgroundColor: wb.status === 'ondertekend' ? '#28a745' : wb.status === 'verzonden' ? '#F5A623' : '#ffc107' }]}>
+            <Text style={{ fontWeight: '600', color: theme.primaryColor || '#F5A623' }}>Week {wb.week_nummer}</Text>
+            <Text style={{ flex: 1, marginLeft: 12, color: theme.secondaryColor || '#1A1A2E' }}>{wb.klant_naam} - {wb.werf_naam}</Text>
+            <View style={[styles.statusPill, { backgroundColor: wb.status === 'ondertekend' ? '#28a745' : wb.status === 'verzonden' ? (theme.primaryColor || '#F5A623') : '#ffc107' }]}>
               <Text style={{ fontSize: 11, color: '#fff', fontWeight: '600' }}>{wb.status}</Text>
             </View>
           </TouchableOpacity>
@@ -498,7 +500,7 @@ export default function WerknemerDetail() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Werknemer bewerken</Text>
-              <TouchableOpacity onPress={() => setShowEditModal(false)}><Ionicons name="close" size={24} color="#1A1A2E" /></TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowEditModal(false)}><Ionicons name="close" size={24} color={theme.secondaryColor || '#1A1A2E'} /></TouchableOpacity>
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
               <Text style={styles.label}>Naam</Text>
@@ -512,7 +514,7 @@ export default function WerknemerDetail() {
               
               <Text style={styles.label}>Huidig wachtwoord</Text>
               <View style={styles.pwdDisplay}>
-                <Ionicons name="key-outline" size={18} color="#F5A623" />
+                <Ionicons name="key-outline" size={18} color={theme.primaryColor || '#F5A623'} />
                 <Text style={styles.pwdText}>{wachtwoord || '(niet beschikbaar)'}</Text>
               </View>
               
@@ -546,13 +548,13 @@ export default function WerknemerDetail() {
 
               <TouchableOpacity activeOpacity={0.7} style={styles.pwdToggleRow} onPress={() => setFormData({ ...formData, mag_wachtwoord_wijzigen: !formData.mag_wachtwoord_wijzigen })}>
                 <Ionicons name="shield-checkmark-outline" size={20} color={formData.mag_wachtwoord_wijzigen ? '#27ae60' : '#6c757d'} />
-                <Text style={{ flex: 1, fontSize: 14, color: '#1A1A2E' }}>Werknemer mag zelf wachtwoord wijzigen</Text>
+                <Text style={{ flex: 1, fontSize: 14, color: theme.secondaryColor || '#1A1A2E' }}>Werknemer mag zelf wachtwoord wijzigen</Text>
                 <View style={[styles.customToggle, formData.mag_wachtwoord_wijzigen && { backgroundColor: '#27ae60' }]}>
                   <View style={[styles.toggleThumb, formData.mag_wachtwoord_wijzigen && { alignSelf: 'flex-end' }]} />
                 </View>
               </TouchableOpacity>
             </ScrollView>
-            <TouchableOpacity style={styles.saveBtn} onPress={saveWerknemer} disabled={saving}>
+            <TouchableOpacity style={[styles.saveBtn, { backgroundColor: theme.primaryColor || '#F5A623' }]} onPress={saveWerknemer} disabled={saving}>
               {saving ? <ActivityIndicator color="#fff" /> : (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <Ionicons name="checkmark" size={20} color="#fff" />

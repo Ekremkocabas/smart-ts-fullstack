@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth, apiClient } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 
 interface UrenData {
   naam: string;
@@ -25,6 +26,7 @@ interface StatusData {
 
 export default function RapportenAdmin() {
   const { user, isLoading: authLoading } = useAuth();
+  const { theme } = useTheme();
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'werknemer' | 'team' | 'werf' | 'klant' | 'status'>('werknemer');
   const [urenPerWerknemer, setUrenPerWerknemer] = useState<UrenData[]>([]);
@@ -241,7 +243,7 @@ export default function RapportenAdmin() {
   if (authLoading) {
     return (
       <View style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}>
-        <ActivityIndicator size="large" color="#F5A623" />
+        <ActivityIndicator size="large" color={theme.primaryColor || '#F5A623'} />
         <Text style={{ marginTop: 16, color: '#6c757d' }}>Laden...</Text>
       </View>
     );
@@ -262,7 +264,7 @@ export default function RapportenAdmin() {
     switch (status) {
       case 'concept': return '#ffc107';
       case 'ondertekend': return '#28a745';
-      case 'verzonden': return '#F5A623';
+      case 'verzonden': return theme.primaryColor || '#F5A623';
       default: return '#6c757d';
     }
   };
@@ -292,8 +294,8 @@ export default function RapportenAdmin() {
             <Text style={[styles.tableCell, { flex: 2, fontWeight: '500' }]}>{item.naam}</Text>
             <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>{item.werkbonnen}</Text>
             <View style={{ flex: 1, alignItems: 'flex-end' }}>
-              <View style={styles.urenBadge}>
-                <Text style={styles.urenBadgeText}>{item.totaalUren} uur</Text>
+              <View style={[styles.urenBadge, { backgroundColor: `${theme.primaryColor || '#F5A623'}15` }]}>
+                <Text style={[styles.urenBadgeText, { color: theme.primaryColor || '#F5A623' }]}>{item.totaalUren} uur</Text>
               </View>
             </View>
           </View>
@@ -338,7 +340,7 @@ export default function RapportenAdmin() {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.title}>Rapporten</Text>
+          <Text style={[styles.title, { color: theme.secondaryColor || '#1A1A2E' }]}>Rapporten</Text>
           <Text style={styles.subtitle}>Overzicht van uren en werkbonnen</Text>
         </View>
         <TouchableOpacity style={styles.exportBtn} onPress={exportCSV}>
@@ -348,29 +350,29 @@ export default function RapportenAdmin() {
       </View>
 
       {loading ? (
-        <ActivityIndicator size="large" color="#F5A623" style={{ marginVertical: 40 }} />
+        <ActivityIndicator size="large" color={theme.primaryColor || '#F5A623'} style={{ marginVertical: 40 }} />
       ) : (
         <>
           {/* Summary Cards */}
           <View style={styles.summaryGrid}>
             <View style={styles.summaryCard}>
-              <Ionicons name="timer-outline" size={28} color="#F5A623" />
-              <Text style={styles.summaryValue}>{totaalUren}</Text>
+              <Ionicons name="timer-outline" size={28} color={theme.primaryColor || '#F5A623'} />
+              <Text style={[styles.summaryValue, { color: theme.secondaryColor || '#1A1A2E' }]}>{totaalUren}</Text>
               <Text style={styles.summaryLabel}>Totaal uren</Text>
             </View>
             <View style={styles.summaryCard}>
               <Ionicons name="document-text-outline" size={28} color="#3498db" />
-              <Text style={styles.summaryValue}>{totaalWerkbonnen}</Text>
+              <Text style={[styles.summaryValue, { color: theme.secondaryColor || '#1A1A2E' }]}>{totaalWerkbonnen}</Text>
               <Text style={styles.summaryLabel}>Totaal werkbonnen</Text>
             </View>
             <View style={styles.summaryCard}>
               <Ionicons name="people-outline" size={28} color="#9b59b6" />
-              <Text style={styles.summaryValue}>{actieveWerknemers}</Text>
+              <Text style={[styles.summaryValue, { color: theme.secondaryColor || '#1A1A2E' }]}>{actieveWerknemers}</Text>
               <Text style={styles.summaryLabel}>Actieve werknemers</Text>
             </View>
             <View style={styles.summaryCard}>
               <Ionicons name="business-outline" size={28} color="#e67e22" />
-              <Text style={styles.summaryValue}>{actieveWerven}</Text>
+              <Text style={[styles.summaryValue, { color: theme.secondaryColor || '#1A1A2E' }]}>{actieveWerven}</Text>
               <Text style={styles.summaryLabel}>Actieve werven</Text>
             </View>
           </View>
@@ -380,11 +382,11 @@ export default function RapportenAdmin() {
             {tabs.map((tab) => (
               <TouchableOpacity
                 key={tab.key}
-                style={[styles.tab, activeTab === tab.key && styles.tabActive]}
+                style={[styles.tab, activeTab === tab.key && styles.tabActive, activeTab === tab.key && { backgroundColor: `${theme.primaryColor || '#F5A623'}15` }]}
                 onPress={() => setActiveTab(tab.key as any)}
               >
-                <Ionicons name={tab.icon as any} size={18} color={activeTab === tab.key ? '#F5A623' : '#6c757d'} />
-                <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>{tab.label}</Text>
+                <Ionicons name={tab.icon as any} size={18} color={activeTab === tab.key ? (theme.primaryColor || '#F5A623') : '#6c757d'} />
+                <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive, activeTab === tab.key && { color: theme.primaryColor || '#F5A623' }]}>{tab.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
