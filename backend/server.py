@@ -5162,6 +5162,30 @@ async def send_werkbon_to_billit(werkbon: dict, klant: dict, instellingen: dict)
     totaal_bedrag = fin.get("totaal_bedrag", 0.0)
     btw_percentage = float(klant.get("btw_percentage", 21))
 
+    billit_party_id = instellingen.get("billit_party_id")
+    headers = {
+        "ApiKey": billit_api_key,
+        "PartyID": str(billit_party_id) if billit_party_id is not None else "",
+        "Content-Type": "application/json",
+    }
+
+    # Billit'te klant adını BTW numarasıyla ara
+    billit_klant_naam = None
+    if klant.get("btw_nummer"):
+        try:
+            import httpx as _httpx
+            async with _httpx.AsyncClient(timeout=10.0) as _search_client:
+                search_resp = await _search_client.get(
+                    f"https://api.billit.be/v1/parties?$filter=VATNumber eq '{klant.get('btw_nummer')}'",
+                    headers=headers
+                )
+            if search_resp.status_code == 200:
+                results = search_resp.json()
+                if results and len(results) > 0:
+                    billit_klant_naam = results[0].get("Name") or results[0].get("CommercialName")
+        except Exception:
+            pass
+
     # Billit JSON payload
     payload: dict = {
         "OrderType": "Invoice",
@@ -5170,7 +5194,7 @@ async def send_werkbon_to_billit(werkbon: dict, klant: dict, instellingen: dict)
         "DeliveryDate": order_date,
         "ExpiryDate": expiry_date,
         "Customer": {
-            "Name": klant.get("bedrijfsnaam") or klant.get("naam") or klant_naam,
+            "Name": billit_klant_naam or klant.get("bedrijfsnaam") or klant_naam,
             "VATNumber": klant.get("btw_nummer") or "",
             "PartyType": "Customer"
         },
@@ -5186,13 +5210,6 @@ async def send_werkbon_to_billit(werkbon: dict, klant: dict, instellingen: dict)
     if btw_percentage == 0:
         payload["VentilationCode"] = "21"
     payload[referentie_veld] = werkbon_ref
-
-    billit_party_id = instellingen.get("billit_party_id")
-    headers = {
-        "ApiKey": billit_api_key,
-        "PartyID": str(billit_party_id) if billit_party_id is not None else "",
-        "Content-Type": "application/json",
-    }
 
     try:
         import httpx
