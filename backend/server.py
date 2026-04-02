@@ -3629,15 +3629,16 @@ class UserCreateWithEmail(BaseModel):
 @api_router.post("/auth/register", response_model=UserResponse)
 @limiter.limit("3/minute")
 async def register_user(request: Request, user_data: UserCreate):
-    existing = await db.users.find_one({"email": user_data.email})
+    register_email = user_data.email.lower().strip()
+    existing = await db.users.find_one({"email": register_email})
     if existing:
         raise HTTPException(status_code=400, detail="E-mailadres is al geregistreerd")
-    
+
     # Check if this email should be admin
-    is_admin_user = await is_admin(user_data.email)
-    
+    is_admin_user = await is_admin(register_email)
+
     user = User(
-        email=user_data.email,
+        email=register_email,
         password_hash=hash_password(user_data.password),
         naam=user_data.naam,
         rol="admin" if is_admin_user else "werknemer"
@@ -3661,6 +3662,7 @@ async def register_worker_with_email(
     # Generate secure password server-side if not provided
     password = password or generate_temp_password()
 
+    email = email.lower().strip()
     existing = await db.users.find_one({"email": email})
     if existing:
         raise HTTPException(status_code=400, detail="E-mailadres is al geregistreerd")
@@ -3732,10 +3734,11 @@ async def login_user(request: Request, login_data: UserLogin):
     Login endpoint with JWT token and platform access info.
     Returns JWT token for authenticated requests.
     """
-    logger.info(f"[LOGIN] Giriş denemesi: {login_data.email}")
-    user = await db.users.find_one({"email": login_data.email})
+    login_email = login_data.email.lower().strip()
+    logger.info(f"[LOGIN] Giriş denemesi: {login_email}")
+    user = await db.users.find_one({"email": login_email})
     if not user:
-        logger.warning(f"[LOGIN] Kullanıcı bulunamadı: {login_data.email}")
+        logger.warning(f"[LOGIN] Kullanıcı bulunamadı: {login_email}")
         raise HTTPException(status_code=401, detail="Ongeldige inloggegevens")
 
     logger.info(f"[LOGIN] Kullanıcı bulundu: {user.get('naam')}")
@@ -3745,7 +3748,7 @@ async def login_user(request: Request, login_data: UserLogin):
     if user.get("password_hash"):
         computed = hash_password(login_data.password)
         authenticated = verify_password(login_data.password, user["password_hash"])
-        logger.info(f"[LOGIN] Giriş {'başarılı' if authenticated else 'başarısız'}: {login_data.email}")
+        logger.info(f"[LOGIN] Giriş {'başarılı' if authenticated else 'başarısız'}: {login_email}")
     
     # Fallback: compare with wachtwoord_plain directly (legacy support)
     if not authenticated and user.get("wachtwoord_plain"):
@@ -3778,7 +3781,7 @@ async def login_user(request: Request, login_data: UserLogin):
         user["rol"] = normalized_role
     
     # Check admin_emails setting for admin role
-    is_admin_user = await is_admin(login_data.email)
+    is_admin_user = await is_admin(login_email)
     if is_admin_user and normalized_role != "admin" and normalized_role != "master_admin":
         await db.users.update_one({"id": user["id"]}, {"$set": {"rol": "admin"}})
         user["rol"] = "admin"
