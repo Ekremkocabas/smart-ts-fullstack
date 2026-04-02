@@ -5170,6 +5170,7 @@ async def send_werkbon_to_billit(werkbon: dict, klant: dict, instellingen: dict)
         "DeliveryDate": order_date,
         "ExpiryDate": expiry_date,
         "Customer": {
+            "Name": klant.get("bedrijfsnaam") or klant.get("naam") or klant_naam,
             "VATNumber": klant.get("btw_nummer") or "",
             "PartyType": "Customer"
         },
