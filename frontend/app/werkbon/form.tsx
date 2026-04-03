@@ -93,21 +93,36 @@ export default function WerkbonForm() {
   const [showAfkortingPicker, setShowAfkortingPicker] = useState<{regelIndex: number, dagIndex: number} | null>(null);
   const [teamlidResults, setTeamlidResults] = useState<{id: string, naam: string, rol: string}[]>([]);
   const [activeTeamlidIndex, setActiveTeamlidIndex] = useState<number | null>(null);
+  const [showTeamlidTypeModal, setShowTeamlidTypeModal] = useState(false);
+  const [teamlidSearchRol, setTeamlidSearchRol] = useState<string | null>(null);
   const searchTimeout = useRef<any>(null);
 
   const primary = theme?.primaryColor || '#F5A623';
 
-  const searchTeamleden = (text: string, index: number) => {
+  const searchTeamleden = (text: string, index: number, rolFilter?: string | null) => {
     updateUrenRegel(index, { teamlidNaam: text, teamlidId: undefined });
     setActiveTeamlidIndex(index);
     clearTimeout(searchTimeout.current);
     if (text.length < 2) { setTeamlidResults([]); return; }
     searchTimeout.current = setTimeout(async () => {
       try {
-        const res = await apiClient.get(`/api/users/search?q=${encodeURIComponent(text)}`);
+        const rol = rolFilter !== undefined ? rolFilter : teamlidSearchRol;
+        const rolParam = rol ? `&rol=${encodeURIComponent(rol)}` : '';
+        const res = await apiClient.get(`/api/users/search?q=${encodeURIComponent(text)}${rolParam}`);
         setTeamlidResults(res.data || []);
       } catch { setTeamlidResults([]); }
     }, 300);
+  };
+
+  const handleAddTeamlidType = (teamlidType: 'werknemer' | 'onderaannemer' | 'nieuwe_werknemer') => {
+    setShowTeamlidTypeModal(false);
+    const rol = teamlidType === 'nieuwe_werknemer' ? null : teamlidType;
+    setTeamlidSearchRol(rol);
+    const newIndex = urenData.urenRegels.length;
+    addUrenRegel('', undefined, teamlidType);
+    if (teamlidType !== 'nieuwe_werknemer') {
+      setActiveTeamlidIndex(newIndex);
+    }
   };
 
   const selectTeamlid = (index: number, result: {id: string, naam: string, rol: string}) => {
@@ -684,19 +699,30 @@ export default function WerkbonForm() {
         </View>
         
         {urenData.urenRegels.map((regel, regelIndex) => {
+          const isNieuweWerknemer = regel.teamlidType === 'nieuwe_werknemer';
+          const typeLabel = regel.teamlidType === 'onderaannemer' ? 'Onderaannemer' : regel.teamlidType === 'nieuwe_werknemer' ? 'Nieuwe werknemer' : 'Werknemer';
           return (
             <View key={regelIndex} style={styles.urenRegelCard}>
               <View style={styles.urenRegelHeader}>
                 <View style={{ flex: 1, position: 'relative' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+                    <Text style={{ fontSize: 10, color: '#adb5bd', textTransform: 'uppercase', fontWeight: '600' }}>{typeLabel}</Text>
+                  </View>
                   <TextInput
                     style={styles.teamlidInput}
                     value={regel.teamlidNaam}
-                    onChangeText={(text) => searchTeamleden(text, regelIndex)}
+                    onChangeText={(text) => {
+                      if (isNieuweWerknemer) {
+                        updateUrenRegel(regelIndex, { teamlidNaam: text });
+                      } else {
+                        searchTeamleden(text, regelIndex, regel.teamlidType === 'onderaannemer' ? 'onderaannemer' : 'werknemer');
+                      }
+                    }}
                     onBlur={() => setTimeout(() => { setTeamlidResults([]); setActiveTeamlidIndex(null); }, 150)}
-                    placeholder="Naam teamlid"
+                    placeholder={isNieuweWerknemer ? 'Naam nieuwe werknemer' : `Zoek ${typeLabel.toLowerCase()}...`}
                     placeholderTextColor="#8C9199"
                   />
-                  {activeTeamlidIndex === regelIndex && teamlidResults.length > 0 && (
+                  {!isNieuweWerknemer && activeTeamlidIndex === regelIndex && teamlidResults.length > 0 && (
                     <View style={styles.teamlidDropdown}>
                       {teamlidResults.map(r => (
                         <TouchableOpacity
@@ -761,10 +787,41 @@ export default function WerkbonForm() {
           );
         })}
         
-        <TouchableOpacity style={styles.addButton} onPress={() => addUrenRegel()}>
+        <TouchableOpacity style={styles.addButton} onPress={() => setShowTeamlidTypeModal(true)}>
           <Ionicons name="add-circle-outline" size={20} color={primary} />
           <Text style={[styles.addButtonText, { color: primary }]}>Teamlid toevoegen</Text>
         </TouchableOpacity>
+
+        {/* Teamlid type selector modal */}
+        <Modal visible={showTeamlidTypeModal} transparent animationType="fade">
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setShowTeamlidTypeModal(false)}
+          >
+            <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 20, margin: 24, gap: 8 }}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A1A2E', marginBottom: 8 }}>Teamlid type selecteren</Text>
+              {([
+                { type: 'werknemer', label: 'Werknemer', icon: 'person-outline', desc: 'Interne medewerker zoeken' },
+                { type: 'onderaannemer', label: 'Onderaannemer', icon: 'business-outline', desc: 'Externe onderaannemer zoeken' },
+                { type: 'nieuwe_werknemer', label: 'Nieuwe werknemer', icon: 'person-add-outline', desc: 'Naam handmatig invoeren' },
+              ] as const).map(opt => (
+                <TouchableOpacity
+                  key={opt.type}
+                  style={{ flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 10, backgroundColor: '#F5F6FA', gap: 12 }}
+                  onPress={() => handleAddTeamlidType(opt.type)}
+                >
+                  <Ionicons name={opt.icon} size={22} color={primary} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#1A1A2E' }}>{opt.label}</Text>
+                    <Text style={{ fontSize: 12, color: '#6c757d', marginTop: 2 }}>{opt.desc}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color="#adb5bd" />
+                </TouchableOpacity>
+              ))}
+            </View>
+          </TouchableOpacity>
+        </Modal>
 
         <View style={styles.fieldGroup}>
           <Text style={styles.fieldLabel}>Uitgevoerde werken</Text>

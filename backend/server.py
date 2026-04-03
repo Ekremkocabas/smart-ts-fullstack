@@ -1109,6 +1109,7 @@ class Werkbon(BaseModel):
     status: str = "concept"  # concept, ondertekend, verzonden
     email_verzonden: bool = False
     toegewezen_aan: List[str] = []  # User IDs of assigned team members
+    planning_id: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -1121,6 +1122,7 @@ class WerkbonCreate(BaseModel):
     km_afstand: Optional[KmRegel] = None
     uitgevoerde_werken: str = ""
     extra_materialen: str = ""
+    planning_id: Optional[str] = None
 
 class WerkbonUpdate(BaseModel):
     week_nummer: Optional[int] = None
@@ -4440,12 +4442,16 @@ async def delete_werf(werf_id: str, current_user: Dict = Depends(require_roles([
 # ==================== USER SEARCH ====================
 
 @api_router.get("/users/search")
-async def search_users(q: str = Query(""), current_user: Dict = Depends(get_current_user)):
+async def search_users(q: str = Query(""), rol: Optional[str] = Query(None), current_user: Dict = Depends(get_current_user)):
     """Search werknemers and onderaannemers by name (min 2 chars). Used for teamlid autocomplete."""
     if len(q) < 2:
         return []
+    if rol and rol in ("werknemer", "onderaannemer"):
+        rol_filter = rol
+    else:
+        rol_filter = {"$in": ["werknemer", "onderaannemer"]}
     cursor = db.users.find(
-        {"naam": {"$regex": q, "$options": "i"}, "rol": {"$in": ["werknemer", "onderaannemer"]}, "actief": True},
+        {"naam": {"$regex": q, "$options": "i"}, "rol": rol_filter, "actief": True},
         {"_id": 0, "id": 1, "naam": 1, "rol": 1}
     ).limit(10)
     users = await cursor.to_list(10)
@@ -4698,6 +4704,7 @@ class UnifiedWerkbonCreate(BaseModel):
     werknemer_id: Optional[str] = None
     werknemer_naam: Optional[str] = None
     timestamp: Optional[str] = None
+    planning_id: Optional[str] = None
     
     class Config:
         extra = "allow"  # Allow extra fields
@@ -4753,6 +4760,16 @@ async def create_unified_werkbon(data: UnifiedWerkbonCreate, current_user: Dict 
     # Extract toegewezen_aan from uren regels (team member IDs for werkbon sharing)
     uren_list = data.uren or data.uren_regels or []
     toegewezen_ids = list({r.get("teamlid_id") for r in uren_list if r.get("teamlid_id")})
+
+    # Save planning_id and merge planning werknemers into toegewezen_aan
+    planning_id = data.planning_id
+    base_doc["planning_id"] = planning_id
+    if planning_id:
+        planning_item = await db.planning.find_one({"id": planning_id})
+        if planning_item:
+            planning_werknemer_ids = planning_item.get("werknemer_ids", [])
+            toegewezen_ids = list(set(toegewezen_ids + planning_werknemer_ids))
+
     base_doc["toegewezen_aan"] = toegewezen_ids
 
     # Process photos — max 3, skip photos over 5MB
@@ -5184,10 +5201,11 @@ async def send_werkbon_to_billit(werkbon: dict, klant: dict, instellingen: dict)
                 )
             if search_resp.status_code == 200:
                 results = search_resp.json()
-                if results and len(results) > 0:
-                    billit_klant_naam = results[0].get("Name") or results[0].get("CommercialName")
-        except Exception:
-            pass
+                items = results.get("Items") or results if isinstance(results, list) else []
+                if items and len(items) > 0:
+                    billit_klant_naam = items[0].get("Name") or items[0].get("CommercialName")
+        except Exception as e:
+            print(f"[Billit] Parties sorgusu hatası (BTW: {klant.get('btw_nummer')}): {e}")
 
     # Billit JSON payload
     payload: dict = {

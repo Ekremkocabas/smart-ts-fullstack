@@ -208,6 +208,7 @@ export default function WerkbonSign() {
   // Get all data from Zustand store
   const {
     type,
+    planningId,
     klantId, klantNaam, manualKlantNaam,
     werfId, werfNaam, manualWerfNaam,
     datum, opmerkingen, gps, photos,
@@ -465,6 +466,7 @@ export default function WerkbonSign() {
     
     const baseData = {
       type,
+      planning_id: planningId || null,
       klant_id: klantId || null,
       klant_naam: displayKlant,
       werf_id: werfId || null,

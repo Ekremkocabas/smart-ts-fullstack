@@ -42,8 +42,9 @@ function getCurrentWeekNumber(): number {
 }
 
 // Default 8 hours for weekdays (Mon-Fri), 0 for weekends
-const createEmptyUrenRegel = (naam: string = '', withDefaultHours: boolean = true): UrenRegel => ({
+const createEmptyUrenRegel = (naam: string = '', teamlidId?: string, withDefaultHours: boolean = true): UrenRegel => ({
   teamlid_naam: naam,
+  teamlid_id: teamlidId,
   maandag: withDefaultHours ? 8 : 0,
   dinsdag: withDefaultHours ? 8 : 0,
   woensdag: withDefaultHours ? 8 : 0,
@@ -88,6 +89,7 @@ export default function NieuweWerkbonScreen() {
   // Planning suggestions
   const [planningItems, setPlanningItems] = useState<any[]>([]);
   const [showPlanningSuggesties, setShowPlanningSuggesties] = useState(true);
+  const [selectedPlanningId, setSelectedPlanningId] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -134,11 +136,15 @@ export default function NieuweWerkbonScreen() {
         setSelectedWerf(werf);
       }
     }
-    // Pre-fill team members from planning
+    // Pre-fill team members from planning — pass both naam AND id
     if (item.werknemer_namen && item.werknemer_namen.length > 0) {
-      const regels = item.werknemer_namen.map((naam: string) => createEmptyUrenRegel(naam));
+      const ids: string[] = item.werknemer_ids || [];
+      const regels = item.werknemer_namen.map((naam: string, i: number) =>
+        createEmptyUrenRegel(naam, ids[i])
+      );
       setUrenRegels(regels);
     }
+    setSelectedPlanningId(item.id);
     setShowPlanningSuggesties(false);
     showAlert('Planning geladen', `${item.klant_naam} — ${item.werf_naam} is automatisch ingevuld.`);
   };
@@ -269,6 +275,7 @@ export default function NieuweWerkbonScreen() {
           uitgevoerde_werken: uitgevoerdeWerken,
           extra_materialen: extraMaterialen,
           gps_op_pdf: gpsOpPdf,
+          planning_id: selectedPlanningId,
         },
         user?.id || '',
         user?.naam || ''

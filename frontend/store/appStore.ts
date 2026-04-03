@@ -31,6 +31,7 @@ export interface Werf {
 
 export interface UrenRegel {
   teamlid_naam: string;
+  teamlid_id?: string;
   maandag: number;
   dinsdag: number;
   woensdag: number;

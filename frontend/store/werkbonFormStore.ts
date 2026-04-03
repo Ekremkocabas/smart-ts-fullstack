@@ -47,6 +47,7 @@ export interface GPSData {
 export interface UrenRegel {
   teamlidNaam: string;
   teamlidId?: string;
+  teamlidType?: 'werknemer' | 'onderaannemer' | 'nieuwe_werknemer';
   maandag: number;
   dinsdag: number;
   woensdag: number;
@@ -184,6 +185,9 @@ interface WerkbonFormState {
   datum: string;
   opmerkingen: string;
   
+  // Planning
+  planningId: string | null;
+
   // GPS
   gps: GPSData;
 
@@ -235,8 +239,10 @@ const getCurrentWeekNumber = (): number => {
   return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
 };
 
-const createEmptyUrenRegel = (naam: string = ''): UrenRegel => ({
+const createEmptyUrenRegel = (naam: string = '', teamlidId?: string, teamlidType?: 'werknemer' | 'onderaannemer' | 'nieuwe_werknemer'): UrenRegel => ({
   teamlidNaam: naam,
+  teamlidId: teamlidId,
+  teamlidType: teamlidType,
   maandag: 8, dinsdag: 8, woensdag: 8, donderdag: 8, vrijdag: 8,
   zaterdag: 0, zondag: 0,
   afkortingMa: '', afkortingDi: '', afkortingWo: '', afkortingDo: '',
@@ -308,6 +314,7 @@ const initialState: WerkbonFormState = {
   hasDraft: false,
   currentStep: 1,
   type: null,
+  planningId: null,
   klantId: null,
   klantNaam: '',
   manualKlantNaam: '',
@@ -370,9 +377,12 @@ interface WerkbonFormActions {
   setKmAfstand: (km: KmRegel) => void;
   setKmVergoedingtarief: (value: number) => void;
 
+  // Planning
+  setPlanningId: (id: string | null) => void;
+
   // Type-specific
   setUrenData: (data: Partial<UrenTypeData>) => void;
-  addUrenRegel: (naam?: string) => void;
+  addUrenRegel: (naam?: string, teamlidId?: string, teamlidType?: 'werknemer' | 'onderaannemer' | 'nieuwe_werknemer') => void;
   removeUrenRegel: (index: number) => void;
   updateUrenRegel: (index: number, data: Partial<UrenRegel>) => void;
   setOpleveringData: (data: Partial<OpleveringTypeData>) => void;
@@ -438,6 +448,9 @@ export const useWerkbonFormStore = create<WerkbonFormState & WerkbonFormActions>
         draftId: get().draftId || `draft_${Date.now()}`,
       }),
       
+      // Planning
+      setPlanningId: (id) => set({ planningId: id }),
+
       // Common fields
       setKlant: (id, naam) => set({ klantId: id, klantNaam: naam, manualKlantNaam: '' }),
       setManualKlant: (naam) => set({ klantId: null, klantNaam: '', manualKlantNaam: naam }),
@@ -460,10 +473,10 @@ export const useWerkbonFormStore = create<WerkbonFormState & WerkbonFormActions>
 
       // Uren specific
       setUrenData: (data) => set((state) => ({ urenData: { ...state.urenData, ...data } })),
-      addUrenRegel: (naam = '') => set((state) => ({
+      addUrenRegel: (naam = '', teamlidId, teamlidType) => set((state) => ({
         urenData: {
           ...state.urenData,
-          urenRegels: [...state.urenData.urenRegels, createEmptyUrenRegel(naam)],
+          urenRegels: [...state.urenData.urenRegels, createEmptyUrenRegel(naam, teamlidId, teamlidType)],
         },
       })),
       removeUrenRegel: (index) => set((state) => ({
@@ -679,6 +692,7 @@ export const useWerkbonFormStore = create<WerkbonFormState & WerkbonFormActions>
         draftId: state.draftId,
         hasDraft: state.hasDraft,
         type: state.type,
+        planningId: state.planningId,
         klantId: state.klantId,
         klantNaam: state.klantNaam,
         manualKlantNaam: state.manualKlantNaam,
