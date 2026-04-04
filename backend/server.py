@@ -5237,7 +5237,6 @@ async def send_werkbon_to_billit(werkbon: dict, klant: dict, instellingen: dict)
     if billit_klant_party_id:
         customer = {
             "PartyID": billit_klant_party_id,
-            "VATNumber": btw_nummer_clean or "",
             "PartyType": "Customer"
         }
     else:
