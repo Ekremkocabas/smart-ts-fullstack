@@ -494,9 +494,11 @@ export default function KlantenAdmin() {
               <Text style={styles.emptyText}>Geen klanten gevonden</Text>
             </View>
           ) : (
-            filteredKlanten.map((klant) => (
+            filteredKlanten.map((klant, klantIndex) => (
               <TouchableOpacity key={klant.id} style={[styles.klantCard, isCompact && styles.klantCardCompact]} onPress={() => openEditModal(klant)}>
-                <View style={styles.klantHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                  <Text style={{ width: 40, fontSize: 13, color: '#444444', textAlign: 'center', fontWeight: '500', paddingTop: 2 }}>{klantIndex + 1}</Text>
+                <View style={[styles.klantHeader, { flex: 1 }]}>
                   <View style={styles.klantInfo}>
                     <View style={styles.klantNameRow}>
                       <Text style={styles.klantName}>{klant.bedrijfsnaam || klant.naam}</Text>
@@ -531,6 +533,7 @@ export default function KlantenAdmin() {
                       <Ionicons name="trash-outline" size={18} color="#dc3545" />
                     </TouchableOpacity>
                   </View>
+                </View>
                 </View>
                 {!isCompact && (
                   <View style={styles.klantDetails}>

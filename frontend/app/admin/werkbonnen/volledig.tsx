@@ -689,7 +689,7 @@ export default function WerkbonnenAdmin() {
         <View style={styles.tableContainer}>
           {/* Table Header */}
           <View style={styles.tableHeader}>
-            <View style={styles.seqCell}><Text style={styles.seqText}>#</Text></View>
+            <View style={styles.seqCell}><Text style={styles.seqText}>NR</Text></View>
             <Text style={styles.tableHeaderCell}>Week</Text>
             <Text style={[styles.tableHeaderCell, { flex: 1.5 }]}>Klant / Werf</Text>
             <Text style={styles.tableHeaderCell}>Werknemer</Text>
@@ -767,7 +767,7 @@ export default function WerkbonnenAdmin() {
         /* Productie Werkbonnen Table */
         <View style={styles.tableContainer}>
           <View style={styles.tableHeader}>
-            <View style={styles.seqCell}><Text style={styles.seqText}>#</Text></View>
+            <View style={styles.seqCell}><Text style={styles.seqText}>NR</Text></View>
             <Text style={styles.tableHeaderCell}>Datum</Text>
             <Text style={[styles.tableHeaderCell, { flex: 1.5 }]}>Klant / Werf</Text>
             <Text style={styles.tableHeaderCell}>Monteur</Text>
@@ -826,7 +826,7 @@ export default function WerkbonnenAdmin() {
         /* Oplevering Werkbonnen Table */
         <View style={styles.tableContainer}>
           <View style={styles.tableHeader}>
-            <View style={styles.seqCell}><Text style={styles.seqText}>#</Text></View>
+            <View style={styles.seqCell}><Text style={styles.seqText}>NR</Text></View>
             <Text style={styles.tableHeaderCell}>Datum</Text>
             <Text style={[styles.tableHeaderCell, { flex: 1.5 }]}>Klant / Werf</Text>
             <Text style={styles.tableHeaderCell}>Monteur</Text>
@@ -875,7 +875,7 @@ export default function WerkbonnenAdmin() {
         /* Project Werkbonnen Table */
         <View style={styles.tableContainer}>
           <View style={styles.tableHeader}>
-            <View style={styles.seqCell}><Text style={styles.seqText}>#</Text></View>
+            <View style={styles.seqCell}><Text style={styles.seqText}>NR</Text></View>
             <Text style={styles.tableHeaderCell}>Datum</Text>
             <Text style={[styles.tableHeaderCell, { flex: 1.5 }]}>Klant / Werf</Text>
             <Text style={styles.tableHeaderCell}>Monteur</Text>
@@ -969,8 +969,8 @@ const styles = StyleSheet.create({
   statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, alignSelf: 'flex-start' },
   statusText: { fontSize: 11, fontWeight: '600', color: '#fff', textTransform: 'uppercase' },
   actionIcon: { padding: 6 },
-  seqCell: { flex: 0, minWidth: 32, alignItems: 'flex-end', justifyContent: 'center', paddingRight: 6 },
-  seqText: { fontSize: 13, color: '#666666', fontWeight: '500' },
+  seqCell: { width: 40, alignItems: 'center', justifyContent: 'center' },
+  seqText: { fontSize: 13, color: '#444444', textAlign: 'center', fontWeight: '500' },
   emptyState: { alignItems: 'center', padding: 60 },
   emptyText: { fontSize: 16, fontWeight: '600', color: '#1A1A2E', marginTop: 16 },
   emptySubText: { fontSize: 13, color: '#6c757d', marginTop: 8, textAlign: 'center' },

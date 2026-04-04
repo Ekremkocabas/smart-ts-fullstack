@@ -254,7 +254,7 @@ export function WerkbonnenPeriodList({ title, description, weekNummer, jaar, maa
       ) : (
         <View style={styles.tableContainer}>
           <View style={styles.tableHeader}>
-            <View style={styles.seqCell}><Text style={styles.seqText}>#</Text></View>
+            <View style={styles.seqCell}><Text style={styles.seqText}>NR</Text></View>
             <Text style={styles.tableHeaderCell}>Week</Text>
             <Text style={[styles.tableHeaderCell, { flex: 1.5 }]}>Klant / Werf</Text>
             <Text style={styles.tableHeaderCell}>Werknemer</Text>
@@ -423,8 +423,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FAFAFA',
   },
   moreBtnText: { fontSize: 14, fontWeight: '600', color: '#F5A623' },
-  seqCell: { flex: 0, minWidth: 32, alignItems: 'flex-end', justifyContent: 'center', paddingRight: 6 },
-  seqText: { fontSize: 13, color: '#666666', fontWeight: '500' },
+  seqCell: { width: 40, alignItems: 'center', justifyContent: 'center' },
+  seqText: { fontSize: 13, color: '#444444', textAlign: 'center', fontWeight: '500' },
   billitBtn: { alignItems: 'center', justifyContent: 'center' },
   billitBtnInner: {
     width: 22,

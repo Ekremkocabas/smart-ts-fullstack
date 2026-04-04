@@ -841,7 +841,7 @@ export default function BerichtenAdmin() {
             </View>
           ) : (
             <ScrollView style={styles.messagesScroll}>
-              {filteredBerichten.map((bericht) => (
+              {filteredBerichten.map((bericht, berichtIndex) => (
                 <TouchableOpacity
                   key={bericht.id}
                   style={[
@@ -849,9 +849,12 @@ export default function BerichtenAdmin() {
                     selectedBericht?.id === bericht.id && styles.messageCardSelected,
                     bericht.vastgepind && styles.messageCardPinned,
                     bericht.vastgepind && { backgroundColor: `${theme.primaryColor || '#F5A623'}08` },
+                    { flexDirection: 'row', alignItems: 'flex-start' },
                   ]}
                   onPress={() => setSelectedBericht(bericht)}
                 >
+                  <Text style={{ width: 40, fontSize: 13, color: '#444444', textAlign: 'center', fontWeight: '500', paddingTop: 4 }}>{berichtIndex + 1}</Text>
+                  <View style={{ flex: 1 }}>
                   <View style={styles.messageHeader}>
                     <View style={styles.messageFrom}>
                       <View style={styles.avatar}>
@@ -885,6 +888,7 @@ export default function BerichtenAdmin() {
                   {bericht.naar_naam && !bericht.is_broadcast && (
                     <Text style={styles.recipientText}>Aan: {bericht.naar_naam}</Text>
                   )}
+                  </View>
                 </TouchableOpacity>
               ))}
             </ScrollView>

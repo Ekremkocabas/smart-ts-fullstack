@@ -242,6 +242,7 @@ export default function WervenAdmin() {
       ) : (
         <View style={styles.tableContainer}>
           <View style={styles.tableHeader}>
+            <Text style={{ width: 40, fontSize: 13, color: '#444444', textAlign: 'center', fontWeight: '500' }}>NR</Text>
             <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Werf</Text>
             <Text style={styles.tableHeaderCell}>Klant</Text>
             <Text style={styles.tableHeaderCell}>Werfleider</Text>
@@ -261,6 +262,7 @@ export default function WervenAdmin() {
                 style={[styles.tableRow, index % 2 === 0 && styles.tableRowAlt]}
                 onPress={() => router.push(`/admin/werf-detail?id=${w.id}` as any)}
               >
+                <Text style={{ width: 40, fontSize: 13, color: '#444444', textAlign: 'center', fontWeight: '500' }}>{index + 1}</Text>
                 <View style={[styles.tableCell, { flex: 2 }]}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                     <View style={styles.werfIcon}>

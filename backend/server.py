@@ -1654,6 +1654,28 @@ class PlanningItemUpdate(BaseModel):
     status: Optional[str] = None
     notities: Optional[str] = None
 
+class PlanningBulkCreate(BaseModel):
+    week_nummer: int
+    jaar: int
+    dagen: List[str]
+    datums: Dict[str, str] = {}
+    start_uur: Optional[str] = ""
+    eind_uur: Optional[str] = ""
+    voorziene_uur: Optional[str] = ""
+    werknemer_ids: List[str] = []
+    werknemer_namen: List[str] = []
+    team_id: Optional[str] = None
+    klant_id: str
+    werf_id: str
+    omschrijving: str = ""
+    materiaallijst: List[str] = []
+    nodige_materiaal: str = ""
+    opmerking_aandachtspunt: str = ""
+    geschatte_duur: str = ""
+    prioriteit: str = "normaal"
+    belangrijk: bool = False
+    notities: str = ""
+
 # ==================== MESSAGES / BERICHTEN ====================
 
 class BerichtAttachment(BaseModel):
@@ -6495,6 +6517,92 @@ async def get_planning_item(planning_id: str):
     if not item:
         raise HTTPException(status_code=404, detail="Planning item niet gevonden")
     return item
+
+@api_router.post("/planning/bulk")
+async def create_planning_bulk(data: PlanningBulkCreate, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
+    """Create planning items for multiple days in one request — sends one push notification"""
+    klant = await db.klanten.find_one({"id": data.klant_id})
+    werf = await db.werven.find_one({"id": data.werf_id})
+    if not klant:
+        raise HTTPException(status_code=404, detail="Klant niet gevonden")
+    if not werf:
+        raise HTTPException(status_code=404, detail="Werf niet gevonden")
+
+    werknemer_namen = list(data.werknemer_namen)
+    if data.werknemer_ids and not werknemer_namen:
+        for wid in data.werknemer_ids:
+            user = await db.users.find_one({"id": wid})
+            if user:
+                werknemer_namen.append(user["naam"])
+
+    team_naam = None
+    if data.team_id:
+        team = await db.teams.find_one({"id": data.team_id})
+        if team:
+            team_naam = team["naam"]
+
+    created_items = []
+    waarschuwingen = []
+
+    for dag in data.dagen:
+        for wid in data.werknemer_ids:
+            existing = await db.planning.find_one({
+                "werknemer_ids": wid,
+                "week_nummer": data.week_nummer,
+                "jaar": data.jaar,
+                "dag": dag,
+            })
+            if existing:
+                user = await db.users.find_one({"id": wid})
+                naam = user["naam"] if user else wid
+                waarschuwingen.append(f"{naam} is al ingepland op {dag}")
+
+        item = PlanningItem(
+            week_nummer=data.week_nummer,
+            jaar=data.jaar,
+            dag=dag,
+            datum=data.datums.get(dag, ""),
+            start_uur=data.start_uur or "",
+            eind_uur=data.eind_uur or "",
+            voorziene_uur=data.voorziene_uur or "",
+            werknemer_ids=data.werknemer_ids,
+            werknemer_namen=werknemer_namen,
+            team_id=data.team_id,
+            team_naam=team_naam,
+            klant_id=data.klant_id,
+            klant_naam=klant["naam"],
+            werf_id=data.werf_id,
+            werf_naam=werf["naam"],
+            werf_adres=werf.get("adres", ""),
+            omschrijving=data.omschrijving,
+            materiaallijst=data.materiaallijst,
+            nodige_materiaal=data.nodige_materiaal or "\n".join(data.materiaallijst),
+            opmerking_aandachtspunt=data.opmerking_aandachtspunt or "",
+            geschatte_duur=data.geschatte_duur or data.voorziene_uur or "",
+            prioriteit=data.prioriteit,
+            belangrijk=data.belangrijk,
+            notities=data.notities,
+        )
+        await db.planning.insert_one(item.dict())
+        created_items.append(item.dict())
+
+    # Send ONE push notification for all days combined
+    if data.werknemer_ids and created_items:
+        try:
+            dagen_str = ", ".join(data.dagen)
+            await send_push_notifications(
+                data.werknemer_ids,
+                "Nieuwe planning",
+                f"U bent ingepland bij {klant['naam']} - {werf['naam']} op {dagen_str}",
+                {"type": "planning"}
+            )
+        except Exception as e:
+            logging.error(f"Push notification failed: {e}")
+
+    result: Dict[str, Any] = {"items": created_items, "count": len(created_items)}
+    if waarschuwingen:
+        result["waarschuwingen"] = waarschuwingen
+    return result
 
 @api_router.post("/planning")
 async def create_planning(data: PlanningItemCreate, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):

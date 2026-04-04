@@ -473,6 +473,7 @@ export default function WerknemersAdmin() {
         <View style={styles.tableContainer}>
           {/* Table Header */}
           <View style={styles.tableHeader}>
+            <Text style={{ width: 40, fontSize: 13, color: '#444444', textAlign: 'center', fontWeight: '500' }}>NR</Text>
             <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Naam</Text>
             <Text style={[styles.tableHeaderCell, { flex: 2 }]}>E-mail</Text>
             <Text style={styles.tableHeaderCell}>Wachtwoord</Text>
@@ -494,6 +495,7 @@ export default function WerknemersAdmin() {
                 style={[styles.tableRow, index % 2 === 0 && styles.tableRowAlt]}
                 onPress={() => router.push(`/admin/werknemer-detail?id=${w.id}` as any)}
               >
+                <Text style={{ width: 40, fontSize: 13, color: '#444444', textAlign: 'center', fontWeight: '500' }}>{index + 1}</Text>
                 <View style={[styles.tableCell, { flex: 2, flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
                   <View style={styles.avatar}>
                     <Text style={styles.avatarText}>{w.naam?.charAt(0).toUpperCase()}</Text>

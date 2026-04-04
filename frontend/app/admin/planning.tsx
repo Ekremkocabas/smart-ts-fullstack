@@ -361,14 +361,11 @@ export default function PlanningAdmin() {
       if (isEditing && selectedItem) {
         await apiClient.put(`/api/planning/${selectedItem.id}`, { ...baseBody, dag: form.dag, datum: weekDates[form.dag] || '' });
       } else {
-        // Create one entry per selected day
-        const allWaarschuwingen: string[] = [];
-        for (const dag of selectedDagen) {
-          const res = await apiClient.post('/api/planning', { ...baseBody, dag, datum: weekDates[dag] || '' });
-          const result = res.data;
-          if (result.waarschuwingen?.length > 0) allWaarschuwingen.push(...result.waarschuwingen);
-        }
-        if (allWaarschuwingen.length > 0) setWaarschuwingen(allWaarschuwingen);
+        const datums: Record<string, string> = {};
+        for (const dag of selectedDagen) datums[dag] = weekDates[dag] || '';
+        const res = await apiClient.post('/api/planning/bulk', { ...baseBody, dagen: selectedDagen, datums });
+        const result = res.data;
+        if (result.waarschuwingen?.length > 0) setWaarschuwingen(result.waarschuwingen);
       }
       setShowModal(false);
       fetchData();

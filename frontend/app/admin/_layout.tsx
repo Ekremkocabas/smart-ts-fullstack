@@ -10,7 +10,7 @@ const menuItems = [
   { icon: 'grid-outline', label: 'Dashboard', route: '/admin/dashboard' },
   { icon: 'calendar-outline', label: 'Planning', route: '/admin/planning' },
   { icon: 'people-outline', label: 'Werknemers', route: '/admin/werknemers' },
-  { icon: 'git-branch-outline', label: 'Teams', route: '/admin/teams' },
+  // { icon: 'git-branch-outline', label: 'Teams', route: '/admin/teams' }, // Hidden from menu
   { icon: 'briefcase-outline', label: 'Klanten', route: '/admin/klanten' },
   { icon: 'business-outline', label: 'Werven', route: '/admin/werven' },
   { icon: 'document-text-outline', label: 'Werkbonnen', route: '/admin/werkbonnen' },
