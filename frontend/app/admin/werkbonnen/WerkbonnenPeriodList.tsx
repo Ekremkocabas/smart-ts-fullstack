@@ -254,7 +254,7 @@ export function WerkbonnenPeriodList({ title, description, weekNummer, jaar, maa
       ) : (
         <View style={styles.tableContainer}>
           <View style={styles.tableHeader}>
-            <Text style={[styles.tableHeaderCell, { flex: 0, minWidth: 28, color: '#adb5bd' }]}>#</Text>
+            <View style={styles.seqCell}><Text style={styles.seqText}>#</Text></View>
             <Text style={styles.tableHeaderCell}>Week</Text>
             <Text style={[styles.tableHeaderCell, { flex: 1.5 }]}>Klant / Werf</Text>
             <Text style={styles.tableHeaderCell}>Werknemer</Text>
@@ -276,7 +276,7 @@ export function WerkbonnenPeriodList({ title, description, weekNummer, jaar, maa
                 style={[styles.tableRow, index % 2 === 0 && styles.tableRowAlt]}
                 onPress={() => router.push(`/admin/werkbon-detail?id=${wb.id}` as any)}
               >
-                <Text style={{ flex: 0, minWidth: 28, fontSize: 11, color: '#adb5bd', alignSelf: 'center', textAlign: 'right', paddingRight: 4 }}>{index + 1}</Text>
+                <View style={styles.seqCell}><Text style={styles.seqText}>{index + 1}</Text></View>
                 <View style={styles.tableCell}>
                   <View style={[styles.weekBadge, { backgroundColor: `${theme.primaryColor || '#F5A623'}15` }]}>
                     <Text style={[styles.weekText, { color: theme.primaryColor || '#F5A623' }]}>W{wb.week_nummer}</Text>
@@ -423,6 +423,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FAFAFA',
   },
   moreBtnText: { fontSize: 14, fontWeight: '600', color: '#F5A623' },
+  seqCell: { flex: 0, minWidth: 32, alignItems: 'flex-end', justifyContent: 'center', paddingRight: 6 },
+  seqText: { fontSize: 13, color: '#666666', fontWeight: '500' },
   billitBtn: { alignItems: 'center', justifyContent: 'center' },
   billitBtnInner: {
     width: 22,

@@ -689,7 +689,7 @@ export default function WerkbonnenAdmin() {
         <View style={styles.tableContainer}>
           {/* Table Header */}
           <View style={styles.tableHeader}>
-            <Text style={[styles.tableHeaderCell, { flex: 0, minWidth: 28, color: '#adb5bd' }]}>#</Text>
+            <View style={styles.seqCell}><Text style={styles.seqText}>#</Text></View>
             <Text style={styles.tableHeaderCell}>Week</Text>
             <Text style={[styles.tableHeaderCell, { flex: 1.5 }]}>Klant / Werf</Text>
             <Text style={styles.tableHeaderCell}>Werknemer</Text>
@@ -711,7 +711,7 @@ export default function WerkbonnenAdmin() {
                 style={[styles.tableRow, index % 2 === 0 && styles.tableRowAlt]}
                 onPress={() => router.push(`/admin/werkbon-detail?id=${wb.id}` as any)}
               >
-                <Text style={{ flex: 0, minWidth: 28, fontSize: 11, color: '#adb5bd', alignSelf: 'center', textAlign: 'right', paddingRight: 4 }}>{index + 1}</Text>
+                <View style={styles.seqCell}><Text style={styles.seqText}>{index + 1}</Text></View>
                 <View style={styles.tableCell}>
                   <View style={[styles.weekBadge, { backgroundColor: `${theme.primaryColor || '#F5A623'}15` }]}>
                     <Text style={[styles.weekText, { color: theme.primaryColor || '#F5A623' }]}>W{wb.week_nummer}</Text>
@@ -767,7 +767,7 @@ export default function WerkbonnenAdmin() {
         /* Productie Werkbonnen Table */
         <View style={styles.tableContainer}>
           <View style={styles.tableHeader}>
-            <Text style={[styles.tableHeaderCell, { flex: 0, minWidth: 28, color: '#adb5bd' }]}>#</Text>
+            <View style={styles.seqCell}><Text style={styles.seqText}>#</Text></View>
             <Text style={styles.tableHeaderCell}>Datum</Text>
             <Text style={[styles.tableHeaderCell, { flex: 1.5 }]}>Klant / Werf</Text>
             <Text style={styles.tableHeaderCell}>Monteur</Text>
@@ -788,7 +788,7 @@ export default function WerkbonnenAdmin() {
                 key={wb.id}
                 style={[styles.tableRow, index % 2 === 0 && styles.tableRowAlt]}
               >
-                <Text style={{ flex: 0, minWidth: 28, fontSize: 11, color: '#adb5bd', alignSelf: 'center', textAlign: 'right', paddingRight: 4 }}>{index + 1}</Text>
+                <View style={styles.seqCell}><Text style={styles.seqText}>{index + 1}</Text></View>
                 <View style={styles.tableCell}>
                   <View style={styles.dateBadge}>
                     <Text style={styles.dateText}>{wb.datum}</Text>
@@ -826,7 +826,7 @@ export default function WerkbonnenAdmin() {
         /* Oplevering Werkbonnen Table */
         <View style={styles.tableContainer}>
           <View style={styles.tableHeader}>
-            <Text style={[styles.tableHeaderCell, { flex: 0, minWidth: 28, color: '#adb5bd' }]}>#</Text>
+            <View style={styles.seqCell}><Text style={styles.seqText}>#</Text></View>
             <Text style={styles.tableHeaderCell}>Datum</Text>
             <Text style={[styles.tableHeaderCell, { flex: 1.5 }]}>Klant / Werf</Text>
             <Text style={styles.tableHeaderCell}>Monteur</Text>
@@ -843,7 +843,7 @@ export default function WerkbonnenAdmin() {
           ) : (
             opleveringWerkbonnen.map((wb: any, index: number) => (
               <View key={wb.id} style={[styles.tableRow, index % 2 === 0 && styles.tableRowAlt]}>
-                <Text style={{ flex: 0, minWidth: 28, fontSize: 11, color: '#adb5bd', alignSelf: 'center', textAlign: 'right', paddingRight: 4 }}>{index + 1}</Text>
+                <View style={styles.seqCell}><Text style={styles.seqText}>{index + 1}</Text></View>
                 <View style={styles.tableCell}>
                   <View style={styles.dateBadge}>
                     <Text style={styles.dateText}>{wb.datum || '-'}</Text>
@@ -875,7 +875,7 @@ export default function WerkbonnenAdmin() {
         /* Project Werkbonnen Table */
         <View style={styles.tableContainer}>
           <View style={styles.tableHeader}>
-            <Text style={[styles.tableHeaderCell, { flex: 0, minWidth: 28, color: '#adb5bd' }]}>#</Text>
+            <View style={styles.seqCell}><Text style={styles.seqText}>#</Text></View>
             <Text style={styles.tableHeaderCell}>Datum</Text>
             <Text style={[styles.tableHeaderCell, { flex: 1.5 }]}>Klant / Werf</Text>
             <Text style={styles.tableHeaderCell}>Monteur</Text>
@@ -892,7 +892,7 @@ export default function WerkbonnenAdmin() {
           ) : (
             projectWerkbonnen.map((wb: any, index: number) => (
               <View key={wb.id} style={[styles.tableRow, index % 2 === 0 && styles.tableRowAlt]}>
-                <Text style={{ flex: 0, minWidth: 28, fontSize: 11, color: '#adb5bd', alignSelf: 'center', textAlign: 'right', paddingRight: 4 }}>{index + 1}</Text>
+                <View style={styles.seqCell}><Text style={styles.seqText}>{index + 1}</Text></View>
                 <View style={styles.tableCell}>
                   <View style={styles.dateBadge}>
                     <Text style={styles.dateText}>{wb.datum || '-'}</Text>
@@ -969,6 +969,8 @@ const styles = StyleSheet.create({
   statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, alignSelf: 'flex-start' },
   statusText: { fontSize: 11, fontWeight: '600', color: '#fff', textTransform: 'uppercase' },
   actionIcon: { padding: 6 },
+  seqCell: { flex: 0, minWidth: 32, alignItems: 'flex-end', justifyContent: 'center', paddingRight: 6 },
+  seqText: { fontSize: 13, color: '#666666', fontWeight: '500' },
   emptyState: { alignItems: 'center', padding: 60 },
   emptyText: { fontSize: 16, fontWeight: '600', color: '#1A1A2E', marginTop: 16 },
   emptySubText: { fontSize: 13, color: '#6c757d', marginTop: 8, textAlign: 'center' },
