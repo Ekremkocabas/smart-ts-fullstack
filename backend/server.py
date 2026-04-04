@@ -5251,24 +5251,21 @@ async def send_werkbon_to_billit(werkbon: dict, klant: dict, instellingen: dict)
                         werkbon_prepared, klant, werf, instellingen,
                         fin_pdf["total_uren"], fin_pdf["totaal_bedrag"]
                     )
-                    pdf_b64 = base64.b64encode(pdf_bytes).decode()
-                    attachment_payload = {
-                        "FileName": pdf_filename,
-                        "FileContent": pdf_b64,
-                        "MimeType": "application/pdf"
-                    }
-                    async with httpx.AsyncClient(timeout=30.0) as client2:
-                        att_resp = await client2.post(
-                            f"https://api.billit.be/v1/orders/{order_id}/attachments",
-                            json=attachment_payload,
-                            headers=headers,
-                        )
-                    if att_resp.status_code in (200, 201):
-                        logging.info("[Billit] PDF bijlage succesvol toegevoegd aan order %s", order_id)
-                    else:
-                        logging.warning("[Billit] PDF bijlage mislukt voor order %s. Status: %s | Body: %s", order_id, att_resp.status_code, att_resp.text[:300])
+                    if pdf_bytes:
+                        attach_headers = {
+                            "ApiKey": billit_api_key,
+                            "PartyID": str(billit_party_id) if billit_party_id is not None else "",
+                        }
+                        files = {"file": (pdf_filename, pdf_bytes, "application/pdf")}
+                        async with httpx.AsyncClient(timeout=30.0) as client2:
+                            att_resp = await client2.post(
+                                f"https://api.billit.be/v1/orders/{order_id}/attachments",
+                                files=files,
+                                headers=attach_headers,
+                            )
+                        print(f"[Billit] PDF bijlage status: {att_resp.status_code} — {att_resp.text[:200]}")
                 except Exception as att_exc:
-                    logging.error("[Billit] PDF bijlage hatası voor order %s: %s", order_id, str(att_exc))
+                    print(f"[Billit] PDF bijlage hatası: {att_exc}")
 
             return {"success": True, "billit_order_id": order_id}
         else:
