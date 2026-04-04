@@ -4466,10 +4466,12 @@ async def delete_werf(werf_id: str, current_user: Dict = Depends(require_roles([
 @api_router.get("/users/search")
 async def search_users(q: str = Query(""), rol: Optional[str] = Query(None), current_user: Dict = Depends(get_current_user)):
     """Search werknemers and onderaannemers by name. Empty q returns all matching rol."""
-    if rol and rol in ("werknemer", "onderaannemer"):
-        rol_filter = rol
+    if rol == "werknemer":
+        rol_filter = {"$in": ["werknemer", "worker"]}
+    elif rol == "onderaannemer":
+        rol_filter = "onderaannemer"
     else:
-        rol_filter = {"$in": ["werknemer", "onderaannemer"]}
+        rol_filter = {"$in": ["werknemer", "worker", "onderaannemer"]}
     query: Dict[str, Any] = {"rol": rol_filter, "actief": True}
     if q:
         query["naam"] = {"$regex": q, "$options": "i"}
