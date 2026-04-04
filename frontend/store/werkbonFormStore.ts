@@ -179,6 +179,9 @@ interface WerkbonFormState {
   klantId: string | null;
   klantNaam: string;
   manualKlantNaam: string;
+  klantPrijsmodel: string;
+  klantUurtarief: number;
+  klantBtwPercentage: number;
   werfId: string | null;
   werfNaam: string;
   manualWerfNaam: string;
@@ -318,6 +321,9 @@ const initialState: WerkbonFormState = {
   klantId: null,
   klantNaam: '',
   manualKlantNaam: '',
+  klantPrijsmodel: '',
+  klantUurtarief: 0,
+  klantBtwPercentage: 21,
   werfId: null,
   werfNaam: '',
   manualWerfNaam: '',
@@ -358,7 +364,7 @@ interface WerkbonFormActions {
   setType: (type: WerkbonType) => void;
   
   // Common fields
-  setKlant: (id: string | null, naam: string) => void;
+  setKlant: (id: string | null, naam: string, prijsmodel?: string, uurtarief?: number, btwPercentage?: number) => void;
   setManualKlant: (naam: string) => void;
   setWerf: (id: string | null, naam: string) => void;
   setManualWerf: (naam: string) => void;
@@ -452,7 +458,7 @@ export const useWerkbonFormStore = create<WerkbonFormState & WerkbonFormActions>
       setPlanningId: (id) => set({ planningId: id }),
 
       // Common fields
-      setKlant: (id, naam) => set({ klantId: id, klantNaam: naam, manualKlantNaam: '' }),
+      setKlant: (id, naam, prijsmodel = '', uurtarief = 0, btwPercentage = 21) => set({ klantId: id, klantNaam: naam, manualKlantNaam: '', klantPrijsmodel: prijsmodel, klantUurtarief: uurtarief, klantBtwPercentage: btwPercentage }),
       setManualKlant: (naam) => set({ klantId: null, klantNaam: '', manualKlantNaam: naam }),
       setWerf: (id, naam) => set({ werfId: id, werfNaam: naam, manualWerfNaam: '' }),
       setManualWerf: (naam) => set({ werfId: null, werfNaam: '', manualWerfNaam: naam }),
@@ -696,6 +702,9 @@ export const useWerkbonFormStore = create<WerkbonFormState & WerkbonFormActions>
         klantId: state.klantId,
         klantNaam: state.klantNaam,
         manualKlantNaam: state.manualKlantNaam,
+        klantPrijsmodel: state.klantPrijsmodel,
+        klantUurtarief: state.klantUurtarief,
+        klantBtwPercentage: state.klantBtwPercentage,
         werfId: state.werfId,
         werfNaam: state.werfNaam,
         manualWerfNaam: state.manualWerfNaam,

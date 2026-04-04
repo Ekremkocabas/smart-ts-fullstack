@@ -209,7 +209,7 @@ export default function WerkbonSign() {
   const {
     type,
     planningId,
-    klantId, klantNaam, manualKlantNaam,
+    klantId, klantNaam, manualKlantNaam, klantPrijsmodel, klantUurtarief, klantBtwPercentage,
     werfId, werfNaam, manualWerfNaam,
     datum, opmerkingen, gps, photos,
     urenData, opleveringData, projectData, prestatieData,
@@ -469,6 +469,9 @@ export default function WerkbonSign() {
       planning_id: planningId || null,
       klant_id: klantId || null,
       klant_naam: displayKlant,
+      klant_prijsmodel: klantPrijsmodel || null,
+      klant_uurtarief: klantUurtarief || null,
+      klant_btw_percentage: klantBtwPercentage || null,
       werf_id: werfId || null,
       werf_naam: displayWerf,
       datum,

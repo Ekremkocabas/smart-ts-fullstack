@@ -145,6 +145,9 @@ export default function PlanningAdmin() {
   const [exportPeriode, setExportPeriode] = useState('week');
   const [exportFormaat, setExportFormaat] = useState('csv');
   const [isEditing, setIsEditing] = useState(false);
+  // Bulk select/delete states
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   // Multi-day selection states
   const [selectedDagen, setSelectedDagen] = useState<string[]>(['maandag']);
   const [dagPickMode, setDagPickMode] = useState<'individueel' | 'range'>('individueel');
@@ -397,6 +400,23 @@ export default function PlanningAdmin() {
     onderaannemers: werknemers.filter(w => w.rol === 'onderaannemer'),
   };
 
+  const toggleSelectMode = () => {
+    setSelectMode(prev => !prev);
+    setSelectedIds([]);
+  };
+
+  const toggleSelectItem = (id: string) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedIds.length === 0) return;
+    if (!confirm(`Weet je zeker dat je ${selectedIds.length} opdracht${selectedIds.length !== 1 ? 'en' : ''} wilt verwijderen? Dit kan niet ongedaan worden gemaakt.`)) return;
+    Promise.all(selectedIds.map(id => apiClient.delete(`/api/planning/${id}`)))
+      .then(() => { fetchData(); setSelectMode(false); setSelectedIds([]); })
+      .catch(() => alert('Fout bij verwijderen van één of meerdere opdrachten.'));
+  };
+
   // Export function
   const exportPlanning = async () => {
     try {
@@ -532,6 +552,16 @@ export default function PlanningAdmin() {
           <Text style={styles.subtitle}>Weekoverzicht en taaktoewijzing</Text>
         </View>
         <View style={{ flexDirection: 'row', gap: 10 }}>
+          {selectMode && selectedIds.length > 0 && (
+            <TouchableOpacity style={[styles.addBtn, { backgroundColor: '#dc3545' }]} onPress={handleBulkDelete}>
+              <Ionicons name="trash-outline" size={20} color="#fff" />
+              <Text style={styles.addBtnText}>Verwijder ({selectedIds.length})</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity style={[styles.addBtn, { backgroundColor: selectMode ? '#6c757d' : '#495057' }]} onPress={toggleSelectMode}>
+            <Ionicons name={selectMode ? 'close-outline' : 'checkbox-outline'} size={20} color="#fff" />
+            <Text style={styles.addBtnText}>{selectMode ? 'Annuleren' : 'Selecteren'}</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={[styles.addBtn, { backgroundColor: '#1A1A2E' }]} onPress={() => setShowExportModal(true)}>
             <Ionicons name="download-outline" size={20} color="#fff" />
             <Text style={styles.addBtnText}>Exporteren</Text>
@@ -621,19 +651,27 @@ export default function PlanningAdmin() {
                     const someConfirmed = item.bevestigd_door?.length > 0 && !allConfirmed;
                     const noneConfirmed = !item.bevestigd_door || item.bevestigd_door.length === 0;
                     
+                    const isSelected = selectedIds.includes(item.id);
                     return (
-                    <TouchableOpacity 
-                      key={item.id} 
+                    <TouchableOpacity
+                      key={item.id}
                       style={[
-                        styles.planCard, 
+                        styles.planCard,
                         item.belangrijk && styles.planCardBelangrijk,
                         allConfirmed && { borderLeftColor: '#28a745', borderLeftWidth: 4 },
                         someConfirmed && { borderLeftColor: '#F5A623', borderLeftWidth: 4 },
-                        noneConfirmed && { borderLeftColor: '#dc3545', borderLeftWidth: 4 }
-                      ]} 
-                      onPress={() => openDetail(item)} 
+                        noneConfirmed && { borderLeftColor: '#dc3545', borderLeftWidth: 4 },
+                        isSelected && { backgroundColor: '#dc354512', borderColor: '#dc3545', borderWidth: 1 },
+                      ]}
+                      onPress={() => selectMode ? toggleSelectItem(item.id) : openDetail(item)}
                       activeOpacity={0.7}
                     >
+                      {/* Checkbox in select mode */}
+                      {selectMode && (
+                        <View style={{ position: 'absolute', top: 6, right: 6, zIndex: 10 }}>
+                          <Ionicons name={isSelected ? 'checkbox' : 'square-outline'} size={20} color={isSelected ? '#dc3545' : '#adb5bd'} />
+                        </View>
+                      )}
                       {/* Priority strip */}
                       <View style={[styles.priorityStrip, { backgroundColor: PRIORITEIT_KLEUREN[item.prioriteit] || '#3498db' }]} />
                       <View style={styles.planCardContent}>

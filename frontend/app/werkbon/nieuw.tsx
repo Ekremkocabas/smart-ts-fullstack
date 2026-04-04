@@ -15,7 +15,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppStore, Klant, Werf, Team, UrenRegel, KmRegel, WeekDates } from '../../store/appStore';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, apiClient } from '../../context/AuthContext';
 import { showAlert } from '../../utils/alerts';
 import Constants from 'expo-constants';
 
@@ -90,6 +90,9 @@ export default function NieuweWerkbonScreen() {
   const [planningItems, setPlanningItems] = useState<any[]>([]);
   const [showPlanningSuggesties, setShowPlanningSuggesties] = useState(true);
   const [selectedPlanningId, setSelectedPlanningId] = useState<string | null>(null);
+  const [klantPrijsmodel, setKlantPrijsmodel] = useState('');
+  const [klantUurtarief, setKlantUurtarief] = useState(0);
+  const [klantBtwPercentage, setKlantBtwPercentage] = useState(21);
 
   useEffect(() => {
     loadData();
@@ -136,6 +139,14 @@ export default function NieuweWerkbonScreen() {
         setSelectedWerf(werf);
       }
     }
+    // Fetch full klant data for pricing info
+    try {
+      const res = await apiClient.get(`/api/klanten/${item.klant_id}`);
+      const k = res.data;
+      setKlantPrijsmodel(k.prijsmodel || '');
+      setKlantUurtarief(k.standaard_uurtarief || 0);
+      setKlantBtwPercentage(k.btw_percentage || 21);
+    } catch { /* pricing velden boş kalır */ }
     // Pre-fill team members from planning — pass both naam AND id
     if (item.werknemer_namen && item.werknemer_namen.length > 0) {
       const ids: string[] = item.werknemer_ids || [];
@@ -276,6 +287,9 @@ export default function NieuweWerkbonScreen() {
           extra_materialen: extraMaterialen,
           gps_op_pdf: gpsOpPdf,
           planning_id: selectedPlanningId,
+          klant_prijsmodel: klantPrijsmodel || null,
+          klant_uurtarief: klantUurtarief || null,
+          klant_btw_percentage: klantBtwPercentage || null,
         },
         user?.id || '',
         user?.naam || ''

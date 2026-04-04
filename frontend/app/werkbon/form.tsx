@@ -559,9 +559,14 @@ export default function WerkbonForm() {
                 renderItem={({ item }) => (
                   <TouchableOpacity
                     style={styles.modalItem}
-                    onPress={() => {
+                    onPress={async () => {
                       setKlant(item.id, item.naam);
                       setShowKlantPicker(false);
+                      try {
+                        const res = await apiClient.get(`/api/klanten/${item.id}`);
+                        const k = res.data;
+                        setKlant(item.id, item.naam, k.prijsmodel || '', k.standaard_uurtarief || 0, k.btw_percentage || 21);
+                      } catch { /* fallback: keep id/naam only */ }
                     }}
                   >
                     <Text style={styles.modalItemText}>{item.naam}</Text>
