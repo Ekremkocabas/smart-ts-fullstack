@@ -5213,12 +5213,14 @@ async def send_werkbon_to_billit(werkbon: dict, klant: dict, instellingen: dict)
 
     # Billit'te klant adını BTW numarasıyla ara
     billit_klant_naam = None
-    if klant.get("btw_nummer"):
+    btw_nummer = klant.get("btw_nummer", "")
+    btw_nummer_clean = btw_nummer.replace(".", "").replace(" ", "").replace("-", "").strip()
+    if btw_nummer_clean:
         try:
             import httpx as _httpx
             async with _httpx.AsyncClient(timeout=10.0) as _search_client:
                 search_resp = await _search_client.get(
-                    f"https://api.billit.be/v1/parties?$filter=VATNumber eq '{klant.get('btw_nummer')}'",
+                    f"https://api.billit.be/v1/parties?$filter=VATNumber eq '{btw_nummer_clean}'",
                     headers=headers
                 )
             if search_resp.status_code == 200:
@@ -5227,7 +5229,7 @@ async def send_werkbon_to_billit(werkbon: dict, klant: dict, instellingen: dict)
                 if items and len(items) > 0:
                     billit_klant_naam = items[0].get("Name") or items[0].get("CommercialName")
         except Exception as e:
-            print(f"[Billit] Parties sorgusu hatası (BTW: {klant.get('btw_nummer')}): {e}")
+            print(f"[Billit] Parties sorgusu hatası (BTW: {btw_nummer_clean}): {e}")
 
     # Billit JSON payload
     payload: dict = {
@@ -5238,11 +5240,11 @@ async def send_werkbon_to_billit(werkbon: dict, klant: dict, instellingen: dict)
         "ExpiryDate": expiry_date,
         "Customer": (
             {
-                "VATNumber": klant.get("btw_nummer") or "",
+                "VATNumber": btw_nummer_clean or "",
                 "PartyType": "Customer"
             } if billit_klant_naam else {
                 "Name": "Nieuwe klant - bewerken in Billit",
-                "VATNumber": klant.get("btw_nummer") or "",
+                "VATNumber": btw_nummer_clean or "",
                 "PartyType": "Customer"
             }
         ),
