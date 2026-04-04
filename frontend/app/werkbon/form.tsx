@@ -103,7 +103,6 @@ export default function WerkbonForm() {
     updateUrenRegel(index, { teamlidNaam: text, teamlidId: undefined });
     setActiveTeamlidIndex(index);
     clearTimeout(searchTimeout.current);
-    if (text.length < 2) { setTeamlidResults([]); return; }
     searchTimeout.current = setTimeout(async () => {
       try {
         const rol = rolFilter !== undefined ? rolFilter : teamlidSearchRol;
@@ -111,7 +110,7 @@ export default function WerkbonForm() {
         const res = await apiClient.get(`/api/users/search?q=${encodeURIComponent(text)}${rolParam}`);
         setTeamlidResults(res.data || []);
       } catch { setTeamlidResults([]); }
-    }, 300);
+    }, 200);
   };
 
   const handleAddTeamlidType = (teamlidType: 'werknemer' | 'onderaannemer' | 'nieuwe_werknemer') => {
@@ -122,6 +121,7 @@ export default function WerkbonForm() {
     addUrenRegel('', undefined, teamlidType);
     if (teamlidType !== 'nieuwe_werknemer') {
       setActiveTeamlidIndex(newIndex);
+      searchTeamleden('', newIndex, rol);
     }
   };
 

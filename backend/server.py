@@ -4465,17 +4465,16 @@ async def delete_werf(werf_id: str, current_user: Dict = Depends(require_roles([
 
 @api_router.get("/users/search")
 async def search_users(q: str = Query(""), rol: Optional[str] = Query(None), current_user: Dict = Depends(get_current_user)):
-    """Search werknemers and onderaannemers by name (min 2 chars). Used for teamlid autocomplete."""
-    if len(q) < 2:
-        return []
+    """Search werknemers and onderaannemers by name. Empty q returns all matching rol."""
     if rol and rol in ("werknemer", "onderaannemer"):
         rol_filter = rol
     else:
         rol_filter = {"$in": ["werknemer", "onderaannemer"]}
+    naam_filter = {"$regex": q, "$options": "i"} if q else {"$exists": True}
     cursor = db.users.find(
-        {"naam": {"$regex": q, "$options": "i"}, "rol": rol_filter, "actief": True},
+        {"naam": naam_filter, "rol": rol_filter, "actief": True},
         {"_id": 0, "id": 1, "naam": 1, "rol": 1}
-    ).limit(10)
+    ).limit(50)
     users = await cursor.to_list(10)
     return users
 
