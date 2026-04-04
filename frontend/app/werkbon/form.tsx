@@ -121,7 +121,10 @@ export default function WerkbonForm() {
     addUrenRegel('', undefined, teamlidType);
     if (teamlidType !== 'nieuwe_werknemer') {
       setActiveTeamlidIndex(newIndex);
-      searchTeamleden('', newIndex, rol);
+      const rolParam = rol ? `&rol=${encodeURIComponent(rol)}` : '';
+      apiClient.get(`/api/users/search?q=${rolParam}`)
+        .then(res => setTeamlidResults(res.data || []))
+        .catch(() => setTeamlidResults([]));
     }
   };
 

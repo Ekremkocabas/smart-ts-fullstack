@@ -4470,12 +4470,11 @@ async def search_users(q: str = Query(""), rol: Optional[str] = Query(None), cur
         rol_filter = rol
     else:
         rol_filter = {"$in": ["werknemer", "onderaannemer"]}
-    naam_filter = {"$regex": q, "$options": "i"} if q else {"$exists": True}
-    cursor = db.users.find(
-        {"naam": naam_filter, "rol": rol_filter, "actief": True},
-        {"_id": 0, "id": 1, "naam": 1, "rol": 1}
-    ).limit(50)
-    users = await cursor.to_list(10)
+    query: Dict[str, Any] = {"rol": rol_filter, "actief": True}
+    if q:
+        query["naam"] = {"$regex": q, "$options": "i"}
+    cursor = db.users.find(query, {"_id": 0, "id": 1, "naam": 1, "rol": 1}).limit(50)
+    users = await cursor.to_list(50)
     return users
 
 # ==================== WERKBON ROUTES ====================
