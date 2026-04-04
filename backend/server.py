@@ -5234,11 +5234,16 @@ async def send_werkbon_to_billit(werkbon: dict, klant: dict, instellingen: dict)
         "OrderDate": order_date,
         "DeliveryDate": order_date,
         "ExpiryDate": expiry_date,
-        "Customer": {
-            "Name": billit_klant_naam or klant.get("bedrijfsnaam") or klant_naam,
-            "VATNumber": klant.get("btw_nummer") or "",
-            "PartyType": "Customer"
-        },
+        "Customer": (
+            {
+                "VATNumber": klant.get("btw_nummer") or "",
+                "PartyType": "Customer"
+            } if billit_klant_naam else {
+                "Name": "Nieuwe klant - bewerken in Billit",
+                "VATNumber": klant.get("btw_nummer") or "",
+                "PartyType": "Customer"
+            }
+        ),
         "OrderLines": [
             {
                 "Quantity": 1,
