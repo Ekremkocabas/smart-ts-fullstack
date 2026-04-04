@@ -5246,6 +5246,11 @@ async def send_werkbon_to_billit(werkbon: dict, klant: dict, instellingen: dict)
             "PartyType": "Customer"
         }
 
+    import json as _json
+    print(f"[Billit DEBUG] Customer payload: {_json.dumps(customer)}")
+    print(f"[Billit DEBUG] billit_klant_naam: {billit_klant_naam}")
+    print(f"[Billit DEBUG] billit_klant_party_id: {billit_klant_party_id}")
+
     payload: dict = {
         "OrderType": "Invoice",
         "OrderDirection": "Income",
