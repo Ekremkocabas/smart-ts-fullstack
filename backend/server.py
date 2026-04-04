@@ -5213,6 +5213,7 @@ async def send_werkbon_to_billit(werkbon: dict, klant: dict, instellingen: dict)
 
     # Billit'te klant adını BTW numarasıyla ara
     billit_klant_naam = None
+    billit_klant_party_id = None
     btw_nummer = klant.get("btw_nummer", "")
     btw_nummer_clean = btw_nummer.replace(".", "").replace(" ", "").replace("-", "").strip()
     if btw_nummer_clean:
@@ -5228,21 +5229,31 @@ async def send_werkbon_to_billit(werkbon: dict, klant: dict, instellingen: dict)
                 items = results.get("Items") or results if isinstance(results, list) else []
                 if items and len(items) > 0:
                     billit_klant_naam = items[0].get("Name") or items[0].get("CommercialName")
+                    billit_klant_party_id = items[0].get("PartyID")
         except Exception as e:
             print(f"[Billit] Parties sorgusu hatası (BTW: {btw_nummer_clean}): {e}")
 
     # Billit JSON payload
+    if billit_klant_party_id:
+        customer = {
+            "PartyID": billit_klant_party_id,
+            "VATNumber": btw_nummer_clean or "",
+            "PartyType": "Customer"
+        }
+    else:
+        customer = {
+            "Name": "Nieuwe klant - bewerken in Billit",
+            "VATNumber": btw_nummer_clean or "",
+            "PartyType": "Customer"
+        }
+
     payload: dict = {
         "OrderType": "Invoice",
         "OrderDirection": "Income",
         "OrderDate": order_date,
         "DeliveryDate": order_date,
         "ExpiryDate": expiry_date,
-        "Customer": {
-            "Name": billit_klant_naam or klant_naam or "Nieuwe klant - bewerken in Billit",
-            "VATNumber": btw_nummer_clean or "",
-            "PartyType": "Customer"
-        },
+        "Customer": customer,
         "OrderLines": [
             {
                 "Quantity": 1,
