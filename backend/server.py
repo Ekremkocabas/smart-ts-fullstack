@@ -5238,16 +5238,11 @@ async def send_werkbon_to_billit(werkbon: dict, klant: dict, instellingen: dict)
         "OrderDate": order_date,
         "DeliveryDate": order_date,
         "ExpiryDate": expiry_date,
-        "Customer": (
-            {
-                "VATNumber": btw_nummer_clean or "",
-                "PartyType": "Customer"
-            } if billit_klant_naam else {
-                "Name": "Nieuwe klant - bewerken in Billit",
-                "VATNumber": btw_nummer_clean or "",
-                "PartyType": "Customer"
-            }
-        ),
+        "Customer": {
+            "Name": billit_klant_naam or klant_naam or "Nieuwe klant - bewerken in Billit",
+            "VATNumber": btw_nummer_clean or "",
+            "PartyType": "Customer"
+        },
         "OrderLines": [
             {
                 "Quantity": 1,
