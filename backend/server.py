@@ -5234,30 +5234,12 @@ async def send_werkbon_to_billit(werkbon: dict, klant: dict, instellingen: dict)
             print(f"[Billit] Parties sorgusu hatası (BTW: {btw_nummer_clean}): {e}")
 
     # Billit JSON payload
-    if billit_klant_party_id:
-        customer = {
-            "PartyID": billit_klant_party_id,
-            "PartyType": "Customer"
-        }
-    else:
-        customer = {
-            "Name": "Nieuwe klant - bewerken in Billit",
-            "VATNumber": btw_nummer_clean or "",
-            "PartyType": "Customer"
-        }
-
-    import json as _json
-    print(f"[Billit DEBUG] Customer payload: {_json.dumps(customer)}")
-    print(f"[Billit DEBUG] billit_klant_naam: {billit_klant_naam}")
-    print(f"[Billit DEBUG] billit_klant_party_id: {billit_klant_party_id}")
-
     payload: dict = {
         "OrderType": "Invoice",
         "OrderDirection": "Income",
         "OrderDate": order_date,
         "DeliveryDate": order_date,
         "ExpiryDate": expiry_date,
-        "Customer": customer,
         "OrderLines": [
             {
                 "Quantity": 1,
@@ -5267,6 +5249,14 @@ async def send_werkbon_to_billit(werkbon: dict, klant: dict, instellingen: dict)
             }
         ],
     }
+    if billit_klant_party_id:
+        payload["CustomerID"] = billit_klant_party_id
+    else:
+        payload["Customer"] = {
+            "Name": "Nieuwe klant - bewerken in Billit",
+            "VATNumber": btw_nummer_clean or "",
+            "PartyType": "Customer"
+        }
     if btw_percentage == 0:
         payload["VentilationCode"] = "21"
     payload[referentie_veld] = werkbon_ref
