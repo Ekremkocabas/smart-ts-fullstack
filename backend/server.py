@@ -5211,6 +5211,26 @@ async def send_werkbon_to_billit(werkbon: dict, klant: dict, instellingen: dict)
         "Content-Type": "application/json",
     }
 
+    # PDF oluştur
+    import base64
+    pdf_attachment = None
+    try:
+        werf = await db.werven.find_one({"id": werkbon.get("werf_id")}, {"_id": 0}) or {}
+        werkbon_prepared = await prepare_werkbon_for_pdf(werkbon)
+        fin_pdf = compute_werkbon_financials(werkbon_prepared, klant)
+        pdf_bytes, pdf_filename = generate_werkbon_pdf(
+            werkbon_prepared, klant, werf, instellingen,
+            fin_pdf["total_uren"], fin_pdf["totaal_bedrag"]
+        )
+        if pdf_bytes:
+            pdf_attachment = {
+                "FileName": pdf_filename,
+                "MimeType": "application/pdf",
+                "FileContent": base64.b64encode(pdf_bytes).decode()
+            }
+    except Exception as pdf_exc:
+        print(f"[Billit] PDF oluşturma hatası: {pdf_exc}")
+
     # Billit JSON payload — sabit CustomerID
     payload: dict = {
         "OrderType": "Invoice",
@@ -5228,45 +5248,19 @@ async def send_werkbon_to_billit(werkbon: dict, klant: dict, instellingen: dict)
             }
         ],
     }
+    if pdf_attachment:
+        payload["Attachments"] = [pdf_attachment]
     if btw_percentage == 0:
         payload["VentilationCode"] = "21"
     payload[referentie_veld] = werkbon_ref
 
     try:
         import httpx
-        import base64
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post("https://api.billit.be/v1/orders", json=payload, headers=headers)
         if resp.status_code in (200, 201):
             order_id = resp.json() if isinstance(resp.json(), int) else resp.json().get("OrderID") or resp.json().get("Id")
-            logging.info("[Billit] Werkbon %s succesvol verstuurd. Status: %s | OrderID: %s", werkbon["id"], resp.status_code, order_id)
-
-            # PDF bijlage toevoegen
-            if order_id:
-                try:
-                    werf = await db.werven.find_one({"id": werkbon.get("werf_id")}, {"_id": 0}) or {}
-                    werkbon_prepared = await prepare_werkbon_for_pdf(werkbon)
-                    fin_pdf = compute_werkbon_financials(werkbon_prepared, klant)
-                    pdf_bytes, pdf_filename = generate_werkbon_pdf(
-                        werkbon_prepared, klant, werf, instellingen,
-                        fin_pdf["total_uren"], fin_pdf["totaal_bedrag"]
-                    )
-                    if pdf_bytes:
-                        attach_headers = {
-                            "ApiKey": billit_api_key,
-                            "PartyID": str(billit_party_id) if billit_party_id is not None else "",
-                        }
-                        files = {"file": (pdf_filename, pdf_bytes, "application/pdf")}
-                        async with httpx.AsyncClient(timeout=30.0) as client2:
-                            att_resp = await client2.post(
-                                f"https://api.billit.be/v1/orders/{order_id}/attachments",
-                                files=files,
-                                headers=attach_headers,
-                            )
-                        print(f"[Billit] PDF bijlage status: {att_resp.status_code} — {att_resp.text[:200]}")
-                except Exception as att_exc:
-                    print(f"[Billit] PDF bijlage hatası: {att_exc}")
-
+            logging.info("[Billit] Werkbon %s succesvol verstuurd. OrderID: %s | PDF bijlage: %s", werkbon["id"], order_id, "ja" if pdf_attachment else "nee")
             return {"success": True, "billit_order_id": order_id}
         else:
             logging.error("[Billit] Fout bij versturen werkbon %s. Status: %s | Body: %s", werkbon["id"], resp.status_code, resp.text[:500])
