@@ -5211,35 +5211,14 @@ async def send_werkbon_to_billit(werkbon: dict, klant: dict, instellingen: dict)
         "Content-Type": "application/json",
     }
 
-    # Billit'te klant adını BTW numarasıyla ara
-    billit_klant_naam = None
-    billit_klant_party_id = None
-    btw_nummer = klant.get("btw_nummer", "")
-    btw_nummer_clean = btw_nummer.replace(".", "").replace(" ", "").replace("-", "").strip()
-    if btw_nummer_clean:
-        try:
-            import httpx as _httpx
-            async with _httpx.AsyncClient(timeout=10.0) as _search_client:
-                search_resp = await _search_client.get(
-                    f"https://api.billit.be/v1/parties?$filter=VATNumber eq '{btw_nummer_clean}'",
-                    headers=headers
-                )
-            if search_resp.status_code == 200:
-                results = search_resp.json()
-                items = results.get("Items") or results if isinstance(results, list) else []
-                if items and len(items) > 0:
-                    billit_klant_naam = items[0].get("Name") or items[0].get("CommercialName")
-                    billit_klant_party_id = items[0].get("PartyID")
-        except Exception as e:
-            print(f"[Billit] Parties sorgusu hatası (BTW: {btw_nummer_clean}): {e}")
-
-    # Billit JSON payload
+    # Billit JSON payload — sabit CustomerID
     payload: dict = {
         "OrderType": "Invoice",
         "OrderDirection": "Income",
         "OrderDate": order_date,
         "DeliveryDate": order_date,
         "ExpiryDate": expiry_date,
+        "CustomerID": 48335129,
         "OrderLines": [
             {
                 "Quantity": 1,
@@ -5249,25 +5228,17 @@ async def send_werkbon_to_billit(werkbon: dict, klant: dict, instellingen: dict)
             }
         ],
     }
-    if billit_klant_party_id:
-        payload["CustomerID"] = billit_klant_party_id
-    else:
-        payload["Customer"] = {
-            "Name": "Nieuwe klant - bewerken in Billit",
-            "VATNumber": btw_nummer_clean or "",
-            "PartyType": "Customer"
-        }
     if btw_percentage == 0:
         payload["VentilationCode"] = "21"
     payload[referentie_veld] = werkbon_ref
 
     try:
         import httpx
+        import base64
         async with httpx.AsyncClient(timeout=15.0) as client:
             resp = await client.post("https://api.billit.be/v1/orders", json=payload, headers=headers)
         if resp.status_code in (200, 201):
-            response_json = resp.json()
-            order_id = response_json.get("OrderID") or response_json.get("Id") or response_json.get("id")
+            order_id = resp.json() if isinstance(resp.json(), int) else resp.json().get("OrderID") or resp.json().get("Id")
             logging.info("[Billit] Werkbon %s succesvol verstuurd. Status: %s | OrderID: %s", werkbon["id"], resp.status_code, order_id)
 
             # PDF bijlage toevoegen
@@ -5280,22 +5251,24 @@ async def send_werkbon_to_billit(werkbon: dict, klant: dict, instellingen: dict)
                         werkbon_prepared, klant, werf, instellingen,
                         fin_pdf["total_uren"], fin_pdf["totaal_bedrag"]
                     )
-                    attachment_headers = {
-                        "ApiKey": billit_api_key,
-                        "PartyID": str(billit_party_id) if billit_party_id is not None else "",
+                    pdf_b64 = base64.b64encode(pdf_bytes).decode()
+                    attachment_payload = {
+                        "FileName": pdf_filename,
+                        "FileContent": pdf_b64,
+                        "MimeType": "application/pdf"
                     }
                     async with httpx.AsyncClient(timeout=30.0) as client2:
                         att_resp = await client2.post(
                             f"https://api.billit.be/v1/orders/{order_id}/attachments",
-                            headers=attachment_headers,
-                            files={"file": (pdf_filename, pdf_bytes, "application/pdf")},
+                            json=attachment_payload,
+                            headers=headers,
                         )
                     if att_resp.status_code in (200, 201):
                         logging.info("[Billit] PDF bijlage succesvol toegevoegd aan order %s", order_id)
                     else:
                         logging.warning("[Billit] PDF bijlage mislukt voor order %s. Status: %s | Body: %s", order_id, att_resp.status_code, att_resp.text[:300])
                 except Exception as att_exc:
-                    logging.error("[Billit] Uitzondering bij PDF bijlage voor order %s: %s", order_id, str(att_exc))
+                    logging.error("[Billit] PDF bijlage hatası voor order %s: %s", order_id, str(att_exc))
 
             return {"success": True, "billit_order_id": order_id}
         else:
