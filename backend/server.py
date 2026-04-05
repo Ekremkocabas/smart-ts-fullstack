@@ -3650,6 +3650,109 @@ class UserCreateWithEmail(BaseModel):
     rol: str = "werknemer"
     send_email: bool = False  # Whether to send welcome email
 
+class CompanyRegister(BaseModel):
+    bedrijfsnaam: str
+    btw_nummer: str
+    voornaam: str
+    achternaam: str
+    email: str
+    wachtwoord: str
+    pakket: str = "pro"
+
+@api_router.post("/auth/register-company")
+@limiter.limit("3/minute")
+async def register_company(request: Request, data: CompanyRegister):
+    """Register a new company + master_admin user. Sends verification email."""
+    import re
+    email = data.email.lower().strip()
+    btw = data.btw_nummer.replace(" ", "").upper()
+
+    # Validate BTW nummer
+    if not re.match(r'^BE\d{10}$', btw):
+        raise HTTPException(status_code=400, detail="Ongeldig BTW-nummer. Formaat: BE0123456789")
+
+    # Check existing email
+    existing = await db.users.find_one({"email": email})
+    if existing:
+        raise HTTPException(status_code=400, detail="E-mailadres is al geregistreerd")
+
+    if len(data.wachtwoord) < 8:
+        raise HTTPException(status_code=400, detail="Wachtwoord moet minimaal 8 tekens bevatten")
+
+    # Create company
+    company_id = str(uuid.uuid4())
+    company = {
+        "id": company_id,
+        "bedrijfsnaam": data.bedrijfsnaam.strip(),
+        "btw_nummer": btw,
+        "pakket": data.pakket,
+        "status": "trial",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.companies.insert_one(company)
+
+    # Create master_admin user
+    naam = f"{data.voornaam.strip()} {data.achternaam.strip()}"
+    verification_token = secrets.token_urlsafe(48)
+    user = User(
+        email=email,
+        password_hash=hash_password(data.wachtwoord),
+        naam=naam,
+        rol="master_admin",
+        company_id=company_id,
+        actief=False,
+    )
+    user_dict = user.dict()
+    user_dict["status"] = "pending_verification"
+    user_dict["verification_token"] = verification_token
+    await db.users.insert_one(user_dict)
+
+    # Send verification email
+    verify_url = f"{APP_URL}/api/auth/verify-email?token={verification_token}"
+    if resend.api_key:
+        try:
+            html = f"""
+            <!DOCTYPE html><html><head><meta charset="utf-8"><style>
+            body{{font-family:Arial,sans-serif;line-height:1.6;color:#333;max-width:600px;margin:0 auto}}
+            .header{{background:#1B4332;color:white;padding:30px;text-align:center}}
+            .header h1{{color:#D4A017;margin:0}}
+            .content{{padding:30px}}
+            .btn{{display:inline-block;background:#1B4332;color:white;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:bold;margin:20px 0}}
+            .footer{{background:#f8f9fa;padding:20px;text-align:center;font-size:12px;color:#666}}
+            </style></head><body>
+            <div class="header"><h1>Signybon</h1><p>Bevestig uw e-mailadres</p></div>
+            <div class="content">
+            <h2>Welkom, {naam}!</h2>
+            <p>Bedankt voor uw registratie bij Signybon. Klik op de knop hieronder om uw e-mailadres te bevestigen en uw account te activeren.</p>
+            <p style="text-align:center"><a href="{verify_url}" class="btn">E-mailadres Bevestigen</a></p>
+            <p style="font-size:13px;color:#666">Of kopieer deze link: {verify_url}</p>
+            </div>
+            <div class="footer"><p>Signybon — Digitale werkbonnen voor de bouwsector</p></div>
+            </body></html>"""
+            await asyncio.to_thread(resend.Emails.send, {
+                "from": f"Signybon <{SENDER_EMAIL}>",
+                "to": [email],
+                "subject": "Bevestig uw e-mailadres — Signybon",
+                "html": html,
+            })
+        except Exception as e:
+            logging.error(f"Verification email failed: {e}")
+
+    return {"message": "Registratie succesvol. Controleer uw e-mail.", "company_id": company_id}
+
+@api_router.get("/auth/verify-email")
+async def verify_email(token: str = Query(...)):
+    """Verify email address and activate user account."""
+    from starlette.responses import RedirectResponse
+    user = await db.users.find_one({"verification_token": token})
+    if not user:
+        raise HTTPException(status_code=400, detail="Ongeldige of verlopen verificatielink")
+    await db.users.update_one(
+        {"id": user["id"]},
+        {"$set": {"actief": True, "status": "active"}, "$unset": {"verification_token": ""}}
+    )
+    return RedirectResponse(url="/login?verified=1", status_code=302)
+
 @api_router.post("/auth/register", response_model=UserResponse)
 @limiter.limit("3/minute")
 async def register_user(request: Request, user_data: UserCreate):
@@ -7546,10 +7649,20 @@ from fastapi.responses import FileResponse
 import os
 
 LANDING_PATH = os.path.join(os.path.dirname(__file__), "landing.html")
+REGISTER_PATH = os.path.join(os.path.dirname(__file__), "register.html")
+LOGIN_PATH = os.path.join(os.path.dirname(__file__), "login.html")
 
 @app.get("/landing")
 async def serve_landing():
     return FileResponse(LANDING_PATH, media_type="text/html")
+
+@app.get("/register")
+async def serve_register():
+    return FileResponse(REGISTER_PATH, media_type="text/html")
+
+@app.get("/login")
+async def serve_login():
+    return FileResponse(LOGIN_PATH, media_type="text/html")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # STATIC FILE SERVING FOR WEB PANEL (Railway deployment)

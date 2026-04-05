@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Registreren — Signybon</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--green:#1B4332;--green-light:#2D6A4F;--gold:#D4A017;--white:#FFFFFF;--gray-50:#F8F9FA;--gray-100:#F1F3F5;--gray-200:#E9ECEF;--gray-400:#ADB5BD;--gray-500:#6C757D;--gray-700:#343A40;--gray-800:#212529;--radius:12px;--shadow-lg:0 12px 40px rgba(0,0,0,.12)}
+html{font-size:16px}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--gray-50);color:var(--gray-800);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.card{background:var(--white);border-radius:20px;box-shadow:var(--shadow-lg);width:100%;max-width:480px;padding:48px 40px;position:relative;overflow:hidden}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--green),var(--gold))}
+.logo{text-align:center;margin-bottom:8px;font-size:1.5rem;font-weight:800;color:var(--green)}
+.logo span{color:var(--gold)}
+.subtitle{text-align:center;color:var(--gray-500);font-size:.9rem;margin-bottom:32px}
+.form-group{margin-bottom:20px}
+.form-group label{display:block;font-size:.85rem;font-weight:600;color:var(--gray-700);margin-bottom:6px}
+.form-group input,.form-group select{width:100%;padding:12px 16px;border:2px solid var(--gray-200);border-radius:10px;font-size:.95rem;font-family:inherit;transition:all .2s;background:var(--white);color:var(--gray-800)}
+.form-group input:focus,.form-group select:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(27,67,50,.1)}
+.form-group input.error{border-color:#dc3545}
+.error-msg{color:#dc3545;font-size:.8rem;margin-top:4px;display:none}
+.error-msg.show{display:block}
+.pakket-cards{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.pakket-card{border:2px solid var(--gray-200);border-radius:12px;padding:16px;cursor:pointer;transition:all .2s;text-align:center;position:relative}
+.pakket-card:hover{border-color:var(--green-light)}
+.pakket-card.selected{border-color:var(--green);background:rgba(27,67,50,.04)}
+.pakket-card.featured::before{content:'Meest gekozen';position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--gold);color:var(--white);font-size:.65rem;font-weight:700;padding:2px 10px;border-radius:10px;white-space:nowrap}
+.pakket-card h4{font-size:1rem;font-weight:700;color:var(--gray-800);margin-bottom:4px}
+.pakket-card .price{font-size:1.3rem;font-weight:800;color:var(--green)}
+.pakket-card .price small{font-size:.75rem;font-weight:500;color:var(--gray-500)}
+.btn{width:100%;padding:14px;border:none;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s}
+.btn-primary{background:var(--green);color:var(--white);margin-top:8px}
+.btn-primary:hover{background:var(--green-light);transform:translateY(-1px);box-shadow:0 4px 16px rgba(27,67,50,.3)}
+.btn-primary:disabled{opacity:.6;cursor:not-allowed;transform:none;box-shadow:none}
+.login-link{text-align:center;margin-top:20px;font-size:.875rem;color:var(--gray-500)}
+.login-link a{color:var(--green);font-weight:600;text-decoration:none}
+.login-link a:hover{text-decoration:underline}
+.success-screen{display:none;text-align:center;padding:40px 0}
+.success-screen .icon{font-size:4rem;margin-bottom:16px}
+.success-screen h2{font-size:1.5rem;font-weight:800;color:var(--green);margin-bottom:12px}
+.success-screen p{color:var(--gray-500);line-height:1.6}
+.spinner{display:inline-block;width:20px;height:20px;border:3px solid rgba(255,255,255,.3);border-top-color:var(--white);border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.alert{padding:12px 16px;border-radius:8px;font-size:.85rem;margin-bottom:16px;display:none}
+.alert-error{background:#f8d7da;color:#842029;border:1px solid #f5c2c7}
+.alert.show{display:block}
+@media(max-width:500px){.card{padding:32px 24px}.pakket-cards{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="card">
+  <!-- FORM -->
+  <div id="formScreen">
+    <div class="logo"><span>&#9670;</span> Signybon</div>
+    <div class="subtitle">Maak uw bedrijfsaccount aan</div>
+    <div class="alert alert-error" id="alertError"></div>
+    <form id="registerForm" novalidate>
+      <div class="form-group">
+        <label for="bedrijfsnaam">Bedrijfsnaam *</label>
+        <input type="text" id="bedrijfsnaam" placeholder="Uw bedrijfsnaam" required>
+      </div>
+      <div class="form-group">
+        <label for="btw_nummer">BTW Nummer *</label>
+        <input type="text" id="btw_nummer" placeholder="BE0123456789" required>
+        <div class="error-msg" id="btwError">Vul een geldig Belgisch BTW-nummer in (bijv. BE0123456789)</div>
+      </div>
+      <div class="form-group" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <label for="voornaam">Voornaam *</label>
+          <input type="text" id="voornaam" placeholder="Voornaam" required>
+        </div>
+        <div>
+          <label for="achternaam">Achternaam *</label>
+          <input type="text" id="achternaam" placeholder="Achternaam" required>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="email">E-mailadres *</label>
+        <input type="email" id="email" placeholder="naam@bedrijf.be" required>
+      </div>
+      <div class="form-group">
+        <label for="wachtwoord">Wachtwoord *</label>
+        <input type="password" id="wachtwoord" placeholder="Minimaal 8 tekens" required minlength="8">
+      </div>
+      <div class="form-group">
+        <label>Kies uw pakket *</label>
+        <div class="pakket-cards">
+          <div class="pakket-card" onclick="selectPakket('basic',this)">
+            <h4>Basic</h4>
+            <div class="price">&euro;29<small>/maand</small></div>
+          </div>
+          <div class="pakket-card featured selected" onclick="selectPakket('pro',this)">
+            <h4>Pro</h4>
+            <div class="price">&euro;49<small>/maand</small></div>
+          </div>
+        </div>
+        <input type="hidden" id="pakket" value="pro">
+      </div>
+      <button type="submit" class="btn btn-primary" id="submitBtn">Account Aanmaken</button>
+    </form>
+    <div class="login-link">Heeft u al een account? <a href="/login">Inloggen</a></div>
+  </div>
+
+  <!-- SUCCESS -->
+  <div class="success-screen" id="successScreen">
+    <div class="icon">&#9993;</div>
+    <h2>Controleer uw e-mail</h2>
+    <p>We hebben een bevestigingslink gestuurd naar<br><strong id="successEmail"></strong></p>
+    <p style="margin-top:16px;font-size:.85rem">Klik op de link in de e-mail om uw account te activeren. Controleer ook uw spam map.</p>
+    <a href="/login" class="btn btn-primary" style="margin-top:24px;display:inline-block;width:auto;padding:12px 32px;text-decoration:none">Naar Inloggen</a>
+  </div>
+</div>
+
+<script>
+let selectedPakket = 'pro';
+
+function selectPakket(p, el) {
+  selectedPakket = p;
+  document.getElementById('pakket').value = p;
+  document.querySelectorAll('.pakket-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+// BTW validation
+const btwInput = document.getElementById('btw_nummer');
+const btwError = document.getElementById('btwError');
+btwInput.addEventListener('input', function() {
+  const val = this.value.replace(/\s/g, '').toUpperCase();
+  this.value = val;
+  if (val && !/^BE\d{10}$/.test(val)) {
+    this.classList.add('error');
+    btwError.classList.add('show');
+  } else {
+    this.classList.remove('error');
+    btwError.classList.remove('show');
+  }
+});
+
+document.getElementById('registerForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const alertEl = document.getElementById('alertError');
+  alertEl.classList.remove('show');
+
+  const bedrijfsnaam = document.getElementById('bedrijfsnaam').value.trim();
+  const btw_nummer = document.getElementById('btw_nummer').value.replace(/\s/g, '').toUpperCase();
+  const voornaam = document.getElementById('voornaam').value.trim();
+  const achternaam = document.getElementById('achternaam').value.trim();
+  const email = document.getElementById('email').value.trim().toLowerCase();
+  const wachtwoord = document.getElementById('wachtwoord').value;
+  const pakket = document.getElementById('pakket').value;
+
+  if (!bedrijfsnaam || !btw_nummer || !voornaam || !achternaam || !email || !wachtwoord) {
+    alertEl.textContent = 'Vul alle verplichte velden in.';
+    alertEl.classList.add('show');
+    return;
+  }
+
+  if (!/^BE\d{10}$/.test(btw_nummer)) {
+    alertEl.textContent = 'Vul een geldig Belgisch BTW-nummer in (bijv. BE0123456789)';
+    alertEl.classList.add('show');
+    btwInput.classList.add('error');
+    btwError.classList.add('show');
+    return;
+  }
+
+  if (wachtwoord.length < 8) {
+    alertEl.textContent = 'Wachtwoord moet minimaal 8 tekens bevatten.';
+    alertEl.classList.add('show');
+    return;
+  }
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Bezig...';
+
+  try {
+    const res = await fetch('/api/auth/register-company', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bedrijfsnaam, btw_nummer, voornaam, achternaam, email, wachtwoord, pakket })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.detail || 'Registratie mislukt');
+    }
+    document.getElementById('successEmail').textContent = email;
+    document.getElementById('formScreen').style.display = 'none';
+    document.getElementById('successScreen').style.display = 'block';
+  } catch (err) {
+    alertEl.textContent = err.message;
+    alertEl.classList.add('show');
+    btn.disabled = false;
+    btn.textContent = 'Account Aanmaken';
+  }
+});
+</script>
+</body>
+</html>
