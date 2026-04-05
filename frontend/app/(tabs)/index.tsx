@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   ScrollView,
   Platform,
-  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -69,7 +68,7 @@ export default function WerkbonnenScreen() {
   const { setType, clearDraft, setKlant, setWerf, setUrenData, setKmAfstand, setOpmerkingen } = useWerkbonFormStore();
   const [refreshing, setRefreshing] = useState(false);
   const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
-  const [showTypeModal, setShowTypeModal] = useState(false);
+  // Type selection now handled by /werkbon page (no modal needed)
   const isAdmin = user?.rol === 'admin' || user?.rol === 'master_admin';
   // ISO week — must match werkbon.week_nummer in DB (same as nieuwe werkbon flow)
   const currentWeek = getCurrentWeekNumber();
@@ -253,12 +252,10 @@ export default function WerkbonnenScreen() {
     );
   };
 
-  // Helper function to handle type selection and navigate
-  const handleTypeSelect = (type: WerkbonType) => {
-    clearDraft(); // Clear any previous draft
-    setType(type); // Set the type in store
-    setShowTypeModal(false);
-    router.push('/werkbon/form'); // Go directly to form
+  // Navigate to type selection page
+  const handleNewWerkbon = () => {
+    clearDraft();
+    router.push('/werkbon');
   };
 
   return (
@@ -274,7 +271,7 @@ export default function WerkbonnenScreen() {
         <TouchableOpacity
           testID="werkbon-add-button"
           style={styles.addButton}
-          onPress={() => setShowTypeModal(true)}
+          onPress={handleNewWerkbon}
         >
           <Ionicons name="add" size={24} color="#fff" />
         </TouchableOpacity>
@@ -364,66 +361,7 @@ export default function WerkbonnenScreen() {
           }
         />
       )}
-      {/* Werkbon Type Selection Modal - filtered by user's werkbon_types permission */}
-      <Modal visible={showTypeModal} transparent animationType="fade">
-        <TouchableOpacity style={styles.typeModalOverlay} activeOpacity={1} onPress={() => setShowTypeModal(false)}>
-          <View style={styles.typeModalContent}>
-            <Text style={styles.typeModalTitle}>Werkbon type kiezen</Text>
-            {/* Uren Werkbon */}
-            {(user?.werkbon_types?.includes('uren') || isAdmin) && (
-              <TouchableOpacity style={styles.typeOption} onPress={() => handleTypeSelect('uren')}>
-                <View style={[styles.typeIcon, { backgroundColor: '#3498db15' }]}>
-                  <Ionicons name="time-outline" size={24} color="#3498db" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.typeOptionTitle}>Uren Werkbon</Text>
-                  <Text style={styles.typeOptionDesc}>Standaard urenregistratie</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color="#6c757d" />
-              </TouchableOpacity>
-            )}
-            {/* Oplevering Werkbon */}
-            {(user?.werkbon_types?.includes('oplevering') || isAdmin) && (
-              <TouchableOpacity style={styles.typeOption} onPress={() => handleTypeSelect('oplevering')}>
-                <View style={[styles.typeIcon, { backgroundColor: '#28a74515' }]}>
-                  <Ionicons name="checkmark-done-outline" size={24} color="#28a745" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.typeOptionTitle}>Oplevering</Text>
-                  <Text style={styles.typeOptionDesc}>Klanttevredenheid & overdracht</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color="#6c757d" />
-              </TouchableOpacity>
-            )}
-            {/* Project Werkbon */}
-            {(user?.werkbon_types?.includes('project') || isAdmin) && (
-              <TouchableOpacity style={styles.typeOption} onPress={() => handleTypeSelect('project')}>
-                <View style={[styles.typeIcon, { backgroundColor: '#F5A62315' }]}>
-                  <Ionicons name="location-outline" size={24} color="#F5A623" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.typeOptionTitle}>Project</Text>
-                  <Text style={styles.typeOptionDesc}>Locatie & urenregistratie</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color="#6c757d" />
-              </TouchableOpacity>
-            )}
-            {/* Prestatie Werkbon */}
-            {(user?.werkbon_types?.includes('productie') || user?.werkbon_types?.includes('prestatie') || isAdmin) && (
-              <TouchableOpacity style={styles.typeOption} onPress={() => handleTypeSelect('prestatie')}>
-                <View style={[styles.typeIcon, { backgroundColor: '#9b59b615' }]}>
-                  <Ionicons name="layers-outline" size={24} color="#9b59b6" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.typeOptionTitle}>Prestatie</Text>
-                  <Text style={styles.typeOptionDesc}>PUR isolatie & productieregistratie</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color="#6c757d" />
-              </TouchableOpacity>
-            )}
-          </View>
-        </TouchableOpacity>
-      </Modal>
+      {/* Type selection moved to /werkbon page */}
     </SafeAreaView>
   );
 }
@@ -447,13 +385,7 @@ const styles = StyleSheet.create({
     width: 44, height: 44, borderRadius: 22,
     alignItems: 'center', justifyContent: 'center',
   },
-  typeModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  typeModalContent: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 40 },
-  typeModalTitle: { fontSize: 18, fontWeight: '700', color: '#1A1A2E', marginBottom: 16, textAlign: 'center' },
-  typeOption: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, backgroundColor: '#F5F6FA', borderRadius: 12, marginBottom: 10 },
-  typeIcon: { width: 48, height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  typeOptionTitle: { fontSize: 16, fontWeight: '600', color: '#1A1A2E' },
-  typeOptionDesc: { fontSize: 12, color: '#6c757d', marginTop: 2 },
+  // (type modal styles removed — type selection now on /werkbon page)
   statsRow: {
     flexDirection: 'row',
     paddingHorizontal: 16,
