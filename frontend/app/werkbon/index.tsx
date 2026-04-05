@@ -37,6 +37,13 @@ const WERKBON_TYPES: WerkbonTypeOption[] = [
     color: '#3498db',
   },
   {
+    type: 'dag',
+    title: 'Dag Werkbon',
+    description: 'Dag/halve dag prijs, km-vergoeding',
+    icon: 'calendar-outline',
+    color: '#2ecc71',
+  },
+  {
     type: 'oplevering',
     title: 'Oplevering',
     description: 'Werk opleveren met controlelijst',

@@ -11,7 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // TYPES
 // ==========================================
 
-export type WerkbonType = 'uren' | 'oplevering' | 'project' | 'prestatie';
+export type WerkbonType = 'uren' | 'dag' | 'oplevering' | 'project' | 'prestatie';
 export type UnitType = 'm²' | 'm³' | 'meter' | 'stuks' | 'kg' | 'liter';
 export type ProjectStatus = 'gestart' | 'in_uitvoering' | 'afgewerkt' | 'niet_afgewerkt' | 'wacht_op_goedkeuring';
 
@@ -144,6 +144,18 @@ export interface PrestatieTypeData {
   producten: ProductItem[];
 }
 
+export type DagPrijsType = 'dagprijs' | 'halve_dagprijs' | 'vaste_prijs' | 'uurtarief';
+
+export interface DagTypeData {
+  prijsType: DagPrijsType;
+  bedrag: number | null;
+  aantalUren: number | null;
+  kmVergoeding: boolean;
+  aantalKm: number | null;
+  bedragPerKm: number | null;
+  omschrijving: string;
+}
+
 export interface ValidationError {
   field: string;
   message: string;
@@ -203,6 +215,7 @@ interface WerkbonFormState {
 
   // Type-specific data
   urenData: UrenTypeData;
+  dagData: DagTypeData;
   opleveringData: OpleveringTypeData;
   projectData: ProjectTypeData;
   prestatieData: PrestatieTypeData;
@@ -301,6 +314,16 @@ const initialProjectData: ProjectTypeData = {
   contactpersoon: '',
 };
 
+const initialDagData: DagTypeData = {
+  prijsType: 'dagprijs',
+  bedrag: null,
+  aantalUren: null,
+  kmVergoeding: false,
+  aantalKm: null,
+  bedragPerKm: null,
+  omschrijving: '',
+};
+
 const initialPrestatieData: PrestatieTypeData = {
   werkNaam: '',
   werkOmschrijving: '',
@@ -334,6 +357,7 @@ const initialState: WerkbonFormState = {
   kmAfstand: createEmptyKmRegel(),
   kmVergoedingtarief: 0,
   urenData: initialUrenData,
+  dagData: initialDagData,
   opleveringData: initialOpleveringData,
   projectData: initialProjectData,
   prestatieData: initialPrestatieData,
@@ -387,6 +411,7 @@ interface WerkbonFormActions {
   setPlanningId: (id: string | null) => void;
 
   // Type-specific
+  setDagData: (data: Partial<DagTypeData>) => void;
   setUrenData: (data: Partial<UrenTypeData>) => void;
   addUrenRegel: (naam?: string, teamlidId?: string, teamlidType?: 'werknemer' | 'onderaannemer' | 'nieuwe_werknemer') => void;
   removeUrenRegel: (index: number) => void;
@@ -476,6 +501,9 @@ export const useWerkbonFormStore = create<WerkbonFormState & WerkbonFormActions>
       updateKmAfstand: (dag, value) => set((state) => ({ kmAfstand: { ...state.kmAfstand, [dag]: value } })),
       setKmAfstand: (km) => set({ kmAfstand: km }),
       setKmVergoedingtarief: (value) => set({ kmVergoedingtarief: value }),
+
+      // Dag specific
+      setDagData: (data) => set((state) => ({ dagData: { ...state.dagData, ...data } })),
 
       // Uren specific
       setUrenData: (data) => set((state) => ({ urenData: { ...state.urenData, ...data } })),
@@ -594,6 +622,12 @@ export const useWerkbonFormStore = create<WerkbonFormState & WerkbonFormActions>
             }
           }
           
+          if (state.type === 'dag') {
+            if (!state.dagData.bedrag || state.dagData.bedrag <= 0) {
+              errors.push({ field: 'bedrag', message: 'Bedrag is verplicht', step: 2 });
+            }
+          }
+
           if (state.type === 'oplevering') {
             if (!state.opleveringData.omschrijving.trim()) {
               errors.push({ field: 'omschrijving', message: 'Omschrijving is verplicht', step: 2 });
@@ -683,6 +717,7 @@ export const useWerkbonFormStore = create<WerkbonFormState & WerkbonFormActions>
         const state = get();
         switch (state.type) {
           case 'uren': return state.urenData;
+          case 'dag': return state.dagData;
           case 'oplevering': return state.opleveringData;
           case 'project': return state.projectData;
           case 'prestatie': return state.prestatieData;
@@ -714,6 +749,7 @@ export const useWerkbonFormStore = create<WerkbonFormState & WerkbonFormActions>
         photos: state.photos,
         kmAfstand: state.kmAfstand,
         urenData: state.urenData,
+        dagData: state.dagData,
         opleveringData: state.opleveringData,
         projectData: state.projectData,
         prestatieData: state.prestatieData,

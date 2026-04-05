@@ -27,9 +27,10 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { useAuth, apiClient } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useAppStore } from '../../store/appStore';
-import { 
-  useWerkbonFormStore, 
+import {
+  useWerkbonFormStore,
   WerkbonType,
+  DagPrijsType,
   createEmptyUrenRegel,
   getCurrentWeekNumber,
 } from '../../store/werkbonFormStore';
@@ -68,12 +69,13 @@ export default function WerkbonForm() {
     klantId, klantNaam, manualKlantNaam,
     werfId, werfNaam, manualWerfNaam,
     datum, opmerkingen, gps, photos,
-    urenData, opleveringData, projectData, prestatieData,
+    urenData, dagData, opleveringData, projectData, prestatieData,
     kmAfstand, updateKmAfstand, kmVergoedingtarief,
     setKlant, setManualKlant, setWerf, setManualWerf,
     setDatum, setOpmerkingen, setGPS,
     addPhoto, removePhoto,
     setUrenData, addUrenRegel, removeUrenRegel, updateUrenRegel, initializeUrenWithUser,
+    setDagData,
     setOpleveringData, toggleOpleverpunt, addOpleverpunt,
     setProjectData, addProjectTaak, toggleProjectTaak, removeProjectTaak,
     setPrestatieData,
@@ -411,6 +413,7 @@ export default function WerkbonForm() {
 
           {/* Type-specific fields */}
           {type === 'uren' && renderUrenFields()}
+          {type === 'dag' && renderDagFields()}
           {type === 'oplevering' && renderOpleveringFields()}
           {type === 'project' && renderProjectFields()}
           {type === 'prestatie' && renderPrestatieFields()}
@@ -869,6 +872,107 @@ export default function WerkbonForm() {
             </View>
           </TouchableOpacity>
         </Modal>
+      </View>
+    );
+  }
+
+  function renderDagFields() {
+    const PRIJS_TYPES: { value: DagPrijsType; label: string }[] = [
+      { value: 'dagprijs', label: 'Dagprijs' },
+      { value: 'halve_dagprijs', label: 'Halve dag' },
+      { value: 'vaste_prijs', label: 'Vaste prijs' },
+      { value: 'uurtarief', label: 'Uurtarief' },
+    ];
+    return (
+      <View>
+        {/* Prijstype toggle */}
+        <Text style={styles.sectionTitle}>Prijstype</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+          {PRIJS_TYPES.map((pt) => (
+            <TouchableOpacity
+              key={pt.value}
+              style={[
+                styles.statusBtn,
+                dagData.prijsType === pt.value && { backgroundColor: primary, borderColor: primary },
+              ]}
+              onPress={() => setDagData({ prijsType: pt.value })}
+            >
+              <Text style={[styles.statusBtnText, dagData.prijsType === pt.value && { color: '#fff' }]}>{pt.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Bedrag */}
+        <Text style={styles.fieldLabel}>Bedrag (€) *</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="0.00"
+          keyboardType="decimal-pad"
+          value={dagData.bedrag ? String(dagData.bedrag) : ''}
+          onChangeText={(t) => setDagData({ bedrag: t ? parseFloat(t.replace(',', '.')) || 0 : null })}
+        />
+
+        {/* Aantal uren (optioneel) */}
+        {dagData.prijsType === 'uurtarief' && (
+          <>
+            <Text style={styles.fieldLabel}>Aantal uren</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="8"
+              keyboardType="decimal-pad"
+              value={dagData.aantalUren ? String(dagData.aantalUren) : ''}
+              onChangeText={(t) => setDagData({ aantalUren: t ? parseFloat(t.replace(',', '.')) || 0 : null })}
+            />
+          </>
+        )}
+
+        {/* KM Vergoeding toggle */}
+        <TouchableOpacity
+          style={[styles.checkboxRow, { marginTop: 12, marginBottom: 8 }]}
+          onPress={() => setDagData({ kmVergoeding: !dagData.kmVergoeding })}
+        >
+          <Ionicons
+            name={dagData.kmVergoeding ? 'checkbox' : 'square-outline'}
+            size={22}
+            color={dagData.kmVergoeding ? primary : '#6c757d'}
+          />
+          <Text style={styles.checkboxLabel}>KM-vergoeding</Text>
+        </TouchableOpacity>
+
+        {dagData.kmVergoeding && (
+          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.fieldLabel}>Aantal KM</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="0"
+                keyboardType="decimal-pad"
+                value={dagData.aantalKm ? String(dagData.aantalKm) : ''}
+                onChangeText={(t) => setDagData({ aantalKm: t ? parseFloat(t.replace(',', '.')) || 0 : null })}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.fieldLabel}>€ per KM</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="0.42"
+                keyboardType="decimal-pad"
+                value={dagData.bedragPerKm ? String(dagData.bedragPerKm) : ''}
+                onChangeText={(t) => setDagData({ bedragPerKm: t ? parseFloat(t.replace(',', '.')) || 0 : null })}
+              />
+            </View>
+          </View>
+        )}
+
+        {/* Omschrijving */}
+        <Text style={styles.fieldLabel}>Omschrijving</Text>
+        <TextInput
+          style={[styles.input, { minHeight: 80, textAlignVertical: 'top' }]}
+          placeholder="Beschrijving van de uitgevoerde werkzaamheden"
+          multiline
+          value={dagData.omschrijving}
+          onChangeText={(t) => setDagData({ omschrijving: t })}
+        />
       </View>
     );
   }
