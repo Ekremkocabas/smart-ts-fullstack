@@ -7538,12 +7538,22 @@ async def startup_migrate():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# STATIC FILE SERVING FOR WEB PANEL (Railway deployment)
+# LANDING PAGE
 # ══════════════════════════════════════════════════════════════════════════════
 
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import os
+
+LANDING_PATH = os.path.join(os.path.dirname(__file__), "landing.html")
+
+@app.get("/landing")
+async def serve_landing():
+    return FileResponse(LANDING_PATH, media_type="text/html")
+
+# ══════════════════════════════════════════════════════════════════════════════
+# STATIC FILE SERVING FOR WEB PANEL (Railway deployment)
+# ══════════════════════════════════════════════════════════════════════════════
 
 # Path to the exported web panel files
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "dist")
