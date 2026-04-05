@@ -1,0 +1,21 @@
+# Backend (not needed for mobile build)
+../backend/
+../backend
+
+# Claude settings
+../.claude/
+.claude/
+
+# Git
+../.git/
+.git/
+
+# Build artifacts
+dist/
+web-build/
+.expo/
+.metro-cache/
+
+# Credentials
+credentials/
+google-services.json
