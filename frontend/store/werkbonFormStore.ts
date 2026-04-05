@@ -132,6 +132,14 @@ export interface ProductItem {
   extraWerken: ExtraWerkItem[];
 }
 
+export interface RuimteItem {
+  id: string;
+  naam: string;
+  m2: number | null;
+  dikteMm: number | null;
+  product: string;
+}
+
 export interface PrestatieTypeData {
   werkNaam: string;
   werkOmschrijving: string;
@@ -140,7 +148,8 @@ export interface PrestatieTypeData {
   dikteCm: number | null;
   aantalLagen: number | null;
   zone: string;
-  // New fields for enhanced prestatie
+  ruimtes: RuimteItem[];
+  // Legacy
   producten: ProductItem[];
 }
 
@@ -332,6 +341,7 @@ const initialPrestatieData: PrestatieTypeData = {
   dikteCm: null,
   aantalLagen: null,
   zone: '',
+  ruimtes: [],
   producten: [],
 };
 
@@ -424,7 +434,10 @@ interface WerkbonFormActions {
   toggleProjectTaak: (id: string) => void;
   removeProjectTaak: (id: string) => void;
   setPrestatieData: (data: Partial<PrestatieTypeData>) => void;
-  
+  addRuimte: () => void;
+  updateRuimte: (id: string, data: Partial<RuimteItem>) => void;
+  removeRuimte: (id: string) => void;
+
   // Signature
   setSignerName: (name: string) => void;
   setSignature: (data: string | null) => void;
@@ -570,6 +583,24 @@ export const useWerkbonFormStore = create<WerkbonFormState & WerkbonFormActions>
       
       // Prestatie specific
       setPrestatieData: (data) => set((state) => ({ prestatieData: { ...state.prestatieData, ...data } })),
+      addRuimte: () => set((state) => ({
+        prestatieData: {
+          ...state.prestatieData,
+          ruimtes: [...state.prestatieData.ruimtes, { id: `r_${Date.now()}`, naam: '', m2: null, dikteMm: null, product: '' }],
+        },
+      })),
+      updateRuimte: (id, data) => set((state) => ({
+        prestatieData: {
+          ...state.prestatieData,
+          ruimtes: state.prestatieData.ruimtes.map(r => r.id === id ? { ...r, ...data } : r),
+        },
+      })),
+      removeRuimte: (id) => set((state) => ({
+        prestatieData: {
+          ...state.prestatieData,
+          ruimtes: state.prestatieData.ruimtes.filter(r => r.id !== id),
+        },
+      })),
       
       // Signature
       setSignerName: (name) => set({ signerName: name }),

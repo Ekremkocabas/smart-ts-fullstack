@@ -78,7 +78,7 @@ export default function WerkbonForm() {
     setDagData,
     setOpleveringData, toggleOpleverpunt, addOpleverpunt,
     setProjectData, addProjectTaak, toggleProjectTaak, removeProjectTaak,
-    setPrestatieData,
+    setPrestatieData, addRuimte, updateRuimte, removeRuimte,
     validateStep, validationErrors, clearErrors,
     nextStep,
   } = useWerkbonFormStore();
@@ -1272,6 +1272,65 @@ export default function WerkbonForm() {
             multiline
           />
         </View>
+
+        {/* Ruimtes */}
+        <Text style={[styles.sectionTitle, { marginTop: 16 }]}>Ruimtes</Text>
+        {prestatieData.ruimtes.map((r) => (
+          <View key={r.id} style={{ backgroundColor: '#F5F6FA', borderRadius: 12, padding: 12, marginBottom: 10 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <Text style={{ fontWeight: '600', color: '#1A1A2E' }}>Ruimte</Text>
+              <TouchableOpacity onPress={() => removeRuimte(r.id)}>
+                <Ionicons name="trash-outline" size={18} color="#dc3545" />
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={styles.input}
+              placeholder="Naam (bijv. Gelijkvloers, 1ste verdiep)"
+              value={r.naam}
+              onChangeText={(t) => updateRuimte(r.id, { naam: t })}
+            />
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.fieldLabel}>m²</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="0"
+                  keyboardType="decimal-pad"
+                  value={r.m2 ? String(r.m2) : ''}
+                  onChangeText={(t) => updateRuimte(r.id, { m2: t ? parseFloat(t.replace(',', '.')) || 0 : null })}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.fieldLabel}>Dikte (mm)</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="0"
+                  keyboardType="decimal-pad"
+                  value={r.dikteMm ? String(r.dikteMm) : ''}
+                  onChangeText={(t) => updateRuimte(r.id, { dikteMm: t ? parseFloat(t.replace(',', '.')) || 0 : null })}
+                />
+              </View>
+            </View>
+            <TextInput
+              style={[styles.input, { marginTop: 8 }]}
+              placeholder="Product (bijv. PUR, CHAP)"
+              value={r.product}
+              onChangeText={(t) => updateRuimte(r.id, { product: t })}
+            />
+          </View>
+        ))}
+        {prestatieData.ruimtes.length > 0 && (
+          <Text style={{ fontSize: 13, color: '#6c757d', marginBottom: 8 }}>
+            Totaal: {prestatieData.ruimtes.reduce((s, r) => s + (r.m2 || 0), 0).toFixed(1)} m²
+          </Text>
+        )}
+        <TouchableOpacity
+          style={[styles.addButton, { borderColor: primary }]}
+          onPress={addRuimte}
+        >
+          <Ionicons name="add-circle-outline" size={20} color={primary} />
+          <Text style={[styles.addButtonText, { color: primary }]}>Ruimte toevoegen</Text>
+        </TouchableOpacity>
       </View>
     );
   }
