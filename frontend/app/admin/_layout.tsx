@@ -6,6 +6,16 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+function SignybonLogoSvg() {
+  const ref = React.useRef<any>(null);
+  React.useEffect(() => {
+    if (ref.current) {
+      ref.current.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="32" height="32"><rect x="15" y="15" width="70" height="70" rx="12" ry="12" fill="#D4A017" transform="rotate(45 50 50)"/><rect x="23" y="23" width="54" height="54" rx="9" ry="9" fill="#1B4332" transform="rotate(45 50 50)"/><rect x="36" y="36" width="28" height="28" rx="5" ry="5" fill="#D4A017" transform="rotate(45 50 50)"/></svg>';
+    }
+  }, []);
+  return <View ref={ref} style={{width: 32, height: 32}} />;
+}
+
 const menuItems = [
   { icon: 'grid-outline', label: 'Dashboard', route: '/admin/dashboard' },
   { icon: 'calendar-outline', label: 'Planning', route: '/admin/planning' },
@@ -43,12 +53,14 @@ function Sidebar() {
                   style={styles.sidebarLogoImage}
                   resizeMode="contain"
                 />
+              ) : Platform.OS === 'web' ? (
+                <SignybonLogoSvg />
               ) : (
-                <Ionicons name="cube" size={24} color={theme.primaryColor || '#F5A623'} />
+                <Ionicons name="diamond-outline" size={24} color="#D4A017" />
               )}
             </View>
             <View>
-              <Text style={[styles.logoText, { color: theme.secondaryColor || '#1A1A2E' }]}>{theme.bedrijfsnaam || 'Signybon'}</Text>
+              <Text style={[styles.logoText, { color: theme.secondaryColor || '#1B4332' }]}>{theme.bedrijfsnaam || 'Signybon'}</Text>
               <Text style={styles.logoSubtext}>Beheerportaal</Text>
             </View>
           </View>
