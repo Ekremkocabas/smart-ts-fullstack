@@ -14,8 +14,8 @@ html{font-size:16px}
 body{font-family:'Inter',system-ui,sans-serif;background:var(--gray-50);color:var(--gray-800);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
 .card{background:var(--white);border-radius:20px;box-shadow:var(--shadow-lg);width:100%;max-width:480px;padding:48px 40px;position:relative;overflow:hidden}
 .card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--green),var(--gold))}
-.logo{text-align:center;margin-bottom:8px;font-size:1.5rem;font-weight:800;color:var(--green)}
-.logo span{color:var(--gold)}
+.logo{text-align:center;margin-bottom:8px;font-size:1.5rem;font-weight:800;color:var(--green);display:flex;align-items:center;justify-content:center;gap:10px}
+.logo svg{flex-shrink:0}
 .subtitle{text-align:center;color:var(--gray-500);font-size:.9rem;margin-bottom:32px}
 .form-group{margin-bottom:20px}
 .form-group label{display:block;font-size:.85rem;font-weight:600;color:var(--gray-700);margin-bottom:6px}
@@ -55,7 +55,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--gray-50);color:va
 <div class="card">
   <!-- FORM -->
   <div id="formScreen">
-    <div class="logo"><span>&#9670;</span> Signybon</div>
+    <div class="logo"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="40" height="40"><rect x="15" y="15" width="70" height="70" rx="12" ry="12" fill="#D4A017" transform="rotate(45 50 50)"/><rect x="23" y="23" width="54" height="54" rx="9" ry="9" fill="#1B4332" transform="rotate(45 50 50)"/><rect x="36" y="36" width="28" height="28" rx="5" ry="5" fill="#D4A017" transform="rotate(45 50 50)"/></svg> Signybon</div>
     <div class="subtitle">Maak uw bedrijfsaccount aan</div>
     <div class="alert alert-error" id="alertError"></div>
     <form id="registerForm" novalidate>

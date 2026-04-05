@@ -41,8 +41,8 @@ a{text-decoration:none;color:inherit}
 .navbar{position:fixed;top:0;left:0;right:0;z-index:1000;background:rgba(255,255,255,.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid transparent;transition:var(--transition);padding:0 24px}
 .navbar.scrolled{border-bottom-color:var(--gray-200);box-shadow:var(--shadow-sm)}
 .navbar-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:72px}
-.navbar-logo{font-size:1.35rem;font-weight:800;color:var(--green);display:flex;align-items:center;gap:8px;letter-spacing:-.02em}
-.navbar-logo span{color:var(--gold);font-size:1.5rem}
+.navbar-logo{font-size:1.35rem;font-weight:800;color:var(--green);display:flex;align-items:center;gap:10px;letter-spacing:-.02em}
+.navbar-logo svg{flex-shrink:0}
 .navbar-links{display:flex;align-items:center;gap:32px}
 .navbar-links a{font-size:.9rem;font-weight:500;color:var(--gray-600);transition:var(--transition);position:relative}
 .navbar-links a:hover{color:var(--green)}
@@ -166,8 +166,8 @@ a{text-decoration:none;color:inherit}
 .footer{padding:48px 0;border-top:1px solid var(--gray-200);background:var(--white)}
 .footer-inner{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:20px}
 .footer-brand{display:flex;align-items:center;gap:16px}
-.footer-logo{font-size:1.2rem;font-weight:800;color:var(--green);display:flex;align-items:center;gap:8px}
-.footer-logo span{color:var(--gold)}
+.footer-logo{font-size:1.2rem;font-weight:800;color:var(--green);display:flex;align-items:center;gap:10px}
+.footer-logo svg{flex-shrink:0}
 .footer-desc{font-size:.85rem;color:var(--gray-500)}
 .footer-right{text-align:right}
 .footer-email{font-size:.9rem;color:var(--gray-600);font-weight:500}
@@ -208,7 +208,7 @@ a{text-decoration:none;color:inherit}
 <!-- NAVBAR -->
 <nav class="navbar" id="navbar">
   <div class="navbar-inner">
-    <a href="#" class="navbar-logo"><span>&#9670;</span> Signybon</a>
+    <a href="#" class="navbar-logo"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="36" height="36"><rect x="15" y="15" width="70" height="70" rx="12" ry="12" fill="#D4A017" transform="rotate(45 50 50)"/><rect x="23" y="23" width="54" height="54" rx="9" ry="9" fill="#1B4332" transform="rotate(45 50 50)"/><rect x="36" y="36" width="28" height="28" rx="5" ry="5" fill="#D4A017" transform="rotate(45 50 50)"/></svg> Signybon</a>
     <div class="navbar-links">
       <a href="#functies" data-i18n="nav_functies">Functies</a>
       <a href="#hoe-het-werkt" data-i18n="nav_hoe">Hoe het werkt</a>
@@ -443,7 +443,7 @@ a{text-decoration:none;color:inherit}
   <div class="container">
     <div class="footer-inner">
       <div class="footer-brand">
-        <div class="footer-logo"><span>&#9670;</span> Signybon</div>
+        <div class="footer-logo"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="28" height="28"><rect x="15" y="15" width="70" height="70" rx="12" ry="12" fill="#D4A017" transform="rotate(45 50 50)"/><rect x="23" y="23" width="54" height="54" rx="9" ry="9" fill="#1B4332" transform="rotate(45 50 50)"/><rect x="36" y="36" width="28" height="28" rx="5" ry="5" fill="#D4A017" transform="rotate(45 50 50)"/></svg> Signybon</div>
         <div class="footer-desc" data-i18n="footer_desc">Digitale werkbonnen voor de bouwsector.</div>
       </div>
       <div class="footer-right">

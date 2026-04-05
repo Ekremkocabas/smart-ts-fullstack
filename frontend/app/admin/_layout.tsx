@@ -48,7 +48,7 @@ function Sidebar() {
               )}
             </View>
             <View>
-              <Text style={[styles.logoText, { color: theme.secondaryColor || '#1A1A2E' }]}>{theme.bedrijfsnaam || 'Smart-Tech'}</Text>
+              <Text style={[styles.logoText, { color: theme.secondaryColor || '#1A1A2E' }]}>{theme.bedrijfsnaam || 'Signybon'}</Text>
               <Text style={styles.logoSubtext}>Beheerportaal</Text>
             </View>
           </View>
