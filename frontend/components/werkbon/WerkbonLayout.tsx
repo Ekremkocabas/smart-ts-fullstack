@@ -44,7 +44,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SignatureCanvas } from './SignatureCanvas';
 
 // Legal text that appears on signature page
-const LEGAL_TEXT = `Door ondertekening van deze werkbon bevestigt de klant dat de hierboven beschreven werkzaamheden naar tevredenheid zijn uitgevoerd en dat de gegevens correct zijn. Deze werkbon dient als bewijs van uitgevoerde werkzaamheden en kan worden gebruikt voor facturatie. Bij vragen of opmerkingen kunt u contact opnemen met Smart Tech BV.`;
+const LEGAL_TEXT = `Door ondertekening van deze werkbon bevestigt de klant dat de hierboven beschreven werkzaamheden naar tevredenheid zijn uitgevoerd en dat de gegevens correct zijn. Deze werkbon dient als bewijs van uitgevoerde werkzaamheden en kan worden gebruikt voor facturatie. Bij vragen of opmerkingen kunt u contact opnemen met uw werkgever.`;
 
 interface WerkbonLayoutProps {
   // Header

@@ -181,10 +181,10 @@ export default function WervenAdmin() {
       document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
     } else {
       let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;margin:20px;color:#1A1A2E}h1{color:#F5A623;font-size:22px;border-bottom:2px solid #F5A623;padding-bottom:8px}table{width:100%;border-collapse:collapse;font-size:12px;margin-top:12px}th{background:#1A1A2E;color:#fff;padding:8px 10px;text-align:left}td{padding:6px 10px;border-bottom:1px solid #E8E9ED}tr:nth-child(even){background:#F5F6FA}.meta{color:#6c757d;font-size:12px}.footer{margin-top:20px;text-align:center;color:#999;font-size:10px;border-top:1px solid #E8E9ED;padding-top:8px}</style></head><body>
-      <h1>Smart-Tech BV - Werven Overzicht</h1><p class="meta">${data.length} werven | ${new Date().toLocaleDateString('nl-BE')}</p>
+      <h1>Signybon - Werven Overzicht</h1><p class="meta">${data.length} werven | ${new Date().toLocaleDateString('nl-BE')}</p>
       <table><tr><th>Naam</th><th>Adres</th><th>Klant</th><th>Werfleider</th><th>E-mail</th><th>Status</th></tr>`;
       data.forEach(w => { html += `<tr><td><strong>${w.naam}</strong></td><td>${w.adres||'-'}</td><td>${w.klant_naam||getKlantNaam(w.klant_id)}</td><td>${w.werfleider||'-'}</td><td>${w.werfleider_email||'-'}</td><td>${w.actief?'Actief':'Inactief'}</td></tr>`; });
-      html += `</table><div class="footer">Smart-Tech BV - ${new Date().toLocaleString('nl-BE')}</div></body></html>`;
+      html += `</table><div class="footer">Signybon - ${new Date().toLocaleString('nl-BE')}</div></body></html>`;
       const win = window.open('', '_blank'); if (win) { win.document.write(html); win.document.close(); setTimeout(() => win.print(), 500); }
     }
   };

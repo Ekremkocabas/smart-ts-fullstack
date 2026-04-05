@@ -94,7 +94,7 @@ interface Instellingen {
 }
 
 const defaultInstellingen: Instellingen = {
-  bedrijfsnaam: 'Smart-Tech BV',
+  bedrijfsnaam: 'Signybon',
   adres: '',
   adres_structured: {
     straat: '',

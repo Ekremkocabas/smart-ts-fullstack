@@ -381,7 +381,7 @@ export default function WerknemersAdmin() {
         .actief{color:#28a745} .inactief{color:#dc3545}
         .footer{margin-top:20px;text-align:center;color:#999;font-size:10px;border-top:1px solid #E8E9ED;padding-top:8px}
       </style></head><body>
-      <h1>Smart-Tech BV - Werknemers Overzicht</h1>
+      <h1>Signybon - Werknemers Overzicht</h1>
       <p class="meta">${data.length} personen | ${werknemerCount} werknemers | ${onderaannemerCount} onderaannemers | ${new Date().toLocaleDateString('nl-BE')}</p>
       <table><tr><th>Naam</th><th>E-mail</th><th>Telefoon</th><th>Rol</th><th>Team</th><th>Status</th><th>Werkbon Types</th></tr>`;
       data.forEach(w => {
@@ -390,7 +390,7 @@ export default function WerknemersAdmin() {
           <td class="${w.actief?'actief':'inactief'}">${w.actief?'Actief':'Inactief'}</td>
           <td>${(w.werkbon_types||[]).join(', ')||'-'}</td></tr>`;
       });
-      html += `</table><div class="footer">Smart-Tech BV - ${new Date().toLocaleString('nl-BE')}</div></body></html>`;
+      html += `</table><div class="footer">Signybon - ${new Date().toLocaleString('nl-BE')}</div></body></html>`;
       const win = window.open('', '_blank');
       if (win) { win.document.write(html); win.document.close(); setTimeout(() => win.print(), 500); }
     }

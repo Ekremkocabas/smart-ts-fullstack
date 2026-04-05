@@ -208,7 +208,7 @@ export default function WerkbonDetailScreen() {
           <div class="logo-section">
             ${instellingen?.logo_base64 ? `<img class="logo" src="${instellingen.logo_base64}" alt="Logo" />` : ''}
             <div>
-              <div class="company-name">${instellingen?.bedrijfsnaam || 'Smart-Tech BV'}</div>
+              <div class="company-name">${instellingen?.bedrijfsnaam || 'Signybon'}</div>
               <div class="subtitle">Werkbon / Timesheet</div>
             </div>
           </div>
@@ -360,7 +360,7 @@ export default function WerkbonDetailScreen() {
           ${instellingen?.pdf_voettekst ? `<div class="disclaimer">${instellingen.pdf_voettekst}</div>` : ''}
           <p style="margin-top: 15px;">
             Document gegenereerd op ${new Date().toLocaleDateString('nl-NL')} om ${new Date().toLocaleTimeString('nl-NL')} | 
-            ${instellingen?.bedrijfsnaam || 'Smart-Tech BV'}
+            ${instellingen?.bedrijfsnaam || 'Signybon'}
           </p>
         </div>
       </body>

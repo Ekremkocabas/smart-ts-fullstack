@@ -74,17 +74,7 @@ SENDER_EMAIL = os.environ.get('SENDER_EMAIL', 'onboarding@resend.dev')
 COMPANY_EMAIL = "info@smart-techbv.be"  # For sending emails TO customers
 WERKBON_RECIPIENT_EMAIL = "ts@smart-techbv.be"  # Werkbonnen from workers go HERE
 
-# Company info for PDF (hardcoded as requested)
-COMPANY_INFO = {
-    "naam": "Smart-Tech BV",
-    "adres": "Lochtemanweg 96/10",
-    "postcode": "3550",
-    "stad": "Heusden-Zolder",
-    "land": "België",
-    "btw": "BE0747 880 094",
-    "email": "info@smart-techbv.be",
-    "logo_base64": "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"
-}
+# (COMPANY_INFO removed — all PDF functions now use instellingen from MongoDB)
 
 # Legal text for signature (used in all werkbons) - Updated per user request
 LEGAL_TEXT = (
@@ -454,7 +444,7 @@ class CompanySettings(BaseModel):
     company_id: str                           # Unique company identifier
     
     # Basic info
-    bedrijfsnaam: str = "Smart-Tech BV"
+    bedrijfsnaam: str = "Signybon"
     btw_nummer: Optional[str] = None
     telefoon: Optional[str] = None
     website: Optional[str] = None
@@ -1147,7 +1137,7 @@ class BedrijfsInstellingen(BaseModel):
     id: str = "company_settings"
     company_id: str = "default_company"       # NEW: Company scoping
     
-    bedrijfsnaam: str = "Smart-Tech BV"
+    bedrijfsnaam: str = "Signybon"
     email: str = "info@smart-techbv.be"
     admin_emails: List[str] = ["info@smart-techbv.be"]  # Admin email addresses
     telefoon: Optional[str] = None
@@ -2003,12 +1993,12 @@ DAY_COLUMNS = [
 
 def get_sender_email(instellingen: dict) -> str:
     bedrijfsnaam = get_email_brand_name(instellingen)
-    sender_email = os.environ.get("SENDER_EMAIL") or instellingen.get("email") or COMPANY_EMAIL
+    sender_email = instellingen.get("email") or os.environ.get("SENDER_EMAIL") or COMPANY_EMAIL
     return sender_email if "<" in sender_email else f"{bedrijfsnaam} <{sender_email}>"
 
 
 def get_email_brand_name(instellingen: dict) -> str:
-    bedrijfsnaam = (instellingen.get("bedrijfsnaam") or "Smart-Tech BV").strip()
+    bedrijfsnaam = (instellingen.get("bedrijfsnaam") or "Signybon").strip()
     lowered = bedrijfsnaam.lower()
     if lowered.endswith(" test"):
         return bedrijfsnaam[:-5].strip()
@@ -2444,7 +2434,7 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     ]
 
     # Adres 2 aparte regels: straat+nr / postcode+stad
-    bedrijfsnaam_pdf = instellingen.get("bedrijfsnaam", "Smart-Tech BV")
+    bedrijfsnaam_pdf = instellingen.get("bedrijfsnaam", "Signybon")
     _adres_line1, _adres_line2 = get_company_address_2lines(instellingen)
     company_lines = [
         f"<b>{bedrijfsnaam_pdf}</b>",
@@ -2815,23 +2805,24 @@ def generate_oplevering_pdf(werkbon: dict, instellingen: dict) -> tuple[bytes, s
 
     story = []
     
-    # Use hardcoded company info
-    logo_bytes = decode_base64_data(COMPANY_INFO.get("logo_base64"))
+    # Company info from instellingen (same as werkbon PDF)
+    logo_bytes = decode_base64_data(get_company_logo(instellingen))
     logo = make_safe_reportlab_image(logo_bytes, 40 * mm, 17 * mm)
-    
+
     # Professional Header
-    company_info_text = f"""<b>{COMPANY_INFO['naam']}</b><br/>
-{COMPANY_INFO['adres']}<br/>
-{COMPANY_INFO['postcode']} {COMPANY_INFO['stad']}, {COMPANY_INFO['land']}<br/>
-BTW: {COMPANY_INFO['btw']}<br/>
-{COMPANY_INFO['email']}"""
-    
+    _bedrijfsnaam = instellingen.get("bedrijfsnaam", "Signybon")
+    _adres_line1, _adres_line2 = get_company_address_2lines(instellingen)
+    _company_email = instellingen.get("email") or ""
+    _btw = instellingen.get("btw_nummer") or ""
+    company_lines = [f"<b>{_bedrijfsnaam}</b>", _adres_line1, _adres_line2, f"BTW: {_btw}" if _btw else "", _company_email]
+    company_info_text = "<br/>".join(line for line in company_lines if line)
+
     left_cell = []
     if logo:
         left_cell.append(logo)
         left_cell.append(Spacer(1, 4))
     left_cell.append(Paragraph(company_info_text, ParagraphStyle("CompInfo", fontSize=8, leading=10, textColor=colors.HexColor("#333333"))))
-    
+
     title_style = ParagraphStyle("OVTitle", fontName="Helvetica-Bold", fontSize=18, textColor=colors.HexColor(_secondary), alignment=2)
     date_style = ParagraphStyle("OVDate", fontSize=9, textColor=colors.HexColor("#555555"), alignment=2)
     status_color = colors.HexColor("#28a745") if werkbon.get('status') == 'ondertekend' else colors.HexColor(_accent)
@@ -3045,23 +3036,24 @@ def generate_productie_pdf(werkbon: dict, instellingen: dict) -> tuple[bytes, st
 
     story = []
     
-    # Use hardcoded company info
-    logo_bytes = decode_base64_data(COMPANY_INFO.get("logo_base64"))
+    # Company info from instellingen (same as werkbon PDF)
+    logo_bytes = decode_base64_data(get_company_logo(instellingen))
     logo = make_safe_reportlab_image(logo_bytes, 40 * mm, 17 * mm)
-    
+
     # Professional Header - Left: Logo + Company Info, Right: Werkbon Type + Date/Status
-    company_info_text = f"""<b>{COMPANY_INFO['naam']}</b><br/>
-{COMPANY_INFO['adres']}<br/>
-{COMPANY_INFO['postcode']} {COMPANY_INFO['stad']}, {COMPANY_INFO['land']}<br/>
-BTW: {COMPANY_INFO['btw']}<br/>
-{COMPANY_INFO['email']}"""
-    
+    _bedrijfsnaam = instellingen.get("bedrijfsnaam", "Signybon")
+    _adres_line1, _adres_line2 = get_company_address_2lines(instellingen)
+    _company_email = instellingen.get("email") or ""
+    _btw = instellingen.get("btw_nummer") or ""
+    company_lines = [f"<b>{_bedrijfsnaam}</b>", _adres_line1, _adres_line2, f"BTW: {_btw}" if _btw else "", _company_email]
+    company_info_text = "<br/>".join(line for line in company_lines if line)
+
     left_cell: list = []
     if logo:
         left_cell.append(logo)
         left_cell.append(Spacer(1, 4))
     left_cell.append(Paragraph(company_info_text, ParagraphStyle("CompInfo", fontSize=8, leading=10, textColor=colors.HexColor("#333333"))))
-    
+
     # Right side: Werkbon type and info
     title_style = ParagraphStyle("PTitle", fontName="Helvetica-Bold", fontSize=18, textColor=colors.HexColor(_secondary), alignment=2)
     date_style = ParagraphStyle("PDate", fontSize=9, textColor=colors.HexColor("#555555"), alignment=2)
@@ -3284,7 +3276,7 @@ BTW: {COMPANY_INFO['btw']}<br/>
     story.append(Spacer(1, 6))
     
     # Footer
-    footer_text = f"Digitale productie werkbon - {COMPANY_INFO['naam']} - {COMPANY_INFO['email']}"
+    footer_text = f"Digitale productie werkbon - {instellingen.get('bedrijfsnaam', 'Signybon')} - {instellingen.get('email', '')}"
     story.append(Paragraph(footer_text, styles["PSmall"]))
     pdf.build(story)
     pdf_bytes = buffer.getvalue()
@@ -3478,7 +3470,7 @@ def generate_project_werkbon_pdf(werkbon: dict, instellingen: dict) -> tuple[byt
     story = []
 
     logo = make_safe_reportlab_image(decode_base64_data(instellingen.get("logo_base64")), 26 * mm, 18 * mm)
-    bedrijfsnaam = instellingen.get("bedrijfsnaam") or "Smart-Tech BV"
+    bedrijfsnaam = instellingen.get("bedrijfsnaam") or "Signybon"
     header_left = [logo, Spacer(1, 3)] if logo else []
     header_left.append(Paragraph(f"<b>{bedrijfsnaam}</b>", ParagraphStyle("PJCompany", fontName="Helvetica-Bold", fontSize=14, textColor=colors.HexColor(_secondary))))
     header_left.append(Paragraph(instellingen.get("email") or COMPANY_EMAIL, styles["PJSmall"]))
@@ -3616,7 +3608,7 @@ async def send_project_werkbon_email(werkbon: dict, instellingen: dict, pdf_byte
     html = f"""
     <div style='font-family:Arial,sans-serif;max-width:640px;margin:0 auto;'>
       <div style='background:#1a1a2e;color:#fff;padding:24px;border-bottom:4px solid #F5A623;'>
-        <h1 style='margin:0;color:#F5A623;'>{instellingen.get('bedrijfsnaam') or 'Smart-Tech BV'}</h1>
+        <h1 style='margin:0;color:#F5A623;'>{instellingen.get('bedrijfsnaam') or 'Signybon'}</h1>
         <p style='margin:8px 0 0;'>Ondertekende project werkbon in bijlage</p>
       </div>
       <div style='padding:24px;'>
@@ -7029,7 +7021,7 @@ async def send_bericht_email(data: dict):
             return {"success": False, "error": "Geen e-mailadres"}
         
         instellingen = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0}) or {}
-        bedrijfsnaam = instellingen.get("bedrijfsnaam", "Smart-Tech BV")
+        bedrijfsnaam = instellingen.get("bedrijfsnaam", "Signybon")
         
         html_content = f"""
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -7269,7 +7261,7 @@ async def get_mijn_documenten(current_user: Dict = Depends(get_current_user)):
 async def _build_app_settings_response(settings: dict) -> dict:
     """Shared logic for /app-settings — lightweight, no logo_base64."""
     return {
-        "bedrijfsnaam": settings.get("bedrijfsnaam", "Smart-Tech BV"),
+        "bedrijfsnaam": settings.get("bedrijfsnaam", "Signybon"),
         "primary_color": settings.get("primary_color", "#1a1a2e"),
         "secondary_color": settings.get("secondary_color", "#F5A623"),
         "accent_color": settings.get("accent_color", "#16213e"),
@@ -7299,7 +7291,7 @@ async def get_app_settings_logo():
     settings = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0}) or {}
     branding = settings.get("branding") or {}
     logo_b64 = branding.get("logo_base64") or settings.get("logo_base64")
-    result = {"logo_base64": logo_b64, "bedrijfsnaam": settings.get("bedrijfsnaam", "Smart-Tech BV")}
+    result = {"logo_base64": logo_b64, "bedrijfsnaam": settings.get("bedrijfsnaam", "Signybon")}
     set_cache("app-settings:logo", result)
     return result
 

@@ -88,7 +88,7 @@ export default function AdminLogin() {
               )}
             </View>
             <Text style={[styles.title, { color: theme.secondaryColor || '#1A1A2E' }]}>Admin Portaal</Text>
-            <Text style={styles.subtitle}>{theme.bedrijfsnaam || 'Smart-Tech BV'} Beheerders Login</Text>
+            <Text style={styles.subtitle}>{theme.bedrijfsnaam || 'Signybon'} Beheerders Login</Text>
           </View>
 
           {error ? (

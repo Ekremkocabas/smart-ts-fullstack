@@ -31,7 +31,7 @@ const defaultTheme: AppTheme = {
   primaryColor: '#F5A623',
   secondaryColor: '#1A1A2E',
   accentColor: '#16213E',
-  bedrijfsnaam: 'Smart-Tech BV',
+  bedrijfsnaam: 'Signybon',
 };
 
 interface ThemeContextType {

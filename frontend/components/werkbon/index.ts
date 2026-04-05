@@ -175,4 +175,4 @@ export const werkbonStyles = StyleSheet.create({
 });
 
 // Common legal text
-export const LEGAL_TEXT = `Door ondertekening van deze werkbon bevestigt de klant dat de hierboven beschreven werkzaamheden naar tevredenheid zijn uitgevoerd en dat de gegevens correct zijn. Deze werkbon dient als bewijs van uitgevoerde werkzaamheden en kan worden gebruikt voor facturatie. Bij vragen of opmerkingen kunt u contact opnemen met Smart Tech BV.`;
+export const LEGAL_TEXT = `Door ondertekening van deze werkbon bevestigt de klant dat de hierboven beschreven werkzaamheden naar tevredenheid zijn uitgevoerd en dat de gegevens correct zijn. Deze werkbon dient als bewijs van uitgevoerde werkzaamheden en kan worden gebruikt voor facturatie. Bij vragen of opmerkingen kunt u contact opnemen met uw werkgever.`;

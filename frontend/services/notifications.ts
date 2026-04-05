@@ -29,7 +29,7 @@ async function setupAndroidChannels() {
   if (Platform.OS !== 'android') return;
 
   await Notifications.setNotificationChannelAsync('default', {
-    name: 'Smart-Tech Notificaties',
+    name: 'Signybon Notificaties',
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 250, 250, 250],
     lightColor: '#F5A623',

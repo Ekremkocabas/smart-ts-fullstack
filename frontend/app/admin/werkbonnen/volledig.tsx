@@ -384,14 +384,14 @@ export default function WerkbonnenAdmin() {
         .meta{color:#6c757d;font-size:12px}
         .footer{margin-top:20px;text-align:center;color:#999;font-size:10px;border-top:1px solid #E8E9ED;padding-top:8px}
       </style></head><body>
-      <h1>Smart-Tech BV - Werkbonnen Overzicht</h1>
+      <h1>Signybon - Werkbonnen Overzicht</h1>
       <p class="meta">${data.length} werkbonnen | Gegenereerd: ${new Date().toLocaleDateString('nl-BE')}</p>
       <table><tr><th>Week</th><th>Jaar</th><th>Klant</th><th>Werf</th><th>Werknemer</th><th>Team</th><th>Status</th><th>Uren</th></tr>`;
       data.forEach(wb => {
         const totaalUren = wb.uren?.reduce((sum: number, u: any) => sum + parseUren(u.maandag) + parseUren(u.dinsdag) + parseUren(u.woensdag) + parseUren(u.donderdag) + parseUren(u.vrijdag) + parseUren(u.zaterdag) + parseUren(u.zondag), 0) || 0;
         html += `<tr><td>W${wb.week_nummer}</td><td>${wb.jaar}</td><td><strong>${wb.klant_naam}</strong></td><td>${wb.werf_naam}</td><td>${wb.created_by_naam||'-'}</td><td>${wb.team_naam||'-'}</td><td>${wb.status}</td><td>${totaalUren}</td></tr>`;
       });
-      html += `</table><div class="footer">Smart-Tech BV - ${new Date().toLocaleString('nl-BE')}</div></body></html>`;
+      html += `</table><div class="footer">Signybon - ${new Date().toLocaleString('nl-BE')}</div></body></html>`;
       const w = window.open('', '_blank');
       if (w) { w.document.write(html); w.document.close(); setTimeout(() => w.print(), 500); }
     }
@@ -420,7 +420,7 @@ export default function WerkbonnenAdmin() {
         td{padding:6px 10px;border-bottom:1px solid #E8E9ED}
         tr:nth-child(even){background:#F5F6FA}
       </style></head><body>
-      <h1>Smart-Tech BV - Productie Werkbonnen</h1>
+      <h1>Signybon - Productie Werkbonnen</h1>
       <table><tr><th>Datum</th><th>Klant</th><th>Werf</th><th>Monteur</th><th>M²</th><th>Status</th></tr>`;
       data.forEach(wb => {
         html += `<tr><td>${wb.datum}</td><td><strong>${wb.klant_naam}</strong></td><td>${wb.werf_naam}</td><td>${wb.werknemer_naam || wb.ingevuld_door_naam || '-'}</td><td>${wb.totaal_m2} m²</td><td>${wb.status}</td></tr>`;

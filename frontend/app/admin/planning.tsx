@@ -507,7 +507,7 @@ export default function PlanningAdmin() {
       .meta { color: #6c757d; font-size: 12px; }
       .footer { margin-top: 24px; text-align: center; color: #999; font-size: 10px; border-top: 1px solid #E8E9ED; padding-top: 8px; }
     </style></head><body>
-    <div class="header"><span class="logo">Smart-Tech BV</span><span class="meta">Planning Export - ${label}<br>${new Date().toLocaleDateString('nl-BE')}</span></div>
+    <div class="header"><span class="logo">Signybon</span><span class="meta">Planning Export - ${label}<br>${new Date().toLocaleDateString('nl-BE')}</span></div>
     <h1>Planning Overzicht</h1>
     <p class="meta">Totaal: ${data.length} taken | Afgerond: ${data.filter(d => d.status === 'afgerond').length} | Bezig: ${data.filter(d => d.status === 'bezig' || d.status === 'onderweg').length}</p>`;
 
@@ -532,7 +532,7 @@ export default function PlanningAdmin() {
       htmlContent += '</table>';
     });
 
-    htmlContent += `<div class="footer">Gegenereerd door Smart-Tech BV Planning System - ${new Date().toLocaleString('nl-BE')}</div></body></html>`;
+    htmlContent += `<div class="footer">Gegenereerd door Signybon Planning System - ${new Date().toLocaleString('nl-BE')}</div></body></html>`;
     const printWindow = window.open('', '_blank');
     if (printWindow) {
       printWindow.document.write(htmlContent);

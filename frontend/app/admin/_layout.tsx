@@ -135,7 +135,7 @@ function CompactTopNav() {
   return (
     <View style={styles.compactShell}>
       <View style={styles.compactHeader}>
-        <Text style={[styles.compactTitle, { color: theme.secondaryColor || '#1A1A2E' }]}>{theme.bedrijfsnaam || 'Smart-Tech'} Admin</Text>
+        <Text style={[styles.compactTitle, { color: theme.secondaryColor || '#1A1A2E' }]}>{theme.bedrijfsnaam || 'Signybon'} Admin</Text>
         <TouchableOpacity onPress={handleLogout} style={styles.compactLogoutBtn}>
           <Ionicons name="log-out-outline" size={18} color="#dc3545" />
           <Text style={styles.compactLogoutText}>Uitloggen</Text>
