@@ -1,0 +1,15 @@
+# Backend (not needed for mobile build)
+backend/dist/
+backend/__pycache__/
+
+# Claude settings
+.claude/
+
+# Build artifacts
+frontend/dist/
+frontend/web-build/
+frontend/.expo/
+frontend/.metro-cache/
+
+# Credentials
+frontend/credentials/
