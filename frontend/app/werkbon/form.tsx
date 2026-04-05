@@ -76,7 +76,7 @@ export default function WerkbonForm() {
     addPhoto, removePhoto,
     setUrenData, addUrenRegel, removeUrenRegel, updateUrenRegel, initializeUrenWithUser,
     setDagData,
-    setOpleveringData, toggleOpleverpunt, addOpleverpunt,
+    setOpleveringData, toggleOpleverpunt, setOpleverpuntStatus, addOpleverpunt,
     setProjectData, addProjectTaak, toggleProjectTaak, removeProjectTaak,
     setPrestatieData, addRuimte, updateRuimte, removeRuimte,
     validateStep, validationErrors, clearErrors,
@@ -978,10 +978,15 @@ export default function WerkbonForm() {
   }
 
   function renderOpleveringFields() {
+    const STATUS_OPTS: { value: 'ok' | 'nok' | 'nvt'; label: string; color: string }[] = [
+      { value: 'ok', label: 'OK', color: '#28a745' },
+      { value: 'nok', label: 'NOK', color: '#dc3545' },
+      { value: 'nvt', label: 'NVT', color: '#6c757d' },
+    ];
     return (
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Oplevering Details</Text>
-        
+
         <View style={styles.fieldGroup}>
           <Text style={styles.fieldLabel}>Omschrijving *</Text>
           <TextInput
@@ -994,25 +999,45 @@ export default function WerkbonForm() {
           />
         </View>
 
+        {/* Star Rating */}
+        <View style={styles.fieldGroup}>
+          <Text style={styles.fieldLabel}>Klantscore</Text>
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+            {[1, 2, 3, 4, 5].map((star) => (
+              <TouchableOpacity key={star} onPress={() => setOpleveringData({ rating: star })}>
+                <Ionicons
+                  name={star <= (opleveringData.rating || 0) ? 'star' : 'star-outline'}
+                  size={32}
+                  color={star <= (opleveringData.rating || 0) ? '#D4A017' : '#ccc'}
+                />
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Opleverpunten with OK/NOK/NVT */}
         <View style={styles.fieldGroup}>
           <Text style={styles.fieldLabel}>Opleverpunten</Text>
           {opleveringData.opleverpunten.map((punt) => (
-            <TouchableOpacity
-              key={punt.id}
-              style={styles.checklistItem}
-              onPress={() => toggleOpleverpunt(punt.id)}
-            >
-              <Ionicons 
-                name={punt.checked ? 'checkbox' : 'square-outline'} 
-                size={24} 
-                color={punt.checked ? primary : '#6C7A89'} 
-              />
-              <Text style={[styles.checklistText, punt.checked && styles.checklistTextChecked]}>
-                {punt.text}
-              </Text>
-            </TouchableOpacity>
+            <View key={punt.id} style={{ backgroundColor: '#F5F6FA', borderRadius: 10, padding: 12, marginBottom: 8 }}>
+              <Text style={{ fontSize: 14, fontWeight: '500', color: '#1A1A2E', marginBottom: 8 }}>{punt.text}</Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {STATUS_OPTS.map((opt) => (
+                  <TouchableOpacity
+                    key={opt.value}
+                    style={[
+                      styles.statusBtn,
+                      punt.status === opt.value && { backgroundColor: opt.color, borderColor: opt.color },
+                    ]}
+                    onPress={() => setOpleverpuntStatus(punt.id, punt.status === opt.value ? 'none' : opt.value)}
+                  >
+                    <Text style={[styles.statusBtnText, punt.status === opt.value && { color: '#fff' }]}>{opt.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
           ))}
-          
+
           <View style={styles.addItemRow}>
             <TextInput
               style={styles.addItemInput}
@@ -1020,7 +1045,7 @@ export default function WerkbonForm() {
               onChangeText={setNewOpleverpunt}
               placeholder="Nieuw punt toevoegen..."
             />
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.addItemButton, { backgroundColor: primary }]}
               onPress={() => {
                 if (newOpleverpunt.trim()) {
@@ -1032,6 +1057,18 @@ export default function WerkbonForm() {
               <Ionicons name="add" size={20} color="#1A1A2E" />
             </TouchableOpacity>
           </View>
+        </View>
+
+        {/* Extra opmerkingen */}
+        <View style={styles.fieldGroup}>
+          <Text style={styles.fieldLabel}>Extra opmerkingen</Text>
+          <TextInput
+            style={[styles.input, { minHeight: 60, textAlignVertical: 'top' }]}
+            value={opleveringData.extraOpmerkingen || ''}
+            onChangeText={(text) => setOpleveringData({ extraOpmerkingen: text })}
+            placeholder="Eventuele extra opmerkingen..."
+            multiline
+          />
         </View>
       </View>
     );
@@ -1754,4 +1791,8 @@ const styles = StyleSheet.create({
   },
   modalButtonText: { fontSize: 16, fontWeight: '600', color: '#1A1A2E' },
   emptyText: { textAlign: 'center', color: '#6C7A89', paddingVertical: 20 },
+  statusBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, borderWidth: 1.5, borderColor: '#dee2e6', backgroundColor: '#fff' },
+  statusBtnText: { fontSize: 13, fontWeight: '600', color: '#495057' },
+  checkboxRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  checkboxLabel: { fontSize: 15, color: '#1A1A2E', fontWeight: '500' },
 });

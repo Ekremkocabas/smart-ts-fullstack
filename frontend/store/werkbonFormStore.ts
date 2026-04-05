@@ -27,10 +27,13 @@ export interface TaskItem {
   completed: boolean;
 }
 
+export type OpleverpuntStatus = 'ok' | 'nok' | 'nvt' | 'none';
+
 export interface OpleverpuntItem {
   id: string;
   text: string;
   checked: boolean;
+  status: OpleverpuntStatus;
 }
 
 export interface GPSData {
@@ -86,6 +89,8 @@ export interface UrenTypeData {
 export interface OpleveringTypeData {
   omschrijving: string;
   opleverpunten: OpleverpuntItem[];
+  rating: number;
+  extraOpmerkingen: string;
 }
 
 export interface ProjectTypeData {
@@ -294,11 +299,13 @@ const initialUrenData: UrenTypeData = {
 
 const initialOpleveringData: OpleveringTypeData = {
   omschrijving: '',
+  rating: 0,
+  extraOpmerkingen: '',
   opleverpunten: [
-    { id: '1', text: 'Werk gecontroleerd', checked: false },
-    { id: '2', text: 'Schoongemaakt', checked: false },
-    { id: '3', text: 'Klant geïnformeerd', checked: false },
-    { id: '4', text: 'Restpunten besproken', checked: false },
+    { id: '1', text: 'Werk gecontroleerd', checked: false, status: 'none' },
+    { id: '2', text: 'Schoongemaakt', checked: false, status: 'none' },
+    { id: '3', text: 'Klant geïnformeerd', checked: false, status: 'none' },
+    { id: '4', text: 'Restpunten besproken', checked: false, status: 'none' },
   ],
 };
 
@@ -428,6 +435,7 @@ interface WerkbonFormActions {
   updateUrenRegel: (index: number, data: Partial<UrenRegel>) => void;
   setOpleveringData: (data: Partial<OpleveringTypeData>) => void;
   toggleOpleverpunt: (id: string) => void;
+  setOpleverpuntStatus: (id: string, status: OpleverpuntStatus) => void;
   addOpleverpunt: (text: string) => void;
   setProjectData: (data: Partial<ProjectTypeData>) => void;
   addProjectTaak: (text: string) => void;
@@ -548,12 +556,20 @@ export const useWerkbonFormStore = create<WerkbonFormState & WerkbonFormActions>
           ),
         },
       })),
+      setOpleverpuntStatus: (id, status) => set((state) => ({
+        opleveringData: {
+          ...state.opleveringData,
+          opleverpunten: state.opleveringData.opleverpunten.map(p =>
+            p.id === id ? { ...p, status, checked: status === 'ok' } : p
+          ),
+        },
+      })),
       addOpleverpunt: (text) => set((state) => ({
         opleveringData: {
           ...state.opleveringData,
           opleverpunten: [
             ...state.opleveringData.opleverpunten,
-            { id: `op_${Date.now()}`, text, checked: false },
+            { id: `op_${Date.now()}`, text, checked: false, status: 'none' as OpleverpuntStatus },
           ],
         },
       })),
