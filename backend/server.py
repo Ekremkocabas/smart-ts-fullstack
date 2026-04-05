@@ -7651,6 +7651,16 @@ import os
 LANDING_PATH = os.path.join(os.path.dirname(__file__), "landing.html")
 REGISTER_PATH = os.path.join(os.path.dirname(__file__), "register.html")
 LOGIN_PATH = os.path.join(os.path.dirname(__file__), "login.html")
+FAVICON_ICO_PATH = os.path.join(os.path.dirname(__file__), "favicon.ico")
+FAVICON_PNG_PATH = os.path.join(os.path.dirname(__file__), "favicon.png")
+
+@app.get("/favicon.ico")
+async def serve_favicon_ico():
+    return FileResponse(FAVICON_ICO_PATH, media_type="image/x-icon")
+
+@app.get("/favicon.png")
+async def serve_favicon_png():
+    return FileResponse(FAVICON_PNG_PATH, media_type="image/png")
 
 @app.get("/landing")
 async def serve_landing():
