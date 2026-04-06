@@ -252,10 +252,12 @@ export default function InstellingenAdmin() {
     setSaving(true);
     try {
       // Build payload with both new and legacy fields for compatibility
+      // If user removed the logo, send "DELETE" sentinel so backend actually clears it
+      const logoValue = instellingen.branding.logo_base64 ?? "DELETE";
       const payload = {
         ...instellingen,
         // Legacy fields for backward compatibility
-        logo_base64: instellingen.branding.logo_base64,
+        logo_base64: logoValue,
         primary_color: instellingen.branding.primary_color,
         secondary_color: instellingen.branding.secondary_color,
         accent_color: instellingen.branding.accent_color,

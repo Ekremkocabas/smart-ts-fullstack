@@ -5164,7 +5164,16 @@ async def get_instellingen(current_user: Dict = Depends(require_web_access())):
 @api_router.put("/instellingen")
 async def update_instellingen(update_data: BedrijfsInstellingenUpdate, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Update company settings. Only admin/master_admin can modify."""
-    update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
+    # "DELETE" sentinel signals explicit removal (empty string in DB)
+    update_dict = {}
+    for k, v in update_data.dict().items():
+        if v is None:
+            continue
+        if v == "DELETE":
+            update_dict[k] = ""
+        else:
+            update_dict[k] = v
+
     logger.info("[instellingen PUT] Update keys: %s | has logo_base64: %s | branding keys: %s",
                 list(update_dict.keys()),
                 'logo_base64' in update_dict,
@@ -5176,14 +5185,22 @@ async def update_instellingen(update_data: BedrijfsInstellingenUpdate, current_u
     if 'pdf_texts' in update_dict:
         update_dict['pdf_teksten'] = update_dict.pop('pdf_texts')
 
+    # Logo deletion: empty string means user wants to actually remove the logo
+    logo_being_deleted = 'logo_base64' in update_dict and update_dict['logo_base64'] == ""
+
     # Sync logo: if branding.logo_base64 is sent, also persist at top level and vice versa
+    # BUT do not override an explicit deletion with the old branding logo
     branding_dict = update_dict.get('branding') or {}
     if isinstance(branding_dict, dict):
-        if branding_dict.get('logo_base64') and not update_dict.get('logo_base64'):
+        if branding_dict.get('logo_base64') and not update_dict.get('logo_base64') and not logo_being_deleted:
             update_dict['logo_base64'] = branding_dict['logo_base64']
         elif update_dict.get('logo_base64') and not branding_dict.get('logo_base64'):
             branding_dict['logo_base64'] = update_dict['logo_base64']
             update_dict['branding'] = branding_dict
+
+    # When deleting logo, also clear branding.logo_base64 via dot notation
+    if logo_being_deleted:
+        update_dict['branding.logo_base64'] = ""
 
     await db.instellingen.update_one(
         {"id": "company_settings"},
