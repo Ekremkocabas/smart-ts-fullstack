@@ -147,9 +147,15 @@ export default function AdminLogin() {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.backLink} onPress={() => router.push('/')}>
+        <TouchableOpacity style={styles.backLink} onPress={() => { window.location.href = '/'; }}>
           <Ionicons name="arrow-back" size={18} color="#6c757d" />
-          <Text style={styles.backLinkText}>Terug naar app</Text>
+          <Text style={styles.backLinkText}>Terug naar homepage</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.registerLink} onPress={() => { window.location.href = '/register'; }}>
+          <Text style={styles.registerLinkText}>
+            Nog geen account? <Text style={styles.registerLinkAccent}>Registreer nu — 30 dagen gratis</Text>
+          </Text>
         </TouchableOpacity>
       </KeyboardAvoidingView>
     </View>
@@ -240,4 +246,7 @@ const styles = StyleSheet.create({
   footerText: { color: '#6c757d', fontSize: 12 },
   backLink: { flexDirection: 'row', alignItems: 'center', marginTop: 24, gap: 6 },
   backLinkText: { color: '#6c757d', fontSize: 14 },
+  registerLink: { marginTop: 12 },
+  registerLinkText: { color: '#6c757d', fontSize: 14 },
+  registerLinkAccent: { color: '#1B4332', fontWeight: '700' },
 });

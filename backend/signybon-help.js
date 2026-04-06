@@ -1,279 +1,382 @@
-/* Signybon 3-tier help/chat widget — used on landing, login, register, web panel */
+/* Signybon conversational support chat — single flow, FAQ → AI → Contact */
 (function(){
   const STYLE = `
-.sb-help-bubble{position:fixed;bottom:24px;right:24px;width:60px;height:60px;border-radius:50%;background:#1B4332;color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.6rem;cursor:pointer;box-shadow:0 6px 24px rgba(27,67,50,.4);z-index:99998;transition:all .3s;border:none}
-.sb-help-bubble:hover{transform:scale(1.1)}
-.sb-help-window{position:fixed;bottom:96px;right:24px;width:380px;max-height:560px;background:#fff;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,.2);z-index:99999;display:none;flex-direction:column;overflow:hidden;font-family:'Inter',system-ui,sans-serif}
-.sb-help-window.open{display:flex}
-.sb-help-header{background:#1B4332;color:#fff;padding:18px 20px;display:flex;align-items:center;justify-content:space-between}
-.sb-help-header h4{font-size:.95rem;font-weight:700;margin:0;display:flex;align-items:center;gap:8px}
-.sb-help-close{background:none;border:none;color:rgba(255,255,255,.7);font-size:1.4rem;cursor:pointer;padding:4px}
-.sb-help-tabs{display:flex;background:#143328;padding:0 12px;gap:4px}
-.sb-help-tab{flex:1;padding:10px;background:none;border:none;color:rgba(255,255,255,.6);font-size:.75rem;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;font-family:inherit}
-.sb-help-tab.active{color:#D4A017;border-bottom-color:#D4A017}
-.sb-help-body{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;max-height:380px}
-.sb-msg{max-width:88%;padding:10px 14px;border-radius:14px;font-size:.875rem;line-height:1.5}
-.sb-msg.bot{background:#F1F3F5;color:#212529;align-self:flex-start;border-bottom-left-radius:4px}
+.sb-bubble{position:fixed;bottom:24px;right:24px;width:62px;height:62px;border-radius:50%;background:#1B4332;color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.7rem;cursor:pointer;box-shadow:0 8px 28px rgba(27,67,50,.45);z-index:99998;transition:all .25s;border:none}
+.sb-bubble:hover{transform:scale(1.08)}
+.sb-window{position:fixed;bottom:100px;right:24px;width:420px;max-height:600px;background:#fff;border-radius:20px;box-shadow:0 24px 70px rgba(0,0,0,.22);z-index:99999;display:none;flex-direction:column;overflow:hidden;font-family:'Inter',system-ui,sans-serif}
+.sb-window.open{display:flex}
+.sb-header{background:#1B4332;color:#fff;padding:18px 22px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.sb-header-left{display:flex;align-items:center;gap:12px}
+.sb-header-logo{flex-shrink:0}
+.sb-header-text h4{font-size:1rem;font-weight:700;margin:0;line-height:1.2}
+.sb-header-text p{font-size:.72rem;margin:2px 0 0;opacity:.75}
+.sb-close{background:none;border:none;color:rgba(255,255,255,.85);font-size:1.5rem;cursor:pointer;padding:4px 8px;line-height:1}
+.sb-close:hover{color:#fff}
+.sb-body{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:10px;background:#FAFBFC}
+.sb-msg{max-width:88%;padding:11px 15px;border-radius:14px;font-size:.88rem;line-height:1.5;word-wrap:break-word}
+.sb-msg.bot{background:#fff;color:#212529;align-self:flex-start;border-bottom-left-radius:4px;border:1px solid #ECEFF1;box-shadow:0 1px 3px rgba(0,0,0,.04)}
 .sb-msg.user{background:#1B4332;color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
-.sb-msg.system{background:#FFF3CD;color:#856404;align-self:center;font-size:.75rem;text-align:center;border-radius:8px;padding:6px 12px}
-.sb-quick{padding:12px 16px;border-top:1px solid #E9ECEF;display:flex;flex-wrap:wrap;gap:6px}
-.sb-quick-btn{padding:7px 12px;border:1px solid #DEE2E6;border-radius:18px;background:#fff;font-size:.75rem;cursor:pointer;font-family:inherit;color:#495057}
-.sb-quick-btn:hover{border-color:#1B4332;color:#1B4332;background:rgba(27,67,50,.04)}
-.sb-input-row{display:flex;padding:12px;border-top:1px solid #E9ECEF;gap:8px}
-.sb-input-row input,.sb-input-row textarea{flex:1;padding:10px 12px;border:1px solid #DEE2E6;border-radius:8px;font-size:.85rem;font-family:inherit;outline:none;resize:none}
-.sb-input-row input:focus,.sb-input-row textarea:focus{border-color:#1B4332}
-.sb-send{padding:10px 16px;background:#1B4332;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:.85rem;font-family:inherit}
+.sb-msg.system{background:#FFF8E1;color:#7B5E00;align-self:center;font-size:.78rem;text-align:center;border-radius:10px;padding:8px 14px;border:1px solid #FFE082}
+.sb-options{align-self:flex-start;max-width:90%;display:flex;flex-direction:column;gap:6px;margin-top:2px}
+.sb-option-btn{text-align:left;padding:10px 14px;background:#fff;border:1.5px solid #E0E4E8;border-radius:12px;font-size:.83rem;cursor:pointer;font-family:inherit;color:#1B4332;font-weight:500;transition:all .15s}
+.sb-option-btn:hover{border-color:#1B4332;background:rgba(27,67,50,.05)}
+.sb-option-btn.ai{border-color:#D4A017;color:#B8870A}
+.sb-option-btn.ai:hover{background:rgba(212,160,23,.08)}
+.sb-input-row{display:flex;padding:14px;border-top:1px solid #E9ECEF;gap:8px;background:#fff}
+.sb-input-row input{flex:1;padding:11px 14px;border:1.5px solid #E0E4E8;border-radius:10px;font-size:.88rem;font-family:inherit;outline:none}
+.sb-input-row input:focus{border-color:#1B4332}
+.sb-send{padding:11px 18px;background:#1B4332;color:#fff;border:none;border-radius:10px;font-weight:600;cursor:pointer;font-size:.88rem;font-family:inherit;display:flex;align-items:center;gap:6px}
 .sb-send:disabled{opacity:.5;cursor:not-allowed}
-.sb-ticket-form{padding:16px;display:flex;flex-direction:column;gap:10px}
-.sb-ticket-form input,.sb-ticket-form textarea{padding:10px 12px;border:1px solid #DEE2E6;border-radius:8px;font-size:.85rem;font-family:inherit;outline:none}
-.sb-ticket-form textarea{min-height:100px;resize:vertical}
-.sb-ticket-form label{font-size:.75rem;font-weight:600;color:#6c757d;text-transform:uppercase;letter-spacing:.05em}
-.sb-spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:sbspin .6s linear infinite}
+.sb-form{padding:16px;display:flex;flex-direction:column;gap:10px;background:#fff;border-top:1px solid #E9ECEF}
+.sb-form input,.sb-form textarea{padding:10px 12px;border:1.5px solid #E0E4E8;border-radius:8px;font-size:.85rem;font-family:inherit;outline:none}
+.sb-form input:focus,.sb-form textarea:focus{border-color:#1B4332}
+.sb-form textarea{min-height:90px;resize:vertical}
+.sb-form label{font-size:.7rem;font-weight:700;color:#6c757d;text-transform:uppercase;letter-spacing:.05em;margin-top:2px}
+.sb-spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:sbspin .6s linear infinite;vertical-align:middle}
 @keyframes sbspin{to{transform:rotate(360deg)}}
-@media(max-width:480px){.sb-help-window{right:12px;left:12px;width:auto;bottom:90px}}
+@media(max-width:480px){.sb-window{right:10px;left:10px;width:auto;bottom:90px;max-height:80vh}}
 `;
 
-  const FAQ_CATEGORIES = {
-    nl: {
-      welcome: 'Hallo! Hoe kan ik u helpen? Kies een categorie of stel een vraag.',
-      categories: [
-        { name: 'Werkbon', items: [
-          { q: 'Hoe maak ik een werkbon?', a: 'Klik op het + icoon op de werkbonnen pagina, kies het type (uren/dag/oplevering/prestatie), vul de gegevens in en laat de klant digitaal tekenen.' },
-          { q: 'Welke werkbon types zijn er?', a: 'Uren (wekelijkse uren), Dag (dagprijs/uurtarief), Oplevering (checklist + sterren), Prestatie (m² per ruimte).' },
-          { q: 'Kan ik een werkbon kopiëren?', a: 'Ja. Klik op het kopieer-icoon naast een bestaande werkbon en alle gegevens worden overgenomen.' },
-        ]},
-        { name: 'Planning', items: [
-          { q: 'Hoe maak ik een planning?', a: 'Ga naar Planning, kies datum/week, voeg klant + werf + werknemers toe. De werknemers krijgen automatisch een pushmelding.' },
-          { q: 'Kan ik bulk planningen maken?', a: 'Ja. Op de planning pagina kunt u meerdere planningen tegelijk aanmaken voor dezelfde week.' },
-        ]},
-        { name: 'PDF', items: [
-          { q: 'Wordt de PDF automatisch verstuurd?', a: 'Ja, na ondertekening wordt de PDF automatisch naar uw bedrijfsemail gestuurd. Optioneel ook naar de klant.' },
-          { q: 'Kan ik de PDF aanpassen?', a: 'Logo, kleuren en bedrijfsgegevens kunt u in Instellingen aanpassen. Deze worden in alle PDFs gebruikt.' },
-        ]},
-        { name: 'Facturatie', items: [
-          { q: 'Welke koppelingen zijn er?', a: 'Billit is direct gekoppeld. Werkbonnen kunnen automatisch als concept-factuur naar Billit worden gestuurd.' },
-          { q: 'Hoe activeer ik Billit?', a: 'Ga naar Instellingen → Facturatie koppeling, vul uw Billit API key in en activeer de koppeling.' },
-        ]},
-        { name: 'Account', items: [
-          { q: 'Hoe voeg ik werknemers toe?', a: 'Ga naar Werknemers → Nieuwe werknemer. Vul naam en email in. De werknemer krijgt automatisch een uitnodiging.' },
-          { q: 'Wachtwoord vergeten?', a: 'Op de loginpagina kunt u "Wachtwoord vergeten" gebruiken om een reset link te ontvangen.' },
-        ]},
-      ],
-      askMore: 'Ik wil met een medewerker praten',
-      aiPlaceholder: 'Stel uw vraag aan de Signybon assistent...',
-      ticketTitle: 'Stuur ons uw vraag',
-      ticketIntro: 'Laat ons weten waar u tegenaan loopt. Wij reageren binnen 24 uur.',
-      ticketSent: 'Uw vraag is verstuurd. Wij reageren binnen 24 uur.',
-    }
-  };
+  // ──────────────────── FAQ KNOWLEDGE BASE ────────────────────
+  const FAQ = [
+    // Werkbon
+    { kw: ['werkbon','aanmaken','nieuw','maken','create','create werkbon'], q: 'Hoe maak ik een nieuwe werkbon?', a: 'Klik op het + icoon op de werkbonnen pagina, kies het type (uren / dag / oplevering / prestatie), vul de gegevens in en laat de klant digitaal tekenen. De PDF wordt automatisch verstuurd.' },
+    { kw: ['types','soorten','welke werkbon','welke type'], q: 'Welke werkbon types zijn er?', a: 'Er zijn vier types: Uren (wekelijkse uren per teamlid), Dag (dag/halve dag/vaste prijs/uurtarief), Oplevering (checklist met OK/NOK/NVT en sterren), en Prestatie (m² per ruimte met dikte en product).' },
+    { kw: ['kopieren','copy','kopie','kopieer'], q: 'Kan ik een werkbon kopiëren?', a: 'Ja. Klik op het kopieer-icoon naast een bestaande werkbon. Alle gegevens (klant, werf, uren) worden automatisch overgenomen. U hoeft alleen de week aan te passen.' },
+    { kw: ['handtekening','tekenen','sign','signature'], q: 'Hoe werkt de digitale handtekening?', a: 'Op de laatste stap geeft u uw telefoon of tablet aan de klant. Hij/zij tekent met de vinger op het scherm. De handtekening is juridisch bindend.' },
+    { kw: ['foto','photos','foto toevoegen','afbeelding'], q: 'Kan ik foto\u2019s toevoegen?', a: 'Ja, op iedere werkbon kunt u tot 3 foto\u2019s toevoegen — direct vanuit de camera of uit de galerij. Foto\u2019s worden gecomprimeerd en als bijlage in de PDF gezet.' },
+    { kw: ['concept','draft','opslaan','later','onderbreken'], q: 'Kan ik een werkbon als concept opslaan?', a: 'Ja, als u de app sluit blijft uw werkbon automatisch als concept bewaard. U kunt later verder gaan waar u gebleven was.' },
 
-  const tier1FAQ = FAQ_CATEGORIES.nl;
+    // Planning
+    { kw: ['planning','plan','schedule','plannen'], q: 'Hoe maak ik een planning?', a: 'Ga naar Planning, kies datum/week, voeg klant + werf + werknemers toe. De toegewezen werknemers krijgen automatisch een pushmelding op hun telefoon.' },
+    { kw: ['bulk','meerdere planning','batch'], q: 'Kan ik meerdere planningen tegelijk maken?', a: 'Ja. Op de planning pagina kunt u via "Bulk planning" meerdere taken in één keer aanmaken voor dezelfde week of meerdere dagen.' },
+    { kw: ['push','melding','notificatie','notification'], q: 'Krijgen werknemers een melding?', a: 'Ja, zodra u een planning aanmaakt of wijzigt, krijgt de toegewezen werknemer direct een pushmelding op zijn/haar telefoon.' },
+    { kw: ['planning werkbon','vanuit planning','planning naar werkbon'], q: 'Kan ik vanuit een planning een werkbon maken?', a: 'Ja. De werknemer kan vanuit zijn planning direct op "Maak werkbon" klikken — alle gegevens (klant, werf, datum) worden vooraf ingevuld.' },
+    { kw: ['planning verwijderen','annuleren','cancel'], q: 'Hoe verwijder ik een planning?', a: 'In de planning lijst kunt u een planning selecteren en op het prullenbak-icoon klikken. Bulk verwijderen kan via de selecteren-modus.' },
 
+    // PDF
+    { kw: ['pdf','genereren','automatisch','versturen','verstuur'], q: 'Wordt de PDF automatisch verstuurd?', a: 'Ja, na ondertekening wordt de PDF automatisch naar uw bedrijfsemail (uit Instellingen) gestuurd. Optioneel kunt u ook de klant aanvinken zodat hij/zij een kopie krijgt.' },
+    { kw: ['logo','aanpassen','branding','huisstijl'], q: 'Kan ik mijn logo en kleuren aanpassen?', a: 'Ja, ga naar Instellingen → Branding. Daar kunt u uw logo uploaden en de PDF kleuren (primair, secundair, accent) instellen. Deze worden in alle PDFs gebruikt.' },
+    { kw: ['voettekst','footer','onderaan'], q: 'Kan ik de voettekst van de PDF aanpassen?', a: 'Ja, in Instellingen → PDF teksten kunt u de algemene voettekst en de bevestigingsteksten per werkbon type aanpassen.' },
+    { kw: ['pdf opnieuw','herversturen','re-send'], q: 'Kan ik een PDF opnieuw versturen?', a: 'Ja, open een verzonden werkbon en klik op "Opnieuw versturen". U kunt eventueel een ander emailadres opgeven.' },
+    { kw: ['exporteren','export','download','zip'], q: 'Kan ik werkbonnen exporteren?', a: 'Ja, in het admin panel kunt u werkbonnen filteren en als ZIP (alle PDFs) of CSV downloaden — handig voor uw boekhouder.' },
+
+    // Facturatie
+    { kw: ['billit','facturatie','factuur','invoicing','factureren'], q: 'Hoe activeer ik de Billit koppeling?', a: 'Ga naar Instellingen → Facturatie koppeling, vul uw Billit API key en Party ID in, en activeer de koppeling. Werkbonnen kunnen daarna automatisch als concept-factuur naar Billit worden gestuurd.' },
+    { kw: ['boekhouding','accounting','exact','yuki'], q: 'Welke boekhoudkoppelingen zijn er?', a: 'Op dit moment is alleen Billit direct gekoppeld. Boekhoudkoppelingen (Exact, Yuki, etc.) zijn in ontwikkeling.' },
+    { kw: ['btw','vat','tarief'], q: 'Hoe stel ik BTW tarieven in?', a: 'BTW tarieven zijn per klant instelbaar. Bij het aanmaken/bewerken van een klant kunt u het standaard BTW percentage opgeven (6%, 12%, 21%).' },
+    { kw: ['uurtarief','tarief','hourly','prijs','prijsmodel'], q: 'Hoe stel ik uurtarieven per klant in?', a: 'Bij elke klant kunt u een prijsmodel kiezen: vast uurtarief, dagprijs, of vaste prijs. Dit wordt automatisch toegepast bij elke werkbon van die klant.' },
+
+    // Account/Instellingen
+    { kw: ['wachtwoord','password','reset','vergeten','forgot'], q: 'Wachtwoord vergeten of resetten?', a: 'Op de loginpagina staat "Wachtwoord vergeten". Als admin kunt u ook van een werknemer in de werknemerslijst het wachtwoord resetten via "Resend uitnodiging".' },
+    { kw: ['instellingen','settings','bedrijfsgegevens','profiel'], q: 'Waar pas ik mijn bedrijfsgegevens aan?', a: 'In het web admin panel onder Instellingen → Bedrijfsgegevens. Hier kunt u naam, adres, BTW, email, contactpersoon en branding aanpassen.' },
+    { kw: ['rol','role','permissie','rechten'], q: 'Welke gebruikersrollen zijn er?', a: 'Master Admin (alles), Admin (beheer), Planner (planning), Beheerder (web only), Werknemer (mobile only), Onderaannemer (beperkt). Elke rol heeft eigen rechten.' },
+
+    // Werknemers
+    { kw: ['werknemer','werknemers','employees','staff','medewerker'], q: 'Hoe voeg ik een nieuwe werknemer toe?', a: 'Ga naar Werknemers → Nieuwe werknemer. Vul naam, email en rol in. De werknemer krijgt automatisch een uitnodigingsmail met inloggegevens.' },
+    { kw: ['onderaannemer','subcontractor','freelancer'], q: 'Hoe werk ik met onderaannemers?', a: 'Onderaannemers worden net als werknemers toegevoegd, maar krijgen rol "onderaannemer". Zij kunnen alleen hun eigen werkbonnen invullen.' },
+    { kw: ['team','teams'], q: 'Kan ik teams aanmaken?', a: 'Ja, in Werknemers kunt u teams definiëren en werknemers aan teams koppelen. Teams maken planning en rapportages overzichtelijker.' },
+    { kw: ['document','documenten','identiteitskaart','vca'], q: 'Kan ik documenten van werknemers bewaren?', a: 'Ja, per werknemer kunt u documenten uploaden (ID, VCA, contract, etc.). Deze zijn alleen voor admins zichtbaar.' },
+
+    // Klanten/Werven
+    { kw: ['klant','klanten','customer','client'], q: 'Hoe voeg ik een klant toe?', a: 'Ga naar Klanten → Nieuwe klant. Vul naam, BTW, contactgegevens en prijsmodel in. Klanten worden automatisch beschikbaar voor alle werkbonnen.' },
+    { kw: ['werf','werven','site','locatie','project'], q: 'Hoe voeg ik een werf toe?', a: 'Werven worden gekoppeld aan een klant. Ga naar Werven → Nieuwe werf, kies de klant en vul adres + werfleider in.' },
+  ];
+
+  // ──────────────────── HELPER: search FAQ ────────────────────
+  function searchFAQ(query) {
+    const q = (query || '').toLowerCase();
+    if (q.length < 2) return [];
+    const tokens = q.split(/\s+/).filter(t => t.length >= 2);
+    const scored = FAQ.map(item => {
+      let score = 0;
+      for (const kw of item.kw) {
+        if (q.includes(kw)) score += 10;
+      }
+      for (const t of tokens) {
+        for (const kw of item.kw) {
+          if (kw.includes(t) || t.includes(kw)) score += 2;
+        }
+        if (item.q.toLowerCase().includes(t)) score += 3;
+      }
+      return { item, score };
+    }).filter(s => s.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3)
+      .map(s => s.item);
+    return scored;
+  }
+
+  // ──────────────────── UI / FLOW ────────────────────
   function init() {
-    if (document.getElementById('sb-help-bubble')) return;
+    if (document.getElementById('sb-bubble')) return;
     const styleEl = document.createElement('style');
     styleEl.textContent = STYLE;
     document.head.appendChild(styleEl);
 
     const bubble = document.createElement('button');
-    bubble.id = 'sb-help-bubble';
-    bubble.className = 'sb-help-bubble';
+    bubble.id = 'sb-bubble';
+    bubble.className = 'sb-bubble';
     bubble.innerHTML = '\u{1F4AC}';
-    bubble.setAttribute('aria-label', 'Help');
+    bubble.setAttribute('aria-label', 'Support chat');
     document.body.appendChild(bubble);
 
     const win = document.createElement('div');
-    win.id = 'sb-help-window';
-    win.className = 'sb-help-window';
+    win.className = 'sb-window';
     win.innerHTML = `
-      <div class="sb-help-header">
-        <h4>\u{1F916} Signybon Support</h4>
-        <button class="sb-help-close" aria-label="Sluiten">&times;</button>
+      <div class="sb-header">
+        <div class="sb-header-left">
+          <div class="sb-header-logo">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="36" height="36">
+              <rect x="15" y="15" width="70" height="70" rx="12" ry="12" fill="#D4A017" transform="rotate(45 50 50)"/>
+              <rect x="23" y="23" width="54" height="54" rx="9" ry="9" fill="#fff" transform="rotate(45 50 50)"/>
+              <rect x="36" y="36" width="28" height="28" rx="5" ry="5" fill="#D4A017" transform="rotate(45 50 50)"/>
+            </svg>
+          </div>
+          <div class="sb-header-text">
+            <h4>Signybon Support</h4>
+            <p>Online \u2014 we helpen u graag</p>
+          </div>
+        </div>
+        <button class="sb-close" aria-label="Sluiten">&times;</button>
       </div>
-      <div class="sb-help-tabs">
-        <button class="sb-help-tab active" data-tab="faq">FAQ</button>
-        <button class="sb-help-tab" data-tab="ai">AI Assistent</button>
-        <button class="sb-help-tab" data-tab="ticket">Contact</button>
-      </div>
-      <div class="sb-help-body" id="sb-help-body"></div>
-      <div id="sb-help-quick"></div>
+      <div class="sb-body" id="sb-body"></div>
+      <div id="sb-footer"></div>
     `;
     document.body.appendChild(win);
 
-    let currentTab = 'faq';
-    let aiHistory = [];
+    const body = () => document.getElementById('sb-body');
+    const footer = () => document.getElementById('sb-footer');
 
     bubble.onclick = () => {
       win.classList.toggle('open');
-      if (win.classList.contains('open')) renderTab('faq');
+      if (win.classList.contains('open') && body().children.length === 0) {
+        startChat();
+      }
     };
-    win.querySelector('.sb-help-close').onclick = () => win.classList.remove('open');
-    win.querySelectorAll('.sb-help-tab').forEach(t => {
-      t.onclick = () => renderTab(t.dataset.tab);
-    });
+    win.querySelector('.sb-close').onclick = () => win.classList.remove('open');
 
-    function renderTab(tab) {
-      currentTab = tab;
-      win.querySelectorAll('.sb-help-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-      const body = document.getElementById('sb-help-body');
-      const quick = document.getElementById('sb-help-quick');
-      body.innerHTML = '';
-      quick.innerHTML = '';
-      if (tab === 'faq') renderFAQ(body, quick);
-      else if (tab === 'ai') renderAI(body, quick);
-      else if (tab === 'ticket') renderTicket(body, quick);
+    // ──────── State ────────
+    let lastUserQuery = '';
+    let aiHistory = [];
+    let aiMessageCount = 0;
+
+    // ──────── Helpers ────────
+    function getUser() {
+      try {
+        const u = JSON.parse(localStorage.getItem('user') || 'null');
+        return u || {};
+      } catch(e) { return {}; }
     }
 
-    function addMsg(body, text, type) {
+    function addMsg(text, type) {
       const d = document.createElement('div');
       d.className = 'sb-msg ' + type;
       d.textContent = text;
-      body.appendChild(d);
-      body.scrollTop = body.scrollHeight;
+      body().appendChild(d);
+      body().scrollTop = body().scrollHeight;
+      return d;
     }
 
-    function renderFAQ(body, quick) {
-      addMsg(body, tier1FAQ.welcome, 'bot');
-      tier1FAQ.categories.forEach(cat => {
+    function addOptions(options) {
+      const wrap = document.createElement('div');
+      wrap.className = 'sb-options';
+      options.forEach(opt => {
         const btn = document.createElement('button');
-        btn.className = 'sb-quick-btn';
-        btn.textContent = cat.name;
-        btn.onclick = () => showCategory(body, quick, cat);
-        quick.appendChild(btn);
-      });
-      const aiBtn = document.createElement('button');
-      aiBtn.className = 'sb-quick-btn';
-      aiBtn.textContent = tier1FAQ.askMore;
-      aiBtn.style.borderColor = '#D4A017';
-      aiBtn.style.color = '#D4A017';
-      aiBtn.onclick = () => renderTab('ai');
-      quick.appendChild(aiBtn);
-      quick.className = 'sb-quick';
-    }
-
-    function showCategory(body, quick, cat) {
-      body.innerHTML = '';
-      quick.innerHTML = '';
-      addMsg(body, cat.name + ' — kies een vraag:', 'bot');
-      cat.items.forEach(item => {
-        const btn = document.createElement('button');
-        btn.className = 'sb-quick-btn';
-        btn.textContent = item.q;
+        btn.className = 'sb-option-btn' + (opt.type === 'ai' ? ' ai' : '');
+        btn.textContent = opt.label;
         btn.onclick = () => {
-          addMsg(body, item.q, 'user');
-          setTimeout(() => addMsg(body, item.a, 'bot'), 350);
+          wrap.remove();
+          opt.action();
         };
-        quick.appendChild(btn);
+        wrap.appendChild(btn);
       });
-      const back = document.createElement('button');
-      back.className = 'sb-quick-btn';
-      back.textContent = '\u2190 Terug';
-      back.onclick = () => renderTab('faq');
-      quick.appendChild(back);
-      quick.className = 'sb-quick';
+      body().appendChild(wrap);
+      body().scrollTop = body().scrollHeight;
     }
 
-    function renderAI(body, quick) {
-      if (aiHistory.length === 0) {
-        addMsg(body, 'Hallo! Ik ben de Signybon AI assistent. Stel mij gerust uw vraag — ik ken het hele systeem.', 'bot');
-      } else {
-        aiHistory.forEach(m => addMsg(body, m.content, m.role === 'user' ? 'user' : 'bot'));
-      }
-      quick.className = 'sb-input-row';
+    function setFooterInput(placeholder, onSend) {
+      const f = footer();
+      f.innerHTML = '';
+      f.className = 'sb-input-row';
       const input = document.createElement('input');
       input.type = 'text';
-      input.placeholder = tier1FAQ.aiPlaceholder;
+      input.placeholder = placeholder;
       const send = document.createElement('button');
       send.className = 'sb-send';
       send.textContent = 'Verstuur';
-      const submit = async () => {
+      const submit = () => {
         const text = input.value.trim();
         if (!text) return;
         input.value = '';
-        addMsg(body, text, 'user');
-        aiHistory.push({ role: 'user', content: text });
-        send.disabled = true;
-        send.innerHTML = '<span class="sb-spinner"></span>';
-        try {
-          const res = await fetch('/api/help/ai-chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ messages: aiHistory })
-          });
-          const data = await res.json();
-          if (data.reply) {
-            addMsg(body, data.reply, 'bot');
-            aiHistory.push({ role: 'assistant', content: data.reply });
-          } else {
-            addMsg(body, 'Helaas geen antwoord. Probeer Contact tab voor een ticket.', 'bot');
-          }
-        } catch(e) {
-          addMsg(body, 'Verbinding mislukt. Probeer Contact tab.', 'bot');
-        }
-        send.disabled = false;
-        send.textContent = 'Verstuur';
+        onSend(text);
       };
       send.onclick = submit;
       input.onkeydown = (e) => { if (e.key === 'Enter') submit(); };
-      quick.appendChild(input);
-      quick.appendChild(send);
+      f.appendChild(input);
+      f.appendChild(send);
+      setTimeout(() => input.focus(), 50);
     }
 
-    function renderTicket(body, quick) {
-      body.innerHTML = '';
-      quick.innerHTML = '';
-      const form = document.createElement('div');
-      form.className = 'sb-ticket-form';
-      const sessionUser = (function(){
-        try {
-          const u = JSON.parse(localStorage.getItem('user') || 'null');
-          return u || {};
-        } catch(e) { return {}; }
-      })();
-      form.innerHTML = `
-        <div style="font-size:.85rem;color:#495057;margin-bottom:6px">${tier1FAQ.ticketIntro}</div>
-        <label>Naam</label>
-        <input id="sb-t-naam" type="text" value="${sessionUser.naam || ''}" placeholder="Uw naam">
-        <label>E-mail</label>
-        <input id="sb-t-email" type="email" value="${sessionUser.email || ''}" placeholder="naam@bedrijf.be">
-        <label>Bedrijfsnaam</label>
-        <input id="sb-t-bedrijf" type="text" value="${sessionUser.bedrijfsnaam || ''}" placeholder="Uw bedrijf">
-        <label>Uw vraag</label>
-        <textarea id="sb-t-vraag" placeholder="Beschrijf uw vraag..."></textarea>
-        <button class="sb-send" id="sb-t-send" style="margin-top:8px">Verstuur ticket</button>
-      `;
-      body.appendChild(form);
-      document.getElementById('sb-t-send').onclick = async () => {
-        const naam = document.getElementById('sb-t-naam').value.trim();
-        const email = document.getElementById('sb-t-email').value.trim();
-        const bedrijf = document.getElementById('sb-t-bedrijf').value.trim();
-        const vraag = document.getElementById('sb-t-vraag').value.trim();
-        if (!naam || !email || !vraag) {
-          alert('Vul naam, e-mail en vraag in.');
-          return;
-        }
-        const btn = document.getElementById('sb-t-send');
-        btn.disabled = true;
-        btn.innerHTML = '<span class="sb-spinner"></span>';
-        try {
-          const res = await fetch('/api/help/ticket', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ naam, email, bedrijfsnaam: bedrijf, vraag })
-          });
-          if (res.ok) {
-            body.innerHTML = '<div class="sb-msg bot" style="max-width:100%;text-align:center">' + tier1FAQ.ticketSent + '</div>';
+    function clearFooter() {
+      const f = footer();
+      f.innerHTML = '';
+      f.className = '';
+    }
+
+    // ──────── Flow: Start ────────
+    function startChat() {
+      const user = getUser();
+      const naam = user.bedrijfsnaam || user.naam || '';
+      const greeting = naam
+        ? `Hallo ${naam}, hoe kan ik u helpen?`
+        : 'Hallo, hoe kan ik u helpen?';
+      addMsg(greeting, 'bot');
+      setFooterInput('Stel uw vraag...', handleQuery);
+    }
+
+    // ──────── Flow: Tier 1 — FAQ analysis ────────
+    function handleQuery(query) {
+      lastUserQuery = query;
+      addMsg(query, 'user');
+      const matches = searchFAQ(query);
+
+      if (matches.length === 0) {
+        // No match → directly to AI
+        addMsg('Ik heb geen passend antwoord in de FAQ gevonden. Ik vraag het aan onze AI assistent...', 'system');
+        setTimeout(() => askAI(query, true), 600);
+        return;
+      }
+
+      addMsg('Bedoelt u dit?', 'bot');
+      const options = matches.map(m => ({
+        label: m.q,
+        action: () => showAnswer(m),
+      }));
+      options.push({
+        label: 'Of vraag het aan onze AI assistent \u2192',
+        type: 'ai',
+        action: () => askAI(lastUserQuery, true),
+      });
+      addOptions(options);
+    }
+
+    function showAnswer(faqItem) {
+      addMsg(faqItem.q, 'user');
+      setTimeout(() => {
+        addMsg(faqItem.a, 'bot');
+        setTimeout(() => {
+          addOptions([
+            { label: '\u{1F4AC} Een andere vraag stellen', action: () => setFooterInput('Stel uw vraag...', handleQuery) },
+            { label: '\u{1F914} Toch niet duidelijk \u2014 vraag AI', type: 'ai', action: () => askAI(lastUserQuery, true) },
+          ]);
+        }, 400);
+      }, 350);
+    }
+
+    // ──────── Flow: Tier 2 — AI ────────
+    async function askAI(question, isFirst) {
+      clearFooter();
+      if (isFirst) {
+        aiHistory = [];
+        aiMessageCount = 0;
+      }
+      aiHistory.push({ role: 'user', content: question });
+      aiMessageCount++;
+
+      const loadingMsg = addMsg('AI assistent denkt na...', 'system');
+
+      try {
+        const res = await fetch('/api/help/ai-chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages: aiHistory })
+        });
+        loadingMsg.remove();
+        const data = await res.json();
+        if (data.reply) {
+          addMsg(data.reply, 'bot');
+          aiHistory.push({ role: 'assistant', content: data.reply });
+
+          if (aiMessageCount >= 2) {
+            // After 2 AI exchanges, suggest contact
+            setTimeout(() => {
+              addMsg('Het lijkt erop dat uw vraag beter via e-mail beantwoord kan worden.', 'system');
+              addOptions([
+                { label: '\u270D\u{FE0F} Contact opnemen \u2192', action: showContactForm },
+                { label: '\u{1F4AC} Toch nog een vraag stellen', type: 'ai', action: () => setFooterInput('Stel uw vraag aan AI...', (t) => askAI(t, false)) },
+              ]);
+            }, 500);
           } else {
-            btn.disabled = false;
-            btn.textContent = 'Verstuur ticket';
-            alert('Verzenden mislukt. Probeer opnieuw.');
+            setFooterInput('Stel een vervolgvraag...', (t) => askAI(t, false));
           }
-        } catch(e) {
-          btn.disabled = false;
-          btn.textContent = 'Verstuur ticket';
-          alert('Verbinding mislukt.');
+        } else {
+          addMsg('Geen antwoord ontvangen.', 'bot');
+          showContactSuggest();
         }
-      };
+      } catch(e) {
+        loadingMsg.remove();
+        addMsg('Verbinding mislukt.', 'bot');
+        showContactSuggest();
+      }
+    }
+
+    function showContactSuggest() {
+      addOptions([
+        { label: '\u270D\u{FE0F} Contact opnemen via e-mail', action: showContactForm },
+      ]);
+    }
+
+    // ──────── Flow: Tier 3 — Contact form ────────
+    function showContactForm() {
+      clearFooter();
+      const user = getUser();
+      const f = footer();
+      f.innerHTML = '';
+      f.className = 'sb-form';
+      f.innerHTML = `
+        <label>Uw naam</label>
+        <input id="sb-c-naam" type="text" value="${user.naam || ((user.voornaam || '') + ' ' + (user.achternaam || '')).trim()}" placeholder="Uw naam">
+        <label>Uw e-mail</label>
+        <input id="sb-c-email" type="email" value="${user.email || ''}" placeholder="naam@bedrijf.be">
+        <label>Uw vraag</label>
+        <textarea id="sb-c-vraag" placeholder="Uw vraag...">${lastUserQuery || ''}</textarea>
+        <button class="sb-send" id="sb-c-send" style="margin-top:6px;justify-content:center">Versturen</button>
+      `;
+      document.getElementById('sb-c-send').onclick = sendTicket;
+    }
+
+    async function sendTicket() {
+      const naam = document.getElementById('sb-c-naam').value.trim();
+      const email = document.getElementById('sb-c-email').value.trim();
+      const vraag = document.getElementById('sb-c-vraag').value.trim();
+      if (!naam || !email || !vraag) {
+        alert('Vul alle velden in.');
+        return;
+      }
+      const btn = document.getElementById('sb-c-send');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="sb-spinner"></span>';
+      const user = getUser();
+      try {
+        const res = await fetch('/api/help/ticket', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ naam, email, bedrijfsnaam: user.bedrijfsnaam || '', vraag })
+        });
+        if (res.ok) {
+          clearFooter();
+          addMsg('Uw vraag is verstuurd. Wij reageren binnen 24 uur.', 'system');
+        } else {
+          btn.disabled = false;
+          btn.textContent = 'Versturen';
+          alert('Verzenden mislukt. Probeer opnieuw.');
+        }
+      } catch(e) {
+        btn.disabled = false;
+        btn.textContent = 'Versturen';
+        alert('Verbinding mislukt.');
+      }
     }
   }
 

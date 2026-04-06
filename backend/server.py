@@ -1138,6 +1138,8 @@ class BedrijfsInstellingen(BaseModel):
     company_id: str = "default_company"       # NEW: Company scoping
     
     bedrijfsnaam: str = "Signybon"
+    voornaam: Optional[str] = None
+    achternaam: Optional[str] = None
     email: str = ""
     admin_emails: List[str] = []  # Admin email addresses
     telefoon: Optional[str] = None
@@ -1188,6 +1190,8 @@ class BedrijfsInstellingen(BaseModel):
 
 class BedrijfsInstellingenUpdate(BaseModel):
     bedrijfsnaam: Optional[str] = None
+    voornaam: Optional[str] = None
+    achternaam: Optional[str] = None
     email: Optional[str] = None
     werkbon_email: Optional[str] = None       # NEW: separate werkbon email
     admin_emails: Optional[List[str]] = None

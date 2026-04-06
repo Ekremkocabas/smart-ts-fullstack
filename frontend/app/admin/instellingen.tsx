@@ -71,6 +71,8 @@ interface Instellingen {
   id?: string;
   company_id?: string;
   bedrijfsnaam: string;
+  voornaam: string;
+  achternaam: string;
   adres: string; // legacy
   adres_structured: AdresStructured;
   btw_nummer: string;
@@ -95,6 +97,8 @@ interface Instellingen {
 
 const defaultInstellingen: Instellingen = {
   bedrijfsnaam: 'Signybon',
+  voornaam: '',
+  achternaam: '',
   adres: '',
   adres_structured: {
     straat: '',
@@ -375,6 +379,17 @@ export default function InstellingenAdmin() {
           
           <Text style={styles.label}>Ondernemingsnummer</Text>
           <TextInput style={styles.input} value={instellingen.ondernemingsnummer} onChangeText={(v) => setInstellingen({ ...instellingen, ondernemingsnummer: v })} placeholder="0123.456.789" placeholderTextColor="#6c757d" />
+        </View>
+
+        {/* Contactpersoon Section */}
+        <View style={[styles.section, isCompact && styles.sectionCompact]}>
+          <Text style={styles.sectionTitle}>Contactpersoon</Text>
+
+          <Text style={styles.label}>Voornaam</Text>
+          <TextInput style={styles.input} value={instellingen.voornaam || ''} onChangeText={(v) => setInstellingen({ ...instellingen, voornaam: v })} placeholder="Voornaam" placeholderTextColor="#6c757d" />
+
+          <Text style={styles.label}>Achternaam</Text>
+          <TextInput style={styles.input} value={instellingen.achternaam || ''} onChangeText={(v) => setInstellingen({ ...instellingen, achternaam: v })} placeholder="Achternaam" placeholderTextColor="#6c757d" />
         </View>
 
         {/* Address Section - Structured */}
