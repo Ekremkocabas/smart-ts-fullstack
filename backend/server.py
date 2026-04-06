@@ -2014,23 +2014,59 @@ def get_email_brand_name(instellingen: dict) -> str:
     return bedrijfsnaam
 
 
-def get_company_recipient(instellingen: dict) -> Optional[str]:
+def get_company_recipient(instellingen: dict, user_email: Optional[str] = None) -> Optional[str]:
     """Get the company email for werkbon receipts.
-    Priority: emails.inkomend_werkbon -> legacy inkomend_werkbon -> instellingen.email
-    Returns None when no company email is configured (caller must handle).
+    Priority:
+      1. emails.inkomend_werkbon (structured)
+      2. werkbon_email (legacy/frontend field)
+      3. instellingen.email (general company email)
+      4. user_email (login email, fallback)
+    Returns None only if absolutely nothing configured.
     """
     emails = instellingen.get("emails")
     if emails and isinstance(emails, dict):
         werkbon_email = emails.get("inkomend_werkbon")
         if werkbon_email:
             return werkbon_email
-    legacy = instellingen.get("inkomend_werkbon")
-    if legacy:
-        return legacy
+    werkbon_email = instellingen.get("werkbon_email")
+    if werkbon_email:
+        return werkbon_email
     company_email = instellingen.get("email")
     if company_email:
         return company_email
+    if user_email:
+        return user_email
     return None
+
+
+async def get_company_subscription_status(company_id: str) -> dict:
+    """Returns dict: {status, days_remaining, is_active, is_trial_expired}"""
+    if not company_id or company_id == "default_company":
+        return {"status": "active", "days_remaining": None, "is_active": True, "is_trial_expired": False}
+    company = await db.companies.find_one({"id": company_id})
+    if not company:
+        return {"status": "active", "days_remaining": None, "is_active": True, "is_trial_expired": False}
+    sub_status = company.get("subscription_status", "active")
+    if sub_status == "active":
+        return {"status": "active", "days_remaining": None, "is_active": True, "is_trial_expired": False}
+    # Trial: check end date
+    trial_end_str = company.get("trial_end_date")
+    if not trial_end_str:
+        return {"status": sub_status, "days_remaining": None, "is_active": True, "is_trial_expired": False}
+    try:
+        trial_end = datetime.fromisoformat(trial_end_str.replace("Z", "+00:00"))
+    except Exception:
+        return {"status": sub_status, "days_remaining": None, "is_active": True, "is_trial_expired": False}
+    now = datetime.now(timezone.utc)
+    delta = trial_end - now
+    days_remaining = max(0, int(delta.total_seconds() // 86400))
+    is_expired = delta.total_seconds() <= 0
+    return {
+        "status": sub_status,
+        "days_remaining": days_remaining,
+        "is_active": (not is_expired) or sub_status == "active",
+        "is_trial_expired": is_expired and sub_status == "trial",
+    }
 
 
 def get_unique_recipients(*emails: Optional[str]) -> List[str]:
@@ -3668,6 +3704,12 @@ class CompanyRegister(BaseModel):
     email: str
     wachtwoord: str
     pakket: str = "pro"
+    telefoon: Optional[str] = None
+    straat: Optional[str] = None
+    huisnr: Optional[str] = None
+    postcode: Optional[str] = None
+    stad: Optional[str] = None
+    land: Optional[str] = "BE"
 
 @api_router.post("/auth/register-company")
 @limiter.limit("3/minute")
@@ -3689,17 +3731,49 @@ async def register_company(request: Request, data: CompanyRegister):
     if len(data.wachtwoord) < 8:
         raise HTTPException(status_code=400, detail="Wachtwoord moet minimaal 8 tekens bevatten")
 
-    # Create company
+    # Create company with trial subscription
     company_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc)
+    trial_end = now + timedelta(days=30)
     company = {
         "id": company_id,
         "bedrijfsnaam": data.bedrijfsnaam.strip(),
         "btw_nummer": btw,
         "pakket": data.pakket,
-        "status": "trial",
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "selected_plan": data.pakket,
+        "subscription_status": "trial",
+        "trial_start_date": now.isoformat(),
+        "trial_end_date": trial_end.isoformat(),
+        "created_at": now.isoformat(),
     }
     await db.companies.insert_one(company)
+
+    # Create initial instellingen document with contact info
+    instellingen_doc = {
+        "id": "company_settings",
+        "company_id": company_id,
+        "bedrijfsnaam": data.bedrijfsnaam.strip(),
+        "voornaam": data.voornaam.strip(),
+        "achternaam": data.achternaam.strip(),
+        "btw_nummer": btw,
+        "email": email,
+        "telefoon": data.telefoon or "",
+        "adres_gestructureerd": {
+            "straat": data.straat or "",
+            "huisnummer": data.huisnr or "",
+            "postcode": data.postcode or "",
+            "stad": data.stad or "",
+            "land": "België" if data.land == "BE" else "Nederland" if data.land == "NL" else (data.land or ""),
+        },
+        "created_at": now.isoformat(),
+    }
+    # Avoid overwriting existing default instellingen — only insert if not exists for this company
+    existing_inst = await db.instellingen.find_one({"id": "company_settings", "company_id": company_id})
+    if not existing_inst:
+        try:
+            await db.instellingen.insert_one(instellingen_doc)
+        except Exception as e:
+            logging.warning(f"Could not insert initial instellingen: {e}")
 
     # Create master_admin user
     naam = f"{data.voornaam.strip()} {data.achternaam.strip()}"
@@ -3960,12 +4034,22 @@ async def login_user(request: Request, login_data: UserLogin):
         app_access=app_access,
     )
     
+    # Subscription / trial info
+    subscription = await get_company_subscription_status(company_id)
+
     return {
         "user": user_response.dict(),
         "token": token,
         "platform_access": platform,
         "valid_roles": list(VALID_ROLES),
+        "subscription": subscription,
     }
+
+@api_router.get("/subscription/status")
+async def subscription_status(current_user: Dict = Depends(get_current_user)):
+    """Returns current company's subscription/trial status."""
+    company_id = current_user.get("company_id", "default_company")
+    return await get_company_subscription_status(company_id)
 
 @api_router.get("/auth/users", response_model=List[UserResponse])
 async def get_all_users(current_user: Dict = Depends(require_web_access())):
@@ -7580,6 +7664,46 @@ async def help_ticket(request: Request, data: HelpTicketRequest):
         raise HTTPException(status_code=500, detail="Kon ticket niet verzenden")
 
 app.include_router(api_router)
+
+# Trial expiration middleware — block API access after 30-day trial expires
+TRIAL_ALLOWED_PREFIXES = (
+    "/api/auth/",
+    "/api/instellingen",
+    "/api/subscription/",
+    "/api/help/",
+    "/api/health",
+    "/api/app-settings",
+    "/api/public/",
+)
+
+@app.middleware("http")
+async def trial_check_middleware(request: Request, call_next):
+    path = request.url.path
+    # Only check /api/* endpoints
+    if not path.startswith("/api/"):
+        return await call_next(request)
+    # Allow always-accessible endpoints
+    if any(path.startswith(p) for p in TRIAL_ALLOWED_PREFIXES):
+        return await call_next(request)
+    # Try to read JWT to get company_id
+    auth_header = request.headers.get("authorization", "")
+    if not auth_header.lower().startswith("bearer "):
+        return await call_next(request)
+    token = auth_header.split(" ", 1)[1]
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        company_id = payload.get("company_id")
+        if company_id:
+            sub = await get_company_subscription_status(company_id)
+            if sub.get("is_trial_expired"):
+                from starlette.responses import JSONResponse
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": "Uw proefperiode is verlopen. Activeer uw abonnement om door te gaan."}
+                )
+    except Exception:
+        pass
+    return await call_next(request)
 
 _cors_origins_env = os.environ.get("CORS_ALLOWED_ORIGINS", "")
 _allowed_origins = [o.strip() for o in _cors_origins_env.split(",") if o.strip()]

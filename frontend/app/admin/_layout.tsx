@@ -233,6 +233,35 @@ export default function AdminLayout() {
     document.body.appendChild(s);
   }, []);
 
+  // Set favicon dynamically — try company logo, fallback to /favicon.png
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    if (typeof document === 'undefined') return;
+    const setFav = (href: string) => {
+      let link = document.querySelector("link[rel='icon']") as HTMLLinkElement | null;
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = 'icon';
+        document.head.appendChild(link);
+      }
+      link.href = href;
+    };
+    (async () => {
+      try {
+        const res = await fetch('/api/app-settings/logo');
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.logo_base64) {
+            const prefix = String(data.logo_base64).startsWith('data:image') ? '' : 'data:image/png;base64,';
+            setFav(prefix + data.logo_base64);
+            return;
+          }
+        }
+      } catch (e) { /* ignore */ }
+      setFav('/favicon.png?v=2');
+    })();
+  }, []);
+
   if (Platform.OS !== 'web') {
     return null;
   }
@@ -251,6 +280,25 @@ export default function AdminLayout() {
       router.replace('/admin/login');
     }
   }, [user, isLoading, isLoginPage]);
+
+  // Trial status banner
+  const [trialInfo, setTrialInfo] = useState<{status: string; days_remaining: number | null} | null>(null);
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !user || isLoginPage) return;
+    (async () => {
+      try {
+        const token = await AsyncStorage.getItem('token');
+        if (!token) return;
+        const res = await fetch('/api/subscription/status', { headers: { Authorization: 'Bearer ' + token } });
+        if (res.ok) {
+          const data = await res.json();
+          setTrialInfo(data);
+        }
+      } catch (e) { /* ignore */ }
+    })();
+  }, [user, isLoginPage]);
+
+  const showTrialBanner = trialInfo && trialInfo.status === 'trial' && trialInfo.days_remaining !== null && trialInfo.days_remaining <= 10;
 
   // Show loading while checking auth
   if (isLoading) {
@@ -317,6 +365,17 @@ export default function AdminLayout() {
     <View style={styles.container}>
       <Sidebar />
       <View style={styles.mainContent}>
+        {showTrialBanner && (
+          <View style={{ backgroundColor: '#D4A017', paddingVertical: 10, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+            <Ionicons name="time-outline" size={18} color="#1B4332" />
+            <Text style={{ color: '#1B4332', fontSize: 14, fontWeight: '600' }}>
+              Uw proefperiode loopt af over {trialInfo!.days_remaining} dag{trialInfo!.days_remaining === 1 ? '' : 'en'}.
+            </Text>
+            <TouchableOpacity onPress={() => router.push('/admin/instellingen')}>
+              <Text style={{ color: '#1B4332', fontSize: 14, fontWeight: '700', textDecorationLine: 'underline' }}>Activeer abonnement</Text>
+            </TouchableOpacity>
+          </View>
+        )}
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#F5F6FA' } }}>
           <Stack.Screen name="dashboard" />
           <Stack.Screen name="werknemers" />

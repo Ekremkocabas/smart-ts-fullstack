@@ -3,7 +3,11 @@
   const STYLE = `
 .sb-bubble{position:fixed;bottom:24px;right:24px;width:62px;height:62px;border-radius:50%;background:#1B4332;color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.7rem;cursor:pointer;box-shadow:0 8px 28px rgba(27,67,50,.45);z-index:99998;transition:all .25s;border:none}
 .sb-bubble:hover{transform:scale(1.08)}
-.sb-window{position:fixed;bottom:100px;right:24px;width:420px;max-height:600px;background:#fff;border-radius:20px;box-shadow:0 24px 70px rgba(0,0,0,.22);z-index:99999;display:none;flex-direction:column;overflow:hidden;font-family:'Inter',system-ui,sans-serif}
+.sb-window{position:fixed;bottom:100px;right:24px;width:420px;max-height:620px;background:#fff;border-radius:20px;box-shadow:0 24px 70px rgba(0,0,0,.22);z-index:99999;display:none;flex-direction:column;overflow:hidden;font-family:'Inter',system-ui,sans-serif}
+.sb-rating{display:flex;gap:6px;justify-content:center;margin:8px 0}
+.sb-star{font-size:1.6rem;cursor:pointer;color:#DEE2E6;transition:transform .15s}
+.sb-star:hover,.sb-star.filled{color:#D4A017}
+.sb-star:hover{transform:scale(1.15)}
 .sb-window.open{display:flex}
 .sb-header{background:#1B4332;color:#fff;padding:18px 22px;display:flex;align-items:center;justify-content:space-between;gap:12px}
 .sb-header-left{display:flex;align-items:center;gap:12px}
@@ -149,8 +153,9 @@
     const footer = () => document.getElementById('sb-footer');
 
     bubble.onclick = () => {
+      const wasOpen = win.classList.contains('open');
       win.classList.toggle('open');
-      if (win.classList.contains('open') && body().children.length === 0) {
+      if (!wasOpen && body().children.length === 0) {
         startChat();
       }
     };
@@ -160,13 +165,39 @@
     let lastUserQuery = '';
     let aiHistory = [];
     let aiMessageCount = 0;
+    let userContext = null; // { naam, email, bedrijfsnaam }
 
     // ──────── Helpers ────────
-    function getUser() {
+    function getLocalUser() {
       try {
         const u = JSON.parse(localStorage.getItem('user') || 'null');
         return u || {};
       } catch(e) { return {}; }
+    }
+
+    async function loadUserContext() {
+      const local = getLocalUser();
+      let voornaam = '';
+      let achternaam = '';
+      let bedrijfsnaam = '';
+      let email = local.email || '';
+      try {
+        const token = localStorage.getItem('token');
+        if (token) {
+          const res = await fetch('/api/instellingen', { headers: { Authorization: 'Bearer ' + token } });
+          if (res.ok) {
+            const inst = await res.json();
+            voornaam = inst.voornaam || '';
+            achternaam = inst.achternaam || '';
+            bedrijfsnaam = inst.bedrijfsnaam || '';
+            if (!email) email = inst.email || '';
+          }
+        }
+      } catch (e) { /* ignore */ }
+      const fullName = (voornaam + ' ' + achternaam).trim();
+      const naam = fullName || local.naam || '';
+      userContext = { naam, email, bedrijfsnaam, voornaam, achternaam };
+      return userContext;
     }
 
     function addMsg(text, type) {
@@ -225,9 +256,17 @@
     }
 
     // ──────── Flow: Start ────────
-    function startChat() {
-      const user = getUser();
-      const naam = user.bedrijfsnaam || user.naam || '';
+    async function startChat() {
+      // Reset state
+      lastUserQuery = '';
+      aiHistory = [];
+      aiMessageCount = 0;
+      body().innerHTML = '';
+      clearFooter();
+
+      // Load user context from instellingen API
+      const ctx = await loadUserContext();
+      const naam = ctx && ctx.naam ? ctx.naam : '';
       const greeting = naam
         ? `Hallo ${naam}, hoe kan ik u helpen?`
         : 'Hallo, hoe kan ik u helpen?';
@@ -265,12 +304,7 @@
       addMsg(faqItem.q, 'user');
       setTimeout(() => {
         addMsg(faqItem.a, 'bot');
-        setTimeout(() => {
-          addOptions([
-            { label: '\u{1F4AC} Een andere vraag stellen', action: () => setFooterInput('Stel uw vraag...', handleQuery) },
-            { label: '\u{1F914} Toch niet duidelijk \u2014 vraag AI', type: 'ai', action: () => askAI(lastUserQuery, true) },
-          ]);
-        }, 400);
+        setTimeout(() => showRating(), 500);
       }, 350);
     }
 
@@ -280,6 +314,7 @@
       if (isFirst) {
         aiHistory = [];
         aiMessageCount = 0;
+        addMsg(question, 'user');
       }
       aiHistory.push({ role: 'user', content: question });
       aiMessageCount++;
@@ -299,16 +334,15 @@
           aiHistory.push({ role: 'assistant', content: data.reply });
 
           if (aiMessageCount >= 2) {
-            // After 2 AI exchanges, suggest contact
+            // After 2 AI exchanges, ALWAYS suggest contact (no escape)
             setTimeout(() => {
               addMsg('Het lijkt erop dat uw vraag beter via e-mail beantwoord kan worden.', 'system');
               addOptions([
                 { label: '\u270D\u{FE0F} Contact opnemen \u2192', action: showContactForm },
-                { label: '\u{1F4AC} Toch nog een vraag stellen', type: 'ai', action: () => setFooterInput('Stel uw vraag aan AI...', (t) => askAI(t, false)) },
               ]);
             }, 500);
           } else {
-            setFooterInput('Stel een vervolgvraag...', (t) => askAI(t, false));
+            setFooterInput('Stel een vervolgvraag...', (t) => { addMsg(t, 'user'); askAI(t, false); });
           }
         } else {
           addMsg('Geen antwoord ontvangen.', 'bot');
@@ -327,20 +361,54 @@
       ]);
     }
 
+    // ──────── Rating ────────
+    function showRating() {
+      const wrap = document.createElement('div');
+      wrap.className = 'sb-msg bot';
+      wrap.style.maxWidth = '95%';
+      wrap.innerHTML = `<div style="text-align:center;font-size:.85rem;margin-bottom:6px">Hoe tevreden bent u met de hulp?</div>`;
+      const rating = document.createElement('div');
+      rating.className = 'sb-rating';
+      for (let i = 1; i <= 5; i++) {
+        const s = document.createElement('span');
+        s.className = 'sb-star';
+        s.textContent = '\u2605';
+        s.dataset.value = String(i);
+        s.onclick = () => {
+          // Fill stars up to clicked
+          rating.querySelectorAll('.sb-star').forEach((el, idx) => {
+            el.classList.toggle('filled', idx < i);
+          });
+          setTimeout(() => {
+            addMsg('Bedankt voor uw feedback!', 'system');
+            addOptions([
+              { label: '\u{1F4AC} Andere vraag stellen', action: () => startChat() },
+            ]);
+          }, 400);
+        };
+        rating.appendChild(s);
+      }
+      wrap.appendChild(rating);
+      body().appendChild(wrap);
+      body().scrollTop = body().scrollHeight;
+    }
+
     // ──────── Flow: Tier 3 — Contact form ────────
     function showContactForm() {
       clearFooter();
-      const user = getUser();
+      const ctx = userContext || {};
       const f = footer();
       f.innerHTML = '';
       f.className = 'sb-form';
       f.innerHTML = `
         <label>Uw naam</label>
-        <input id="sb-c-naam" type="text" value="${user.naam || ((user.voornaam || '') + ' ' + (user.achternaam || '')).trim()}" placeholder="Uw naam">
+        <input id="sb-c-naam" type="text" value="${(ctx.naam || '').replace(/"/g,'&quot;')}" placeholder="Uw naam">
         <label>Uw e-mail</label>
-        <input id="sb-c-email" type="email" value="${user.email || ''}" placeholder="naam@bedrijf.be">
+        <input id="sb-c-email" type="email" value="${(ctx.email || '').replace(/"/g,'&quot;')}" placeholder="naam@bedrijf.be">
+        <label>Bedrijf</label>
+        <input id="sb-c-bedrijf" type="text" value="${(ctx.bedrijfsnaam || '').replace(/"/g,'&quot;')}" placeholder="Uw bedrijf">
         <label>Uw vraag</label>
-        <textarea id="sb-c-vraag" placeholder="Uw vraag...">${lastUserQuery || ''}</textarea>
+        <textarea id="sb-c-vraag" placeholder="Uw vraag...">${(lastUserQuery || '').replace(/</g,'&lt;')}</textarea>
         <button class="sb-send" id="sb-c-send" style="margin-top:6px;justify-content:center">Versturen</button>
       `;
       document.getElementById('sb-c-send').onclick = sendTicket;
@@ -349,24 +417,25 @@
     async function sendTicket() {
       const naam = document.getElementById('sb-c-naam').value.trim();
       const email = document.getElementById('sb-c-email').value.trim();
+      const bedrijfsnaam = document.getElementById('sb-c-bedrijf').value.trim();
       const vraag = document.getElementById('sb-c-vraag').value.trim();
       if (!naam || !email || !vraag) {
-        alert('Vul alle velden in.');
+        alert('Vul naam, e-mail en vraag in.');
         return;
       }
       const btn = document.getElementById('sb-c-send');
       btn.disabled = true;
       btn.innerHTML = '<span class="sb-spinner"></span>';
-      const user = getUser();
       try {
         const res = await fetch('/api/help/ticket', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ naam, email, bedrijfsnaam: user.bedrijfsnaam || '', vraag })
+          body: JSON.stringify({ naam, email, bedrijfsnaam, vraag })
         });
         if (res.ok) {
           clearFooter();
           addMsg('Uw vraag is verstuurd. Wij reageren binnen 24 uur.', 'system');
+          setTimeout(() => showRating(), 500);
         } else {
           btn.disabled = false;
           btn.textContent = 'Versturen';

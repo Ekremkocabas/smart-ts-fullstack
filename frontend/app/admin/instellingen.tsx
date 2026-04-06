@@ -429,11 +429,9 @@ export default function InstellingenAdmin() {
           <Text style={styles.label}>Telefoon</Text>
           <TextInput style={styles.input} value={instellingen.telefoon} onChangeText={(v) => setInstellingen({ ...instellingen, telefoon: v })} placeholder="+32 ..." placeholderTextColor="#6c757d" keyboardType="phone-pad" />
           
-          <Text style={styles.label}>Uitgaand e-mailadres</Text>
-          <TextInput style={styles.input} value={instellingen.email} onChangeText={(v) => setInstellingen({ ...instellingen, email: v })} placeholder="info@bedrijf.be" placeholderTextColor="#6c757d" keyboardType="email-address" />
-          
-          <Text style={styles.label}>Inkomend werkbon e-mailadres</Text>
+          <Text style={styles.label}>Werkbon e-mailadres</Text>
           <TextInput style={styles.input} value={instellingen.werkbon_email} onChangeText={(v) => setInstellingen({ ...instellingen, werkbon_email: v })} placeholder="werkbonnen@bedrijf.be" placeholderTextColor="#6c757d" keyboardType="email-address" />
+          <Text style={{ fontSize: 11, color: '#6c757d', marginTop: 4, marginBottom: 8 }}>Indien leeg, wordt uw inlog e-mailadres gebruikt</Text>
           
           <Text style={styles.label}>Website</Text>
           <TextInput style={styles.input} value={instellingen.website} onChangeText={(v) => setInstellingen({ ...instellingen, website: v })} placeholder="https://www.bedrijf.be" placeholderTextColor="#6c757d" />
