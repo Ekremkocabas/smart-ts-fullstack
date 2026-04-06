@@ -1890,9 +1890,10 @@ async def send_welcome_email(user_email: str, user_naam: str, temp_password: str
             "from": sender,
             "to": [user_email],
             "subject": f"Nieuwe Werknemer: {user_naam} - Inloggegevens",
-            "html": html_content
+            "html": html_content,
+            "headers": {"List-Unsubscribe": "<mailto:info@signybon.com>"},
         }
-        
+
         result = await asyncio.to_thread(resend.Emails.send, params)
         logging.info(f"Welcome email sent to worker {user_email}: {result}")
         return {"success": True, "email_id": result.get("id")}
@@ -1974,7 +1975,8 @@ async def send_klant_welcome_email(klant_email: str, klant_naam: str, instelling
             "from": sender,
             "to": [klant_email],
             "subject": f"Welkom bij het werkbonportaal van {bedrijfsnaam}",
-            "html": html_content
+            "html": html_content,
+            "headers": {"List-Unsubscribe": "<mailto:info@signybon.com>"},
         }
         result = await asyncio.to_thread(resend.Emails.send, params)
         logging.info(f"Client welcome email sent to {klant_email}: {result}")
@@ -2037,6 +2039,20 @@ def get_company_recipient(instellingen: dict, user_email: Optional[str] = None) 
     if user_email:
         return user_email
     return None
+
+
+async def get_instellingen_for_company(company_id: Optional[str]) -> dict:
+    """Multi-tenant safe instellingen lookup. Falls back to default_company."""
+    cid = company_id or "default_company"
+    doc = await db.instellingen.find_one({"id": "company_settings", "company_id": cid}, {"_id": 0})
+    if doc:
+        return doc
+    # Fallback for legacy docs without company_id
+    if cid == "default_company":
+        legacy = await db.instellingen.find_one({"id": "company_settings", "company_id": {"$exists": False}}, {"_id": 0})
+        if legacy:
+            return legacy
+    return {}
 
 
 async def get_company_subscription_status(company_id: str) -> dict:
@@ -3395,6 +3411,7 @@ async def send_productie_werkbon_email(werkbon: dict, instellingen: dict, pdf_by
         params = {
             "from": get_sender_email(instellingen),
             **({"reply_to": [get_reply_to(instellingen)]} if get_reply_to(instellingen) else {}),
+            "headers": {"List-Unsubscribe": "<mailto:info@signybon.com>"},
             "to": recipients,
             "subject": subject,
             "html": html_body,
@@ -3675,6 +3692,7 @@ async def send_project_werkbon_email(werkbon: dict, instellingen: dict, pdf_byte
         params = {
             "from": get_sender_email(instellingen),
             **({"reply_to": [get_reply_to(instellingen)]} if get_reply_to(instellingen) else {}),
+            "headers": {"List-Unsubscribe": "<mailto:info@signybon.com>"},
             "to": recipients,
             "subject": subject,
             "html": html,
@@ -3797,27 +3815,53 @@ async def register_company(request: Request, data: CompanyRegister):
         try:
             html = f"""
             <!DOCTYPE html><html><head><meta charset="utf-8"><style>
-            body{{font-family:Arial,sans-serif;line-height:1.6;color:#333;max-width:600px;margin:0 auto}}
-            .header{{background:#1B4332;color:white;padding:30px;text-align:center}}
-            .header h1{{color:#D4A017;margin:0}}
-            .content{{padding:30px}}
-            .btn{{display:inline-block;background:#1B4332;color:white;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:bold;margin:20px 0}}
-            .footer{{background:#f8f9fa;padding:20px;text-align:center;font-size:12px;color:#666}}
+            body{{font-family:'Helvetica Neue',Arial,sans-serif;line-height:1.6;color:#333;max-width:620px;margin:0 auto;background:#f5f6fa}}
+            .wrap{{background:#fff;border-radius:14px;overflow:hidden;margin:20px;box-shadow:0 4px 20px rgba(0,0,0,.08)}}
+            .header{{background:#1B4332;color:#fff;padding:36px 30px;text-align:center}}
+            .header h1{{color:#D4A017;margin:0;font-size:34px;font-weight:900;letter-spacing:1px}}
+            .header p{{color:rgba(255,255,255,.85);margin:6px 0 0;font-size:14px}}
+            .content{{padding:32px 36px;color:#1B4332}}
+            .content h2{{font-size:22px;color:#1B4332;margin:0 0 12px}}
+            .content .lead{{font-size:15px;color:#495057;margin-bottom:24px}}
+            .btn-wrap{{text-align:center;margin:28px 0}}
+            .btn{{display:inline-block;background:#1B4332;color:#fff !important;padding:16px 40px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px}}
+            .steps{{background:#f8f9fa;border-radius:12px;padding:22px 26px;margin-top:24px;border-left:4px solid #D4A017}}
+            .steps h3{{color:#1B4332;font-size:16px;margin:0 0 14px}}
+            .step{{margin:10px 0;font-size:14px;color:#495057;display:flex;align-items:flex-start;gap:10px}}
+            .step-num{{display:inline-flex;align-items:center;justify-content:center;background:#D4A017;color:#1B4332;width:24px;height:24px;border-radius:50%;font-weight:800;font-size:12px;flex-shrink:0}}
+            .footer{{background:#1B4332;padding:22px;text-align:center;font-size:12px;color:rgba(255,255,255,.7)}}
             </style></head><body>
-            <div class="header"><h1>Signybon</h1><p>Bevestig uw e-mailadres</p></div>
-            <div class="content">
-            <h2>Welkom, {naam}!</h2>
-            <p>Bedankt voor uw registratie bij Signybon. Klik op de knop hieronder om uw e-mailadres te bevestigen en uw account te activeren.</p>
-            <p style="text-align:center"><a href="{verify_url}" class="btn">E-mailadres Bevestigen</a></p>
-            <p style="font-size:13px;color:#666">Of kopieer deze link: {verify_url}</p>
+            <div class="wrap">
+              <div class="header">
+                <h1>SIGNYBON</h1>
+                <p>Het digitale werkbonplatform</p>
+              </div>
+              <div class="content">
+                <h2>Hoera! Bedankt voor het kiezen van Signybon!</h2>
+                <p class="lead">Welkom {naam}! Dankzij u helpt u het milieu — minder papier, meer digitaal. Bevestig hieronder uw e-mailadres om uw 30 dagen gratis proefperiode te starten.</p>
+                <div class="btn-wrap">
+                  <a href="{verify_url}" class="btn">E-mailadres Bevestigen</a>
+                </div>
+                <div class="steps">
+                  <h3>\u{1F680} Snel aan de slag in 6 stappen:</h3>
+                  <div class="step"><span class="step-num">1</span><span><b>Bedrijfsgegevens invullen</b> — logo, kleuren, contactpersoon</span></div>
+                  <div class="step"><span class="step-num">2</span><span><b>Klanten aanmaken</b> — uw vaste klanten eenmalig invoeren</span></div>
+                  <div class="step"><span class="step-num">3</span><span><b>Werknemers toevoegen</b> — uw team uitnodigen via e-mail</span></div>
+                  <div class="step"><span class="step-num">4</span><span><b>Werven aanmaken</b> — projecten/locaties koppelen aan klanten</span></div>
+                  <div class="step"><span class="step-num">5</span><span><b>Planning maken</b> — wie, wat, waar en wanneer</span></div>
+                  <div class="step"><span class="step-num">6</span><span><b>Eerste werkbon</b> — invullen, laten tekenen, automatisch verzonden</span></div>
+                </div>
+              </div>
+              <div class="footer">Signybon \u2014 Digitale werkbonnen voor de bouwsector</div>
             </div>
-            <div class="footer"><p>Signybon — Digitale werkbonnen voor de bouwsector</p></div>
             </body></html>"""
             await asyncio.to_thread(resend.Emails.send, {
                 "from": f"Signybon <{SENDER_EMAIL}>",
                 "to": [email],
-                "subject": "Bevestig uw e-mailadres — Signybon",
+                "subject": "Welkom bij Signybon — Bevestig uw e-mailadres",
                 "html": html,
+                "reply_to": ["info@signybon.com"],
+                "headers": {"List-Unsubscribe": "<mailto:info@signybon.com>"},
             })
         except Exception as e:
             logging.error(f"Verification email failed: {e}")
@@ -3826,11 +3870,15 @@ async def register_company(request: Request, data: CompanyRegister):
 
 @api_router.get("/auth/verify-email")
 async def verify_email(token: str = Query(...)):
-    """Verify email address and activate user account."""
+    """Verify email address and activate user account. Always redirects, never JSON."""
     from starlette.responses import RedirectResponse
     user = await db.users.find_one({"verification_token": token})
     if not user:
-        raise HTTPException(status_code=400, detail="Ongeldige of verlopen verificatielink")
+        # Token not found: maybe already used (already verified) or expired/invalid
+        # Try to detect "already used" by checking if any active user matches a recently consumed token? Cannot — no record.
+        return RedirectResponse(url="/login?verified=expired", status_code=302)
+    if user.get("actief") and user.get("status") == "active":
+        return RedirectResponse(url="/login?verified=already", status_code=302)
     await db.users.update_one(
         {"id": user["id"]},
         {"$set": {"actief": True, "status": "active"}, "$unset": {"verification_token": ""}}
@@ -4054,10 +4102,12 @@ async def subscription_status(current_user: Dict = Depends(get_current_user)):
 @api_router.get("/auth/users", response_model=List[UserResponse])
 async def get_all_users(current_user: Dict = Depends(require_web_access())):
     """Get all users. Only web panel users can access."""
-    cached = get_cache("auth:users", ttl_seconds=60)
+    company_id = current_user.get("company_id") or "default_company"
+    cache_key = f"auth:users:{company_id}"
+    cached = get_cache(cache_key, ttl_seconds=60)
     if cached is not None:
         return cached
-    users = await db.users.find().to_list(1000)
+    users = await db.users.find(_company_scope_query(company_id)).to_list(1000)
     result = []
     for user in users:
         normalized_role = normalize_role(user.get("rol", "worker"))
@@ -4077,7 +4127,7 @@ async def get_all_users(current_user: Dict = Depends(require_web_access())):
             app_access=has_app_access(normalized_role),
             push_token=user.get("push_token"),
         ))
-    set_cache("auth:users", result)
+    set_cache(cache_key, result)
     return result
 
 @api_router.put("/auth/users/{user_id}", response_model=UserResponse)
@@ -4443,13 +4493,15 @@ async def send_notification_api(data: dict):
 # ==================== TEAM ROUTES ====================
 
 @api_router.get("/teams", response_model=List[Team])
-async def get_teams():
-    cached = get_cache("teams:active", ttl_seconds=60)
+async def get_teams(current_user: Dict = Depends(get_current_user)):
+    company_id = current_user.get("company_id") or "default_company"
+    cache_key = f"teams:active:{company_id}"
+    cached = get_cache(cache_key, ttl_seconds=60)
     if cached is not None:
         return cached
-    teams = await db.teams.find({"actief": True}).to_list(1000)
+    teams = await db.teams.find(_company_scope_query(company_id, {"actief": True})).to_list(1000)
     result = [Team(**team) for team in teams]
-    set_cache("teams:active", result)
+    set_cache(cache_key, result)
     return result
 
 @api_router.get("/teams/{team_id}", response_model=Team)
@@ -4463,7 +4515,9 @@ async def get_team(team_id: str):
 async def create_team(team_data: TeamCreate, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Create a new team. Only admin/master_admin can create teams."""
     team = Team(**team_data.dict())
-    await db.teams.insert_one(team.dict())
+    team_dict = team.dict()
+    team_dict["company_id"] = current_user.get("company_id") or "default_company"
+    await db.teams.insert_one(team_dict)
     clear_cache("teams")
     return team
 
@@ -4490,23 +4544,29 @@ async def delete_team(team_id: str, current_user: Dict = Depends(require_roles([
 # ==================== KLANT ROUTES ====================
 
 @api_router.get("/klanten", response_model=List[dict])
-async def get_klanten(include_inactive: bool = Query(False)):
-    """Get all klanten with migration to new structure"""
-    cache_key = f"klanten:{'all' if include_inactive else 'active'}"
+async def get_klanten(include_inactive: bool = Query(False), current_user: Dict = Depends(get_current_user)):
+    """Get all klanten with migration to new structure (company-scoped)"""
+    company_id = current_user.get("company_id") or "default_company"
+    cache_key = f"klanten:{company_id}:{'all' if include_inactive else 'active'}"
     cached = get_cache(cache_key, ttl_seconds=60)
     if cached is not None:
         return cached
-    query = {} if include_inactive else {"actief": {"$ne": False}}
+    query: dict = {"$or": [{"company_id": company_id}, {"company_id": {"$exists": False}} if company_id == "default_company" else {"company_id": "__never__"}]}
+    if not include_inactive:
+        query["actief"] = {"$ne": False}
     klanten = await db.klanten.find(query).to_list(1000)
     result = [migrate_klant_data(klant) for klant in klanten]
     set_cache(cache_key, result)
     return result
 
 @api_router.get("/klanten/{klant_id}")
-async def get_klant(klant_id: str):
-    """Get single klant by ID"""
+async def get_klant(klant_id: str, current_user: Dict = Depends(get_current_user)):
+    """Get single klant by ID (company-scoped)"""
+    company_id = current_user.get("company_id") or "default_company"
     klant = await db.klanten.find_one({"id": klant_id})
     if not klant:
+        raise HTTPException(status_code=404, detail="Klant niet gevonden")
+    if klant.get("company_id") and klant.get("company_id") != company_id:
         raise HTTPException(status_code=404, detail="Klant niet gevonden")
     return migrate_klant_data(klant)
 
@@ -4534,7 +4594,7 @@ async def create_klant(klant_data: KlantCreate, current_user: Dict = Depends(req
     
     # Set defaults
     klant_dict["id"] = str(uuid.uuid4())
-    klant_dict["company_id"] = "default_company"
+    klant_dict["company_id"] = current_user.get("company_id") or "default_company"
     klant_dict["actief"] = True
     klant_dict["created_at"] = datetime.now(timezone.utc)
     
@@ -4613,29 +4673,46 @@ async def send_klant_welcome(klant_id: str, current_user: Dict = Depends(require
 
 # ==================== WERF ROUTES ====================
 
+def _company_scope_query(company_id: str, base: Optional[dict] = None) -> dict:
+    """Build a query that scopes to company_id but also includes legacy docs without company_id (for default_company)."""
+    base = dict(base or {})
+    if company_id == "default_company":
+        base["$or"] = [{"company_id": company_id}, {"company_id": {"$exists": False}}]
+    else:
+        base["company_id"] = company_id
+    return base
+
 @api_router.get("/werven", response_model=List[Werf])
-async def get_werven():
-    cached = get_cache("werven:active", ttl_seconds=60)
+async def get_werven(current_user: Dict = Depends(get_current_user)):
+    company_id = current_user.get("company_id") or "default_company"
+    cache_key = f"werven:active:{company_id}"
+    cached = get_cache(cache_key, ttl_seconds=60)
     if cached is not None:
         return cached
-    werven = await db.werven.find({"actief": True}).to_list(1000)
+    werven = await db.werven.find(_company_scope_query(company_id, {"actief": True})).to_list(1000)
     result = [Werf(**werf) for werf in werven]
-    set_cache("werven:active", result)
+    set_cache(cache_key, result)
     return result
 
 @api_router.get("/werven/klant/{klant_id}", response_model=List[Werf])
-async def get_werven_by_klant(klant_id: str):
-    werven = await db.werven.find({"klant_id": klant_id, "actief": True}).to_list(1000)
+async def get_werven_by_klant(klant_id: str, current_user: Dict = Depends(get_current_user)):
+    company_id = current_user.get("company_id") or "default_company"
+    werven = await db.werven.find(_company_scope_query(company_id, {"klant_id": klant_id, "actief": True})).to_list(1000)
     return [Werf(**werf) for werf in werven]
 
 @api_router.post("/werven", response_model=Werf)
 async def create_werf(werf_data: WerfCreate, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Create new werf - Admin/Master Admin only"""
+    company_id = current_user.get("company_id") or "default_company"
     klant = await db.klanten.find_one({"id": werf_data.klant_id, "actief": True})
     if not klant:
         raise HTTPException(status_code=404, detail="Klant niet gevonden")
+    if klant.get("company_id") and klant.get("company_id") != company_id:
+        raise HTTPException(status_code=404, detail="Klant niet gevonden")
     werf = Werf(**werf_data.dict())
-    await db.werven.insert_one(werf.dict())
+    werf_dict = werf.dict()
+    werf_dict["company_id"] = company_id
+    await db.werven.insert_one(werf_dict)
     clear_cache("werven")
     return werf
 
@@ -4709,7 +4786,9 @@ async def get_werkbonnen(
     maand: Optional[int] = Query(None, ge=1, le=12, description="Month 1-12 (with jaar)"),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
+    current_user: Dict = Depends(get_current_user),
 ):
+    company_id = current_user.get("company_id") or "default_company"
     projection = {
         "_id": 0,
         "handtekening_data": 0,
@@ -4728,6 +4807,7 @@ async def get_werkbonnen(
 
     if is_admin:
         query = _werkbonnen_admin_filter_query(week_nummer, jaar, maand)
+        query = _company_scope_query(company_id, query)
         eff_limit = 50 if dashboard else limit
         eff_skip = 0 if dashboard else skip
         cursor = db.werkbonnen.find(query, projection).sort("created_at", -1).skip(eff_skip).limit(eff_limit)
@@ -4742,9 +4822,14 @@ async def get_werkbonnen(
     if not user:
         raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
 
-    query = {} if has_web_access(user.get("rol", "")) else {
+    base_q: dict = {} if has_web_access(user.get("rol", "")) else {
         "$or": [{"ingevuld_door_id": user_id}, {"toegewezen_aan": user_id}]
     }
+    # Combine base_q with company scope (handle existing $or carefully)
+    if "$or" in base_q:
+        query = {"$and": [base_q, _company_scope_query(company_id)]}
+    else:
+        query = _company_scope_query(company_id, base_q)
     cursor = db.werkbonnen.find(query, projection).sort("created_at", -1).limit(200)
     try:
         werkbonnen = await asyncio.wait_for(cursor.to_list(200), timeout=10.0)
@@ -4944,7 +5029,7 @@ async def create_unified_werkbon(data: UnifiedWerkbonCreate, current_user: Dict 
     # Base document
     base_doc = {
         "id": werkbon_id,
-        "company_id": "default_company",
+        "company_id": current_user.get("company_id") or "default_company",
         "type": werkbon_type,
         "klant_id": data.klant_id,
         "klant_naam": data.klant_naam or "",
@@ -5123,7 +5208,9 @@ async def create_werkbon(werkbon_data: WerkbonCreate, current_user: Dict = Depen
         werkbon_dict["km_afstand"] = KmRegel().dict()
     
     werkbon = Werkbon(**werkbon_dict)
-    await db.werkbonnen.insert_one(werkbon.dict())
+    werkbon_doc = werkbon.dict()
+    werkbon_doc["company_id"] = current_user.get("company_id") or "default_company"
+    await db.werkbonnen.insert_one(werkbon_doc)
 
     # Push notification to admins about new werkbon
     try:
@@ -5239,15 +5326,18 @@ async def dupliceer_werkbon(werkbon_id: str, current_user: Dict = Depends(get_cu
 @api_router.get("/instellingen")
 async def get_instellingen(current_user: Dict = Depends(require_web_access())):
     """Get company settings. Web panel users can read."""
-    cached = get_cache("instellingen:company", ttl_seconds=120)
+    company_id = current_user.get("company_id") or "default_company"
+    cache_key = f"instellingen:company:{company_id}"
+    cached = get_cache(cache_key, ttl_seconds=120)
     if cached is not None:
         return cached
-    settings = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0})
+    settings = await get_instellingen_for_company(company_id)
     if not settings:
         default = BedrijfsInstellingen()
         default_dict = default.dict()
+        default_dict["company_id"] = company_id
         await db.instellingen.insert_one(default_dict.copy())
-        set_cache("instellingen:company", default_dict)
+        set_cache(cache_key, default_dict)
         return default_dict
 
     # Add frontend-compatible field name aliases (without removing Dutch originals)
@@ -5260,12 +5350,13 @@ async def get_instellingen(current_user: Dict = Depends(require_web_access())):
         if emails.get('werkbon'):
             settings['werkbon_email'] = emails['werkbon']
 
-    set_cache("instellingen:company", settings)
+    set_cache(cache_key, settings)
     return settings
 
 @api_router.put("/instellingen")
 async def update_instellingen(update_data: BedrijfsInstellingenUpdate, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Update company settings. Only admin/master_admin can modify."""
+    company_id = current_user.get("company_id") or "default_company"
     # "DELETE" sentinel signals explicit removal (empty string in DB)
     update_dict = {}
     for k, v in update_data.dict().items():
@@ -5307,8 +5398,9 @@ async def update_instellingen(update_data: BedrijfsInstellingenUpdate, current_u
             update_dict['branding'] = {}
         update_dict['branding']['logo_base64'] = ""
 
+    update_dict["company_id"] = company_id
     await db.instellingen.update_one(
-        {"id": "company_settings"},
+        {"id": "company_settings", "company_id": company_id},
         {"$set": update_dict},
         upsert=True
     )
@@ -5316,7 +5408,7 @@ async def update_instellingen(update_data: BedrijfsInstellingenUpdate, current_u
     clear_cache("app-settings")
     clear_cache("app-settings:logo")
 
-    updated = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0})
+    updated = await get_instellingen_for_company(company_id)
     if updated.get('adres_gestructureerd') and not updated.get('adres_structured'):
         updated['adres_structured'] = updated['adres_gestructureerd']
     if updated.get('pdf_teksten') and not updated.get('pdf_texts'):
@@ -5328,7 +5420,8 @@ async def update_instellingen(update_data: BedrijfsInstellingenUpdate, current_u
 @api_router.get("/instellingen/facturatie")
 async def get_facturatie_instellingen(current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Facturatie koppeling instellingen ophalen."""
-    settings = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0})
+    company_id = current_user.get("company_id") or "default_company"
+    settings = await get_instellingen_for_company(company_id)
     if not settings:
         return {
             "billit_api_key": None,
@@ -5350,15 +5443,17 @@ async def get_facturatie_instellingen(current_user: Dict = Depends(require_roles
 @api_router.put("/instellingen/facturatie")
 async def update_facturatie_instellingen(update_data: Dict, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Facturatie koppeling instellingen opslaan."""
+    company_id = current_user.get("company_id") or "default_company"
     allowed_keys = {"billit_api_key", "billit_party_id", "billit_omschrijving_template", "billit_referentie_veld", "billit_actief", "billit_auto_versturen"}
     update_dict = {k: v for k, v in update_data.items() if k in allowed_keys}
+    update_dict["company_id"] = company_id
     await db.instellingen.update_one(
-        {"id": "company_settings"},
+        {"id": "company_settings", "company_id": company_id},
         {"$set": update_dict},
         upsert=True
     )
     clear_cache("instellingen")
-    updated = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0})
+    updated = await get_instellingen_for_company(company_id)
     return {
         "billit_api_key": updated.get("billit_api_key"),
         "billit_party_id": updated.get("billit_party_id"),
@@ -5669,6 +5764,7 @@ async def send_werkbon_email(
         params = {
             "from": get_sender_email(instellingen),
             **({"reply_to": [get_reply_to(instellingen)]} if get_reply_to(instellingen) else {}),
+            "headers": {"List-Unsubscribe": "<mailto:info@signybon.com>"},
             "to": recipients,
             "subject": f"Werkbon PDF - Week {week} - {werf_naam}",
             "html": html_content,
@@ -5752,6 +5848,7 @@ async def send_oplevering_email(
         params = {
             "from": get_sender_email(instellingen),
             **({"reply_to": [get_reply_to(instellingen)]} if get_reply_to(instellingen) else {}),
+            "headers": {"List-Unsubscribe": "<mailto:info@signybon.com>"},
             "to": recipients,
             "subject": subject,
             "html": html_content,
@@ -6687,18 +6784,22 @@ async def delete_productie_werkbon(werkbon_id: str):
 # ==================== PLANNING ROUTES ====================
 
 @api_router.get("/planning")
-async def get_planning(week_nummer: int, jaar: int):
-    items = await db.planning.find({"week_nummer": week_nummer, "jaar": jaar}, {"_id": 0}).sort("dag", 1).to_list(500)
+async def get_planning(week_nummer: int, jaar: int, current_user: Dict = Depends(get_current_user)):
+    company_id = current_user.get("company_id") or "default_company"
+    q = _company_scope_query(company_id, {"week_nummer": week_nummer, "jaar": jaar})
+    items = await db.planning.find(q, {"_id": 0}).sort("dag", 1).to_list(500)
     return items
 
 @api_router.get("/planning/werknemer/{werknemer_id}")
-async def get_planning_werknemer(werknemer_id: str, week_nummer: Optional[int] = None, jaar: Optional[int] = None):
-    query = {"werknemer_ids": werknemer_id}
+async def get_planning_werknemer(werknemer_id: str, week_nummer: Optional[int] = None, jaar: Optional[int] = None, current_user: Dict = Depends(get_current_user)):
+    company_id = current_user.get("company_id") or "default_company"
+    base = {"werknemer_ids": werknemer_id}
     if week_nummer is not None:
-        query["week_nummer"] = week_nummer
+        base["week_nummer"] = week_nummer
     if jaar is not None:
-        query["jaar"] = jaar
-    items = await db.planning.find(query, {"_id": 0}).sort([("jaar", -1), ("week_nummer", -1), ("dag", 1)]).to_list(500)
+        base["jaar"] = jaar
+    q = _company_scope_query(company_id, base)
+    items = await db.planning.find(q, {"_id": 0}).sort([("jaar", -1), ("week_nummer", -1), ("dag", 1)]).to_list(500)
     return items
 
 @api_router.get("/planning/{planning_id}")
@@ -6773,8 +6874,10 @@ async def create_planning_bulk(data: PlanningBulkCreate, current_user: Dict = De
             belangrijk=data.belangrijk,
             notities=data.notities,
         )
-        await db.planning.insert_one(item.dict())
-        created_items.append(item.dict())
+        item_doc = item.dict()
+        item_doc["company_id"] = current_user.get("company_id") or "default_company"
+        await db.planning.insert_one(item_doc)
+        created_items.append(item_doc)
 
     # Send ONE push notification for all days combined
     if data.werknemer_ids and created_items:
@@ -6859,8 +6962,10 @@ async def create_planning(data: PlanningItemCreate, current_user: Dict = Depends
         belangrijk=data.belangrijk,
         notities=data.notities,
     )
-    await db.planning.insert_one(item.dict())
-    result = item.dict()
+    item_doc = item.dict()
+    item_doc["company_id"] = current_user.get("company_id") or "default_company"
+    await db.planning.insert_one(item_doc)
+    result = item_doc
     if waarschuwingen:
         result["waarschuwingen"] = waarschuwingen
     
@@ -6966,15 +7071,16 @@ async def bevestig_planning(planning_id: str, werknemer_id: str, werknemer_naam:
 # ==================== BERICHTEN (MESSAGES) ROUTES ====================
 
 @api_router.get("/berichten")
-async def get_berichten(user_id: str):
+async def get_berichten(user_id: str, current_user: Dict = Depends(get_current_user)):
     """Get messages for a user (broadcasts + direct messages). Excludes messages hidden by this user."""
-    items = await db.berichten.find(
-        {
-            "$or": [{"naar_id": user_id}, {"is_broadcast": True}, {"van_id": user_id}],
-            "hidden_for_users": {"$nin": [user_id]},
-        },
-        {"_id": 0}
-    ).sort("created_at", -1).to_list(200)
+    company_id = current_user.get("company_id") or "default_company"
+    base = {
+        "$or": [{"naar_id": user_id}, {"is_broadcast": True}, {"van_id": user_id}],
+        "hidden_for_users": {"$nin": [user_id]},
+    }
+    # Add company filter via $and to preserve $or
+    q = {"$and": [base, _company_scope_query(company_id)]}
+    items = await db.berichten.find(q, {"_id": 0}).sort("created_at", -1).to_list(200)
     return items
 
 @api_router.get("/berichten/ongelezen")
@@ -7018,7 +7124,7 @@ async def create_bericht(data: BerichtCreate, current_user: Dict = Depends(get_c
     
     bericht_dict = {
         "id": str(uuid.uuid4()),
-        "company_id": "default_company",
+        "company_id": current_user.get("company_id") or "default_company",
         "van_id": van_id,
         "van_naam": van_naam,
         "naar_id": data.naar_id,
@@ -7177,6 +7283,7 @@ async def send_bericht_email(data: dict):
             "to": [to_email],
             "subject": f"{bedrijfsnaam} - {onderwerp}",
             "html": html_content,
+            "headers": {"List-Unsubscribe": "<mailto:info@signybon.com>"},
         })
         
         return {"success": True, "id": str(result)}
@@ -7656,6 +7763,7 @@ async def help_ticket(request: Request, data: HelpTicketRequest):
             "reply_to": [data.email],
             "subject": f"[Support] {data.bedrijfsnaam or data.naam}",
             "html": html,
+            "headers": {"List-Unsubscribe": "<mailto:info@signybon.com>"},
         }
         await asyncio.to_thread(resend.Emails.send, params)
         return {"success": True, "message": "Ticket verzonden"}
@@ -7745,9 +7853,29 @@ async def ensure_indexes():
         await db.teams.create_index([("id", 1)], unique=True)
         # berichten
         await db.berichten.create_index([("ontvanger_ids", 1), ("created_at", -1)])
+        # Multi-tenant indexes
+        await db.werkbonnen.create_index([("company_id", 1), ("created_at", -1)])
+        await db.klanten.create_index([("company_id", 1)])
+        await db.werven.create_index([("company_id", 1)])
+        await db.planning.create_index([("company_id", 1)])
+        await db.berichten.create_index([("company_id", 1)])
+        await db.teams.create_index([("company_id", 1)])
+        await db.instellingen.create_index([("company_id", 1)])
         logging.info("[DB] Indexes ensured successfully")
     except Exception as idx_err:
         logging.warning(f"[DB] Index creation warning (may already exist): {idx_err}")
+
+    # Migration: set company_id="default_company" on legacy docs missing it
+    try:
+        for coll_name in ("werkbonnen", "klanten", "werven", "planning", "berichten", "teams", "users", "instellingen"):
+            res = await db[coll_name].update_many(
+                {"company_id": {"$exists": False}},
+                {"$set": {"company_id": "default_company"}},
+            )
+            if res.modified_count > 0:
+                logging.info(f"[DB migration] {coll_name}: set company_id on {res.modified_count} legacy docs")
+    except Exception as mig_err:
+        logging.warning(f"[DB migration] warning: {mig_err}")
 
 
 @app.on_event("shutdown")

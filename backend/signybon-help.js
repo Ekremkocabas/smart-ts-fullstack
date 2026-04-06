@@ -3,7 +3,7 @@
   const STYLE = `
 .sb-bubble{position:fixed;bottom:24px;right:24px;width:62px;height:62px;border-radius:50%;background:#1B4332;color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.7rem;cursor:pointer;box-shadow:0 8px 28px rgba(27,67,50,.45);z-index:99998;transition:all .25s;border:none}
 .sb-bubble:hover{transform:scale(1.08)}
-.sb-window{position:fixed;bottom:100px;right:24px;width:420px;max-height:620px;background:#fff;border-radius:20px;box-shadow:0 24px 70px rgba(0,0,0,.22);z-index:99999;display:none;flex-direction:column;overflow:hidden;font-family:'Inter',system-ui,sans-serif}
+.sb-window{position:fixed;bottom:100px;right:24px;width:420px !important;min-width:420px;height:620px !important;min-height:620px;max-height:620px;background:#fff;border-radius:20px;box-shadow:0 24px 70px rgba(0,0,0,.22);z-index:99999;display:none;flex-direction:column;overflow:hidden;font-family:'Inter',system-ui,sans-serif}
 .sb-rating{display:flex;gap:6px;justify-content:center;margin:8px 0}
 .sb-star{font-size:1.6rem;cursor:pointer;color:#DEE2E6;transition:transform .15s}
 .sb-star:hover,.sb-star.filled{color:#D4A017}
@@ -266,11 +266,20 @@
 
       // Load user context from instellingen API
       const ctx = await loadUserContext();
-      const naam = ctx && ctx.naam ? ctx.naam : '';
+      // Avoid using "Admin Bedrijfsnaam" patterns; prefer instellingen voornaam+achternaam
+      const naam = (ctx && ctx.naam && !/^admin\s/i.test(ctx.naam)) ? ctx.naam : '';
       const greeting = naam
         ? `Hallo ${naam}, hoe kan ik u helpen?`
         : 'Hallo, hoe kan ik u helpen?';
       addMsg(greeting, 'bot');
+
+      // Always-visible direct contact link
+      const link = document.createElement('div');
+      link.style.cssText = 'align-self:flex-start;font-size:.78rem;color:#6c757d;margin-top:-2px;cursor:pointer';
+      link.innerHTML = '<span style="color:#D4A017;font-weight:600;text-decoration:underline">Of direct contact opnemen \u2192</span>';
+      link.onclick = showContactForm;
+      body().appendChild(link);
+
       setFooterInput('Stel uw vraag...', handleQuery);
     }
 

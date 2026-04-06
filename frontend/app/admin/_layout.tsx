@@ -34,6 +34,23 @@ function Sidebar() {
   const { user, logout } = useAuth();
   const { theme } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
+  const [contactNaam, setContactNaam] = useState<string>('');
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !user) return;
+    (async () => {
+      try {
+        const token = await AsyncStorage.getItem('token');
+        if (!token) return;
+        const res = await fetch('/api/instellingen', { headers: { Authorization: 'Bearer ' + token } });
+        if (res.ok) {
+          const inst = await res.json();
+          const full = ((inst.voornaam || '') + ' ' + (inst.achternaam || '')).trim();
+          if (full) setContactNaam(full);
+        }
+      } catch (e) { /* ignore */ }
+    })();
+  }, [user?.id]);
 
   const handleLogout = async () => {
     await logout();
@@ -101,11 +118,11 @@ function Sidebar() {
         {!collapsed && (
           <View style={styles.userInfo}>
             <View style={[styles.userAvatar, { backgroundColor: theme.primaryColor || '#1B4332' }]}>
-              <Text style={styles.userAvatarText}>{user?.naam?.charAt(0) || 'A'}</Text>
+              <Text style={styles.userAvatarText}>{(theme?.bedrijfsnaam || 'S').charAt(0).toUpperCase()}</Text>
             </View>
             <View style={styles.userDetails}>
-              <Text style={styles.userName} numberOfLines={1}>{user?.naam || 'Beheerder'}</Text>
-              <Text style={styles.userRole}>{user?.rol || 'Admin'}</Text>
+              <Text style={styles.userName} numberOfLines={1}>{theme?.bedrijfsnaam || 'Signybon'}</Text>
+              <Text style={styles.userRole} numberOfLines={1}>{contactNaam || user?.naam || ''}</Text>
             </View>
           </View>
         )}

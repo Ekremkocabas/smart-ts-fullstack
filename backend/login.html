@@ -59,11 +59,20 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--gray-50);color:va
 </div>
 
 <script>
-// Check for verified=1 param
+// Check for verified param
 const params = new URLSearchParams(window.location.search);
-if (params.get('verified') === '1') {
+const verified = params.get('verified');
+if (verified === '1') {
   const s = document.getElementById('alertSuccess');
   s.textContent = 'Uw e-mailadres is bevestigd! U kunt nu inloggen.';
+  s.classList.add('show');
+} else if (verified === 'already') {
+  const s = document.getElementById('alertSuccess');
+  s.textContent = 'Uw account is al geverifieerd. U kunt inloggen.';
+  s.classList.add('show');
+} else if (verified === 'expired') {
+  const s = document.getElementById('alertError');
+  s.textContent = 'Verificatielink is ongeldig of verlopen.';
   s.classList.add('show');
 }
 

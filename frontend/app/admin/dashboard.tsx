@@ -152,7 +152,7 @@ export default function AdminDashboard() {
       <View style={styles.pageHeader}>
         <View>
           <Text style={styles.greeting}>Welkom terug,</Text>
-          <Text style={styles.pageTitle}>{user?.naam || 'Beheerder'}</Text>
+          <Text style={styles.pageTitle}>{theme?.bedrijfsnaam || 'Signybon'}</Text>
         </View>
         <Text style={styles.dateText}>
           {new Date().toLocaleDateString('nl-BE', {
