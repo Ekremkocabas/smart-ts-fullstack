@@ -7671,6 +7671,10 @@ async def serve_favicon_ico():
 async def serve_favicon_png():
     return FileResponse(FAVICON_PNG_PATH, media_type="image/png")
 
+@app.get("/")
+async def serve_root():
+    return FileResponse(LANDING_PATH, media_type="text/html")
+
 @app.get("/landing")
 async def serve_landing():
     return FileResponse(LANDING_PATH, media_type="text/html")
