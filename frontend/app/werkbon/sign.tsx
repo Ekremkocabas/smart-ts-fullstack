@@ -419,7 +419,7 @@ export default function WerkbonSign() {
         let emailSent = false;
         let emailError = '';
 
-        // Always send to ts@smart-techbv.be; optionally also to client if toggle is on
+        // Always send to company recipient; optionally also to client if toggle is on
         if (response.data.id) {
           try {
             const verzendBase = getVerzendBaseForType(type || 'uren');

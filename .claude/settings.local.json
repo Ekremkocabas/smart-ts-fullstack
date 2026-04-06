@@ -56,7 +56,31 @@
       "Bash(railway service:*)",
       "Bash(railway status:*)",
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d.get\\('MONGO_URL',''\\)\\)\")",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(railway run python -c ':*)",
+      "Bash(railway run:*)",
+      "Bash(railway run python -c 'import asyncio, os; from motor.motor_asyncio import AsyncIOMotorClient:*)",
+      "Bash(chcp 65001)",
+      "Bash(set PYTHONIOENCODING=utf-8)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://docs.billit.be\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://api.billit.be/swagger\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://app.billit.be/api-docs\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://api.billit.be/v1/swagger\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://api.billit.be/swagger/ui/index\")",
+      "Bash(railway logs:*)",
+      "Bash(rm -rf backend/dist)",
+      "Bash(cp -r frontend/dist backend/dist)",
+      "Bash(rm -rf /c/Users/ekrem/OneDrive/Desktop/smart-ts-fullstack/backend/dist)",
+      "Bash(cp -r /c/Users/ekrem/OneDrive/Desktop/smart-ts-fullstack/frontend/dist /c/Users/ekrem/OneDrive/Desktop/smart-ts-fullstack/backend/dist)",
+      "Bash(python3:*)",
+      "Bash(eas build:view 466a2fb2-87be-4946-a76f-70b39d428a50 --json)",
+      "Bash(eas build:list --platform android --limit 1 --json)",
+      "WebFetch(domain:job-logs.eascdn.net)",
+      "Bash(eas build:list --platform android --limit 5 --json)",
+      "Bash(eas build:list --platform android --limit 2 --json)",
+      "Bash(eas build:list --platform android --limit 3 --json)",
+      "Bash(curl -sI https://web-test-ts.up.railway.app/)",
+      "Bash(curl -sI -X GET https://web-test-ts.up.railway.app/)"
     ]
   }
 }

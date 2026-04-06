@@ -222,6 +222,7 @@ a{text-decoration:none;color:inherit}
         <button class="lang-btn" onclick="setLang('en')">EN</button>
         <button class="lang-btn" onclick="setLang('tr')">TR</button>
       </div>
+      <a href="/login" class="btn btn-outline" data-i18n="nav_login" style="padding:10px 18px">Inloggen</a>
       <a href="/register" class="btn btn-primary" data-i18n="nav_cta">1 Maand Gratis</a>
     </div>
     <button class="hamburger" onclick="toggleMobile()" aria-label="Menu">
@@ -459,7 +460,7 @@ a{text-decoration:none;color:inherit}
 // ─── TRANSLATIONS ───
 const T = {
   nl: {
-    nav_functies:'Functies', nav_hoe:'Hoe het werkt', nav_prijzen:'Prijzen', nav_cta:'1 Maand Gratis',
+    nav_functies:'Functies', nav_hoe:'Hoe het werkt', nav_prijzen:'Prijzen', nav_login:'Inloggen', nav_cta:'1 Maand Gratis',
     hero_line1:'Minder papier.', hero_line2:'Meer controle.',
     hero_sub:'Digitale werkbonnen, planning en berichten voor uw bouwteam.',
     hero_cta1:'Start Gratis \u2192', hero_cta2:'Bekijk hoe het werkt',
@@ -497,7 +498,7 @@ const T = {
     footer_desc:'Digitale werkbonnen voor de bouwsector.'
   },
   fr: {
-    nav_functies:'Fonctions', nav_hoe:'Comment \u00e7a marche', nav_prijzen:'Tarifs', nav_cta:'1 Mois Gratuit',
+    nav_functies:'Fonctions', nav_hoe:'Comment \u00e7a marche', nav_prijzen:'Tarifs', nav_login:'Connexion', nav_cta:'1 Mois Gratuit',
     hero_line1:'Moins de papier.', hero_line2:'Plus de contr\u00f4le.',
     hero_sub:'Bons de travail num\u00e9riques, planning et messagerie pour votre \u00e9quipe de construction.',
     hero_cta1:'Essai Gratuit \u2192', hero_cta2:'Voir comment \u00e7a marche',
@@ -535,7 +536,7 @@ const T = {
     footer_desc:'Bons de travail num\u00e9riques pour le secteur de la construction.'
   },
   en: {
-    nav_functies:'Features', nav_hoe:'How it works', nav_prijzen:'Pricing', nav_cta:'1 Month Free',
+    nav_functies:'Features', nav_hoe:'How it works', nav_prijzen:'Pricing', nav_login:'Login', nav_cta:'1 Month Free',
     hero_line1:'Less paper.', hero_line2:'More control.',
     hero_sub:'Digital work orders, planning and messaging for your construction team.',
     hero_cta1:'Start Free \u2192', hero_cta2:'See how it works',
@@ -573,7 +574,7 @@ const T = {
     footer_desc:'Digital work orders for the construction sector.'
   },
   tr: {
-    nav_functies:'\u00d6zellikler', nav_hoe:'Nas\u0131l \u00e7al\u0131\u015f\u0131r', nav_prijzen:'Fiyatlar', nav_cta:'1 Ay \u00dccretsiz',
+    nav_functies:'\u00d6zellikler', nav_hoe:'Nas\u0131l \u00e7al\u0131\u015f\u0131r', nav_prijzen:'Fiyatlar', nav_login:'Giri\u015f', nav_cta:'1 Ay \u00dccretsiz',
     hero_line1:'Daha az ka\u011f\u0131t.', hero_line2:'Daha fazla kontrol.',
     hero_sub:'\u0130n\u015faat ekibiniz i\u00e7in dijital i\u015f emirleri, planlama ve mesajla\u015fma.',
     hero_cta1:'\u00dccretsiz Ba\u015fla \u2192', hero_cta2:'Nas\u0131l \u00e7al\u0131\u015ft\u0131\u011f\u0131n\u0131 g\u00f6r',
@@ -677,128 +678,6 @@ document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
 // Init
 setLang(currentLang);
 </script>
-
-<!-- FAQ CHATBOT -->
-<style>
-.chatbot-bubble{position:fixed;bottom:24px;right:24px;width:60px;height:60px;border-radius:50%;background:var(--green);color:var(--white);display:flex;align-items:center;justify-content:center;font-size:1.6rem;cursor:pointer;box-shadow:0 6px 24px rgba(27,67,50,.4);z-index:2000;transition:all .3s;border:none}
-.chatbot-bubble:hover{transform:scale(1.1);box-shadow:0 8px 32px rgba(27,67,50,.5)}
-.chatbot-window{position:fixed;bottom:96px;right:24px;width:380px;max-height:520px;background:var(--white);border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,.2);z-index:2000;display:none;flex-direction:column;overflow:hidden;animation:chatSlideUp .3s ease}
-.chatbot-window.open{display:flex}
-@keyframes chatSlideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
-.chatbot-header{background:var(--green);color:var(--white);padding:18px 20px;display:flex;align-items:center;justify-content:space-between}
-.chatbot-header h4{font-size:.95rem;font-weight:700;margin:0;display:flex;align-items:center;gap:8px}
-.chatbot-close{background:none;border:none;color:rgba(255,255,255,.7);font-size:1.3rem;cursor:pointer;padding:4px}
-.chatbot-close:hover{color:var(--white)}
-.chatbot-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;max-height:340px}
-.chat-msg{max-width:85%;padding:10px 14px;border-radius:14px;font-size:.875rem;line-height:1.5;animation:chatFade .3s ease}
-@keyframes chatFade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-.chat-msg.bot{background:var(--gray-100);color:var(--gray-800);align-self:flex-start;border-bottom-left-radius:4px}
-.chat-msg.user{background:var(--green);color:var(--white);align-self:flex-end;border-bottom-right-radius:4px}
-.chat-quick-replies{padding:12px 16px;border-top:1px solid var(--gray-200);display:flex;flex-wrap:wrap;gap:8px}
-.chat-quick-btn{padding:8px 14px;border:1px solid var(--gray-300);border-radius:20px;background:var(--white);font-size:.8rem;cursor:pointer;transition:all .2s;font-family:inherit;color:var(--gray-700)}
-.chat-quick-btn:hover{border-color:var(--green);color:var(--green);background:rgba(27,67,50,.04)}
-@media(max-width:480px){.chatbot-window{right:12px;left:12px;width:auto;bottom:88px}}
-</style>
-
-<button class="chatbot-bubble" onclick="toggleChat()" aria-label="FAQ Chat">&#128172;</button>
-
-<div class="chatbot-window" id="chatWindow">
-  <div class="chatbot-header">
-    <h4>&#129302; Signybon FAQ</h4>
-    <button class="chatbot-close" onclick="toggleChat()">&times;</button>
-  </div>
-  <div class="chatbot-messages" id="chatMessages"></div>
-  <div class="chat-quick-replies" id="chatQuickReplies"></div>
-</div>
-
-<script>
-(function(){
-  const FAQ = {
-    nl: {
-      welcome: 'Hallo! Hoe kan ik u helpen?',
-      questions: [
-        { q: 'Wat kost het?', a: 'Basic kost \u20ac29/maand (normaal \u20ac49) en Pro kost \u20ac49/maand (normaal \u20ac79). De eerste maand is gratis, geen creditcard nodig! Bij een jaarabonnement krijgt u tot 20% korting.' },
-        { q: 'Hoe werkt de app?', a: 'De admin maakt een planning aan in het web panel. Werknemers krijgen een pushmelding, vullen hun werkbon in op de mobiele app, en de klant tekent digitaal. Daarna wordt automatisch een PDF gegenereerd en verstuurd.' },
-        { q: 'Gratis proberen?', a: 'Ja! U kunt Signybon 1 maand gratis uitproberen zonder creditcard. Klik op "Start Gratis" om direct een account aan te maken.' },
-        { q: 'Welke werkbonnen?', a: 'Signybon ondersteunt uren werkbonnen (uitzendkantoren & aannemers), dag/consultancy werkbonnen, prestatie werkbonnen (chapiste & isolatie, binnenkort) en oplevering werkbonnen (binnenkort).' },
-        { q: 'Is er een app?', a: 'Ja! Signybon heeft een mobiele app voor Android en iOS (werknemers) \u00e9n een web admin panel voor beheerders. Planning, werkbonnen, berichten \u2014 alles in \u00e9\u00e9n platform.' },
-        { q: 'Facturatie?', a: 'Het Pro pakket bevat een facturatie koppeling (o.a. Billit). Werkbonnen kunnen automatisch als factuur worden doorgestuurd. Boekhoudkoppeling komt binnenkort.' },
-      ]
-    },
-    fr: {
-      welcome: 'Bonjour ! Comment puis-je vous aider ?',
-      questions: [
-        { q: 'Quel est le prix ?', a: 'Basic co\u00fbte \u20ac29/mois (normalement \u20ac49) et Pro co\u00fbte \u20ac49/mois (normalement \u20ac79). Le premier mois est gratuit, sans carte bancaire ! Avec un abonnement annuel, vous b\u00e9n\u00e9ficiez de 20% de r\u00e9duction.' },
-        { q: "Comment \u00e7a marche ?", a: "L\u2019admin cr\u00e9e un planning dans le panel web. Les employ\u00e9s re\u00e7oivent une notification push, remplissent leur bon de travail sur l\u2019app mobile, et le client signe num\u00e9riquement. Ensuite, un PDF est automatiquement g\u00e9n\u00e9r\u00e9 et envoy\u00e9." },
-        { q: 'Essai gratuit ?', a: 'Oui ! Vous pouvez essayer Signybon gratuitement pendant 1 mois sans carte bancaire. Cliquez sur "Essai Gratuit" pour cr\u00e9er un compte.' },
-      ]
-    },
-    en: {
-      welcome: 'Hello! How can I help you?',
-      questions: [
-        { q: 'What does it cost?', a: 'Basic costs \u20ac29/month (normally \u20ac49) and Pro costs \u20ac49/month (normally \u20ac79). The first month is free, no credit card needed! With a yearly plan, you get up to 20% off.' },
-        { q: 'How does it work?', a: 'The admin creates a planning in the web panel. Employees receive a push notification, fill in their work order on the mobile app, and the client signs digitally. Then a PDF is automatically generated and sent.' },
-        { q: 'Free trial?', a: 'Yes! You can try Signybon free for 1 month without a credit card. Click "Start Free" to create an account right away.' },
-      ]
-    },
-    tr: {
-      welcome: 'Merhaba! Size nas\u0131l yard\u0131mc\u0131 olabilirim?',
-      questions: [
-        { q: 'Fiyat\u0131 ne?', a: 'Basic ayl\u0131k \u20ac29 (normalde \u20ac49), Pro ayl\u0131k \u20ac49 (normalde \u20ac79). \u0130lk ay \u00fccretsiz, kredi kart\u0131 gerekmez! Y\u0131ll\u0131k planda %20\u2019ye varan indirim.' },
-        { q: 'Nas\u0131l \u00e7al\u0131\u015f\u0131r?', a: 'Y\u00f6netici web panelden planlama olu\u015fturur. \u00c7al\u0131\u015fanlar push bildirim al\u0131r, mobil uygulamada i\u015f emrini doldurur, m\u00fc\u015fteri dijital imza atar. Sonra otomatik PDF olu\u015fturulup g\u00f6nderilir.' },
-        { q: '\u00dccretsiz deneme?', a: 'Evet! Signybon\u2019u 1 ay \u00fccretsiz, kredi kart\u0131 olmadan deneyebilirsiniz. "\u00dccretsiz Ba\u015fla" butonuna t\u0131klay\u0131n.' },
-      ]
-    }
-  };
-
-  let chatOpen = false;
-  const msgEl = document.getElementById('chatMessages');
-  const qrEl = document.getElementById('chatQuickReplies');
-
-  window.toggleChat = function() {
-    chatOpen = !chatOpen;
-    document.getElementById('chatWindow').classList.toggle('open', chatOpen);
-    if (chatOpen && msgEl.children.length === 0) initChat();
-  };
-
-  function initChat() {
-    msgEl.innerHTML = '';
-    const faq = FAQ[currentLang] || FAQ.nl;
-    addMsg(faq.welcome, 'bot');
-    renderQuickReplies();
-  }
-
-  function addMsg(text, type) {
-    const d = document.createElement('div');
-    d.className = 'chat-msg ' + type;
-    d.textContent = text;
-    msgEl.appendChild(d);
-    msgEl.scrollTop = msgEl.scrollHeight;
-  }
-
-  function renderQuickReplies() {
-    const faq = FAQ[currentLang] || FAQ.nl;
-    qrEl.innerHTML = '';
-    faq.questions.forEach((item, i) => {
-      const btn = document.createElement('button');
-      btn.className = 'chat-quick-btn';
-      btn.textContent = item.q;
-      btn.onclick = () => {
-        addMsg(item.q, 'user');
-        setTimeout(() => addMsg(item.a, 'bot'), 400);
-      };
-      qrEl.appendChild(btn);
-    });
-  }
-
-  // Re-init chat on language change
-  const origSetLang = window.setLang;
-  window.setLang = function(lang) {
-    origSetLang(lang);
-    if (chatOpen) initChat();
-    else { msgEl.innerHTML = ''; }
-  };
-})();
-</script>
+<script src="/signybon-help.js"></script>
 </body>
 </html>

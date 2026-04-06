@@ -77,20 +77,20 @@ function Sidebar() {
           return (
             <TouchableOpacity
               key={index}
-              style={[styles.menuItem, isActive && { backgroundColor: `${theme.primaryColor || '#F5A623'}15` }]}
+              style={[styles.menuItem, isActive && { backgroundColor: `${theme.primaryColor || '#1B4332'}15` }]}
               onPress={() => router.push(item.route as any)}
             >
               <Ionicons 
                 name={isActive ? item.icon.replace('-outline', '') as any : item.icon as any} 
                 size={22} 
-                color={isActive ? theme.primaryColor || '#F5A623' : '#6c757d'} 
+                color={isActive ? theme.primaryColor || '#1B4332' : '#6c757d'} 
               />
               {!collapsed && (
                 <Text style={[styles.menuLabel, isActive && { color: theme.secondaryColor || '#1A1A2E' }]}>
                   {item.label}
                 </Text>
               )}
-              {isActive && !collapsed && <View style={[styles.activeIndicator, { backgroundColor: theme.primaryColor || '#F5A623' }]} />}
+              {isActive && !collapsed && <View style={[styles.activeIndicator, { backgroundColor: theme.primaryColor || '#1B4332' }]} />}
             </TouchableOpacity>
           );
         })}
@@ -100,7 +100,7 @@ function Sidebar() {
       <View style={styles.sidebarFooter}>
         {!collapsed && (
           <View style={styles.userInfo}>
-            <View style={[styles.userAvatar, { backgroundColor: theme.primaryColor || '#F5A623' }]}>
+            <View style={[styles.userAvatar, { backgroundColor: theme.primaryColor || '#1B4332' }]}>
               <Text style={styles.userAvatarText}>{user?.naam?.charAt(0) || 'A'}</Text>
             </View>
             <View style={styles.userDetails}>
@@ -147,10 +147,10 @@ function CompactTopNav() {
           return (
             <TouchableOpacity
               key={item.route}
-              style={[styles.compactMenuItem, isActive && { backgroundColor: `${theme.primaryColor || '#F5A623'}18`, borderColor: theme.primaryColor || '#F5A623' }]}
+              style={[styles.compactMenuItem, isActive && { backgroundColor: `${theme.primaryColor || '#1B4332'}18`, borderColor: theme.primaryColor || '#1B4332' }]}
               onPress={() => router.push(item.route as any)}
             >
-              <Ionicons name={item.icon as any} size={16} color={isActive ? theme.primaryColor || '#F5A623' : '#6c757d'} />
+              <Ionicons name={item.icon as any} size={16} color={isActive ? theme.primaryColor || '#1B4332' : '#6c757d'} />
               <Text style={[styles.compactMenuLabel, isActive && { color: theme.secondaryColor || '#1A1A2E' }]}>{item.label}</Text>
             </TouchableOpacity>
           );
@@ -220,6 +220,18 @@ export default function AdminLayout() {
   const pathname = usePathname();
   const { user, isLoading } = useAuth();
   const { width } = useWindowDimensions();
+
+  // Inject Signybon help widget script (web only, once)
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    if (typeof document === 'undefined') return;
+    if (document.getElementById('signybon-help-script')) return;
+    const s = document.createElement('script');
+    s.id = 'signybon-help-script';
+    s.src = '/signybon-help.js';
+    s.async = true;
+    document.body.appendChild(s);
+  }, []);
 
   if (Platform.OS !== 'web') {
     return null;
@@ -423,7 +435,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 10,
-    backgroundColor: '#F5A62315',
+    backgroundColor: '#1B433215',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -464,7 +476,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   menuItemActive: {
-    backgroundColor: '#F5A62310',
+    backgroundColor: '#1B433210',
   },
   menuLabel: {
     flex: 1,
@@ -483,7 +495,7 @@ const styles = StyleSheet.create({
     marginTop: -10,
     width: 4,
     height: 20,
-    backgroundColor: '#F5A623',
+    backgroundColor: '#1B4332',
     borderRadius: 2,
   },
   sidebarFooter: {
@@ -501,7 +513,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F5A623',
+    backgroundColor: '#1B4332',
     alignItems: 'center',
     justifyContent: 'center',
   },

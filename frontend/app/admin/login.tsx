@@ -8,17 +8,24 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useAuth, apiClient } from '../../context/AuthContext';
-import { useTheme } from '../../context/ThemeContext';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '../../context/AuthContext';
+
+// Signybon diamond logo (3-layer rotated squares)
+function SignybonLogo() {
+  return (
+    <View style={{ width: 60, height: 60, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ width: 40, height: 40, backgroundColor: '#D4A017', borderRadius: 8, transform: [{ rotate: '45deg' }], position: 'absolute' }} />
+      <View style={{ width: 30, height: 30, backgroundColor: '#1B4332', borderRadius: 6, transform: [{ rotate: '45deg' }], position: 'absolute' }} />
+      <View style={{ width: 16, height: 16, backgroundColor: '#D4A017', borderRadius: 3, transform: [{ rotate: '45deg' }], position: 'absolute' }} />
+    </View>
+  );
+}
 
 export default function AdminLogin() {
   const { setUser, login: authLogin } = useAuth();
-  const { theme } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -40,16 +47,11 @@ export default function AdminLogin() {
     setError('');
 
     try {
-      console.log('Attempting login with AuthContext');
-      // Use AuthContext login function which properly sets both user AND token
       const response = await authLogin(email.trim(), password);
-      
-      console.log('Login response:', response);
       const userFromResponse = response.user;
       const userRole = userFromResponse.rol;
       const hasWebAccess = userFromResponse.web_access !== false;
 
-      // Check if user has admin role and web access
       if (!['beheerder', 'admin', 'master_admin', 'planner'].includes(userRole)) {
         setError('Alleen beheerders hebben toegang tot dit portaal');
         return;
@@ -60,10 +62,8 @@ export default function AdminLogin() {
         return;
       }
 
-      // Navigate to dashboard (user and token are already set by authLogin)
       router.replace('/admin/dashboard');
     } catch (err: any) {
-      console.error('Login error:', err);
       const errorMessage = err.response?.data?.detail || err.message || 'Ongeldige inloggegevens';
       setError(errorMessage);
     } finally {
@@ -77,18 +77,10 @@ export default function AdminLogin() {
         <View style={styles.card}>
           <View style={styles.header}>
             <View style={styles.iconContainer}>
-              {theme.logoBase64 ? (
-                <Image
-                  source={{ uri: theme.logoBase64.startsWith('data:image') ? theme.logoBase64 : `data:image/png;base64,${theme.logoBase64}` }}
-                  style={styles.remoteLogo}
-                  resizeMode="contain"
-                />
-              ) : (
-                <Ionicons name="shield-checkmark" size={48} color={theme.primaryColor || '#F5A623'} />
-              )}
+              <SignybonLogo />
             </View>
-            <Text style={[styles.title, { color: theme.secondaryColor || '#1A1A2E' }]}>Admin Portaal</Text>
-            <Text style={styles.subtitle}>{theme.bedrijfsnaam || 'Signybon'} Beheerders Login</Text>
+            <Text style={styles.title}>SIGNYBON</Text>
+            <Text style={styles.subtitle}>Het digitale werkbonplatform</Text>
           </View>
 
           {error ? (
@@ -105,7 +97,7 @@ export default function AdminLogin() {
               <TextInput
                 testID="admin-login-email-input"
                 style={styles.input}
-                placeholder="beheerder@smart-techbv.be"
+                placeholder="naam@bedrijf.be"
                 placeholderTextColor="#a0a0a0"
                 value={email}
                 onChangeText={setEmail}
@@ -135,16 +127,16 @@ export default function AdminLogin() {
 
             <TouchableOpacity
               testID="admin-login-submit-button"
-              style={[styles.loginButton, { backgroundColor: theme.primaryColor || '#F5A623' }, loading && styles.loginButtonDisabled]}
+              style={[styles.loginButton, loading && styles.loginButtonDisabled]}
               onPress={handleLogin}
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color={theme.secondaryColor || '#000'} />
+                <ActivityIndicator color="#D4A017" />
               ) : (
                 <>
-                  <Ionicons name="log-in-outline" size={22} color={theme.secondaryColor || '#000'} />
-                  <Text style={[styles.loginButtonText, { color: theme.secondaryColor || '#000' }]}>Inloggen</Text>
+                  <Ionicons name="log-in-outline" size={22} color="#FFFFFF" />
+                  <Text style={styles.loginButtonText}>Inloggen</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -165,16 +157,8 @@ export default function AdminLogin() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F6FA',
-  },
-  content: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
+  container: { flex: 1, backgroundColor: '#F5F6FA' },
+  content: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
@@ -187,32 +171,27 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 5,
   },
-  header: {
-    alignItems: 'center',
-    marginBottom: 32,
-  },
+  header: { alignItems: 'center', marginBottom: 32 },
   iconContainer: {
     width: 80,
     height: 80,
     borderRadius: 20,
-    backgroundColor: '#F5A62315',
+    backgroundColor: '#1B433215',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
   },
-  remoteLogo: {
-    width: 68,
-    height: 68,
-  },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1A1A2E',
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#1B4332',
+    letterSpacing: 2,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 14,
-    color: '#6c757d',
+    color: '#D4A017',
+    fontWeight: '600',
   },
   errorContainer: {
     flexDirection: 'row',
@@ -223,21 +202,9 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     gap: 8,
   },
-  errorText: {
-    color: '#dc3545',
-    fontSize: 14,
-    flex: 1,
-  },
-  form: {
-    gap: 8,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#1A1A2E',
-    marginBottom: 6,
-    marginTop: 8,
-  },
+  errorText: { color: '#dc3545', fontSize: 14, flex: 1 },
+  form: { gap: 8 },
+  label: { fontSize: 14, fontWeight: '500', color: '#1A1A2E', marginBottom: 6, marginTop: 8 },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -248,35 +215,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     height: 56,
   },
-  inputIcon: {
-    marginRight: 12,
-  },
-  input: {
-    flex: 1,
-    color: '#1A1A2E',
-    fontSize: 16,
-  },
-  eyeIcon: {
-    padding: 4,
-  },
+  inputIcon: { marginRight: 12 },
+  input: { flex: 1, color: '#1A1A2E', fontSize: 16 },
+  eyeIcon: { padding: 4 },
   loginButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F5A623',
+    backgroundColor: '#1B4332',
     height: 56,
     borderRadius: 12,
     marginTop: 24,
     gap: 8,
   },
-  loginButtonDisabled: {
-    opacity: 0.7,
-  },
-  loginButtonText: {
-    color: '#000',
-    fontSize: 18,
-    fontWeight: '600',
-  },
+  loginButtonDisabled: { opacity: 0.7 },
+  loginButtonText: { color: '#FFFFFF', fontSize: 18, fontWeight: '600' },
   footer: {
     alignItems: 'center',
     marginTop: 24,
@@ -284,18 +237,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#E8E9ED',
   },
-  footerText: {
-    color: '#6c757d',
-    fontSize: 12,
-  },
-  backLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 24,
-    gap: 6,
-  },
-  backLinkText: {
-    color: '#6c757d',
-    fontSize: 14,
-  },
+  footerText: { color: '#6c757d', fontSize: 12 },
+  backLink: { flexDirection: 'row', alignItems: 'center', marginTop: 24, gap: 6 },
+  backLinkText: { color: '#6c757d', fontSize: 14 },
 });

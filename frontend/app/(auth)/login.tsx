@@ -18,7 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth, WEB_PANEL_ROLES, MOBILE_APP_ROLES } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 
-const LOGO_DARK = require('../../assets/images/smarttech-logo.png');
+const LOGO_DARK = require('../../assets/icon.png');
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');

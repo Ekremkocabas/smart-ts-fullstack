@@ -252,10 +252,16 @@ export default function InstellingenAdmin() {
     setSaving(true);
     try {
       // Build payload with both new and legacy fields for compatibility
-      // If user removed the logo, send "DELETE" sentinel so backend actually clears it
-      const logoValue = instellingen.branding.logo_base64 ?? "DELETE";
+      // If user removed the logo (null/undefined), send "DELETE" sentinel so backend actually clears it
+      const logoMissing = instellingen.branding.logo_base64 == null;
+      const logoValue = logoMissing ? "DELETE" : instellingen.branding.logo_base64;
+      // When deleting, strip branding.logo_base64 from nested branding to avoid Pydantic confusion
+      const brandingForPayload = logoMissing
+        ? { ...instellingen.branding, logo_base64: undefined }
+        : instellingen.branding;
       const payload = {
         ...instellingen,
+        branding: brandingForPayload,
         // Legacy fields for backward compatibility
         logo_base64: logoValue,
         primary_color: instellingen.branding.primary_color,
@@ -351,7 +357,7 @@ export default function InstellingenAdmin() {
             )}
           </TouchableOpacity>
           {instellingen.branding.logo_base64 && (
-            <TouchableOpacity style={styles.removeLogo} onPress={() => setInstellingen({ ...instellingen, branding: { ...instellingen.branding, logo_base64: undefined } })}>
+            <TouchableOpacity style={styles.removeLogo} onPress={() => setInstellingen({ ...instellingen, branding: { ...instellingen.branding, logo_base64: null as any } })}>
               <Text style={styles.removeLogoText}>Logo verwijderen</Text>
             </TouchableOpacity>
           )}

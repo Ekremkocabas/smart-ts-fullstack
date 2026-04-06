@@ -70,9 +70,9 @@ JWT_EXPIRATION_HOURS = 24 * 7  # 7 days
 
 # Resend configuration
 resend.api_key = os.environ.get('RESEND_API_KEY', '')
-SENDER_EMAIL = os.environ.get('SENDER_EMAIL', 'onboarding@resend.dev')
-COMPANY_EMAIL = "info@smart-techbv.be"  # For sending emails TO customers
-WERKBON_RECIPIENT_EMAIL = "ts@smart-techbv.be"  # Werkbonnen from workers go HERE
+SENDER_EMAIL = os.environ.get('SENDER_EMAIL', 'noreply@signybon.com')
+COMPANY_EMAIL = ""  # Per-company email comes from instellingen
+WERKBON_RECIPIENT_EMAIL = ""  # Per-company werkbon recipient from instellingen
 
 # (COMPANY_INFO removed — all PDF functions now use instellingen from MongoDB)
 
@@ -80,7 +80,7 @@ WERKBON_RECIPIENT_EMAIL = "ts@smart-techbv.be"  # Werkbonnen from workers go HER
 LEGAL_TEXT = (
     "Door ondertekening bevestigt de klant de juistheid van alle bovenstaande gegevens. "
     "Deze werkbon dient als grondslag voor facturatie. "
-    "Bezwaren dienen schriftelijk gemeld te worden aan info@smart-techbv.be binnen 5 werkdagen na ondertekening, "
+    "Bezwaren dienen schriftelijk gemeld te worden binnen 5 werkdagen na ondertekening, "
     "bij gebreke waarvan de werkbon als definitief goedgekeurd geldt. "
     "De digitale handtekening heeft dezelfde rechtskracht als een handgeschreven handtekening."
 )
@@ -1138,8 +1138,8 @@ class BedrijfsInstellingen(BaseModel):
     company_id: str = "default_company"       # NEW: Company scoping
     
     bedrijfsnaam: str = "Signybon"
-    email: str = "info@smart-techbv.be"
-    admin_emails: List[str] = ["info@smart-techbv.be"]  # Admin email addresses
+    email: str = ""
+    admin_emails: List[str] = []  # Admin email addresses
     telefoon: Optional[str] = None
     adres: Optional[str] = None
     postcode: Optional[str] = None
@@ -1796,12 +1796,12 @@ def get_week_dates(year: int, week: int) -> dict:
     }
 
 async def is_admin(email: str) -> bool:
-    """Check if user is admin based on email"""
-    settings = await db.instellingen.find_one({"id": "company_settings"})
-    if settings and "admin_emails" in settings:
-        return email.lower() in [e.lower() for e in settings["admin_emails"]]
-    # Default admin email
-    return email.lower() == "info@smart-techbv.be"
+    """Check if user has admin role (role-based, not email-based)."""
+    user = await db.users.find_one({"email": email.lower()})
+    if not user:
+        return False
+    role = (user.get("rol") or "").lower()
+    return role in ("admin", "master_admin")
 
 # ==================== AUTH ROUTES ====================
 
@@ -1992,9 +1992,14 @@ DAY_COLUMNS = [
 
 
 def get_sender_email(instellingen: dict) -> str:
+    """Always send from verified Signybon domain, but use company name as display name."""
     bedrijfsnaam = get_email_brand_name(instellingen)
-    sender_email = instellingen.get("email") or os.environ.get("SENDER_EMAIL") or COMPANY_EMAIL
-    return sender_email if "<" in sender_email else f"{bedrijfsnaam} <{sender_email}>"
+    sender_email = os.environ.get("SENDER_EMAIL", "noreply@signybon.com")
+    return f"{bedrijfsnaam} <{sender_email}>"
+
+def get_reply_to(instellingen: dict) -> Optional[str]:
+    """Return company's own email so replies go to them."""
+    return instellingen.get("email") or None
 
 
 def get_email_brand_name(instellingen: dict) -> str:
@@ -2005,16 +2010,23 @@ def get_email_brand_name(instellingen: dict) -> str:
     return bedrijfsnaam
 
 
-def get_company_recipient(instellingen: dict) -> str:
-    """Get the company email for werkbon receipts - prefer inkomend_werkbon, fallback to ts@smart-techbv.be"""
+def get_company_recipient(instellingen: dict) -> Optional[str]:
+    """Get the company email for werkbon receipts.
+    Priority: emails.inkomend_werkbon -> legacy inkomend_werkbon -> instellingen.email
+    Returns None when no company email is configured (caller must handle).
+    """
     emails = instellingen.get("emails")
     if emails and isinstance(emails, dict):
-        # Prefer inkomend_werkbon for werkbon notifications
         werkbon_email = emails.get("inkomend_werkbon")
         if werkbon_email:
             return werkbon_email
-    # Fallback to werkbon recipient email (ts@smart-techbv.be)
-    return instellingen.get("inkomend_werkbon") or WERKBON_RECIPIENT_EMAIL
+    legacy = instellingen.get("inkomend_werkbon")
+    if legacy:
+        return legacy
+    company_email = instellingen.get("email")
+    if company_email:
+        return company_email
+    return None
 
 
 def get_unique_recipients(*emails: Optional[str]) -> List[str]:
@@ -3342,6 +3354,7 @@ async def send_productie_werkbon_email(werkbon: dict, instellingen: dict, pdf_by
         """
         params = {
             "from": get_sender_email(instellingen),
+            **({"reply_to": [get_reply_to(instellingen)]} if get_reply_to(instellingen) else {}),
             "to": recipients,
             "subject": subject,
             "html": html_body,
@@ -3621,6 +3634,7 @@ async def send_project_werkbon_email(werkbon: dict, instellingen: dict, pdf_byte
     try:
         params = {
             "from": get_sender_email(instellingen),
+            **({"reply_to": [get_reply_to(instellingen)]} if get_reply_to(instellingen) else {}),
             "to": recipients,
             "subject": subject,
             "html": html,
@@ -5198,9 +5212,12 @@ async def update_instellingen(update_data: BedrijfsInstellingenUpdate, current_u
             branding_dict['logo_base64'] = update_dict['logo_base64']
             update_dict['branding'] = branding_dict
 
-    # When deleting logo, also clear branding.logo_base64 via dot notation
+    # When deleting logo, also clear branding.logo_base64 inside the branding dict
+    # (cannot mix nested dict $set with dot-notation in same update)
     if logo_being_deleted:
-        update_dict['branding.logo_base64'] = ""
+        if not isinstance(update_dict.get('branding'), dict):
+            update_dict['branding'] = {}
+        update_dict['branding']['logo_base64'] = ""
 
     await db.instellingen.update_one(
         {"id": "company_settings"},
@@ -5563,6 +5580,7 @@ async def send_werkbon_email(
     try:
         params = {
             "from": get_sender_email(instellingen),
+            **({"reply_to": [get_reply_to(instellingen)]} if get_reply_to(instellingen) else {}),
             "to": recipients,
             "subject": f"Werkbon PDF - Week {week} - {werf_naam}",
             "html": html_content,
@@ -5645,6 +5663,7 @@ async def send_oplevering_email(
     try:
         params = {
             "from": get_sender_email(instellingen),
+            **({"reply_to": [get_reply_to(instellingen)]} if get_reply_to(instellingen) else {}),
             "to": recipients,
             "subject": subject,
             "html": html_content,
@@ -7057,7 +7076,7 @@ async def send_bericht_email(data: dict):
         """
         
         resend_key = os.getenv("RESEND_API_KEY")
-        sender_email = os.getenv("SENDER_EMAIL", "info@smart-techbv.be")
+        sender_email = os.getenv("SENDER_EMAIL", "noreply@signybon.com")
         
         if not resend_key:
             return {"success": False, "error": "E-mail service niet geconfigureerd"}
@@ -7462,6 +7481,100 @@ async def root():
 async def api_health_check():
     return {"status": "healthy", "database": "connected"}
 
+# ==================== HELP / SUPPORT ====================
+
+class HelpAIRequest(BaseModel):
+    messages: List[Dict[str, str]]
+
+class HelpTicketRequest(BaseModel):
+    naam: str
+    email: str
+    bedrijfsnaam: Optional[str] = ""
+    vraag: str
+
+SIGNYBON_AI_SYSTEM_PROMPT = (
+    "Je bent de Signybon support assistent. Je kent het hele Signybon platform van A tot Z: "
+    "werkbonnen (uren, dag, oplevering, prestatie), planning, PDF generatie, facturatie koppeling (Billit), "
+    "instellingen, gebruikers, klanten, werven, mobiele app en web admin panel. "
+    "Antwoord altijd in de taal van de gebruiker (NL/FR/EN/TR). Wees beknopt en behulpzaam. "
+    "Als je iets niet zeker weet of de gebruiker meer hulp nodig heeft, raad aan om via Contact tab "
+    "een ticket aan te maken naar info@signybon.com."
+)
+
+@api_router.post("/help/ai-chat")
+@limiter.limit("20/minute")
+async def help_ai_chat(request: Request, data: HelpAIRequest):
+    """Tier 2: AI assistant via Anthropic API."""
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        return {"reply": "AI assistent is niet geconfigureerd. Stuur a.u.b. een ticket via de Contact tab."}
+    try:
+        import httpx
+        # Build conversation history
+        anthropic_messages = []
+        for m in data.messages[-10:]:  # last 10 messages
+            role = m.get("role")
+            content = (m.get("content") or "").strip()
+            if role in ("user", "assistant") and content:
+                anthropic_messages.append({"role": role, "content": content})
+        if not anthropic_messages:
+            return {"reply": "Stel a.u.b. een vraag."}
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "x-api-key": api_key,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
+                },
+                json={
+                    "model": "claude-haiku-4-5-20251001",
+                    "max_tokens": 1024,
+                    "system": SIGNYBON_AI_SYSTEM_PROMPT,
+                    "messages": anthropic_messages,
+                },
+            )
+            if resp.status_code != 200:
+                logging.error(f"Anthropic API error: {resp.status_code} {resp.text}")
+                return {"reply": "Sorry, er ging iets mis. Probeer Contact tab voor een ticket."}
+            result = resp.json()
+            reply_text = ""
+            for block in result.get("content", []):
+                if block.get("type") == "text":
+                    reply_text += block.get("text", "")
+            return {"reply": reply_text or "Geen antwoord ontvangen."}
+    except Exception as e:
+        logging.error(f"AI chat error: {e}")
+        return {"reply": "Verbinding mislukt. Probeer Contact tab voor een ticket."}
+
+@api_router.post("/help/ticket")
+@limiter.limit("5/minute")
+async def help_ticket(request: Request, data: HelpTicketRequest):
+    """Tier 3: Send support ticket to info@signybon.com."""
+    if not resend.api_key:
+        raise HTTPException(status_code=503, detail="Email service not configured")
+    try:
+        html = f"""
+        <h2>Nieuw support ticket — Signybon</h2>
+        <p><b>Naam:</b> {data.naam}</p>
+        <p><b>E-mail:</b> {data.email}</p>
+        <p><b>Bedrijfsnaam:</b> {data.bedrijfsnaam or '-'}</p>
+        <p><b>Vraag:</b></p>
+        <div style="background:#f8f9fa;padding:14px;border-radius:8px;border-left:4px solid #1B4332;white-space:pre-wrap">{data.vraag}</div>
+        """
+        params = {
+            "from": f"Signybon Support <{os.environ.get('SENDER_EMAIL', 'noreply@signybon.com')}>",
+            "to": ["info@signybon.com"],
+            "reply_to": [data.email],
+            "subject": f"[Support] {data.bedrijfsnaam or data.naam}",
+            "html": html,
+        }
+        await asyncio.to_thread(resend.Emails.send, params)
+        return {"success": True, "message": "Ticket verzonden"}
+    except Exception as e:
+        logging.error(f"Ticket send failed: {e}")
+        raise HTTPException(status_code=500, detail="Kon ticket niet verzenden")
+
 app.include_router(api_router)
 
 _cors_origins_env = os.environ.get("CORS_ALLOWED_ORIGINS", "")
@@ -7682,6 +7795,10 @@ async def serve_landing():
 @app.get("/register")
 async def serve_register():
     return FileResponse(REGISTER_PATH, media_type="text/html")
+
+@app.get("/signybon-help.js")
+async def serve_help_widget():
+    return FileResponse(os.path.join(os.path.dirname(__file__), "signybon-help.js"), media_type="application/javascript")
 
 @app.get("/login")
 async def serve_login():
