@@ -5,7 +5,7 @@
     "owner": "smarttechbv",
     "version": "1.6.7",
     "orientation": "portrait",
-    "icon": "./assets/signybon-icon.png",
+    "icon": "./assets/icon.png",
     "scheme": "signybon",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -23,7 +23,7 @@
       "package": "be.smarttech.smartts",
       "versionCode": 14,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FFFFFF"
       },
       "edgeToEdgeEnabled": true,
@@ -49,8 +49,8 @@
       ["expo-camera", {"cameraPermission": "Selfie nemen bij handtekening"}],
       ["expo-image-picker", {"photosPermission": "Foto selecteren voor selfie verificatie", "cameraPermission": "Selfie nemen bij handtekening verificatie"}],
       ["expo-location", {"locationAlwaysAndWhenInUsePermission": "Locatie ophalen voor werkbon registratie"}],
-      ["expo-notifications", {"icon": "./assets/signybon-icon.png", "color": "#D4A017"}],
-      ["expo-splash-screen", {"image": "./assets/signybon-icon.png", "imageWidth": 200, "resizeMode": "contain", "backgroundColor": "#FFFFFF"}]
+      ["expo-notifications", {"icon": "./assets/icon.png", "color": "#D4A017"}],
+      ["expo-splash-screen", {"image": "./assets/splash-icon.png", "imageWidth": 200, "resizeMode": "contain", "backgroundColor": "#FFFFFF"}]
     ],
     "experiments": {"typedRoutes": true},
     "extra": {
