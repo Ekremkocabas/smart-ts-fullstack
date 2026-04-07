@@ -4839,7 +4839,7 @@ async def get_werkbonnen(
     return [Werkbon(**wb) for wb in werkbonnen]
 
 @api_router.get("/werkbonnen/user/{user_id}", response_model=List[Werkbon])
-async def get_werkbonnen_by_user(user_id: str):
+async def get_werkbonnen_by_user(user_id: str, current_user: Dict = Depends(get_current_user)):
     projection = {
         "_id": 0,
         "selfie_data": 0,
@@ -4848,7 +4848,10 @@ async def get_werkbonnen_by_user(user_id: str):
         "handtekening": 0,
         "foto_data": 0
     }
-    cursor = db.werkbonnen.find({"ingevuld_door_id": user_id}, projection).sort("created_at", -1).limit(100)
+    company_id = current_user.get("company_id")
+    base_q = {"ingevuld_door_id": user_id}
+    query = _company_scope_query(company_id, base_q)
+    cursor = db.werkbonnen.find(query, projection).sort("created_at", -1).limit(100)
     werkbonnen = await cursor.to_list(100)
     return [Werkbon(**wb) for wb in werkbonnen]
 
@@ -4929,11 +4932,13 @@ async def export_werkbonnen_zip(
     )
 
 @api_router.get("/werkbonnen/{werkbon_id}", response_model=Werkbon)
-async def get_werkbon(werkbon_id: str, response: Response):
+async def get_werkbon(werkbon_id: str, response: Response, current_user: Dict = Depends(get_current_user)):
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
-    werkbon = await db.werkbonnen.find_one({"id": werkbon_id})
+    company_id = current_user.get("company_id")
+    query = _company_scope_query(company_id, {"id": werkbon_id})
+    werkbon = await db.werkbonnen.find_one(query)
     if not werkbon:
         raise HTTPException(status_code=404, detail="Werkbon niet gevonden")
     return Werkbon(**werkbon)
