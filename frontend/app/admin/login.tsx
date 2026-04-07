@@ -52,6 +52,12 @@ export default function AdminLogin() {
       const userRole = userFromResponse.rol;
       const hasWebAccess = userFromResponse.web_access !== false;
 
+      // Platform owner goes straight to the Signybon master panel
+      if (userRole === 'platform_admin') {
+        router.replace('/masterpanel' as any);
+        return;
+      }
+
       if (!['beheerder', 'admin', 'master_admin', 'planner'].includes(userRole)) {
         setError('Alleen beheerders hebben toegang tot dit portaal');
         return;

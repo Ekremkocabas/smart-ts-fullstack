@@ -54,6 +54,7 @@ export default function RootLayout() {
                 <Stack.Screen name="(tabs)" />
                 <Stack.Screen name="werkbon" />
                 <Stack.Screen name="admin" />
+                <Stack.Screen name="masterpanel" />
                 <Stack.Screen name="handtekening" options={{ presentation: 'modal' }} />
               </Stack>
             </NotificationProvider>

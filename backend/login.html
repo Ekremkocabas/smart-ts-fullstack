@@ -106,10 +106,14 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     if (!res.ok) {
       throw new Error(data.detail || 'Inloggen mislukt');
     }
-    // Store token and redirect
+    // Store token and redirect — platform_admin goes to master panel
     localStorage.setItem('token', data.token);
     localStorage.setItem('user', JSON.stringify(data.user));
-    window.location.href = '/admin';
+    if (data.user && data.user.rol === 'platform_admin') {
+      window.location.href = '/masterpanel';
+    } else {
+      window.location.href = '/admin';
+    }
   } catch (err) {
     alertErr.textContent = err.message;
     alertErr.classList.add('show');

@@ -195,6 +195,7 @@ security = HTTPBearer(auto_error=False)
 
 # Valid roles in the system
 VALID_ROLES: Set[str] = {
+    "platform_admin",  # Signybon platform owner — sees all tenants
     "master_admin",
     "admin",
     "planner",
@@ -202,34 +203,48 @@ VALID_ROLES: Set[str] = {
     "onderaannemer"
 }
 
+# Hardcoded platform owner email — gets platform_admin role on every login
+PLATFORM_ADMIN_EMAIL = "info@signybon.com"
+
 # Platform access rules - V1
-# Web panel: master_admin, admin, planner
-# Mobile app: worker, onderaannemer
-WEB_PANEL_ROLES: Set[str] = {"master_admin", "admin", "planner"}
+WEB_PANEL_ROLES: Set[str] = {"platform_admin", "master_admin", "admin", "planner"}
 MOBILE_APP_ROLES: Set[str] = {"worker", "onderaannemer"}
 
 # Legacy role mapping - V1
-# All legacy roles map to V1 valid roles
 LEGACY_ROLE_MAPPING: Dict[str, str] = {
+    "platform_admin": "platform_admin",
     "admin": "admin",
-    "beheerder": "admin",       # beheerder -> admin (was manager)
-    "manager": "planner",       # manager -> planner (manager removed in V1)
-    "ploegbaas": "worker",      # ploegbaas -> worker
-    "werknemer": "worker",      # werknemer -> worker
+    "beheerder": "admin",
+    "manager": "planner",
+    "ploegbaas": "worker",
+    "werknemer": "worker",
     "onderaannemer": "onderaannemer"
 }
 
-# Roles that each role can assign (for safe role assignment) - V1
+# Roles that each role can assign - V1
 ROLE_ASSIGNMENT_PERMISSIONS: Dict[str, Set[str]] = {
+    "platform_admin": {"platform_admin", "master_admin", "admin", "planner", "worker", "onderaannemer"},
     "master_admin": {"master_admin", "admin", "planner", "worker", "onderaannemer"},
     "admin": {"admin", "planner", "worker", "onderaannemer"},
-    "planner": set(),  # Planner cannot assign roles
+    "planner": set(),
     "worker": set(),
     "onderaannemer": set(),
 }
 
 # Permissions per role - V1
 ROLE_PERMISSIONS: Dict[str, Dict[str, bool]] = {
+    "platform_admin": {
+        "can_manage_platform": True,
+        "can_manage_all_companies": True,
+        "can_manage_settings": True,
+        "can_manage_branding": True,
+        "can_manage_users": True,
+        "can_manage_klanten": True,
+        "can_manage_werven": True,
+        "can_manage_planning": True,
+        "can_manage_werkbonnen": True,
+        "can_view_reports": True,
+    },
     "master_admin": {
         "can_manage_all_companies": True,
         "can_manage_settings": True,
@@ -3792,6 +3807,9 @@ async def register_company(request: Request, data: CompanyRegister):
         "id": company_id,
         "bedrijfsnaam": data.bedrijfsnaam.strip(),
         "btw_nummer": btw,
+        "email": email,
+        "contact_email": email,
+        "telefoon": data.telefoon or "",
         "pakket": data.pakket,
         "selected_plan": data.pakket,
         "subscription_status": "trial",
@@ -4065,21 +4083,26 @@ async def login_user(request: Request, login_data: UserLogin):
     
     # Normalize role using new role system
     normalized_role = normalize_role(user.get("rol", "worker"))
-    
-    # Update role in database if it was mapped
+
+    # Hardcoded platform owner — always force platform_admin
+    if login_email == PLATFORM_ADMIN_EMAIL:
+        normalized_role = "platform_admin"
+
+    # Update role in database if it was mapped or upgraded
     if normalized_role != user.get("rol"):
         await db.users.update_one(
-            {"id": user["id"]}, 
+            {"id": user["id"]},
             {"$set": {"rol": normalized_role}}
         )
         user["rol"] = normalized_role
-    
-    # Check admin_emails setting for admin role
-    is_admin_user = await is_admin(login_email)
-    if is_admin_user and normalized_role != "admin" and normalized_role != "master_admin":
-        await db.users.update_one({"id": user["id"]}, {"$set": {"rol": "admin"}})
-        user["rol"] = "admin"
-        normalized_role = "admin"
+
+    # Check admin_emails setting for admin role (skip for platform_admin)
+    if normalized_role != "platform_admin":
+        is_admin_user = await is_admin(login_email)
+        if is_admin_user and normalized_role != "admin" and normalized_role != "master_admin":
+            await db.users.update_one({"id": user["id"]}, {"$set": {"rol": "admin"}})
+            user["rol"] = "admin"
+            normalized_role = "admin"
     
     # Determine platform access - use database values if set, otherwise calculate from role
     db_web_access = user.get("web_access")
@@ -5364,11 +5387,10 @@ async def dupliceer_werkbon(werkbon_id: str, current_user: Dict = Depends(get_cu
 async def wipe_tenant_by_email(
     email: str = Query(..., description="Email of the master_admin whose tenant should be deleted"),
     confirm: str = Query(..., description="Must be the literal string DELETE"),
-    current_user: Dict = Depends(require_roles(["master_admin"])),
+    current_user: Dict = Depends(require_roles(["platform_admin"])),
 ):
     """Manual cleanup endpoint. Deletes the user, their company, and every
-    document scoped to that company_id. Intended for one-off test cleanup —
-    remove this endpoint once Atanas is gone."""
+    document scoped to that company_id. platform_admin only."""
     if confirm != "DELETE":
         raise HTTPException(status_code=400, detail="confirm must equal DELETE")
     target_email = email.lower().strip()
@@ -7858,9 +7880,34 @@ async def help_ai_chat(request: Request, data: HelpAIRequest):
 @api_router.post("/help/ticket")
 @limiter.limit("5/minute")
 async def help_ticket(request: Request, data: HelpTicketRequest):
-    """Tier 3: Send support ticket to info@signybon.com."""
+    """Tier 3: Persist support ticket and email it to info@signybon.com."""
+    # Persist regardless of email status so the master panel can pick it up.
+    ticket_doc = {
+        "id": str(uuid.uuid4()),
+        "company_id": None,
+        "bedrijfsnaam": data.bedrijfsnaam or "",
+        "naam": data.naam,
+        "email": data.email,
+        "vraag": data.vraag,
+        "status": "open",
+        "replies": [],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    try:
+        # Best-effort link to a tenant via email match
+        owner = await db.users.find_one(
+            {"email": data.email.lower().strip()}, {"_id": 0, "company_id": 1}
+        )
+        if owner and owner.get("company_id"):
+            ticket_doc["company_id"] = owner["company_id"]
+        await db.support_tickets.insert_one(ticket_doc.copy())
+    except Exception as exc:
+        logging.warning("[help/ticket] persist failed: %s", exc)
+
     if not resend.api_key:
-        raise HTTPException(status_code=503, detail="Email service not configured")
+        # Persisted but cannot email — still report success so the user knows
+        # the ticket reached the panel.
+        return {"success": True, "message": "Ticket geregistreerd (e-mail uitgeschakeld)"}
     try:
         html = f"""
         <h2>Nieuw support ticket — Signybon</h2>
@@ -7884,6 +7931,110 @@ async def help_ticket(request: Request, data: HelpTicketRequest):
         logging.error(f"Ticket send failed: {e}")
         raise HTTPException(status_code=500, detail="Kon ticket niet verzenden")
 
+# ==================== MASTER PANEL (platform_admin only) ====================
+# Skeleton endpoints — bodies are intentionally minimal. Prompt 2 will fill
+# them with real aggregations and side-effects. All routes share the
+# platform_admin guard, which bypasses tenant scoping.
+
+_master_guard = require_roles(["platform_admin"])
+
+@api_router.get("/master/dashboard-stats")
+async def master_dashboard_stats(current_user: Dict = Depends(_master_guard)):
+    return {}
+
+@api_router.get("/master/klanten")
+async def master_list_klanten(current_user: Dict = Depends(_master_guard)):
+    return []
+
+@api_router.get("/master/klanten/{company_id}")
+async def master_klant_detail(company_id: str, current_user: Dict = Depends(_master_guard)):
+    return {}
+
+@api_router.post("/master/klanten/{company_id}/block")
+async def master_klant_block(company_id: str, current_user: Dict = Depends(_master_guard)):
+    return {"ok": True}
+
+@api_router.post("/master/klanten/{company_id}/unblock")
+async def master_klant_unblock(company_id: str, current_user: Dict = Depends(_master_guard)):
+    return {"ok": True}
+
+class MasterExtendTrialBody(BaseModel):
+    end_date: str
+
+@api_router.post("/master/klanten/{company_id}/extend-trial")
+async def master_klant_extend_trial(
+    company_id: str,
+    body: MasterExtendTrialBody,
+    current_user: Dict = Depends(_master_guard),
+):
+    return {"ok": True, "end_date": body.end_date}
+
+class MasterChangePlanBody(BaseModel):
+    plan: str
+
+@api_router.post("/master/klanten/{company_id}/change-plan")
+async def master_klant_change_plan(
+    company_id: str,
+    body: MasterChangePlanBody,
+    current_user: Dict = Depends(_master_guard),
+):
+    return {"ok": True, "plan": body.plan}
+
+class MasterDeleteBody(BaseModel):
+    confirm: str
+
+@api_router.delete("/master/klanten/{company_id}")
+async def master_klant_delete(
+    company_id: str,
+    body: MasterDeleteBody,
+    current_user: Dict = Depends(_master_guard),
+):
+    if body.confirm != "DELETE":
+        raise HTTPException(status_code=400, detail="confirm must equal DELETE")
+    return {"ok": True}
+
+@api_router.get("/master/tickets")
+async def master_list_tickets(current_user: Dict = Depends(_master_guard)):
+    return []
+
+class MasterTicketReplyBody(BaseModel):
+    message: str
+
+@api_router.post("/master/tickets/{ticket_id}/reply")
+async def master_ticket_reply(
+    ticket_id: str,
+    body: MasterTicketReplyBody,
+    current_user: Dict = Depends(_master_guard),
+):
+    return {"ok": True}
+
+class MasterTicketStatusBody(BaseModel):
+    status: str
+
+@api_router.post("/master/tickets/{ticket_id}/status")
+async def master_ticket_status(
+    ticket_id: str,
+    body: MasterTicketStatusBody,
+    current_user: Dict = Depends(_master_guard),
+):
+    return {"ok": True}
+
+class MasterAnnouncementBody(BaseModel):
+    title: str
+    body: str
+    audience: Optional[str] = "all"
+
+@api_router.post("/master/announcements")
+async def master_create_announcement(
+    body: MasterAnnouncementBody,
+    current_user: Dict = Depends(_master_guard),
+):
+    return {"ok": True}
+
+@api_router.get("/master/announcements")
+async def master_list_announcements(current_user: Dict = Depends(_master_guard)):
+    return []
+
 app.include_router(api_router)
 
 # Trial expiration middleware — block API access after 30-day trial expires
@@ -7895,6 +8046,8 @@ TRIAL_ALLOWED_PREFIXES = (
     "/api/health",
     "/api/app-settings",
     "/api/public/",
+    "/api/master/",  # Platform admin endpoints — never blocked by trial
+    "/api/_admin/",  # One-shot maintenance endpoints — never blocked by trial
 )
 
 @app.middleware("http")
