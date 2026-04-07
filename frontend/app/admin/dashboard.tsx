@@ -194,6 +194,37 @@ export default function AdminDashboard() {
         </View>
       ) : (
         <>
+          {stats &&
+            stats.totaalKlanten === 0 &&
+            stats.totaalWerknemers === 0 &&
+            stats.totaalWerven === 0 && (
+              <View style={wizardStyles.wrap}>
+                <Text style={wizardStyles.title}>Welkom bij Signybon!</Text>
+                <Text style={wizardStyles.subtitle}>
+                  Volg deze stappen om aan de slag te gaan:
+                </Text>
+                {[
+                  { n: 1, label: 'Bedrijfsgegevens aanvullen', route: '/admin/instellingen' },
+                  { n: 2, label: 'Uw eerste klant aanmaken', route: '/admin/klanten' },
+                  { n: 3, label: 'Werknemers toevoegen', route: '/admin/werknemers' },
+                  { n: 4, label: 'Werven aanmaken', route: '/admin/werven' },
+                  { n: 5, label: 'Planning maken', route: '/admin/planning' },
+                  { n: 6, label: 'Eerste werkbon', route: '/admin/werkbonnen' },
+                ].map((step) => (
+                  <TouchableOpacity
+                    key={step.n}
+                    style={wizardStyles.step}
+                    onPress={() => router.push(step.route as any)}
+                  >
+                    <View style={wizardStyles.badge}>
+                      <Text style={wizardStyles.badgeText}>{step.n}</Text>
+                    </View>
+                    <Text style={wizardStyles.stepLabel}>Stap {step.n}: {step.label}</Text>
+                    <Ionicons name="chevron-forward" size={20} color="#1B4332" />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
           <View style={styles.statsGrid}>
             <TouchableOpacity
               style={[styles.statCard, styles.statCardLarge]}
@@ -512,5 +543,60 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6c757d',
     marginTop: 8,
+  },
+});
+
+const wizardStyles = StyleSheet.create({
+  wrap: {
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 24,
+    margin: 8,
+    borderWidth: 1,
+    borderColor: '#D4A017',
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#1B4332',
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#495057',
+    marginBottom: 18,
+  },
+  step: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 10,
+    marginBottom: 10,
+    gap: 14,
+  },
+  badge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#D4A017',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: {
+    color: '#1B4332',
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  stepLabel: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1B4332',
   },
 });

@@ -353,14 +353,40 @@ async def get_current_user(
     
     if not user.get("actief", True):
         raise HTTPException(status_code=401, detail="Account is gedeactiveerd")
-    
+
+    # Resolve company_id with self-heal for users whose record was created
+    # before multi-tenant scoping was enforced. Avoid the "default_company"
+    # fallback for non-legacy users — that path leaks Smart-Tech data.
+    company_id = user.get("company_id")
+    if not company_id:
+        normalized_role = normalize_role(user.get("rol", "worker"))
+        if normalized_role in ("master_admin", "admin"):
+            # Try to find a company that belongs to this admin via email match
+            company_doc = await db.companies.find_one(
+                {"$or": [{"email": user["email"]}, {"contact_email": user["email"]}]},
+                {"_id": 0, "id": 1},
+            )
+            if company_doc and company_doc.get("id"):
+                company_id = company_doc["id"]
+            else:
+                # No legacy match — isolate by user id so they cannot read other tenants
+                company_id = f"user:{user['id']}"
+            # Persist the repair so future requests are stable
+            try:
+                await db.users.update_one({"id": user["id"]}, {"$set": {"company_id": company_id}})
+            except Exception as exc:
+                logging.warning("[get_current_user] company_id self-heal persist failed: %s", exc)
+        else:
+            # Workers without company_id: isolate by user id
+            company_id = f"user:{user['id']}"
+
     # Return validated user data with normalized role
     return {
         "user_id": user["id"],
         "email": user["email"],
         "naam": user.get("naam", ""),
         "role": normalize_role(user.get("rol", "worker")),
-        "company_id": user.get("company_id", "default_company"),
+        "company_id": company_id,
     }
 
 async def get_optional_user(
@@ -5325,6 +5351,31 @@ async def dupliceer_werkbon(werkbon_id: str, current_user: Dict = Depends(get_cu
     )
     await db.werkbonnen.insert_one(new_werkbon.dict())
     return new_werkbon
+
+# ==================== ONBOARDING STATUS ====================
+
+@api_router.get("/onboarding/status")
+async def onboarding_status(current_user: Dict = Depends(get_current_user)):
+    """Counts used by the dashboard onboarding wizard. Returns zeros for fresh tenants."""
+    company_id = current_user.get("company_id") or "default_company"
+    scope = _company_scope_query(company_id)
+    klanten = await db.klanten.count_documents(scope)
+    werknemers = await db.users.count_documents(scope)
+    werven = await db.werven.count_documents(scope)
+    werkbonnen = await db.werkbonnen.count_documents(scope)
+    instellingen_doc = await db.instellingen.find_one(
+        {"id": "company_settings", "company_id": company_id}, {"_id": 0, "logo_base64": 1, "telefoon": 1}
+    ) or {}
+    has_company_details = bool(instellingen_doc.get("logo_base64") or instellingen_doc.get("telefoon"))
+    return {
+        "company_id": company_id,
+        "klanten": klanten,
+        "werknemers": werknemers,
+        "werven": werven,
+        "werkbonnen": werkbonnen,
+        "has_company_details": has_company_details,
+        "show_wizard": (klanten == 0 and werven == 0 and werkbonnen == 0),
+    }
 
 # ==================== BEDRIJFSINSTELLINGEN ROUTES ====================
 
