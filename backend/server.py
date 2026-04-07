@@ -7932,31 +7932,292 @@ async def help_ticket(request: Request, data: HelpTicketRequest):
         raise HTTPException(status_code=500, detail="Kon ticket niet verzenden")
 
 # ==================== MASTER PANEL (platform_admin only) ====================
-# Skeleton endpoints — bodies are intentionally minimal. Prompt 2 will fill
-# them with real aggregations and side-effects. All routes share the
-# platform_admin guard, which bypasses tenant scoping.
+# Real implementations — Prompt 2. All routes share the platform_admin guard,
+# which bypasses tenant scoping (platform admin sees all tenants).
 
 _master_guard = require_roles(["platform_admin"])
 
+# Excluded company ids that the master panel must never list, modify, or delete
+_PROTECTED_COMPANY_IDS = {"signybon_platform", "default_company"}
+
+PLAN_PRICING = {"basic": 29, "pro": 49}
+
+
+def _company_status(company: dict) -> str:
+    """Resolve effective status from a companies doc."""
+    status = (company.get("subscription_status") or "active").lower()
+    if status == "trial":
+        end = company.get("trial_end_date")
+        if end:
+            try:
+                end_dt = datetime.fromisoformat(end.replace("Z", "+00:00"))
+                if end_dt < datetime.now(timezone.utc):
+                    return "expired"
+            except Exception:
+                pass
+    return status
+
+
+def _days_remaining(iso_date: Optional[str]) -> Optional[int]:
+    if not iso_date:
+        return None
+    try:
+        end_dt = datetime.fromisoformat(iso_date.replace("Z", "+00:00"))
+    except Exception:
+        return None
+    delta = end_dt - datetime.now(timezone.utc)
+    return int(delta.total_seconds() // 86400)
+
+
 @api_router.get("/master/dashboard-stats")
 async def master_dashboard_stats(current_user: Dict = Depends(_master_guard)):
-    return {}
+    companies_cursor = db.companies.find(
+        {"id": {"$nin": list(_PROTECTED_COMPANY_IDS)}},
+        {"_id": 0},
+    )
+    companies = await companies_cursor.to_list(5000)
+
+    counts = {"total": 0, "active": 0, "trial": 0, "expired": 0, "blocked": 0}
+    revenue_basic = 0
+    revenue_pro = 0
+    new_this_month = 0
+
+    now = datetime.now(timezone.utc)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    expiring: List[dict] = []
+    for c in companies:
+        counts["total"] += 1
+        status = _company_status(c)
+        if status in counts:
+            counts[status] += 1
+        plan = (c.get("selected_plan") or c.get("pakket") or "").lower()
+        if plan == "basic":
+            revenue_basic += 1
+        elif plan == "pro":
+            revenue_pro += 1
+
+        created = c.get("created_at")
+        if created:
+            try:
+                created_dt = datetime.fromisoformat(created.replace("Z", "+00:00"))
+                if created_dt >= month_start:
+                    new_this_month += 1
+            except Exception:
+                pass
+
+        if status == "trial":
+            days = _days_remaining(c.get("trial_end_date"))
+            if days is not None and 0 <= days <= 10:
+                expiring.append({
+                    "company_id": c.get("id"),
+                    "bedrijfsnaam": c.get("bedrijfsnaam") or "",
+                    "email": c.get("email") or c.get("contact_email") or "",
+                    "trial_end_date": c.get("trial_end_date"),
+                    "days_remaining": days,
+                })
+
+    expiring.sort(key=lambda x: x["days_remaining"])
+
+    total_werkbonnen = await db.werkbonnen.count_documents(
+        {"company_id": {"$nin": list(_PROTECTED_COMPANY_IDS)}}
+    )
+    total_users = await db.users.count_documents(
+        {"company_id": {"$nin": list(_PROTECTED_COMPANY_IDS)}}
+    )
+
+    revenue = revenue_basic * PLAN_PRICING["basic"] + revenue_pro * PLAN_PRICING["pro"]
+
+    return {
+        "companies": counts,
+        "new_this_month": new_this_month,
+        "total_werkbonnen": total_werkbonnen,
+        "total_users": total_users,
+        "revenue_monthly": revenue,
+        "revenue_breakdown": {"basic": revenue_basic, "pro": revenue_pro},
+        "expiring_trials": expiring,
+    }
+
 
 @api_router.get("/master/klanten")
-async def master_list_klanten(current_user: Dict = Depends(_master_guard)):
-    return []
+async def master_list_klanten(
+    status: Optional[str] = Query(None),
+    plan: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    current_user: Dict = Depends(_master_guard),
+):
+    query: dict = {"id": {"$nin": list(_PROTECTED_COMPANY_IDS)}}
+    if plan:
+        query["selected_plan"] = plan
+    if search:
+        query["$or"] = [
+            {"bedrijfsnaam": {"$regex": search, "$options": "i"}},
+            {"email": {"$regex": search, "$options": "i"}},
+            {"contact_email": {"$regex": search, "$options": "i"}},
+            {"btw_nummer": {"$regex": search, "$options": "i"}},
+        ]
+    companies = await db.companies.find(query, {"_id": 0}).to_list(2000)
+
+    result = []
+    for c in companies:
+        cid = c.get("id")
+        effective_status = _company_status(c)
+        if status and effective_status != status:
+            continue
+
+        instellingen = await db.instellingen.find_one(
+            {"id": "company_settings", "company_id": cid},
+            {"_id": 0, "voornaam": 1, "achternaam": 1},
+        ) or {}
+        contact = (
+            (instellingen.get("voornaam") or "") + " " + (instellingen.get("achternaam") or "")
+        ).strip()
+
+        werkbon_count = await db.werkbonnen.count_documents({"company_id": cid})
+        user_count = await db.users.count_documents({"company_id": cid})
+
+        result.append({
+            "company_id": cid,
+            "bedrijfsnaam": c.get("bedrijfsnaam") or "",
+            "contactpersoon": contact,
+            "email": c.get("email") or c.get("contact_email") or "",
+            "telefoon": c.get("telefoon") or "",
+            "btw_nummer": c.get("btw_nummer") or "",
+            "plan": c.get("selected_plan") or c.get("pakket") or "",
+            "status": effective_status,
+            "created_at": c.get("created_at"),
+            "trial_end_date": c.get("trial_end_date"),
+            "days_remaining": _days_remaining(c.get("trial_end_date")),
+            "werkbonnen": werkbon_count,
+            "gebruikers": user_count,
+        })
+
+    result.sort(key=lambda x: x.get("created_at") or "", reverse=True)
+    return result
+
 
 @api_router.get("/master/klanten/{company_id}")
 async def master_klant_detail(company_id: str, current_user: Dict = Depends(_master_guard)):
-    return {}
+    if company_id in _PROTECTED_COMPANY_IDS:
+        raise HTTPException(status_code=404, detail="Bedrijf niet gevonden")
+    company = await db.companies.find_one({"id": company_id}, {"_id": 0})
+    if not company:
+        raise HTTPException(status_code=404, detail="Bedrijf niet gevonden")
+
+    instellingen = await db.instellingen.find_one(
+        {"id": "company_settings", "company_id": company_id}, {"_id": 0}
+    ) or {}
+
+    werknemers = await db.users.find(
+        {"company_id": company_id},
+        {"_id": 0, "id": 1, "naam": 1, "email": 1, "rol": 1, "actief": 1},
+    ).to_list(500)
+
+    klanten = await db.klanten.find(
+        {"company_id": company_id},
+        {"_id": 0, "id": 1, "bedrijfsnaam": 1, "naam": 1, "email": 1, "algemeen_email": 1},
+    ).to_list(2000)
+
+    werven_raw = await db.werven.find(
+        {"company_id": company_id},
+        {"_id": 0, "id": 1, "naam": 1, "klant_id": 1},
+    ).to_list(2000)
+    klant_name_map = {
+        k.get("id"): (k.get("bedrijfsnaam") or k.get("naam") or "") for k in klanten
+    }
+    werven = [
+        {"id": w.get("id"), "naam": w.get("naam") or "", "klant_naam": klant_name_map.get(w.get("klant_id"), "")}
+        for w in werven_raw
+    ]
+
+    werkbon_total = await db.werkbonnen.count_documents({"company_id": company_id})
+    werkbonnen_recent_raw = await db.werkbonnen.find(
+        {"company_id": company_id},
+        {"_id": 0, "id": 1, "datum": 1, "created_at": 1, "type": 1, "status": 1, "klant_id": 1, "werf_id": 1},
+    ).sort("created_at", -1).limit(10).to_list(10)
+    werf_name_map = {w.get("id"): w.get("naam") or "" for w in werven_raw}
+    werkbonnen_recent = [
+        {
+            "id": w.get("id"),
+            "datum": w.get("datum") or w.get("created_at"),
+            "klant_naam": klant_name_map.get(w.get("klant_id"), ""),
+            "werf_naam": werf_name_map.get(w.get("werf_id"), ""),
+            "type": w.get("type") or "",
+            "status": w.get("status") or "",
+        }
+        for w in werkbonnen_recent_raw
+    ]
+
+    subscription = {
+        "status": _company_status(company),
+        "plan": company.get("selected_plan") or company.get("pakket") or "",
+        "trial_start_date": company.get("trial_start_date"),
+        "trial_end_date": company.get("trial_end_date"),
+        "days_remaining": _days_remaining(company.get("trial_end_date")),
+    }
+
+    contactpersoon = ((instellingen.get("voornaam") or "") + " " + (instellingen.get("achternaam") or "")).strip()
+
+    return {
+        "company": {
+            "company_id": company_id,
+            "bedrijfsnaam": company.get("bedrijfsnaam") or instellingen.get("bedrijfsnaam") or "",
+            "btw_nummer": company.get("btw_nummer") or instellingen.get("btw_nummer") or "",
+            "email": company.get("email") or instellingen.get("email") or "",
+            "telefoon": company.get("telefoon") or instellingen.get("telefoon") or "",
+            "contactpersoon": contactpersoon,
+            "adres": instellingen.get("adres_gestructureerd") or {},
+            "created_at": company.get("created_at"),
+        },
+        "subscription": subscription,
+        "werknemers": werknemers,
+        "klanten": [
+            {
+                "id": k.get("id"),
+                "naam": k.get("bedrijfsnaam") or k.get("naam") or "",
+                "email": k.get("algemeen_email") or k.get("email") or "",
+            }
+            for k in klanten
+        ],
+        "werven": werven,
+        "werkbonnen": {"total": werkbon_total, "recent": werkbonnen_recent},
+    }
+
+
+def _ensure_unprotected(company_id: str):
+    if company_id in _PROTECTED_COMPANY_IDS:
+        raise HTTPException(status_code=400, detail="Beschermd bedrijf — niet wijzigbaar")
+
 
 @api_router.post("/master/klanten/{company_id}/block")
 async def master_klant_block(company_id: str, current_user: Dict = Depends(_master_guard)):
+    _ensure_unprotected(company_id)
+    company = await db.companies.find_one({"id": company_id}, {"_id": 0, "subscription_status": 1})
+    if not company:
+        raise HTTPException(status_code=404, detail="Bedrijf niet gevonden")
+    previous = company.get("subscription_status") or "active"
+    if previous == "blocked":
+        previous = "active"
+    await db.companies.update_one(
+        {"id": company_id},
+        {"$set": {"subscription_status": "blocked", "previous_status": previous}},
+    )
     return {"ok": True}
+
 
 @api_router.post("/master/klanten/{company_id}/unblock")
 async def master_klant_unblock(company_id: str, current_user: Dict = Depends(_master_guard)):
-    return {"ok": True}
+    _ensure_unprotected(company_id)
+    company = await db.companies.find_one({"id": company_id}, {"_id": 0, "previous_status": 1})
+    if not company:
+        raise HTTPException(status_code=404, detail="Bedrijf niet gevonden")
+    restore = company.get("previous_status") or "active"
+    await db.companies.update_one(
+        {"id": company_id},
+        {"$set": {"subscription_status": restore}, "$unset": {"previous_status": ""}},
+    )
+    return {"ok": True, "status": restore}
+
 
 class MasterExtendTrialBody(BaseModel):
     end_date: str
@@ -7967,7 +8228,22 @@ async def master_klant_extend_trial(
     body: MasterExtendTrialBody,
     current_user: Dict = Depends(_master_guard),
 ):
-    return {"ok": True, "end_date": body.end_date}
+    _ensure_unprotected(company_id)
+    try:
+        end_dt = datetime.fromisoformat(body.end_date.replace("Z", "+00:00"))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Ongeldige datum (gebruik ISO 8601)")
+    res = await db.companies.update_one(
+        {"id": company_id},
+        {"$set": {
+            "trial_end_date": end_dt.isoformat(),
+            "subscription_status": "trial",
+        }},
+    )
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Bedrijf niet gevonden")
+    return {"ok": True, "end_date": end_dt.isoformat()}
+
 
 class MasterChangePlanBody(BaseModel):
     plan: str
@@ -7978,7 +8254,17 @@ async def master_klant_change_plan(
     body: MasterChangePlanBody,
     current_user: Dict = Depends(_master_guard),
 ):
+    _ensure_unprotected(company_id)
+    if body.plan not in PLAN_PRICING:
+        raise HTTPException(status_code=400, detail="Ongeldig plan")
+    res = await db.companies.update_one(
+        {"id": company_id},
+        {"$set": {"selected_plan": body.plan, "pakket": body.plan}},
+    )
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Bedrijf niet gevonden")
     return {"ok": True, "plan": body.plan}
+
 
 class MasterDeleteBody(BaseModel):
     confirm: str
@@ -7989,13 +8275,23 @@ async def master_klant_delete(
     body: MasterDeleteBody,
     current_user: Dict = Depends(_master_guard),
 ):
+    _ensure_unprotected(company_id)
     if body.confirm != "DELETE":
         raise HTTPException(status_code=400, detail="confirm must equal DELETE")
-    return {"ok": True}
+    deleted: Dict[str, int] = {}
+    for coll in ("instellingen", "klanten", "werven", "werkbonnen", "planning", "berichten", "teams", "users"):
+        r = await db[coll].delete_many({"company_id": company_id})
+        deleted[coll] = r.deleted_count
+    r = await db.companies.delete_many({"id": company_id})
+    deleted["companies"] = r.deleted_count
+    return {"ok": True, "deleted": deleted}
+
 
 @api_router.get("/master/tickets")
 async def master_list_tickets(current_user: Dict = Depends(_master_guard)):
-    return []
+    tickets = await db.support_tickets.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return tickets
+
 
 class MasterTicketReplyBody(BaseModel):
     message: str
@@ -8006,7 +8302,53 @@ async def master_ticket_reply(
     body: MasterTicketReplyBody,
     current_user: Dict = Depends(_master_guard),
 ):
+    ticket = await db.support_tickets.find_one({"id": ticket_id}, {"_id": 0})
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket niet gevonden")
+    reply = {
+        "message": body.message,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "by": "Signybon Support",
+    }
+    await db.support_tickets.update_one(
+        {"id": ticket_id},
+        {"$push": {"replies": reply}, "$set": {"status": "beantwoord"}},
+    )
+
+    if resend.api_key and ticket.get("email"):
+        try:
+            html = f"""
+            <div style="font-family:'Helvetica Neue',Arial,sans-serif;max-width:620px;margin:0 auto;background:#f5f6fa;padding:20px">
+              <div style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.08)">
+                <div style="background:#1B4332;color:#fff;padding:30px;text-align:center">
+                  <h1 style="color:#D4A017;margin:0;font-size:28px;font-weight:900;letter-spacing:1px">SIGNYBON</h1>
+                  <p style="margin:6px 0 0;color:rgba(255,255,255,.85);font-size:13px">Support</p>
+                </div>
+                <div style="padding:30px">
+                  <h2 style="color:#1B4332;margin:0 0 14px;font-size:20px">Signybon Support heeft uw vraag beantwoord</h2>
+                  <p style="color:#495057;font-size:14px;margin:0 0 18px">Beste {ticket.get('naam', '')},</p>
+                  <p style="color:#495057;font-size:14px;margin:0 0 14px"><b>Uw vraag:</b></p>
+                  <div style="background:#f8f9fa;padding:14px;border-radius:8px;border-left:4px solid #adb5bd;color:#495057;white-space:pre-wrap;font-size:13px">{ticket.get('vraag', '')}</div>
+                  <p style="color:#495057;font-size:14px;margin:18px 0 14px"><b>Ons antwoord:</b></p>
+                  <div style="background:#f8f9fa;padding:14px;border-radius:8px;border-left:4px solid #1B4332;color:#1B4332;white-space:pre-wrap;font-size:14px">{body.message}</div>
+                  <p style="color:#6c757d;font-size:12px;margin-top:24px">Met vriendelijke groet,<br/>Signybon Support</p>
+                </div>
+              </div>
+            </div>
+            """
+            await asyncio.to_thread(resend.Emails.send, {
+                "from": f"Signybon Support <{os.environ.get('SENDER_EMAIL', 'noreply@signybon.com')}>",
+                "to": [ticket["email"]],
+                "subject": "Signybon Support heeft uw vraag beantwoord",
+                "html": html,
+                "reply_to": ["info@signybon.com"],
+                "headers": {"List-Unsubscribe": "<mailto:info@signybon.com>"},
+            })
+        except Exception as exc:
+            logging.warning("[master/ticket reply] email send failed: %s", exc)
+
     return {"ok": True}
+
 
 class MasterTicketStatusBody(BaseModel):
     status: str
@@ -8017,23 +8359,95 @@ async def master_ticket_status(
     body: MasterTicketStatusBody,
     current_user: Dict = Depends(_master_guard),
 ):
-    return {"ok": True}
+    if body.status not in ("open", "beantwoord", "gesloten"):
+        raise HTTPException(status_code=400, detail="Ongeldige status")
+    res = await db.support_tickets.update_one(
+        {"id": ticket_id}, {"$set": {"status": body.status}}
+    )
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Ticket niet gevonden")
+    return {"ok": True, "status": body.status}
+
 
 class MasterAnnouncementBody(BaseModel):
-    title: str
-    body: str
-    audience: Optional[str] = "all"
+    subject: str
+    content: str
+    target: Optional[str] = "all"  # all | trial | basic | pro
 
 @api_router.post("/master/announcements")
 async def master_create_announcement(
     body: MasterAnnouncementBody,
     current_user: Dict = Depends(_master_guard),
 ):
-    return {"ok": True}
+    target = (body.target or "all").lower()
+    if target not in ("all", "trial", "basic", "pro"):
+        raise HTTPException(status_code=400, detail="Ongeldige doelgroep")
+
+    query: dict = {"id": {"$nin": list(_PROTECTED_COMPANY_IDS)}}
+    if target == "trial":
+        query["subscription_status"] = "trial"
+    elif target in ("basic", "pro"):
+        query["selected_plan"] = target
+
+    companies = await db.companies.find(query, {"_id": 0, "id": 1}).to_list(5000)
+    company_ids = [c["id"] for c in companies if c.get("id")]
+
+    sent_count = 0
+    if resend.api_key and company_ids:
+        recipient_users = await db.users.find(
+            {"company_id": {"$in": company_ids}, "rol": {"$in": ["master_admin", "admin"]}, "actief": True},
+            {"_id": 0, "email": 1, "naam": 1},
+        ).to_list(20000)
+        seen = set()
+        for u in recipient_users:
+            email_addr = (u.get("email") or "").strip().lower()
+            if not email_addr or email_addr in seen:
+                continue
+            seen.add(email_addr)
+            try:
+                html = f"""
+                <div style="font-family:'Helvetica Neue',Arial,sans-serif;max-width:620px;margin:0 auto;background:#f5f6fa;padding:20px">
+                  <div style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.08)">
+                    <div style="background:#1B4332;color:#fff;padding:30px;text-align:center">
+                      <h1 style="color:#D4A017;margin:0;font-size:28px;font-weight:900;letter-spacing:1px">SIGNYBON</h1>
+                    </div>
+                    <div style="padding:30px;color:#1B4332">
+                      <h2 style="margin:0 0 16px;font-size:20px">{body.subject}</h2>
+                      <div style="font-size:14px;color:#495057;white-space:pre-wrap;line-height:1.6">{body.content}</div>
+                      <p style="color:#6c757d;font-size:12px;margin-top:24px">Met vriendelijke groet,<br/>Het Signybon team</p>
+                    </div>
+                  </div>
+                </div>
+                """
+                await asyncio.to_thread(resend.Emails.send, {
+                    "from": f"Signybon <{os.environ.get('SENDER_EMAIL', 'noreply@signybon.com')}>",
+                    "to": [email_addr],
+                    "subject": f"[Signybon] {body.subject}",
+                    "html": html,
+                    "reply_to": ["info@signybon.com"],
+                    "headers": {"List-Unsubscribe": "<mailto:info@signybon.com>"},
+                })
+                sent_count += 1
+            except Exception as exc:
+                logging.warning("[master/announcement] send to %s failed: %s", email_addr, exc)
+
+    doc = {
+        "id": str(uuid.uuid4()),
+        "subject": body.subject,
+        "content": body.content,
+        "target": target,
+        "company_count": len(company_ids),
+        "sent_count": sent_count,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.announcements.insert_one(doc.copy())
+    return {"ok": True, "sent_count": sent_count, "company_count": len(company_ids)}
+
 
 @api_router.get("/master/announcements")
 async def master_list_announcements(current_user: Dict = Depends(_master_guard)):
-    return []
+    docs = await db.announcements.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return docs
 
 app.include_router(api_router)
 
@@ -8190,6 +8604,106 @@ async def ensure_indexes():
     except Exception as mig_err:
         logging.warning(f"[DB migration] warning: {mig_err}")
 
+    # Spawn the daily trial-notification task as a background coroutine.
+    # asyncio.create_task is non-blocking — startup completes immediately.
+    try:
+        asyncio.create_task(_trial_notification_loop())
+        logging.info("[trial-notify] daily background task scheduled")
+    except Exception as task_err:
+        logging.warning(f"[trial-notify] could not schedule task: {task_err}")
+
+
+async def _trial_notification_loop():
+    """Daily background loop. Emails trial expiry warnings to companies and a
+    summary to info@signybon.com. Wakes once every 24h, sleeps quietly on
+    failure rather than crashing the loop."""
+    REMIND_DAYS = {10, 5, 3, 1, 0}
+    while True:
+        try:
+            now = datetime.now(timezone.utc)
+            companies = await db.companies.find(
+                {
+                    "id": {"$nin": list(_PROTECTED_COMPANY_IDS)},
+                    "subscription_status": "trial",
+                    "trial_end_date": {"$exists": True},
+                },
+                {"_id": 0},
+            ).to_list(5000)
+
+            expiring_today: List[dict] = []
+            expiring_soon: List[dict] = []
+            for c in companies:
+                days = _days_remaining(c.get("trial_end_date"))
+                if days is None:
+                    continue
+                if days < 0:
+                    expiring_today.append(c)  # already expired counts as "today"
+                    continue
+                if days == 0:
+                    expiring_today.append(c)
+                if days in REMIND_DAYS:
+                    expiring_soon.append({"company": c, "days": days})
+
+            if resend.api_key:
+                # Per-tenant warnings
+                for entry in expiring_soon:
+                    c = entry["company"]
+                    days = entry["days"]
+                    target_email = c.get("email") or c.get("contact_email")
+                    if not target_email:
+                        continue
+                    if days == 0:
+                        subject = "Uw Signybon proefperiode is vandaag verlopen"
+                        msg = "Uw proefperiode is vandaag verlopen. Activeer uw abonnement op signybon.com om uw account actief te houden."
+                    else:
+                        subject = f"Uw Signybon proefperiode verloopt over {days} dag" + ("" if days == 1 else "en")
+                        msg = f"Uw proefperiode verloopt over {days} dag" + ("" if days == 1 else "en") + ". Activeer uw abonnement op signybon.com."
+                    try:
+                        html = f"""
+                        <div style='font-family:Arial,sans-serif;max-width:620px;margin:0 auto;background:#f5f6fa;padding:20px'>
+                          <div style='background:#fff;border-radius:14px;overflow:hidden'>
+                            <div style='background:#1B4332;color:#fff;padding:30px;text-align:center'>
+                              <h1 style='color:#D4A017;margin:0;font-size:28px;font-weight:900;letter-spacing:1px'>SIGNYBON</h1>
+                            </div>
+                            <div style='padding:30px;color:#1B4332'>
+                              <h2 style='margin:0 0 14px;font-size:20px'>{subject}</h2>
+                              <p style='font-size:14px;color:#495057;line-height:1.6'>{msg}</p>
+                              <p style='margin-top:24px'><a href='https://signybon.com' style='display:inline-block;background:#1B4332;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:700'>Activeer abonnement</a></p>
+                            </div>
+                          </div>
+                        </div>
+                        """
+                        await asyncio.to_thread(resend.Emails.send, {
+                            "from": f"Signybon <{os.environ.get('SENDER_EMAIL', 'noreply@signybon.com')}>",
+                            "to": [target_email],
+                            "subject": subject,
+                            "html": html,
+                            "reply_to": ["info@signybon.com"],
+                            "headers": {"List-Unsubscribe": "<mailto:info@signybon.com>"},
+                        })
+                    except Exception as exc:
+                        logging.warning("[trial-notify] send to %s failed: %s", target_email, exc)
+
+                # Daily overview to platform owner
+                try:
+                    summary_html = f"""
+                    <div style='font-family:Arial,sans-serif;max-width:620px;margin:0 auto'>
+                      <h2 style='color:#1B4332'>Signybon — Trial overzicht</h2>
+                      <p><b>Vandaag verlopen:</b> {len(expiring_today)} bedrijven</p>
+                      <p><b>Binnenkort verlopen:</b> {len(expiring_soon)} bedrijven</p>
+                    </div>
+                    """
+                    await asyncio.to_thread(resend.Emails.send, {
+                        "from": f"Signybon <{os.environ.get('SENDER_EMAIL', 'noreply@signybon.com')}>",
+                        "to": [PLATFORM_ADMIN_EMAIL],
+                        "subject": "Signybon — Dagelijks trial overzicht",
+                        "html": summary_html,
+                    })
+                except Exception as exc:
+                    logging.warning("[trial-notify] summary send failed: %s", exc)
+        except Exception as loop_err:
+            logging.warning("[trial-notify] loop iteration failed: %s", loop_err)
+        await asyncio.sleep(86400)  # 24 hours
 
 
 @app.on_event("shutdown")
