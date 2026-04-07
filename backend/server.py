@@ -7937,8 +7937,22 @@ async def help_ticket(request: Request, data: HelpTicketRequest):
 
 _master_guard = require_roles(["platform_admin"])
 
-# Excluded company ids that the master panel must never list, modify, or delete
+# Hidden from master panel listings entirely (platform infrastructure)
+_LIST_EXCLUDED_COMPANY_IDS = {"signybon_platform"}
+# Cannot be blocked / deleted / plan-changed via the master panel
 _PROTECTED_COMPANY_IDS = {"signybon_platform", "default_company"}
+
+
+def _legacy_scope_query(company_id: str, base: Optional[dict] = None) -> dict:
+    """Tenant scoping for the master panel — same as _company_scope_query but
+    treats default_company as also matching documents whose company_id field
+    is missing (legacy Smart-Tech data predating multi-tenant migration)."""
+    base = dict(base or {})
+    if company_id == "default_company":
+        base["$or"] = [{"company_id": "default_company"}, {"company_id": {"$exists": False}}]
+    else:
+        base["company_id"] = company_id
+    return base
 
 PLAN_PRICING = {"basic": 29, "pro": 49}
 
@@ -7972,7 +7986,7 @@ def _days_remaining(iso_date: Optional[str]) -> Optional[int]:
 @api_router.get("/master/dashboard-stats")
 async def master_dashboard_stats(current_user: Dict = Depends(_master_guard)):
     companies_cursor = db.companies.find(
-        {"id": {"$nin": list(_PROTECTED_COMPANY_IDS)}},
+        {"id": {"$nin": list(_LIST_EXCLUDED_COMPANY_IDS)}},
         {"_id": 0},
     )
     companies = await companies_cursor.to_list(5000)
@@ -8019,12 +8033,11 @@ async def master_dashboard_stats(current_user: Dict = Depends(_master_guard)):
 
     expiring.sort(key=lambda x: x["days_remaining"])
 
-    total_werkbonnen = await db.werkbonnen.count_documents(
-        {"company_id": {"$nin": list(_PROTECTED_COMPANY_IDS)}}
-    )
-    total_users = await db.users.count_documents(
-        {"company_id": {"$nin": list(_PROTECTED_COMPANY_IDS)}}
-    )
+    # Smart-Tech (default_company) legacy docs may have no company_id field at
+    # all, so we count anything that is NOT explicitly the platform tenant.
+    _exclude_filter = {"company_id": {"$nin": list(_LIST_EXCLUDED_COMPANY_IDS)}}
+    total_werkbonnen = await db.werkbonnen.count_documents(_exclude_filter)
+    total_users = await db.users.count_documents(_exclude_filter)
 
     revenue = revenue_basic * PLAN_PRICING["basic"] + revenue_pro * PLAN_PRICING["pro"]
 
@@ -8046,7 +8059,7 @@ async def master_list_klanten(
     search: Optional[str] = Query(None),
     current_user: Dict = Depends(_master_guard),
 ):
-    query: dict = {"id": {"$nin": list(_PROTECTED_COMPANY_IDS)}}
+    query: dict = {"id": {"$nin": list(_LIST_EXCLUDED_COMPANY_IDS)}}
     if plan:
         query["selected_plan"] = plan
     if search:
@@ -8073,8 +8086,9 @@ async def master_list_klanten(
             (instellingen.get("voornaam") or "") + " " + (instellingen.get("achternaam") or "")
         ).strip()
 
-        werkbon_count = await db.werkbonnen.count_documents({"company_id": cid})
-        user_count = await db.users.count_documents({"company_id": cid})
+        scope = _legacy_scope_query(cid)
+        werkbon_count = await db.werkbonnen.count_documents(scope)
+        user_count = await db.users.count_documents(scope)
 
         result.append({
             "company_id": cid,
@@ -8098,7 +8112,7 @@ async def master_list_klanten(
 
 @api_router.get("/master/klanten/{company_id}")
 async def master_klant_detail(company_id: str, current_user: Dict = Depends(_master_guard)):
-    if company_id in _PROTECTED_COMPANY_IDS:
+    if company_id in _LIST_EXCLUDED_COMPANY_IDS:
         raise HTTPException(status_code=404, detail="Bedrijf niet gevonden")
     company = await db.companies.find_one({"id": company_id}, {"_id": 0})
     if not company:
@@ -8108,18 +8122,20 @@ async def master_klant_detail(company_id: str, current_user: Dict = Depends(_mas
         {"id": "company_settings", "company_id": company_id}, {"_id": 0}
     ) or {}
 
+    # default_company also matches docs that have no company_id field at all
+    # (legacy Smart-Tech data from before multi-tenant migration)
     werknemers = await db.users.find(
-        {"company_id": company_id},
+        _legacy_scope_query(company_id),
         {"_id": 0, "id": 1, "naam": 1, "email": 1, "rol": 1, "actief": 1},
     ).to_list(500)
 
     klanten = await db.klanten.find(
-        {"company_id": company_id},
+        _legacy_scope_query(company_id),
         {"_id": 0, "id": 1, "bedrijfsnaam": 1, "naam": 1, "email": 1, "algemeen_email": 1},
     ).to_list(2000)
 
     werven_raw = await db.werven.find(
-        {"company_id": company_id},
+        _legacy_scope_query(company_id),
         {"_id": 0, "id": 1, "naam": 1, "klant_id": 1},
     ).to_list(2000)
     klant_name_map = {
@@ -8130,9 +8146,9 @@ async def master_klant_detail(company_id: str, current_user: Dict = Depends(_mas
         for w in werven_raw
     ]
 
-    werkbon_total = await db.werkbonnen.count_documents({"company_id": company_id})
+    werkbon_total = await db.werkbonnen.count_documents(_legacy_scope_query(company_id))
     werkbonnen_recent_raw = await db.werkbonnen.find(
-        {"company_id": company_id},
+        _legacy_scope_query(company_id),
         {"_id": 0, "id": 1, "datum": 1, "created_at": 1, "type": 1, "status": 1, "klant_id": 1, "werf_id": 1},
     ).sort("created_at", -1).limit(10).to_list(10)
     werf_name_map = {w.get("id"): w.get("naam") or "" for w in werven_raw}
@@ -8383,7 +8399,7 @@ async def master_create_announcement(
     if target not in ("all", "trial", "basic", "pro"):
         raise HTTPException(status_code=400, detail="Ongeldige doelgroep")
 
-    query: dict = {"id": {"$nin": list(_PROTECTED_COMPANY_IDS)}}
+    query: dict = {"id": {"$nin": list(_LIST_EXCLUDED_COMPANY_IDS)}}
     if target == "trial":
         query["subscription_status"] = "trial"
     elif target in ("basic", "pro"):
@@ -8589,6 +8605,38 @@ async def ensure_indexes():
                 "created_at": datetime.now(timezone.utc).isoformat(),
             })
             logging.info("[bootstrap] Created signybon_platform company doc")
+
+        # Smart-Tech legacy bootstrap: surface the original tenant in the
+        # master panel by writing a companies document for default_company.
+        # Pulls bedrijfsnaam / email / btw_nummer from the existing
+        # instellingen doc so the listing reflects real values. Idempotent.
+        existing_default = await db.companies.find_one({"id": "default_company"})
+        if not existing_default:
+            legacy_inst = await db.instellingen.find_one(
+                {"id": "company_settings", "company_id": "default_company"},
+                {"_id": 0},
+            ) or await db.instellingen.find_one(
+                {"id": "company_settings", "company_id": {"$exists": False}},
+                {"_id": 0},
+            ) or {}
+            legacy_email = (
+                legacy_inst.get("email")
+                or (legacy_inst.get("emails") or {}).get("inkomend_werkbon")
+                or ""
+            )
+            await db.companies.insert_one({
+                "id": "default_company",
+                "bedrijfsnaam": legacy_inst.get("bedrijfsnaam") or "Smart-Tech",
+                "email": legacy_email,
+                "contact_email": legacy_email,
+                "btw_nummer": legacy_inst.get("btw_nummer") or "",
+                "telefoon": legacy_inst.get("telefoon") or "",
+                "subscription_status": "active",
+                "selected_plan": "pro",
+                "pakket": "pro",
+                "created_at": "2024-01-01T00:00:00+00:00",
+            })
+            logging.info("[bootstrap] Created legacy default_company entry for master panel visibility")
     except Exception as boot_err:
         logging.warning("[bootstrap] platform admin bootstrap warning: %s", boot_err)
 
@@ -8623,7 +8671,7 @@ async def _trial_notification_loop():
             now = datetime.now(timezone.utc)
             companies = await db.companies.find(
                 {
-                    "id": {"$nin": list(_PROTECTED_COMPANY_IDS)},
+                    "id": {"$nin": list(_LIST_EXCLUDED_COMPANY_IDS)},
                     "subscription_status": "trial",
                     "trial_end_date": {"$exists": True},
                 },
