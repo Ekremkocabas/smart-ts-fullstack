@@ -8131,6 +8131,53 @@ async def ensure_indexes():
     except Exception as idx_err:
         logging.warning(f"[DB] Index creation warning (may already exist): {idx_err}")
 
+    # Bootstrap: ensure the Signybon platform owner account exists.
+    # Idempotent — only inserts when missing, never overwrites existing data.
+    try:
+        existing_admin = await db.users.find_one({"email": PLATFORM_ADMIN_EMAIL})
+        if not existing_admin:
+            bootstrap_password = os.environ.get("PLATFORM_ADMIN_PASSWORD") or "Signybon2026!"
+            now_iso = datetime.now(timezone.utc).isoformat()
+            platform_user = {
+                "id": str(uuid.uuid4()),
+                "email": PLATFORM_ADMIN_EMAIL,
+                "naam": "Signybon Platform",
+                "rol": "platform_admin",
+                "company_id": "signybon_platform",
+                "password_hash": hash_password(bootstrap_password),
+                "actief": True,
+                "email_verified": True,
+                "status": "active",
+                "web_access": True,
+                "app_access": False,
+                "werkbon_types": ["uren"],
+                "created_at": now_iso,
+            }
+            await db.users.insert_one(platform_user)
+            logging.info("[bootstrap] Created platform_admin user %s", PLATFORM_ADMIN_EMAIL)
+        else:
+            # Idempotent role repair — never touch password
+            if existing_admin.get("rol") != "platform_admin" or not existing_admin.get("actief"):
+                await db.users.update_one(
+                    {"email": PLATFORM_ADMIN_EMAIL},
+                    {"$set": {"rol": "platform_admin", "actief": True, "status": "active"}},
+                )
+                logging.info("[bootstrap] Repaired platform_admin role for %s", PLATFORM_ADMIN_EMAIL)
+
+        existing_company = await db.companies.find_one({"id": "signybon_platform"})
+        if not existing_company:
+            await db.companies.insert_one({
+                "id": "signybon_platform",
+                "bedrijfsnaam": "Signybon",
+                "email": PLATFORM_ADMIN_EMAIL,
+                "contact_email": PLATFORM_ADMIN_EMAIL,
+                "subscription_status": "active",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            })
+            logging.info("[bootstrap] Created signybon_platform company doc")
+    except Exception as boot_err:
+        logging.warning("[bootstrap] platform admin bootstrap warning: %s", boot_err)
+
     # Migration: set company_id="default_company" on legacy docs missing it
     try:
         for coll_name in ("werkbonnen", "klanten", "werven", "planning", "berichten", "teams", "users", "instellingen"):
