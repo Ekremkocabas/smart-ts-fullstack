@@ -358,8 +358,22 @@ async def get_current_user(
     # before multi-tenant scoping was enforced. Avoid the "default_company"
     # fallback for non-legacy users — that path leaks Smart-Tech data.
     company_id = user.get("company_id")
+    normalized_role = normalize_role(user.get("rol", "worker"))
+    # Treat "default_company" as suspicious for any user that actually owns
+    # a separate company entry — this catches Atanas-style cases where the
+    # user record was stamped with the legacy id by an earlier code path.
+    if company_id == "default_company" and normalized_role in ("master_admin", "admin"):
+        owned = await db.companies.find_one(
+            {"$or": [{"email": user["email"]}, {"contact_email": user["email"]}]},
+            {"_id": 0, "id": 1},
+        )
+        if owned and owned.get("id") and owned["id"] != "default_company":
+            company_id = owned["id"]
+            try:
+                await db.users.update_one({"id": user["id"]}, {"$set": {"company_id": company_id}})
+            except Exception as exc:
+                logging.warning("[get_current_user] default_company repair failed: %s", exc)
     if not company_id:
-        normalized_role = normalize_role(user.get("rol", "worker"))
         if normalized_role in ("master_admin", "admin"):
             # Try to find a company that belongs to this admin via email match
             company_doc = await db.companies.find_one(
@@ -2068,17 +2082,12 @@ def get_company_recipient(instellingen: dict, user_email: Optional[str] = None) 
 
 
 async def get_instellingen_for_company(company_id: Optional[str]) -> dict:
-    """Multi-tenant safe instellingen lookup. Falls back to default_company."""
-    cid = company_id or "default_company"
-    doc = await db.instellingen.find_one({"id": "company_settings", "company_id": cid}, {"_id": 0})
-    if doc:
-        return doc
-    # Fallback for legacy docs without company_id
-    if cid == "default_company":
-        legacy = await db.instellingen.find_one({"id": "company_settings", "company_id": {"$exists": False}}, {"_id": 0})
-        if legacy:
-            return legacy
-    return {}
+    """Strict multi-tenant instellingen lookup. Returns {} if no doc exists for this company.
+    Never falls back to another tenant's data."""
+    if not company_id:
+        return {}
+    doc = await db.instellingen.find_one({"id": "company_settings", "company_id": company_id}, {"_id": 0})
+    return doc or {}
 
 
 async def get_company_subscription_status(company_id: str) -> dict:
@@ -4577,7 +4586,7 @@ async def get_klanten(include_inactive: bool = Query(False), current_user: Dict 
     cached = get_cache(cache_key, ttl_seconds=60)
     if cached is not None:
         return cached
-    query: dict = {"$or": [{"company_id": company_id}, {"company_id": {"$exists": False}} if company_id == "default_company" else {"company_id": "__never__"}]}
+    query: dict = {"company_id": company_id}
     if not include_inactive:
         query["actief"] = {"$ne": False}
     klanten = await db.klanten.find(query).to_list(1000)
@@ -4589,10 +4598,8 @@ async def get_klanten(include_inactive: bool = Query(False), current_user: Dict 
 async def get_klant(klant_id: str, current_user: Dict = Depends(get_current_user)):
     """Get single klant by ID (company-scoped)"""
     company_id = current_user.get("company_id") or "default_company"
-    klant = await db.klanten.find_one({"id": klant_id})
+    klant = await db.klanten.find_one({"id": klant_id, "company_id": company_id})
     if not klant:
-        raise HTTPException(status_code=404, detail="Klant niet gevonden")
-    if klant.get("company_id") and klant.get("company_id") != company_id:
         raise HTTPException(status_code=404, detail="Klant niet gevonden")
     return migrate_klant_data(klant)
 
@@ -4700,12 +4707,11 @@ async def send_klant_welcome(klant_id: str, current_user: Dict = Depends(require
 # ==================== WERF ROUTES ====================
 
 def _company_scope_query(company_id: str, base: Optional[dict] = None) -> dict:
-    """Build a query that scopes to company_id but also includes legacy docs without company_id (for default_company)."""
+    """Strict tenant scoping. Returns a query that ONLY matches documents whose
+    company_id equals the supplied value. No legacy fallback — a missing
+    company_id field on a document means it belongs to no one and must not leak."""
     base = dict(base or {})
-    if company_id == "default_company":
-        base["$or"] = [{"company_id": company_id}, {"company_id": {"$exists": False}}]
-    else:
-        base["company_id"] = company_id
+    base["company_id"] = company_id
     return base
 
 @api_router.get("/werven", response_model=List[Werf])
