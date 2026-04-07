@@ -5358,6 +5358,50 @@ async def dupliceer_werkbon(werkbon_id: str, current_user: Dict = Depends(get_cu
     await db.werkbonnen.insert_one(new_werkbon.dict())
     return new_werkbon
 
+# ==================== ONE-SHOT TENANT WIPE (manual, master_admin only) ====================
+
+@api_router.post("/_admin/wipe-tenant-by-email")
+async def wipe_tenant_by_email(
+    email: str = Query(..., description="Email of the master_admin whose tenant should be deleted"),
+    confirm: str = Query(..., description="Must be the literal string DELETE"),
+    current_user: Dict = Depends(require_roles(["master_admin"])),
+):
+    """Manual cleanup endpoint. Deletes the user, their company, and every
+    document scoped to that company_id. Intended for one-off test cleanup —
+    remove this endpoint once Atanas is gone."""
+    if confirm != "DELETE":
+        raise HTTPException(status_code=400, detail="confirm must equal DELETE")
+    target_email = email.lower().strip()
+    if current_user["email"].lower() == target_email:
+        raise HTTPException(status_code=400, detail="Cannot wipe your own account")
+
+    target_user = await db.users.find_one({"email": target_email}, {"_id": 0, "id": 1, "company_id": 1})
+    target_company = await db.companies.find_one(
+        {"$or": [{"email": target_email}, {"contact_email": target_email}]},
+        {"_id": 0, "id": 1},
+    )
+    cids = set()
+    if target_user and target_user.get("company_id") and target_user["company_id"] != "default_company":
+        cids.add(target_user["company_id"])
+    if target_company and target_company.get("id") and target_company["id"] != "default_company":
+        cids.add(target_company["id"])
+
+    deleted = {}
+    for cid in cids:
+        for coll_name in ("instellingen", "klanten", "werven", "werkbonnen", "planning", "berichten", "teams", "users"):
+            r = await db[coll_name].delete_many({"company_id": cid})
+            deleted[f"{coll_name}:{cid}"] = r.deleted_count
+        r = await db.companies.delete_many({"id": cid})
+        deleted[f"companies:{cid}"] = r.deleted_count
+
+    r_user = await db.users.delete_many({"email": target_email})
+    r_comp = await db.companies.delete_many(
+        {"$or": [{"email": target_email}, {"contact_email": target_email}]}
+    )
+    deleted["users_by_email"] = r_user.deleted_count
+    deleted["companies_by_email"] = r_comp.deleted_count
+    return {"company_ids": list(cids), "deleted": deleted}
+
 # ==================== ONBOARDING STATUS ====================
 
 @api_router.get("/onboarding/status")
