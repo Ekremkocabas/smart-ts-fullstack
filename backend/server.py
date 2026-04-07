@@ -3878,7 +3878,7 @@ async def register_company(request: Request, data: CompanyRegister):
                   <a href="{verify_url}" class="btn">E-mailadres Bevestigen</a>
                 </div>
                 <div class="steps">
-                  <h3>\u{1F680} Snel aan de slag in 6 stappen:</h3>
+                  <h3>🚀 Snel aan de slag in 6 stappen:</h3>
                   <div class="step"><span class="step-num">1</span><span><b>Bedrijfsgegevens invullen</b> — logo, kleuren, contactpersoon</span></div>
                   <div class="step"><span class="step-num">2</span><span><b>Klanten aanmaken</b> — uw vaste klanten eenmalig invoeren</span></div>
                   <div class="step"><span class="step-num">3</span><span><b>Werknemers toevoegen</b> — uw team uitnodigen via e-mail</span></div>
