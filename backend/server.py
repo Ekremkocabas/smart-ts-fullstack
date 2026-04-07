@@ -5398,6 +5398,13 @@ async def get_instellingen(current_user: Dict = Depends(require_web_access())):
         default = BedrijfsInstellingen()
         default_dict = default.dict()
         default_dict["company_id"] = company_id
+        # Wipe identifying defaults so a fresh tenant sees an empty profile,
+        # not the platform-default Signybon name/colors of another tenant.
+        default_dict["bedrijfsnaam"] = ""
+        default_dict["email"] = ""
+        default_dict["telefoon"] = None
+        default_dict["btw_nummer"] = None
+        default_dict["logo_base64"] = None
         await db.instellingen.insert_one(default_dict.copy())
         set_cache(cache_key, default_dict)
         return default_dict
@@ -7938,6 +7945,48 @@ async def ensure_indexes():
                 logging.info(f"[DB migration] {coll_name}: set company_id on {res.modified_count} legacy docs")
     except Exception as mig_err:
         logging.warning(f"[DB migration] warning: {mig_err}")
+
+    # One-shot cleanup: wipe Atanas test tenant so multi-tenant isolation
+    # can be re-tested from a clean register flow. Idempotent — does nothing
+    # once the user/company are gone. Remove this block after verification.
+    try:
+        atanas_email = "atanas.electro@hotmail.com"
+        atanas_user = await db.users.find_one({"email": atanas_email}, {"_id": 0, "id": 1, "company_id": 1})
+        atanas_company = await db.companies.find_one(
+            {"$or": [{"email": atanas_email}, {"contact_email": atanas_email}]},
+            {"_id": 0, "id": 1},
+        )
+        company_ids_to_purge = set()
+        if atanas_user and atanas_user.get("company_id") and atanas_user["company_id"] != "default_company":
+            company_ids_to_purge.add(atanas_user["company_id"])
+        if atanas_company and atanas_company.get("id"):
+            company_ids_to_purge.add(atanas_company["id"])
+        if company_ids_to_purge:
+            for cid in company_ids_to_purge:
+                for coll_name in (
+                    "instellingen", "klanten", "werven", "werkbonnen",
+                    "planning", "berichten", "teams", "users", "companies",
+                ):
+                    try:
+                        r = await db[coll_name].delete_many(
+                            {"$or": [{"company_id": cid}, {"id": cid} if coll_name == "companies" else {"company_id": cid}]}
+                        )
+                        if r.deleted_count:
+                            logging.info("[atanas-cleanup] %s: deleted %d docs for company_id=%s", coll_name, r.deleted_count, cid)
+                    except Exception as exc:
+                        logging.warning("[atanas-cleanup] %s purge failed: %s", coll_name, exc)
+        # Always remove the user record by email as a final sweep
+        deleted_user = await db.users.delete_many({"email": atanas_email})
+        deleted_company = await db.companies.delete_many(
+            {"$or": [{"email": atanas_email}, {"contact_email": atanas_email}]}
+        )
+        if deleted_user.deleted_count or deleted_company.deleted_count:
+            logging.info(
+                "[atanas-cleanup] removed user=%d company=%d by email match",
+                deleted_user.deleted_count, deleted_company.deleted_count,
+            )
+    except Exception as cleanup_err:
+        logging.warning("[atanas-cleanup] warning: %s", cleanup_err)
 
 
 @app.on_event("shutdown")
