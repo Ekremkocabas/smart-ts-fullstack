@@ -4914,7 +4914,8 @@ async def get_werkbonnen_by_user(user_id: str, current_user: Dict = Depends(get_
 @api_router.get("/werkbonnen/count")
 async def count_werkbonnen(current_user: Dict = Depends(get_current_user)):
     """Lightweight endpoint — returns total werkbon count for change detection"""
-    total = await db.werkbonnen.count_documents({})
+    company_id = current_user.get("company_id")
+    total = await db.werkbonnen.count_documents(_company_scope_query(company_id))
     return {"total": total}
 
 
@@ -7718,6 +7719,7 @@ async def get_public_branding():
 @api_router.get("/dashboard/stats")
 async def get_dashboard_stats(current_user: Dict = Depends(get_current_user)):
     """Get comprehensive dashboard statistics"""
+    company_id = current_user.get("company_id")
     now = datetime.now(timezone.utc)
     iso = now.isocalendar()
     current_week = iso[1]
@@ -7725,30 +7727,30 @@ async def get_dashboard_stats(current_user: Dict = Depends(get_current_user)):
     cal_year = now.year
     # Werkbonnen store `jaar` as calendar year from clients; ISO week-year can differ at year boundaries
     jaar_match = list({iso_year, cal_year})
-    
-    # V1: Count active mobile users (worker, onderaannemer) - excluding web panel roles
-    total_werknemers = await db.users.count_documents({"actief": True, "rol": {"$in": ["worker", "onderaannemer"]}})
-    total_teams = await db.teams.count_documents({})  # Count all teams, not just actief=True
-    total_klanten = await db.klanten.count_documents({})  # Count all klanten
-    total_werven = await db.werven.count_documents({})  # Count all werven
-    
+
+    # All queries scoped to tenant via company_id
+    total_werknemers = await db.users.count_documents(_company_scope_query(company_id, {"actief": True, "rol": {"$in": ["worker", "onderaannemer"]}}))
+    total_teams = await db.teams.count_documents(_company_scope_query(company_id))
+    total_klanten = await db.klanten.count_documents(_company_scope_query(company_id))
+    total_werven = await db.werven.count_documents(_company_scope_query(company_id))
+
     # Werkbonnen stats
-    werkbonnen_week = await db.werkbonnen.count_documents({"week_nummer": current_week, "jaar": {"$in": jaar_match}})
-    werkbonnen_ondertekend = await db.werkbonnen.count_documents({"status": "ondertekend"})
-    werkbonnen_concept = await db.werkbonnen.count_documents({"status": "concept"})
-    
+    werkbonnen_week = await db.werkbonnen.count_documents(_company_scope_query(company_id, {"week_nummer": current_week, "jaar": {"$in": jaar_match}}))
+    werkbonnen_ondertekend = await db.werkbonnen.count_documents(_company_scope_query(company_id, {"status": "ondertekend"}))
+    werkbonnen_concept = await db.werkbonnen.count_documents(_company_scope_query(company_id, {"status": "concept"}))
+
     # Oplevering stats
-    oplevering_total = await db.oplevering_werkbonnen.count_documents({})
-    
+    oplevering_total = await db.oplevering_werkbonnen.count_documents(_company_scope_query(company_id))
+
     # Project werkbon stats
-    project_total = await db.project_werkbonnen.count_documents({})
-    
+    project_total = await db.project_werkbonnen.count_documents(_company_scope_query(company_id))
+
     # Planning stats
-    planning_week = await db.planning.count_documents({"week_nummer": current_week, "jaar": {"$in": jaar_match}})
-    planning_afgerond = await db.planning.count_documents({"week_nummer": current_week, "jaar": {"$in": jaar_match}, "status": "afgerond"})
-    
+    planning_week = await db.planning.count_documents(_company_scope_query(company_id, {"week_nummer": current_week, "jaar": {"$in": jaar_match}}))
+    planning_afgerond = await db.planning.count_documents(_company_scope_query(company_id, {"week_nummer": current_week, "jaar": {"$in": jaar_match}, "status": "afgerond"}))
+
     # Unread messages
-    ongelezen_berichten = await db.berichten.count_documents({"gelezen_door": {"$size": 0}})
+    ongelezen_berichten = await db.berichten.count_documents(_company_scope_query(company_id, {"gelezen_door": {"$size": 0}}))
     
     return {
         "werknemers": total_werknemers,
@@ -7785,7 +7787,8 @@ async def get_recent_werkbonnen(
         "created_at": 1,
         "ingevuld_door_naam": 1,
     }
-    cursor = db.werkbonnen.find({}, projection).sort("created_at", -1).limit(limit)
+    company_id = current_user.get("company_id")
+    cursor = db.werkbonnen.find(_company_scope_query(company_id), projection).sort("created_at", -1).limit(limit)
     try:
         werkbonnen = await asyncio.wait_for(cursor.to_list(limit), timeout=5.0)
     except asyncio.TimeoutError:
@@ -8525,11 +8528,17 @@ TRIAL_ALLOWED_PREFIXES = (
 @app.middleware("http")
 async def trial_check_middleware(request: Request, call_next):
     path = request.url.path
+    method = request.method.upper()
     # Only check /api/* endpoints
     if not path.startswith("/api/"):
         return await call_next(request)
     # Allow always-accessible endpoints
     if any(path.startswith(p) for p in TRIAL_ALLOWED_PREFIXES):
+        return await call_next(request)
+    # Trial expiry only blocks write operations (POST/PUT/DELETE).
+    # GET requests (reading data, viewing pages) are always allowed so
+    # users can still browse their dashboard, werven, klanten etc.
+    if method == "GET":
         return await call_next(request)
     # Try to read JWT to get company_id
     auth_header = request.headers.get("authorization", "")
