@@ -4801,7 +4801,8 @@ async def search_users(q: str = Query(""), rol: Optional[str] = Query(None), cur
         rol_filter = "onderaannemer"
     else:
         rol_filter = {"$in": ["werknemer", "worker", "onderaannemer"]}
-    query: Dict[str, Any] = {"rol": rol_filter, "actief": True}
+    company_id = current_user.get("company_id")
+    query: Dict[str, Any] = {"rol": rol_filter, "actief": True, "company_id": company_id}
     if q:
         query["naam"] = {"$regex": q, "$options": "i"}
     cursor = db.users.find(query, {"_id": 0, "id": 1, "naam": 1, "rol": 1}).limit(50)
@@ -4925,7 +4926,8 @@ async def werkbonnen_filter_count(
     current_user: Dict = Depends(require_web_access()),
 ):
     """Count werkbonnen matching the same filters as GET /werkbonnen (admin)."""
-    q = _werkbonnen_admin_filter_query(week_nummer, jaar, maand)
+    company_id = current_user.get("company_id")
+    q = _company_scope_query(company_id, _werkbonnen_admin_filter_query(week_nummer, jaar, maand))
     count = await db.werkbonnen.count_documents(q)
     return {"count": count}
 
@@ -4945,27 +4947,28 @@ async def export_werkbonnen_zip(
     except ValueError:
         raise HTTPException(status_code=400, detail="Ongeldig datumformaat. Gebruik YYYY-MM-DD")
 
-    # Query by created_at ISO string (indexed field)
-    query = {
+    company_id = current_user.get("company_id")
+    # Query by created_at ISO string (indexed field), scoped to tenant
+    query = _company_scope_query(company_id, {
         "created_at": {
             "$gte": start_dt.isoformat(),
             "$lte": end_dt.isoformat(),
         }
-    }
+    })
     werkbonnen_raw = await db.werkbonnen.find(query, {"_id": 0}).sort("created_at", -1).to_list(100)
 
     if not werkbonnen_raw:
         raise HTTPException(status_code=404, detail="Geen werkbonnen gevonden in de opgegeven periode")
 
-    instellingen = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0}) or {}
+    instellingen = await get_instellingen_for_company(company_id)
 
     zip_buffer = io.BytesIO()
     added = 0
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
         for wb in werkbonnen_raw:
             try:
-                klant = await db.klanten.find_one({"id": wb.get("klant_id", "")}, {"_id": 0}) or {}
-                werf = await db.werven.find_one({"id": wb.get("werf_id", "")}, {"_id": 0}) or {}
+                klant = await db.klanten.find_one(_company_scope_query(company_id, {"id": wb.get("klant_id", "")}), {"_id": 0}) or {}
+                werf = await db.werven.find_one(_company_scope_query(company_id, {"id": wb.get("werf_id", "")}), {"_id": 0}) or {}
                 fin = compute_werkbon_financials(wb, klant)
                 total_uren = fin["total_uren"]
                 totaal_bedrag = fin["totaal_bedrag"]
@@ -5719,12 +5722,13 @@ async def send_werkbon_to_billit(werkbon: dict, klant: dict, instellingen: dict)
 @api_router.post("/werkbonnen/{werkbon_id}/verstuur-billit")
 async def verstuur_werkbon_naar_billit(werkbon_id: str, current_user: Dict = Depends(require_web_access())):
     """Werkbon handmatig naar Billit sturen."""
-    werkbon = await db.werkbonnen.find_one({"id": werkbon_id}, {"_id": 0})
+    company_id = current_user.get("company_id")
+    werkbon = await db.werkbonnen.find_one(_company_scope_query(company_id, {"id": werkbon_id}), {"_id": 0})
     if not werkbon:
         raise HTTPException(status_code=404, detail="Werkbon niet gevonden")
 
-    klant = await db.klanten.find_one({"id": werkbon.get("klant_id")}, {"_id": 0}) or {}
-    instellingen = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0}) or {}
+    klant = await db.klanten.find_one(_company_scope_query(company_id, {"id": werkbon.get("klant_id")}), {"_id": 0}) or {}
+    instellingen = await get_instellingen_for_company(company_id)
 
     result = await send_werkbon_to_billit(werkbon, klant, instellingen)
 
