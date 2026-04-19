@@ -265,7 +265,10 @@ export default function AdminLayout() {
     };
     (async () => {
       try {
-        const res = await fetch('/api/app-settings/logo');
+        const hdrs: Record<string, string> = {};
+        const tk = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+        if (tk) hdrs['Authorization'] = `Bearer ${tk}`;
+        const res = await fetch('/api/app-settings/logo', { headers: hdrs });
         if (res.ok) {
           const data = await res.json();
           if (data && data.logo_base64) {

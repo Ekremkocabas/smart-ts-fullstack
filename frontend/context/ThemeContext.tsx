@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
 // Web: always use current origin (avoids hardcoded Railway URLs baked into app.json)
@@ -28,9 +29,9 @@ interface AppTheme {
 }
 
 const defaultTheme: AppTheme = {
-  primaryColor: '#F5A623',
-  secondaryColor: '#1A1A2E',
-  accentColor: '#16213E',
+  primaryColor: '#1B4332',
+  secondaryColor: '#F5A623',
+  accentColor: '#D4A017',
   bedrijfsnaam: 'Signybon',
 };
 
@@ -49,10 +50,21 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const refreshTheme = async () => {
     try {
+      // Include Authorization header if token exists so backend returns tenant-specific settings
+      let headers: Record<string, string> = {};
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        const token = localStorage.getItem('token');
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+      } else {
+        try {
+          const token = await AsyncStorage.getItem('token');
+          if (token) headers['Authorization'] = `Bearer ${token}`;
+        } catch {}
+      }
       // Lightweight settings (no logo) + logo fetched separately to avoid 106KB payload
       const [settingsRes, logoRes] = await Promise.all([
-        fetch(`${API_URL}/api/app-settings`),
-        fetch(`${API_URL}/api/app-settings/logo`),
+        fetch(`${API_URL}/api/app-settings`, { headers }),
+        fetch(`${API_URL}/api/app-settings/logo`, { headers }),
       ]);
       if (settingsRes.ok) {
         const data = await settingsRes.json();

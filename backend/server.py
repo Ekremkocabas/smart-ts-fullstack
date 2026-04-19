@@ -5540,8 +5540,8 @@ async def update_instellingen(update_data: BedrijfsInstellingenUpdate, current_u
         upsert=True
     )
     clear_cache("instellingen")
-    clear_cache("app-settings")
-    clear_cache("app-settings:logo")
+    clear_cache("app-settings:")
+    clear_cache("app-settings:logo:")
 
     updated = await get_instellingen_for_company(company_id)
     if updated.get('adres_gestructureerd') and not updated.get('adres_structured'):
@@ -7637,28 +7637,66 @@ async def _build_app_settings_response(settings: dict) -> dict:
         "project_confirmation_text": settings.get("project_confirmation_text"),
     }
 
+SIGNYBON_DEFAULT_SETTINGS = {
+    "bedrijfsnaam": "Signybon",
+    "primary_color": "#1B4332",
+    "secondary_color": "#F5A623",
+    "accent_color": "#D4A017",
+    "pdf_voettekst": None,
+    "uren_confirmation_text": None,
+    "oplevering_confirmation_text": None,
+    "project_confirmation_text": None,
+}
+
+SIGNYBON_DEFAULT_LOGO = {
+    "logo_base64": None,
+    "bedrijfsnaam": "Signybon",
+}
+
+
+def _extract_company_id_from_token(authorization: Optional[str]) -> Optional[str]:
+    """Try to extract company_id from Authorization header. Returns None if no valid token."""
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+    token = authorization[7:]
+    payload = decode_jwt_token(token)
+    if not payload:
+        return None
+    return payload.get("company_id")
+
+
 @api_router.get("/app-settings")
-async def get_app_settings():
-    """Get app theme settings - lightweight, no logo (use /app-settings/logo for logo)."""
-    cached = get_cache("app-settings:main", ttl_seconds=300)
+async def get_app_settings(authorization: Optional[str] = Header(None)):
+    """Get app theme settings. With valid token → tenant settings. Without → Signybon defaults."""
+    company_id = _extract_company_id_from_token(authorization)
+    if not company_id:
+        return SIGNYBON_DEFAULT_SETTINGS
+
+    cache_key = f"app-settings:{company_id}"
+    cached = get_cache(cache_key, ttl_seconds=300)
     if cached is not None:
         return cached
-    settings = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0}) or {}
+    settings = await get_instellingen_for_company(company_id)
     result = await _build_app_settings_response(settings)
-    set_cache("app-settings:main", result)
+    set_cache(cache_key, result)
     return result
 
 @api_router.get("/app-settings/logo")
-async def get_app_settings_logo():
-    """Separate endpoint for logo_base64 — large payload, fetched independently."""
-    cached = get_cache("app-settings:logo", ttl_seconds=600)
+async def get_app_settings_logo(authorization: Optional[str] = Header(None)):
+    """Logo endpoint. With valid token → tenant logo. Without → Signybon defaults (no logo)."""
+    company_id = _extract_company_id_from_token(authorization)
+    if not company_id:
+        return SIGNYBON_DEFAULT_LOGO
+
+    cache_key = f"app-settings:logo:{company_id}"
+    cached = get_cache(cache_key, ttl_seconds=600)
     if cached is not None:
         return cached
-    settings = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0}) or {}
+    settings = await get_instellingen_for_company(company_id)
     branding = settings.get("branding") or {}
     logo_b64 = branding.get("logo_base64") or settings.get("logo_base64")
     result = {"logo_base64": logo_b64, "bedrijfsnaam": settings.get("bedrijfsnaam", "Signybon")}
-    set_cache("app-settings:logo", result)
+    set_cache(cache_key, result)
     return result
 
 @api_router.get("/public/branding")
