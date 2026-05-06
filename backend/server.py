@@ -4428,18 +4428,24 @@ async def assign_user_role(
     )
 
 @api_router.delete("/auth/users/{user_id}")
-async def delete_user(user_id: str, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
-    """Delete a user. Only admin/master_admin can delete users in their own tenant."""
-    company_id = current_user.get("company_id") or "default_company"
-    user = await db.users.find_one({"id": user_id, "company_id": company_id})
+async def delete_user(user_id: str, current_user: Dict = Depends(require_roles(["admin", "master_admin", "platform_admin"]))):
+    """Delete a user. admin/master_admin scoped to their own tenant; platform_admin can delete across tenants."""
+    is_platform_admin = current_user.get("rol") == "platform_admin"
+    if is_platform_admin:
+        scope = {"id": user_id}
+    else:
+        company_id = current_user.get("company_id") or "default_company"
+        scope = {"id": user_id, "company_id": company_id}
+
+    user = await db.users.find_one(scope)
     if not user:
         raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
 
-    # V1: Protect admin and master_admin from deletion
-    if user.get("rol") in ("admin", "master_admin"):
+    # V1: Protect admin and master_admin from deletion (platform_admin overrides)
+    if not is_platform_admin and user.get("rol") in ("admin", "master_admin"):
         raise HTTPException(status_code=400, detail="Admin gebruikers kunnen niet worden verwijderd")
 
-    result = await db.users.delete_one({"id": user_id, "company_id": company_id})
+    result = await db.users.delete_one(scope)
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
     clear_cache("auth:users")
@@ -8951,7 +8957,19 @@ async def startup_migrate():
         # This prevents "Sort exceeded memory limit" errors
         await ensure_indexes()
 
-        
+        # === ONE-SHOT: drop orphan ekrem@smart-techbv.be in default_company ===
+        # Werknemer was created before register-worker company_id fix landed,
+        # so it's invisible in the E.K Consulting tenant and blocks re-add.
+        try:
+            orphan_drop = await db.users.delete_one(
+                {"email": "ekrem@smart-techbv.be", "company_id": "default_company"}
+            )
+            if orphan_drop.deleted_count:
+                logging.info("[migrate] Dropped orphan user ekrem@smart-techbv.be from default_company")
+        except Exception as orphan_err:
+            logging.warning("[migrate] Orphan ekrem drop failed: %s", orphan_err)
+
+
         # === PHASE 1: User migrations ===
         
         # 1. Add company_id to all users
