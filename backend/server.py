@@ -3992,12 +3992,14 @@ async def register_worker_with_email(
         team_id=team_id,
         telefoon=telefoon,
         werkbon_types=wbt,
+        company_id=current_user.get("company_id") or "default_company",
     )
     await db.users.insert_one(user.dict())
-    
+    clear_cache("auth:users")
+
     email_result = {"success": False, "error": "E-mail verzenden staat uitgeschakeld"}
     if send_email:
-        instellingen = await db.instellingen.find_one({"id": "company_settings"}) or {}
+        instellingen = await get_instellingen_for_company(current_user.get("company_id"))
         email_result = await send_welcome_email(email, naam, password, instellingen)
     
     return {
@@ -4009,8 +4011,9 @@ async def register_worker_with_email(
 
 
 @api_router.post("/auth/users/{user_id}/resend-info", response_model=ResendInfoMailResponse)
-async def resend_worker_info_email(user_id: str):
-    user = await db.users.find_one({"id": user_id}, {"_id": 0})
+async def resend_worker_info_email(user_id: str, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
+    company_id = current_user.get("company_id") or "default_company"
+    user = await db.users.find_one({"id": user_id, "company_id": company_id}, {"_id": 0})
     if not user:
         raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
 
@@ -4021,16 +4024,16 @@ async def resend_worker_info_email(user_id: str):
     # Generate new permanent password
     new_password = generate_temp_password()
     await db.users.update_one(
-        {"id": user_id},
+        {"id": user_id, "company_id": company_id},
         {"$set": {
             "password_hash": hash_password(new_password),
             "actief": True
         }},
     )
 
-    instellingen = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0}) or {}
+    instellingen = await get_instellingen_for_company(company_id)
     email_result = await send_welcome_email(user["email"], user["naam"], new_password, instellingen)
-    updated_user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    updated_user = await db.users.find_one({"id": user_id, "company_id": company_id}, {"_id": 0})
 
     return ResendInfoMailResponse(
         user=UserResponse(**updated_user),
@@ -4189,27 +4192,28 @@ async def get_all_users(current_user: Dict = Depends(require_web_access())):
     return result
 
 @api_router.put("/auth/users/{user_id}", response_model=UserResponse)
-async def update_user(user_id: str, update_data: UserUpdate):
-    """Update user. Role assignment is restricted based on assigner's role."""
+async def update_user(user_id: str, update_data: UserUpdate, current_user: Dict = Depends(get_current_user)):
+    """Update user. Tenant-scoped — admins can only update users in their own company."""
+    company_id = current_user.get("company_id") or "default_company"
     update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
     if not update_dict:
         raise HTTPException(status_code=400, detail="Geen wijzigingen opgegeven")
-    
+
     # Handle new_password field (replaces wachtwoord_plain)
     if "new_password" in update_dict and update_dict["new_password"]:
         update_dict["password_hash"] = hash_password(update_dict["new_password"])
         update_dict["password_changed_at"] = datetime.now(timezone.utc)
         del update_dict["new_password"]
-    
+
     # Normalize role if being updated
     if "rol" in update_dict:
         update_dict["rol"] = normalize_role(update_dict["rol"])
-    
-    result = await db.users.update_one({"id": user_id}, {"$set": update_dict})
+
+    result = await db.users.update_one({"id": user_id, "company_id": company_id}, {"$set": update_dict})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
     clear_cache("auth:users")
-    updated = await db.users.find_one({"id": user_id})
+    updated = await db.users.find_one({"id": user_id, "company_id": company_id})
     normalized_role = normalize_role(updated.get("rol", "worker"))
     return UserResponse(
         id=updated["id"],
@@ -4279,27 +4283,28 @@ async def change_password(request: Request, user_id: str, password_data: Passwor
     return {"message": "Wachtwoord succesvol gewijzigd", "success": True}
 
 @api_router.post("/auth/admin-reset-password/{user_id}")
-async def admin_reset_password(user_id: str, data: dict):
+async def admin_reset_password(user_id: str, data: dict, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """
-    Admin endpoint to reset user password.
-    Only admins can use this - no current password required.
+    Admin endpoint to reset user password — tenant-scoped.
+    Only admins of the same tenant can reset.
     """
+    company_id = current_user.get("company_id") or "default_company"
     new_password = data.get("new_password")
     if not new_password:
         raise HTTPException(status_code=400, detail="Nieuw wachtwoord is verplicht")
-    
+
     if len(new_password) < 6:
         raise HTTPException(status_code=400, detail="Wachtwoord moet minimaal 6 karakters bevatten")
-    
-    user = await db.users.find_one({"id": user_id})
+
+    user = await db.users.find_one({"id": user_id, "company_id": company_id})
     if not user:
         raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
-    
+
     # Hash the new password
     new_hash = hash_password(new_password)
-    
+
     await db.users.update_one(
-        {"id": user_id}, 
+        {"id": user_id, "company_id": company_id},
         {
             "$set": {
                 "password_hash": new_hash,
@@ -4307,16 +4312,16 @@ async def admin_reset_password(user_id: str, data: dict):
             }
         }
     )
-    
+
     return {"message": "Wachtwoord succesvol gewijzigd", "success": True, "new_password": new_password}
 
 @api_router.get("/auth/user-password/{user_id}")
-async def get_user_password(user_id: str):
+async def get_user_password(user_id: str, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """
-    Admin endpoint to get user's plain password (if available).
-    Only works if wachtwoord_plain is stored.
+    Admin endpoint to get user's plain password (if available) — tenant-scoped.
     """
-    user = await db.users.find_one({"id": user_id})
+    company_id = current_user.get("company_id") or "default_company"
+    user = await db.users.find_one({"id": user_id, "company_id": company_id})
     if not user:
         raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
     
@@ -4361,27 +4366,30 @@ async def assign_user_role(
     user_id: str,
     role_data: dict,
     assigner_id: str = Query(..., description="ID of user assigning the role"),
+    current_user: Dict = Depends(get_current_user),
 ):
     """
     Securely assign a role to a user.
-    Validates that the assigner has permission to assign the requested role.
+    Validates that the assigner has permission to assign the requested role and
+    that both assigner and target belong to the caller's tenant.
     """
+    company_id = current_user.get("company_id") or "default_company"
     new_role = role_data.get("role")
     if not new_role:
         raise HTTPException(status_code=400, detail="Rol is vereist")
-    
+
     # Normalize and validate new role
     normalized_new_role = normalize_role(new_role)
     if normalized_new_role not in VALID_ROLES:
         raise HTTPException(status_code=400, detail=f"Ongeldige rol: {new_role}")
-    
-    # Get assigner user
-    assigner = await db.users.find_one({"id": assigner_id})
+
+    # Get assigner user (must be in caller's tenant)
+    assigner = await db.users.find_one({"id": assigner_id, "company_id": company_id})
     if not assigner:
         raise HTTPException(status_code=404, detail="Toewijzer niet gevonden")
-    
+
     assigner_role = normalize_role(assigner.get("rol", "worker"))
-    
+
     # Check if assigner can assign this role
     if not can_assign_role(assigner_role, normalized_new_role):
         raise HTTPException(
@@ -4390,19 +4398,19 @@ async def assign_user_role(
                    f"Uw rol ({assigner_role}) kan alleen deze rollen toewijzen: "
                    f"{', '.join(ROLE_ASSIGNMENT_PERMISSIONS.get(assigner_role, set()))}"
         )
-    
-    # Get target user
-    target_user = await db.users.find_one({"id": user_id})
+
+    # Get target user (must be in caller's tenant)
+    target_user = await db.users.find_one({"id": user_id, "company_id": company_id})
     if not target_user:
         raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
-    
+
     # Update role
     await db.users.update_one(
-        {"id": user_id},
+        {"id": user_id, "company_id": company_id},
         {"$set": {"rol": normalized_new_role}}
     )
     clear_cache("auth:users")
-    updated = await db.users.find_one({"id": user_id})
+    updated = await db.users.find_one({"id": user_id, "company_id": company_id})
     return UserResponse(
         id=updated["id"],
         email=updated["email"],
@@ -4421,16 +4429,17 @@ async def assign_user_role(
 
 @api_router.delete("/auth/users/{user_id}")
 async def delete_user(user_id: str, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
-    """Delete a user. Only admin/master_admin can delete users."""
-    user = await db.users.find_one({"id": user_id})
+    """Delete a user. Only admin/master_admin can delete users in their own tenant."""
+    company_id = current_user.get("company_id") or "default_company"
+    user = await db.users.find_one({"id": user_id, "company_id": company_id})
     if not user:
         raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
-    
+
     # V1: Protect admin and master_admin from deletion
     if user.get("rol") in ("admin", "master_admin"):
         raise HTTPException(status_code=400, detail="Admin gebruikers kunnen niet worden verwijderd")
-    
-    result = await db.users.delete_one({"id": user_id})
+
+    result = await db.users.delete_one({"id": user_id, "company_id": company_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
     clear_cache("auth:users")
@@ -4563,8 +4572,9 @@ async def get_teams(current_user: Dict = Depends(get_current_user)):
     return result
 
 @api_router.get("/teams/{team_id}", response_model=Team)
-async def get_team(team_id: str):
-    team = await db.teams.find_one({"id": team_id, "actief": True})
+async def get_team(team_id: str, current_user: Dict = Depends(get_current_user)):
+    company_id = current_user.get("company_id") or "default_company"
+    team = await db.teams.find_one({"id": team_id, "actief": True, "company_id": company_id})
     if not team:
         raise HTTPException(status_code=404, detail="Team niet gevonden")
     return Team(**team)
@@ -4582,18 +4592,20 @@ async def create_team(team_data: TeamCreate, current_user: Dict = Depends(requir
 @api_router.put("/teams/{team_id}", response_model=Team)
 async def update_team(team_id: str, team_data: TeamUpdate, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Update a team. Only admin/master_admin can update teams."""
+    company_id = current_user.get("company_id") or "default_company"
     update_dict = {k: v for k, v in team_data.dict().items() if v is not None}
-    result = await db.teams.update_one({"id": team_id}, {"$set": update_dict})
+    result = await db.teams.update_one({"id": team_id, "company_id": company_id}, {"$set": update_dict})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Team niet gevonden")
-    updated = await db.teams.find_one({"id": team_id})
+    updated = await db.teams.find_one({"id": team_id, "company_id": company_id})
     clear_cache("teams")
     return Team(**updated)
 
 @api_router.delete("/teams/{team_id}")
 async def delete_team(team_id: str, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Delete a team. Only admin/master_admin can delete teams."""
-    result = await db.teams.update_one({"id": team_id}, {"$set": {"actief": False}})
+    company_id = current_user.get("company_id") or "default_company"
+    result = await db.teams.update_one({"id": team_id, "company_id": company_id}, {"$set": {"actief": False}})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Team niet gevonden")
     clear_cache("teams")
@@ -4668,32 +4680,37 @@ async def create_klant(klant_data: KlantCreate, current_user: Dict = Depends(req
 @api_router.put("/klanten/{klant_id}", response_model=dict)
 async def update_klant(klant_id: str, klant_data: dict, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Update klant - accepts full klant object - Admin/Master Admin only"""
-    existing = await db.klanten.find_one({"id": klant_id})
+    company_id = current_user.get("company_id") or "default_company"
+    existing = await db.klanten.find_one({"id": klant_id, "company_id": company_id})
     if not existing:
         raise HTTPException(status_code=404, detail="Klant niet gevonden")
-    
+
     # Merge with existing data
     update_dict = {**existing, **klant_data}
-    
+
+    # Ensure tenant ownership cannot be changed via payload
+    update_dict["company_id"] = company_id
+
     # Ensure naam/email stay synced with new fields for backward compat
     if update_dict.get("bedrijfsnaam"):
         update_dict["naam"] = update_dict["bedrijfsnaam"]
     if update_dict.get("algemeen_email"):
         update_dict["email"] = update_dict["algemeen_email"]
-    
+
     update_dict["updated_at"] = datetime.now(timezone.utc)
-    
+
     # Remove MongoDB _id if present
     update_dict.pop("_id", None)
-    
-    await db.klanten.replace_one({"id": klant_id}, update_dict)
+
+    await db.klanten.replace_one({"id": klant_id, "company_id": company_id}, update_dict)
     clear_cache("klanten")
     return migrate_klant_data(update_dict)
 
 @api_router.delete("/klanten/{klant_id}")
 async def delete_klant(klant_id: str, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Delete (deactivate) klant - Admin/Master Admin only"""
-    result = await db.klanten.update_one({"id": klant_id}, {"$set": {"actief": False}})
+    company_id = current_user.get("company_id") or "default_company"
+    result = await db.klanten.update_one({"id": klant_id, "company_id": company_id}, {"$set": {"actief": False}})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Klant niet gevonden")
     clear_cache("klanten")
@@ -4774,17 +4791,25 @@ async def create_werf(werf_data: WerfCreate, current_user: Dict = Depends(requir
 @api_router.put("/werven/{werf_id}", response_model=Werf)
 async def update_werf(werf_id: str, werf_data: WerfCreate, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Update werf - Admin/Master Admin only"""
-    result = await db.werven.update_one({"id": werf_id}, {"$set": werf_data.dict()})
+    company_id = current_user.get("company_id") or "default_company"
+    update_dict = werf_data.dict()
+    # Validate the optional klant_id targets a klant in same tenant
+    if update_dict.get("klant_id"):
+        klant = await db.klanten.find_one({"id": update_dict["klant_id"], "company_id": company_id, "actief": True})
+        if not klant:
+            raise HTTPException(status_code=404, detail="Klant niet gevonden")
+    result = await db.werven.update_one({"id": werf_id, "company_id": company_id}, {"$set": update_dict})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Werf niet gevonden")
-    updated = await db.werven.find_one({"id": werf_id})
+    updated = await db.werven.find_one({"id": werf_id, "company_id": company_id})
     clear_cache("werven")
     return Werf(**updated)
 
 @api_router.delete("/werven/{werf_id}")
 async def delete_werf(werf_id: str, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Delete (deactivate) werf - Admin/Master Admin only"""
-    result = await db.werven.update_one({"id": werf_id}, {"$set": {"actief": False}})
+    company_id = current_user.get("company_id") or "default_company"
+    result = await db.werven.update_one({"id": werf_id, "company_id": company_id}, {"$set": {"actief": False}})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Werf niet gevonden")
     clear_cache("werven")
@@ -5133,7 +5158,7 @@ async def create_unified_werkbon(data: UnifiedWerkbonCreate, current_user: Dict 
     planning_id = data.planning_id
     base_doc["planning_id"] = planning_id
     if planning_id:
-        planning_item = await db.planning.find_one({"id": planning_id})
+        planning_item = await db.planning.find_one({"id": planning_id, "company_id": base_doc["company_id"]})
         if planning_item:
             planning_werknemer_ids = planning_item.get("werknemer_ids", [])
             toegewezen_ids = list(set(toegewezen_ids + planning_werknemer_ids))
@@ -5244,9 +5269,10 @@ async def create_unified_werkbon(data: UnifiedWerkbonCreate, current_user: Dict 
 @api_router.post("/werkbonnen", response_model=Werkbon)
 async def create_werkbon(werkbon_data: WerkbonCreate, current_user: Dict = Depends(get_current_user)):
     """Create werkbon - uses authenticated user's identity from JWT"""
-    klant = await db.klanten.find_one({"id": werkbon_data.klant_id})
-    werf = await db.werven.find_one({"id": werkbon_data.werf_id})
-    
+    company_id = current_user.get("company_id") or "default_company"
+    klant = await db.klanten.find_one({"id": werkbon_data.klant_id, "company_id": company_id})
+    werf = await db.werven.find_one({"id": werkbon_data.werf_id, "company_id": company_id})
+
     if not klant:
         raise HTTPException(status_code=404, detail="Klant niet gevonden")
     if not werf:
@@ -5276,11 +5302,11 @@ async def create_werkbon(werkbon_data: WerkbonCreate, current_user: Dict = Depen
     werkbon_doc["company_id"] = current_user.get("company_id") or "default_company"
     await db.werkbonnen.insert_one(werkbon_doc)
 
-    # Push notification to admins about new werkbon
+    # Push notification to admins about new werkbon (tenant-scoped)
     try:
         admin_ids = []
         async for admin in db.users.find(
-            {"rol": {"$in": ["admin", "master_admin"]}, "actief": True},
+            {"company_id": company_id, "rol": {"$in": ["admin", "master_admin"]}, "actief": True},
             {"id": 1}
         ):
             if admin.get("id") != user_id:  # Don't notify the submitter
@@ -5298,24 +5324,25 @@ async def create_werkbon(werkbon_data: WerkbonCreate, current_user: Dict = Depen
     return werkbon
 
 @api_router.put("/werkbonnen/{werkbon_id}", response_model=Werkbon)
-async def update_werkbon(werkbon_id: str, update_data: WerkbonUpdate):
+async def update_werkbon(werkbon_id: str, update_data: WerkbonUpdate, current_user: Dict = Depends(get_current_user)):
+    company_id = current_user.get("company_id") or "default_company"
     update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
     update_dict["updated_at"] = datetime.now(timezone.utc)
-    
-    # Resolve klant name if klant_id was provided
+
+    # Resolve klant name if klant_id was provided (tenant-scoped)
     if update_data.klant_id and not update_data.klant_naam:
-        klant = await db.klanten.find_one({"id": update_data.klant_id})
+        klant = await db.klanten.find_one({"id": update_data.klant_id, "company_id": company_id})
         if klant:
             update_dict["klant_naam"] = klant["naam"]
-    
-    # Resolve werf name if werf_id was provided
+
+    # Resolve werf name if werf_id was provided (tenant-scoped)
     if update_data.werf_id and not update_data.werf_naam:
-        werf = await db.werven.find_one({"id": update_data.werf_id})
+        werf = await db.werven.find_one({"id": update_data.werf_id, "company_id": company_id})
         if werf:
             update_dict["werf_naam"] = werf["naam"]
-    
-    # Recalculate week dates if week/year changed
-    existing = await db.werkbonnen.find_one({"id": werkbon_id})
+
+    # Recalculate week dates if week/year changed (tenant-scoped lookup)
+    existing = await db.werkbonnen.find_one({"id": werkbon_id, "company_id": company_id})
     if not existing:
         raise HTTPException(status_code=404, detail="Werkbon niet gevonden")
     
@@ -5335,16 +5362,17 @@ async def update_werkbon(werkbon_id: str, update_data: WerkbonUpdate):
     if "km_afstand" in update_dict and hasattr(update_dict["km_afstand"], 'dict'):
         update_dict["km_afstand"] = update_dict["km_afstand"].dict()
     
-    result = await db.werkbonnen.update_one({"id": werkbon_id}, {"$set": update_dict})
+    result = await db.werkbonnen.update_one({"id": werkbon_id, "company_id": company_id}, {"$set": update_dict})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Werkbon niet gevonden")
-    
-    updated = await db.werkbonnen.find_one({"id": werkbon_id})
+
+    updated = await db.werkbonnen.find_one({"id": werkbon_id, "company_id": company_id})
     return Werkbon(**updated)
 
 @api_router.delete("/werkbonnen/{werkbon_id}")
-async def delete_werkbon(werkbon_id: str):
-    result = await db.werkbonnen.delete_one({"id": werkbon_id})
+async def delete_werkbon(werkbon_id: str, current_user: Dict = Depends(get_current_user)):
+    company_id = current_user.get("company_id") or "default_company"
+    result = await db.werkbonnen.delete_one({"id": werkbon_id, "company_id": company_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Werkbon niet gevonden")
     return {"message": "Werkbon verwijderd"}
@@ -5352,7 +5380,8 @@ async def delete_werkbon(werkbon_id: str):
 @api_router.post("/werkbonnen/{werkbon_id}/dupliceer", response_model=Werkbon)
 async def dupliceer_werkbon(werkbon_id: str, current_user: Dict = Depends(get_current_user)):
     """Create a copy of an existing werkbon with current week number - uses authenticated user's identity from JWT"""
-    original = await db.werkbonnen.find_one({"id": werkbon_id}, {"_id": 0})
+    company_id = current_user.get("company_id") or "default_company"
+    original = await db.werkbonnen.find_one({"id": werkbon_id, "company_id": company_id}, {"_id": 0})
     if not original:
         raise HTTPException(status_code=404, detail="Werkbon niet gevonden")
 
@@ -5382,7 +5411,9 @@ async def dupliceer_werkbon(werkbon_id: str, current_user: Dict = Depends(get_cu
         status="concept",
         **week_dates,
     )
-    await db.werkbonnen.insert_one(new_werkbon.dict())
+    new_doc = new_werkbon.dict()
+    new_doc["company_id"] = company_id
+    await db.werkbonnen.insert_one(new_doc)
     return new_werkbon
 
 # ==================== ONE-SHOT TENANT WIPE (manual, master_admin only) ====================
@@ -6312,18 +6343,22 @@ async def get_csv_export(jaar: int, week: Optional[int] = None, maand: Optional[
 # ==================== OPLEVERING WERKBON ROUTES ====================
 
 @api_router.get("/oplevering-werkbonnen")
-async def get_oplevering_werkbonnen(user_id: str):
-    user = await db.users.find_one({"id": user_id})
+async def get_oplevering_werkbonnen(user_id: str, current_user: Dict = Depends(get_current_user)):
+    company_id = current_user.get("company_id") or "default_company"
+    user = await db.users.find_one({"id": user_id, "company_id": company_id})
     if not user:
         raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
-    # V1: Web panel users see all, mobile users see only their own
-    query = {} if has_web_access(user.get("rol", "")) else {"ingevuld_door_id": user_id}
-    items = await db.oplevering_werkbonnen.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    # V1: Web panel users see all (within tenant), mobile users see only their own
+    base = {"company_id": company_id}
+    if not has_web_access(user.get("rol", "")):
+        base["ingevuld_door_id"] = user_id
+    items = await db.oplevering_werkbonnen.find(base, {"_id": 0}).sort("created_at", -1).to_list(1000)
     return items
 
 @api_router.get("/oplevering-werkbonnen/{werkbon_id}")
-async def get_oplevering_werkbon(werkbon_id: str):
-    item = await db.oplevering_werkbonnen.find_one({"id": werkbon_id}, {"_id": 0})
+async def get_oplevering_werkbon(werkbon_id: str, current_user: Dict = Depends(get_current_user)):
+    company_id = current_user.get("company_id") or "default_company"
+    item = await db.oplevering_werkbonnen.find_one({"id": werkbon_id, "company_id": company_id}, {"_id": 0})
     if not item:
         raise HTTPException(status_code=404, detail="Oplevering werkbon niet gevonden")
     return item
@@ -6336,10 +6371,11 @@ async def create_oplevering_werkbon(
     """Create oplevering werkbon - uses authenticated user's identity from JWT"""
     final_user_id = current_user["user_id"]
     final_user_naam = current_user["naam"]
-    
+    company_id = current_user.get("company_id") or "default_company"
+
     validate_oplevering_payload(data)
-    klant = await db.klanten.find_one({"id": data.klant_id})
-    werf = await db.werven.find_one({"id": data.werf_id})
+    klant = await db.klanten.find_one({"id": data.klant_id, "company_id": company_id})
+    werf = await db.werven.find_one({"id": data.werf_id, "company_id": company_id})
     if not klant:
         raise HTTPException(status_code=404, detail="Klant niet gevonden")
     if not werf:
@@ -6404,7 +6440,7 @@ async def create_oplevering_werkbon(
     
     werkbon_dict = {
         "id": str(uuid.uuid4()),
-        "company_id": "default_company",
+        "company_id": company_id,
         "type": "oplevering",
         "klant_id": data.klant_id,
         "klant_naam": klant.get("naam") or klant.get("bedrijfsnaam", ""),
@@ -6451,24 +6487,25 @@ async def create_oplevering_werkbon(
     return serialize_mongo_doc(werkbon_dict)
 
 @api_router.put("/oplevering-werkbonnen/{werkbon_id}")
-async def update_oplevering_werkbon(werkbon_id: str, update_data: OpleveringWerkbonUpdate):
+async def update_oplevering_werkbon(werkbon_id: str, update_data: OpleveringWerkbonUpdate, current_user: Dict = Depends(get_current_user)):
+    company_id = current_user.get("company_id") or "default_company"
     update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
     update_dict["updated_at"] = datetime.now(timezone.utc)
-    
+
     if update_data.handtekening_klant:
         update_dict["handtekening_datum"] = datetime.now(timezone.utc)
         update_dict["status"] = "ondertekend"
-    
+
     # Convert nested models to dicts
     if "schade_checks" in update_dict:
         update_dict["schade_checks"] = [c.dict() if hasattr(c, 'dict') else c for c in update_dict["schade_checks"]]
     if "beoordelingen" in update_dict:
         update_dict["beoordelingen"] = [b.dict() if hasattr(b, 'dict') else b for b in update_dict["beoordelingen"]]
-    
-    result = await db.oplevering_werkbonnen.update_one({"id": werkbon_id}, {"$set": update_dict})
+
+    result = await db.oplevering_werkbonnen.update_one({"id": werkbon_id, "company_id": company_id}, {"$set": update_dict})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Oplevering werkbon niet gevonden")
-    updated = await db.oplevering_werkbonnen.find_one({"id": werkbon_id}, {"_id": 0})
+    updated = await db.oplevering_werkbonnen.find_one({"id": werkbon_id, "company_id": company_id}, {"_id": 0})
     return updated
 
 
@@ -6531,8 +6568,9 @@ async def verzend_oplevering_werkbon(werkbon_id: str, klant_email: Optional[str]
     }
 
 @api_router.delete("/oplevering-werkbonnen/{werkbon_id}")
-async def delete_oplevering_werkbon(werkbon_id: str):
-    result = await db.oplevering_werkbonnen.delete_one({"id": werkbon_id})
+async def delete_oplevering_werkbon(werkbon_id: str, current_user: Dict = Depends(get_current_user)):
+    company_id = current_user.get("company_id") or "default_company"
+    result = await db.oplevering_werkbonnen.delete_one({"id": werkbon_id, "company_id": company_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Oplevering werkbon niet gevonden")
     return {"message": "Oplevering werkbon verwijderd"}
@@ -6540,18 +6578,22 @@ async def delete_oplevering_werkbon(werkbon_id: str):
 # ==================== PROJECT WERKBON ROUTES ====================
 
 @api_router.get("/project-werkbonnen")
-async def get_project_werkbonnen(user_id: str):
-    user = await db.users.find_one({"id": user_id})
+async def get_project_werkbonnen(user_id: str, current_user: Dict = Depends(get_current_user)):
+    company_id = current_user.get("company_id") or "default_company"
+    user = await db.users.find_one({"id": user_id, "company_id": company_id})
     if not user:
         raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
-    # V1: Web panel users see all, mobile users see only their own
-    query = {} if has_web_access(user.get("rol", "")) else {"ingevuld_door_id": user_id}
-    items = await db.project_werkbonnen.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    # V1: Web panel users see all (within tenant), mobile users see only their own
+    base = {"company_id": company_id}
+    if not has_web_access(user.get("rol", "")):
+        base["ingevuld_door_id"] = user_id
+    items = await db.project_werkbonnen.find(base, {"_id": 0}).sort("created_at", -1).to_list(1000)
     return items
 
 @api_router.get("/project-werkbonnen/{werkbon_id}")
-async def get_project_werkbon(werkbon_id: str):
-    item = await db.project_werkbonnen.find_one({"id": werkbon_id}, {"_id": 0})
+async def get_project_werkbon(werkbon_id: str, current_user: Dict = Depends(get_current_user)):
+    company_id = current_user.get("company_id") or "default_company"
+    item = await db.project_werkbonnen.find_one({"id": werkbon_id, "company_id": company_id}, {"_id": 0})
     if not item:
         raise HTTPException(status_code=404, detail="Project werkbon niet gevonden")
     return item
@@ -6564,9 +6606,10 @@ async def create_project_werkbon(
     """Create project werkbon - uses authenticated user's identity from JWT"""
     final_user_id = current_user["user_id"]
     final_user_naam = current_user["naam"]
-    
-    klant = await db.klanten.find_one({"id": data.klant_id})
-    werf = await db.werven.find_one({"id": data.werf_id})
+    company_id = current_user.get("company_id") or "default_company"
+
+    klant = await db.klanten.find_one({"id": data.klant_id, "company_id": company_id})
+    werf = await db.werven.find_one({"id": data.werf_id, "company_id": company_id})
     if not klant:
         raise HTTPException(status_code=404, detail="Klant niet gevonden")
     if not werf:
@@ -6598,7 +6641,7 @@ async def create_project_werkbon(
     
     werkbon_dict = {
         "id": str(uuid.uuid4()),
-        "company_id": "default_company",
+        "company_id": company_id,
         "type": "project",
         "klant_id": data.klant_id,
         "klant_naam": klant.get("naam") or klant.get("bedrijfsnaam", ""),
@@ -6639,16 +6682,17 @@ async def create_project_werkbon(
     return serialize_mongo_doc(werkbon_dict)
 
 @api_router.put("/project-werkbonnen/{werkbon_id}")
-async def update_project_werkbon(werkbon_id: str, update_data: ProjectWerkbonUpdate):
+async def update_project_werkbon(werkbon_id: str, update_data: ProjectWerkbonUpdate, current_user: Dict = Depends(get_current_user)):
+    company_id = current_user.get("company_id") or "default_company"
     update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
     update_dict["updated_at"] = datetime.now(timezone.utc)
-    
+
     if update_data.handtekening_klant:
         update_dict["handtekening_datum"] = datetime.now(timezone.utc)
         update_dict["status"] = "ondertekend"
-    
-    # Recalculate hours if times changed
-    existing = await db.project_werkbonnen.find_one({"id": werkbon_id}, {"_id": 0})
+
+    # Recalculate hours if times changed (tenant-scoped)
+    existing = await db.project_werkbonnen.find_one({"id": werkbon_id, "company_id": company_id}, {"_id": 0})
     if existing:
         merged = {**existing, **update_dict}
         dag_regels, totaal = normalize_project_day_rows(merged)
@@ -6660,11 +6704,11 @@ async def update_project_werkbon(werkbon_id: str, update_data: ProjectWerkbonUpd
         update_dict["pauze_minuten"] = dag_regels[0]["pauze_minuten"]
         if "klant_feedback_items" in update_dict:
             update_dict["klant_feedback_items"] = normalize_project_feedback_items(update_dict.get("klant_feedback_items"))
-    
-    result = await db.project_werkbonnen.update_one({"id": werkbon_id}, {"$set": update_dict})
+
+    result = await db.project_werkbonnen.update_one({"id": werkbon_id, "company_id": company_id}, {"$set": update_dict})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Project werkbon niet gevonden")
-    updated = await db.project_werkbonnen.find_one({"id": werkbon_id}, {"_id": 0})
+    updated = await db.project_werkbonnen.find_one({"id": werkbon_id, "company_id": company_id}, {"_id": 0})
     return updated
 
 
@@ -6710,8 +6754,9 @@ async def verzend_project_werkbon(werkbon_id: str, klant_email: Optional[str] = 
     }
 
 @api_router.delete("/project-werkbonnen/{werkbon_id}")
-async def delete_project_werkbon(werkbon_id: str):
-    result = await db.project_werkbonnen.delete_one({"id": werkbon_id})
+async def delete_project_werkbon(werkbon_id: str, current_user: Dict = Depends(get_current_user)):
+    company_id = current_user.get("company_id") or "default_company"
+    result = await db.project_werkbonnen.delete_one({"id": werkbon_id, "company_id": company_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Project werkbon niet gevonden")
     return {"message": "Project werkbon verwijderd"}
@@ -6719,21 +6764,25 @@ async def delete_project_werkbon(werkbon_id: str):
 # ==================== PRODUCTIE WERKBON ROUTES ====================
 
 @api_router.get("/productie-werkbonnen")
-async def get_productie_werkbonnen(user_id: str, is_admin: bool = False):
+async def get_productie_werkbonnen(user_id: str, is_admin: bool = False, current_user: Dict = Depends(get_current_user)):
+    company_id = current_user.get("company_id") or "default_company"
     if is_admin:
-        items = await db.productie_werkbonnen.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+        items = await db.productie_werkbonnen.find({"company_id": company_id}, {"_id": 0}).sort("created_at", -1).to_list(1000)
         return items
-    user = await db.users.find_one({"id": user_id})
+    user = await db.users.find_one({"id": user_id, "company_id": company_id})
     if not user:
         raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
     # V1: Use has_web_access for admin check instead of hardcoded list
-    query = {} if has_web_access(user.get("rol", "")) else {"ingevuld_door_id": user_id}
-    items = await db.productie_werkbonnen.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    base = {"company_id": company_id}
+    if not has_web_access(user.get("rol", "")):
+        base["ingevuld_door_id"] = user_id
+    items = await db.productie_werkbonnen.find(base, {"_id": 0}).sort("created_at", -1).to_list(1000)
     return items
 
 @api_router.get("/productie-werkbonnen/{werkbon_id}")
-async def get_productie_werkbon(werkbon_id: str):
-    item = await db.productie_werkbonnen.find_one({"id": werkbon_id}, {"_id": 0})
+async def get_productie_werkbon(werkbon_id: str, current_user: Dict = Depends(get_current_user)):
+    company_id = current_user.get("company_id") or "default_company"
+    item = await db.productie_werkbonnen.find_one({"id": werkbon_id, "company_id": company_id}, {"_id": 0})
     if not item:
         raise HTTPException(status_code=404, detail="Productie werkbon niet gevonden")
     return item
@@ -6746,9 +6795,10 @@ async def create_productie_werkbon(
     """Create productie werkbon - uses authenticated user's identity from JWT"""
     final_user_id = current_user["user_id"]
     final_user_naam = current_user["naam"]
-    
-    klant = await db.klanten.find_one({"id": data.klant_id})
-    werf = await db.werven.find_one({"id": data.werf_id})
+    company_id = current_user.get("company_id") or "default_company"
+
+    klant = await db.klanten.find_one({"id": data.klant_id, "company_id": company_id})
+    werf = await db.werven.find_one({"id": data.werf_id, "company_id": company_id})
     if not klant:
         raise HTTPException(status_code=404, detail="Klant niet gevonden")
     if not werf:
@@ -6809,7 +6859,7 @@ async def create_productie_werkbon(
     
     werkbon_dict = {
         "id": str(uuid.uuid4()),
-        "company_id": "default_company",
+        "company_id": company_id,
         "type": "productie",
         "datum": data.datum,
         "werknemer_naam": data.werknemer_naam or final_user_naam,
@@ -6915,8 +6965,9 @@ async def get_productie_werkbon_pdf(werkbon_id: str):
     return {"pdf_base64": pdf_base64, "pdf_filename": pdf_filename}
 
 @api_router.delete("/productie-werkbonnen/{werkbon_id}")
-async def delete_productie_werkbon(werkbon_id: str):
-    result = await db.productie_werkbonnen.delete_one({"id": werkbon_id})
+async def delete_productie_werkbon(werkbon_id: str, current_user: Dict = Depends(get_current_user)):
+    company_id = current_user.get("company_id") or "default_company"
+    result = await db.productie_werkbonnen.delete_one({"id": werkbon_id, "company_id": company_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Productie werkbon niet gevonden")
     return {"message": "Productie werkbon verwijderd"}
@@ -6943,8 +6994,9 @@ async def get_planning_werknemer(werknemer_id: str, week_nummer: Optional[int] =
     return items
 
 @api_router.get("/planning/{planning_id}")
-async def get_planning_item(planning_id: str):
-    item = await db.planning.find_one({"id": planning_id}, {"_id": 0})
+async def get_planning_item(planning_id: str, current_user: Dict = Depends(get_current_user)):
+    company_id = current_user.get("company_id") or "default_company"
+    item = await db.planning.find_one({"id": planning_id, "company_id": company_id}, {"_id": 0})
     if not item:
         raise HTTPException(status_code=404, detail="Planning item niet gevonden")
     return item
@@ -6952,8 +7004,9 @@ async def get_planning_item(planning_id: str):
 @api_router.post("/planning/bulk")
 async def create_planning_bulk(data: PlanningBulkCreate, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Create planning items for multiple days in one request — sends one push notification"""
-    klant = await db.klanten.find_one({"id": data.klant_id})
-    werf = await db.werven.find_one({"id": data.werf_id})
+    company_id = current_user.get("company_id") or "default_company"
+    klant = await db.klanten.find_one({"id": data.klant_id, "company_id": company_id})
+    werf = await db.werven.find_one({"id": data.werf_id, "company_id": company_id})
     if not klant:
         raise HTTPException(status_code=404, detail="Klant niet gevonden")
     if not werf:
@@ -6962,13 +7015,13 @@ async def create_planning_bulk(data: PlanningBulkCreate, current_user: Dict = De
     werknemer_namen = list(data.werknemer_namen)
     if data.werknemer_ids and not werknemer_namen:
         for wid in data.werknemer_ids:
-            user = await db.users.find_one({"id": wid})
+            user = await db.users.find_one({"id": wid, "company_id": company_id})
             if user:
                 werknemer_namen.append(user["naam"])
 
     team_naam = None
     if data.team_id:
-        team = await db.teams.find_one({"id": data.team_id})
+        team = await db.teams.find_one({"id": data.team_id, "company_id": company_id})
         if team:
             team_naam = team["naam"]
 
@@ -6978,13 +7031,14 @@ async def create_planning_bulk(data: PlanningBulkCreate, current_user: Dict = De
     for dag in data.dagen:
         for wid in data.werknemer_ids:
             existing = await db.planning.find_one({
+                "company_id": company_id,
                 "werknemer_ids": wid,
                 "week_nummer": data.week_nummer,
                 "jaar": data.jaar,
                 "dag": dag,
             })
             if existing:
-                user = await db.users.find_one({"id": wid})
+                user = await db.users.find_one({"id": wid, "company_id": company_id})
                 naam = user["naam"] if user else wid
                 waarschuwingen.append(f"{naam} is al ingepland op {dag}")
 
@@ -7040,39 +7094,41 @@ async def create_planning_bulk(data: PlanningBulkCreate, current_user: Dict = De
 @api_router.post("/planning")
 async def create_planning(data: PlanningItemCreate, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Create planning item - Admin/Master Admin only"""
-    # Resolve names
-    klant = await db.klanten.find_one({"id": data.klant_id})
-    werf = await db.werven.find_one({"id": data.werf_id})
+    company_id = current_user.get("company_id") or "default_company"
+    # Resolve names (tenant-scoped)
+    klant = await db.klanten.find_one({"id": data.klant_id, "company_id": company_id})
+    werf = await db.werven.find_one({"id": data.werf_id, "company_id": company_id})
     if not klant:
         raise HTTPException(status_code=404, detail="Klant niet gevonden")
     if not werf:
         raise HTTPException(status_code=404, detail="Werf niet gevonden")
-    
-    # Get worker names if not provided
+
+    # Get worker names if not provided (tenant-scoped)
     werknemer_namen = data.werknemer_namen
     if data.werknemer_ids and not werknemer_namen:
         for wid in data.werknemer_ids:
-            user = await db.users.find_one({"id": wid})
+            user = await db.users.find_one({"id": wid, "company_id": company_id})
             if user:
                 werknemer_namen.append(user["naam"])
-    
+
     team_naam = None
     if data.team_id:
-        team = await db.teams.find_one({"id": data.team_id})
+        team = await db.teams.find_one({"id": data.team_id, "company_id": company_id})
         if team:
             team_naam = team["naam"]
-    
+
     # Check if worker is already assigned (orange warning)
     waarschuwingen = []
     for wid in data.werknemer_ids:
         existing = await db.planning.find_one({
+            "company_id": company_id,
             "werknemer_ids": wid,
             "week_nummer": data.week_nummer,
             "jaar": data.jaar,
             "dag": data.dag,
         })
         if existing:
-            user = await db.users.find_one({"id": wid})
+            user = await db.users.find_one({"id": wid, "company_id": company_id})
             naam = user["naam"] if user else wid
             waarschuwingen.append(f"{naam} is al ingepland op {data.dag}")
     
@@ -7126,45 +7182,48 @@ async def create_planning(data: PlanningItemCreate, current_user: Dict = Depends
 @api_router.put("/planning/{planning_id}")
 async def update_planning(planning_id: str, update_data: PlanningItemUpdate, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Update planning item - Admin/Master Admin only"""
+    company_id = current_user.get("company_id") or "default_company"
     update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
     update_dict["updated_at"] = datetime.now(timezone.utc)
-    
-    # Resolve names if IDs changed
+
+    # Resolve names if IDs changed (tenant-scoped)
     if update_data.klant_id:
-        klant = await db.klanten.find_one({"id": update_data.klant_id})
+        klant = await db.klanten.find_one({"id": update_data.klant_id, "company_id": company_id})
         if klant:
             update_dict["klant_naam"] = klant["naam"]
     if update_data.werf_id:
-        werf = await db.werven.find_one({"id": update_data.werf_id})
+        werf = await db.werven.find_one({"id": update_data.werf_id, "company_id": company_id})
         if werf:
             update_dict["werf_naam"] = werf["naam"]
             update_dict["werf_adres"] = werf.get("adres", "")
     if update_data.werknemer_ids:
         namen = []
         for wid in update_data.werknemer_ids:
-            user = await db.users.find_one({"id": wid})
+            user = await db.users.find_one({"id": wid, "company_id": company_id})
             if user:
                 namen.append(user["naam"])
         update_dict["werknemer_namen"] = namen
-    
-    result = await db.planning.update_one({"id": planning_id}, {"$set": update_dict})
+
+    result = await db.planning.update_one({"id": planning_id, "company_id": company_id}, {"$set": update_dict})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Planning item niet gevonden")
-    updated = await db.planning.find_one({"id": planning_id}, {"_id": 0})
+    updated = await db.planning.find_one({"id": planning_id, "company_id": company_id}, {"_id": 0})
     return updated
 
 @api_router.delete("/planning/{planning_id}")
 async def delete_planning(planning_id: str, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Delete planning item - Admin/Master Admin only"""
-    result = await db.planning.delete_one({"id": planning_id})
+    company_id = current_user.get("company_id") or "default_company"
+    result = await db.planning.delete_one({"id": planning_id, "company_id": company_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Planning item niet gevonden")
     return {"message": "Planning item verwijderd"}
 
 @api_router.post("/planning/{planning_id}/bevestig")
-async def bevestig_planning(planning_id: str, werknemer_id: str, werknemer_naam: Optional[str] = Query(None)):
+async def bevestig_planning(planning_id: str, werknemer_id: str, werknemer_naam: Optional[str] = Query(None), current_user: Dict = Depends(get_current_user)):
     """Worker confirms/acknowledges a planning item"""
-    item = await db.planning.find_one({"id": planning_id})
+    company_id = current_user.get("company_id") or "default_company"
+    item = await db.planning.find_one({"id": planning_id, "company_id": company_id})
     if not item:
         raise HTTPException(status_code=404, detail="Planning item niet gevonden")
 
@@ -7182,14 +7241,14 @@ async def bevestig_planning(planning_id: str, werknemer_id: str, werknemer_naam:
             "timestamp": timestamp_now,
         })
         await db.planning.update_one(
-            {"id": planning_id},
+            {"id": planning_id, "company_id": company_id},
             {"$set": {"bevestigd_door": bevestigd, "bevestigingen": bevestigingen}}
         )
-        
-        # Send notification to admins
+
+        # Send notification to admins (tenant-scoped)
         try:
             admin_users = await db.users.find(
-                {"rol": {"$in": ["admin", "master_admin"]}, "push_token": {"$ne": None}},
+                {"company_id": company_id, "rol": {"$in": ["admin", "master_admin"]}, "push_token": {"$ne": None}},
                 {"push_token": 1, "id": 1}
             ).to_list(100)
             
@@ -7224,9 +7283,11 @@ async def get_berichten(user_id: str, current_user: Dict = Depends(get_current_u
     return items
 
 @api_router.get("/berichten/ongelezen")
-async def get_ongelezen_berichten(user_id: str):
-    """Get unread message count for a user"""
+async def get_ongelezen_berichten(user_id: str, current_user: Dict = Depends(get_current_user)):
+    """Get unread message count for a user (tenant-scoped)"""
+    company_id = current_user.get("company_id") or "default_company"
     count = await db.berichten.count_documents({
+        "company_id": company_id,
         "$or": [{"naar_id": user_id}, {"is_broadcast": True}],
         "gelezen_door": {"$nin": [user_id]}
     })
@@ -7279,9 +7340,9 @@ async def create_bericht(data: BerichtCreate, current_user: Dict = Depends(get_c
         "created_at": datetime.now(timezone.utc),
     }
     
-    # Resolve recipient name
+    # Resolve recipient name (tenant-scoped)
     if data.naar_id:
-        user = await db.users.find_one({"id": data.naar_id})
+        user = await db.users.find_one({"id": data.naar_id, "company_id": bericht_dict["company_id"]})
         if user:
             bericht_dict["naar_naam"] = user["naam"]
     
@@ -7313,8 +7374,11 @@ async def create_bericht(data: BerichtCreate, current_user: Dict = Depends(get_c
     try:
         notification_recipients = []
         if data.is_broadcast:
-            # For broadcasts, send to all active workers
-            async for user in db.users.find({"actief": True, "push_token": {"$ne": None}}, {"id": 1}):
+            # For broadcasts, send only to active workers in same tenant
+            async for user in db.users.find(
+                {"company_id": bericht_dict["company_id"], "actief": True, "push_token": {"$ne": None}},
+                {"id": 1}
+            ):
                 if user["id"] != van_id:  # Don't notify sender
                     notification_recipients.append(user["id"])
         elif data.naar_id:
@@ -7333,10 +7397,11 @@ async def create_bericht(data: BerichtCreate, current_user: Dict = Depends(get_c
     return serialize_mongo_doc(bericht_dict)
 
 @api_router.post("/berichten/{bericht_id}/gelezen")
-async def markeer_gelezen(bericht_id: str, user_id: str):
-    """Mark a message as read"""
+async def markeer_gelezen(bericht_id: str, user_id: str, current_user: Dict = Depends(get_current_user)):
+    """Mark a message as read (tenant-scoped)"""
+    company_id = current_user.get("company_id") or "default_company"
     await db.berichten.update_one(
-        {"id": bericht_id},
+        {"id": bericht_id, "company_id": company_id},
         {"$addToSet": {"gelezen_door": user_id}}
     )
     return {"message": "Bericht als gelezen gemarkeerd"}
@@ -7352,26 +7417,28 @@ async def hide_bericht_for_user(bericht_id: str, current_user: Dict = Depends(ge
     return {"success": True}
 
 @api_router.delete("/berichten/{bericht_id}")
-async def delete_bericht(bericht_id: str):
-    result = await db.berichten.delete_one({"id": bericht_id})
+async def delete_bericht(bericht_id: str, current_user: Dict = Depends(get_current_user)):
+    company_id = current_user.get("company_id") or "default_company"
+    result = await db.berichten.delete_one({"id": bericht_id, "company_id": company_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Bericht niet gevonden")
     return {"message": "Bericht verwijderd"}
 
 @api_router.patch("/berichten/{bericht_id}")
-async def update_bericht(bericht_id: str, data: dict):
-    """Update a bericht (archive, pin, etc.)"""
+async def update_bericht(bericht_id: str, data: dict, current_user: Dict = Depends(get_current_user)):
+    """Update a bericht (archive, pin, etc.) - tenant-scoped"""
+    company_id = current_user.get("company_id") or "default_company"
     update_fields = {}
     if "gearchiveerd" in data:
         update_fields["gearchiveerd"] = data["gearchiveerd"]
     if "vastgepind" in data:
         update_fields["vastgepind"] = data["vastgepind"]
-    
+
     if not update_fields:
         raise HTTPException(status_code=400, detail="Geen velden om bij te werken")
-    
+
     result = await db.berichten.update_one(
-        {"id": bericht_id},
+        {"id": bericht_id, "company_id": company_id},
         {"$set": update_fields}
     )
     if result.matched_count == 0:
