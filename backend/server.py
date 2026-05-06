@@ -5459,6 +5459,55 @@ async def wipe_tenant_by_email(
     deleted["companies_by_email"] = r_comp.deleted_count
     return {"company_ids": list(cids), "deleted": deleted}
 
+# ==================== ORPHAN USER REPAIR (platform_admin only) ====================
+# Werknemers added before the company_id-on-create fix landed in
+# company_id="default_company". These endpoints let the platform owner
+# inspect and reassign those orphans to the correct tenant.
+
+class ReassignUsersBody(BaseModel):
+    emails: List[str]
+    target_company_id: str
+
+
+@api_router.get("/_admin/orphaned-users")
+async def list_orphaned_users(current_user: Dict = Depends(require_roles(["platform_admin"]))):
+    """List users stuck in default_company (excluding the legacy Smart-Tech tenant admin)."""
+    cursor = db.users.find(
+        {"company_id": "default_company", "email": {"$ne": "info@smart-techbv.be"}},
+        {"_id": 0, "id": 1, "email": 1, "naam": 1, "rol": 1, "created_at": 1, "actief": 1},
+    ).sort("created_at", -1)
+    users = await cursor.to_list(1000)
+    return {"count": len(users), "users": users}
+
+
+@api_router.post("/_admin/reassign-users")
+async def reassign_users(body: ReassignUsersBody, current_user: Dict = Depends(require_roles(["platform_admin"]))):
+    """Move users (matched by email) into the target tenant. platform_admin only."""
+    target = (body.target_company_id or "").strip()
+    if not target or target == "default_company":
+        raise HTTPException(status_code=400, detail="target_company_id is required and cannot be default_company")
+
+    company = await db.companies.find_one({"id": target}, {"_id": 0, "id": 1})
+    if not company:
+        raise HTTPException(status_code=404, detail=f"Target company {target} bestaat niet")
+
+    normalized = [e.lower().strip() for e in (body.emails or []) if e and e.strip()]
+    if not normalized:
+        raise HTTPException(status_code=400, detail="emails is required")
+
+    result = await db.users.update_many(
+        {"email": {"$in": normalized}},
+        {"$set": {"company_id": target}},
+    )
+    clear_cache("auth:users")
+    return {
+        "matched": result.matched_count,
+        "modified": result.modified_count,
+        "target_company_id": target,
+        "emails": normalized,
+    }
+
+
 # ==================== ONBOARDING STATUS ====================
 
 @api_router.get("/onboarding/status")
