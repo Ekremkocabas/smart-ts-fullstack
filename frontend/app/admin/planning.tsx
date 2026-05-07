@@ -241,8 +241,10 @@ export default function PlanningAdmin() {
   }, [weekNummer, jaar]);
 
   useEffect(() => {
-    if (Platform.OS === 'web') fetchData();
-  }, [fetchData]);
+    if (Platform.OS === 'web' && ['beheerder', 'admin', 'manager', 'master_admin', 'platform_admin'].includes(user?.rol || '')) {
+      fetchData();
+    }
+  }, [fetchData, user]);
 
   const changeWeek = (dir: number) => {
     let newWeek = weekNummer + dir;
@@ -542,6 +544,18 @@ export default function PlanningAdmin() {
   };
 
   if (Platform.OS !== 'web') return null;
+
+  if (!['beheerder', 'admin', 'manager', 'master_admin', 'platform_admin'].includes(user?.rol || '')) {
+    return (
+      <View style={[styles.container, { alignItems: 'center', justifyContent: 'center', padding: 60 }]}>
+        <Ionicons name="lock-closed" size={64} color="#dc3545" />
+        <Text style={[styles.title, { marginTop: 16, color: '#dc3545' }]}>Geen toegang</Text>
+        <Text style={[styles.subtitle, { textAlign: 'center', marginTop: 8 }]}>
+          U heeft geen rechten om planning te bekijken.
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>

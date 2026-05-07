@@ -16,7 +16,7 @@ export default function AdminIndex() {
   }
   
   // On web, check if user is logged in and is admin
-  if (!user || (user.rol !== 'beheerder' && user.rol !== 'admin')) {
+  if (!user || !['beheerder', 'admin', 'manager', 'master_admin', 'platform_admin'].includes(user.rol)) {
     return <Redirect href="/admin/login" />;
   }
   

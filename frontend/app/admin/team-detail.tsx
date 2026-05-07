@@ -42,7 +42,7 @@ export default function TeamDetail() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (Platform.OS === 'web' && id && (user?.rol === 'beheerder' || user?.rol === 'admin')) {
+    if (Platform.OS === 'web' && id && ['beheerder', 'admin', 'manager', 'master_admin', 'platform_admin'].includes(user?.rol || '')) {
       fetchData();
     }
   }, [user, id]);
@@ -104,7 +104,7 @@ export default function TeamDetail() {
 
   if (Platform.OS !== 'web') return null;
 
-  if (user?.rol !== 'beheerder' && user?.rol !== 'admin') {
+  if (!['beheerder', 'admin', 'manager', 'master_admin', 'platform_admin'].includes(user?.rol || '')) {
     return (
       <View style={styles.container}>
         <View style={styles.noAccess}>

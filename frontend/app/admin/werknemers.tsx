@@ -73,9 +73,8 @@ export default function WerknemersAdmin() {
 
   useEffect(() => { 
     // Wait for both user and token to be loaded before fetching data
-    // Admin roles: master_admin, admin
-    if (Platform.OS === 'web' && token && !authLoading && (user?.rol === 'master_admin' || user?.rol === 'admin')) {
-      fetchData(); 
+    if (Platform.OS === 'web' && token && !authLoading && ['beheerder', 'admin', 'manager', 'master_admin', 'platform_admin'].includes(user?.rol || '')) {
+      fetchData();
     }
   }, [user, token, authLoading]);
 
@@ -311,7 +310,7 @@ export default function WerknemersAdmin() {
     );
   }
   
-  if (user?.rol !== 'master_admin' && user?.rol !== 'admin') {
+  if (!['beheerder', 'admin', 'manager', 'master_admin', 'platform_admin'].includes(user?.rol || '')) {
     return (
       <View style={styles.container}>
         <View style={styles.noAccess}>
