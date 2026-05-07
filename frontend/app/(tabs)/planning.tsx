@@ -15,11 +15,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, apiClient } from '../../context/AuthContext';
 import { useWerkbonFormStore } from '../../store/werkbonFormStore';
-import Constants from 'expo-constants';
-
-const API_URL = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
 const DAGEN = ['maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag', 'zondag'];
 const DAG_KORT: Record<string, string> = {
@@ -134,10 +131,15 @@ export default function PlanningTab() {
   const fetchPlanning = useCallback(async () => {
     if (!user?.id) return;
     try {
-      const res = await fetch(`${API_URL}/api/planning/werknemer/${user.id}?week_nummer=${weekNummer}&jaar=${jaar}`);
-      const data = await res.json();
+      // Use apiClient so the interceptor attaches the JWT — raw fetch
+      // skipped the Authorization header and the endpoint 401'd silently,
+      // which is why the planning list looked empty after a push tap.
+      const res = await apiClient.get(`/api/planning/werknemer/${user.id}`, {
+        params: { week_nummer: weekNummer, jaar },
+      });
+      const data = res.data;
       setPlanning(Array.isArray(data) ? data : []);
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error('[planning] fetch failed', e); }
     finally { setLoading(false); }
   }, [user?.id, weekNummer, jaar]);
 
@@ -165,16 +167,19 @@ export default function PlanningTab() {
     if (!user?.id) return;
     setBevestigingLoading(item.id);
     try {
-      await fetch(
-        `${API_URL}/api/planning/${item.id}/bevestig?werknemer_id=${user.id}&werknemer_naam=${encodeURIComponent(user.naam || user.id)}`,
-        { method: 'POST' }
+      // apiClient adds the JWT — raw fetch was sending unauthenticated
+      // POSTs that the backend rejected with 401.
+      await apiClient.post(
+        `/api/planning/${item.id}/bevestig`,
+        null,
+        { params: { werknemer_id: user.id, werknemer_naam: user.naam || user.id } },
       );
       await fetchPlanning();
       if (selectedItem?.id === item.id) {
         const updated = planning.find(p => p.id === item.id);
         if (updated) setSelectedItem({ ...updated, bevestigd_door: [...(updated.bevestigd_door || []), user.id] });
       }
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error('[planning] bevestig failed', e); }
     finally { setBevestigingLoading(null); }
   };
 
