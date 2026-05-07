@@ -374,7 +374,20 @@ export default function PlanningAdmin() {
       }
       setShowModal(false);
       fetchData();
-    } catch (e) { console.error(e); alert('Fout bij opslaan'); }
+    } catch (e: any) {
+      // Surface the backend's actual error message instead of a generic alert
+      // — previously every save failure showed "Fout bij opslaan", masking
+      // tenant-scope 404s, validation errors and trial-expired 403s.
+      console.error('[planning save]', e?.response?.status, e?.response?.data, e);
+      const detail = e?.response?.data?.detail;
+      const status = e?.response?.status;
+      const msg = typeof detail === 'string' && detail
+        ? detail
+        : status
+          ? `Fout bij opslaan (HTTP ${status})`
+          : 'Fout bij opslaan — geen verbinding met server';
+      alert(msg);
+    }
     finally { setSaving(false); }
   };
 

@@ -7368,6 +7368,25 @@ async def get_planning_item(planning_id: str, current_user: Dict = Depends(get_c
 @api_router.post("/planning/bulk")
 async def create_planning_bulk(data: PlanningBulkCreate, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Create planning items for multiple days in one request — sends one push notification"""
+    try:
+        return await _create_planning_bulk_impl(data, current_user)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception(
+            "[planning/bulk] save failed | company=%s user=%s klant=%s werf=%s dagen=%s werknemers=%s err=%s",
+            current_user.get("company_id"),
+            current_user.get("user_id"),
+            getattr(data, "klant_id", None),
+            getattr(data, "werf_id", None),
+            getattr(data, "dagen", None),
+            getattr(data, "werknemer_ids", None),
+            exc,
+        )
+        raise HTTPException(status_code=500, detail=f"Planning kon niet worden opgeslagen: {exc}")
+
+
+async def _create_planning_bulk_impl(data: PlanningBulkCreate, current_user: Dict):
     company_id = current_user.get("company_id") or "default_company"
     klant = await db.klanten.find_one({"id": data.klant_id, "company_id": company_id})
     werf = await db.werven.find_one({"id": data.werf_id, "company_id": company_id})
@@ -7458,6 +7477,24 @@ async def create_planning_bulk(data: PlanningBulkCreate, current_user: Dict = De
 @api_router.post("/planning")
 async def create_planning(data: PlanningItemCreate, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Create planning item - Admin/Master Admin only"""
+    try:
+        return await _create_planning_impl(data, current_user)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception(
+            "[planning] save failed | company=%s user=%s klant=%s werf=%s dag=%s err=%s",
+            current_user.get("company_id"),
+            current_user.get("user_id"),
+            getattr(data, "klant_id", None),
+            getattr(data, "werf_id", None),
+            getattr(data, "dag", None),
+            exc,
+        )
+        raise HTTPException(status_code=500, detail=f"Planning kon niet worden opgeslagen: {exc}")
+
+
+async def _create_planning_impl(data: PlanningItemCreate, current_user: Dict):
     company_id = current_user.get("company_id") or "default_company"
     # Resolve names (tenant-scoped)
     klant = await db.klanten.find_one({"id": data.klant_id, "company_id": company_id})
