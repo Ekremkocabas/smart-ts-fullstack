@@ -81,7 +81,12 @@
       "Bash(eas build:list --platform android --limit 3 --json)",
       "Bash(curl -sI https://web-test-ts.up.railway.app/)",
       "Bash(curl -sI -X GET https://web-test-ts.up.railway.app/)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(cp:*)",
+      "Bash(git *)",
+      "Bash(node -e \"const fs = require\\('fs'\\); const m = require.resolve\\('@react-native-async-storage/async-storage/lib/module/AsyncStorage.web.js', { paths: ['C:/Users/ekrem/OneDrive/Desktop/smart-ts-fullstack/frontend'] }\\); console.log\\(m\\);\")",
+      "Bash(rm -rf C:/Users/ekrem/OneDrive/Desktop/smart-ts-fullstack/backend/dist/*)",
+      "Bash(cp -r C:/Users/ekrem/OneDrive/Desktop/smart-ts-fullstack/frontend/dist/. C:/Users/ekrem/OneDrive/Desktop/smart-ts-fullstack/backend/dist/)"
     ]
   }
 }

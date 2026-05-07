@@ -9430,25 +9430,39 @@ async def serve_favicon_ico():
 async def serve_favicon_png():
     return FileResponse(FAVICON_PNG_PATH, media_type="image/png")
 
+# HTML must never be browser-cached — stale copies retain old redirects and
+# old entry-chunk filenames, which is exactly what caused the double-login
+# regression after a backend/dist rebuild.
+_NO_CACHE_HEADERS = {
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+    "Pragma": "no-cache",
+    "Expires": "0",
+}
+
+
 @app.get("/")
 async def serve_root():
-    return FileResponse(LANDING_PATH, media_type="text/html")
+    return FileResponse(LANDING_PATH, media_type="text/html", headers=_NO_CACHE_HEADERS)
+
 
 @app.get("/landing")
 async def serve_landing():
-    return FileResponse(LANDING_PATH, media_type="text/html")
+    return FileResponse(LANDING_PATH, media_type="text/html", headers=_NO_CACHE_HEADERS)
+
 
 @app.get("/register")
 async def serve_register():
-    return FileResponse(REGISTER_PATH, media_type="text/html")
+    return FileResponse(REGISTER_PATH, media_type="text/html", headers=_NO_CACHE_HEADERS)
+
 
 @app.get("/signybon-help.js")
 async def serve_help_widget():
     return FileResponse(os.path.join(os.path.dirname(__file__), "signybon-help.js"), media_type="application/javascript")
 
+
 @app.get("/login")
 async def serve_login():
-    return FileResponse(LOGIN_PATH, media_type="text/html")
+    return FileResponse(LOGIN_PATH, media_type="text/html", headers=_NO_CACHE_HEADERS)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # STATIC FILE SERVING FOR WEB PANEL (Railway deployment)
@@ -9469,23 +9483,36 @@ if os.path.exists(STATIC_DIR):
         # Don't intercept API routes
         if full_path.startswith("api/"):
             return {"detail": "Not Found"}
-        
-        # Try to serve the exact file first
+
+        # Try the route as a hashed asset first (long-cacheable)
         file_path = os.path.join(STATIC_DIR, full_path)
         if os.path.isfile(file_path):
+            # HTML files must never be browser-cached — entry-chunk filenames
+            # change on every rebuild but the HTML pointing at them is stable
+            # so a cached HTML keeps loading the previous bundle.
+            if file_path.endswith(".html"):
+                return FileResponse(file_path, headers=_NO_CACHE_HEADERS)
             return FileResponse(file_path)
-        
-        # For HTML files
+
+        # Try with .html extension (expo-router static export — every route
+        # has its own .html: /admin/dashboard → admin/dashboard.html). The
+        # previous code skipped this branch unless the URL itself ended in
+        # ".html", so /admin/dashboard fell through to dist/index.html.
+        html_candidate = os.path.join(STATIC_DIR, full_path + ".html")
+        if os.path.isfile(html_candidate):
+            return FileResponse(html_candidate, headers=_NO_CACHE_HEADERS)
+
+        # If full_path itself ended in .html, try once directly
         if full_path.endswith(".html"):
             html_path = os.path.join(STATIC_DIR, full_path)
             if os.path.isfile(html_path):
-                return FileResponse(html_path)
-        
-        # Fallback to index.html for SPA routing
+                return FileResponse(html_path, headers=_NO_CACHE_HEADERS)
+
+        # Fallback to index.html for SPA routing (also no-cache)
         index_path = os.path.join(STATIC_DIR, "index.html")
         if os.path.isfile(index_path):
-            return FileResponse(index_path)
-        
+            return FileResponse(index_path, headers=_NO_CACHE_HEADERS)
+
         return {"detail": "Not Found"}
 
 # (removed)

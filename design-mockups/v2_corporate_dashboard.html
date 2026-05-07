@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Signybon (Corporate)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #113626; /* Darker green */
+            --primary-light: #1B4332;
+            --accent: #D4A017;
+            --bg-color: #E9ECEF;
+            --sidebar-bg: #1B4332; /* Solid dark green sidebar */
+            --sidebar-text: #FFFFFF;
+            --card-bg: #FFFFFF;
+            --text-main: #212529;
+            --text-muted: #495057;
+            --border-color: #DEE2E6;
+            --border-radius: 4px; /* Sharper corners */
+            --shadow: 0 2px 4px rgba(0,0,0,0.08); /* sharper shadow */
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Roboto', sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-main); display: flex; min-height: 100vh; }
+
+        /* Sidebar - Dark theme */
+        .sidebar { width: 240px; background: var(--sidebar-bg); display: flex; flex-direction: column; color: var(--sidebar-text); position: sticky; top: 0; height: 100vh; box-shadow: 2px 0 5px rgba(0,0,0,0.1); }
+        .logo-container { padding: 20px; background: var(--primary); display: flex; align-items: center; gap: 15px; border-bottom: 2px solid var(--accent); }
+        .logo { width: 28px; height: 28px; position: relative; transform: rotate(45deg); display: flex; justify-content: center; align-items: center; }
+        .logo-outer { width: 100%; height: 100%; background: var(--accent); position: absolute; }
+        .logo-middle { width: 70%; height: 70%; background: var(--primary); position: absolute; z-index: 1; }
+        .logo-inner { width: 40%; height: 40%; background: var(--accent); position: absolute; z-index: 2; }
+        .brand h2 { font-size: 16px; font-weight: 700; color: white; letter-spacing: 1px; }
+
+        .nav-menu { flex: 1; padding: 15px 0; overflow-y: auto; }
+        .nav-item { display: flex; align-items: center; gap: 15px; padding: 12px 20px; color: #ced4da; text-decoration: none; font-size: 14px; font-weight: 500; border-left: 4px solid transparent; }
+        .nav-item:hover { background: rgba(255,255,255,0.05); color: white; }
+        .nav-item.active { background: rgba(255,255,255,0.1); color: var(--accent); border-left-color: var(--accent); }
+        .nav-item i { width: 16px; text-align: center; }
+        .nav-item .badge { margin-left: auto; background: var(--accent); color: var(--primary); font-size: 11px; padding: 2px 6px; border-radius: 12px; font-weight: 700; }
+
+        .sidebar-footer { padding: 15px 20px; background: var(--primary); border-top: 1px solid rgba(255,255,255,0.1); }
+        .user-info { display: flex; flex-direction: column; margin-bottom: 10px; }
+        .user-info .name { font-size: 14px; font-weight: 700; color: white; }
+        .user-info .role { font-size: 12px; color: var(--accent); }
+        .logout-link { color: #adb5bd; font-size: 12px; text-decoration: none; display: flex; align-items: center; gap: 5px; }
+        .logout-link:hover { color: white; }
+
+        /* Main Content */
+        .main-content { flex: 1; padding: 20px; }
+        .topbar { background: var(--card-bg); padding: 15px 20px; box-shadow: var(--shadow); border-radius: var(--border-radius); display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border: 1px solid var(--border-color); }
+        .topbar h1 { font-size: 20px; color: var(--primary); margin: 0; }
+        .topbar-date { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+
+        .alert-banner { background: #fff3cd; border: 1px solid #ffe69c; color: #664d03; padding: 12px 20px; border-radius: var(--border-radius); font-size: 14px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .alert-banner button { background: var(--accent); color: white; border: none; padding: 6px 12px; font-weight: 700; border-radius: var(--border-radius); cursor: pointer; text-shadow: 0 1px 1px rgba(0,0,0,0.2); }
+
+        .dashboard-grid { display: grid; grid-template-columns: 3fr 1fr; gap: 20px; }
+        
+        .panel { background: var(--card-bg); border-radius: var(--border-radius); box-shadow: var(--shadow); border: 1px solid var(--border-color); margin-bottom: 20px; overflow: hidden; }
+        .panel-header { background: #f8f9fa; padding: 12px 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; border-top: 3px solid var(--primary); }
+        .panel-header h2 { font-size: 15px; color: var(--primary); margin: 0; text-transform: uppercase; font-weight: 700; }
+        .panel-body { padding: 20px; }
+
+        .kpi-row { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; }
+        .kpi-card { flex: 1; min-width: 150px; border: 1px solid var(--border-color); padding: 15px; border-radius: var(--border-radius); display: flex; align-items: center; gap: 15px; background: #fff; }
+        .kpi-icon { font-size: 24px; color: var(--primary-light); }
+        .kpi-icon.gold { color: var(--accent); }
+        .kpi-data .val { font-size: 22px; font-weight: 700; color: var(--text-main); line-height: 1; }
+        .kpi-data .lbl { font-size: 12px; color: var(--text-muted); text-transform: uppercase; margin-top: 4px; }
+
+        .stats-table { width: 100%; border-collapse: collapse; }
+        .stats-table td { padding: 10px; border-bottom: 1px solid var(--border-color); font-size: 14px; }
+        .stats-table td:last-child { text-align: right; font-weight: 700; color: var(--primary); }
+
+        .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .data-table th { background: var(--primary); color: white; padding: 10px; text-align: left; font-weight: 500; text-transform: uppercase; }
+        .data-table td { padding: 10px; border-bottom: 1px solid var(--border-color); }
+        .data-table tr:nth-child(even) { background-color: #f8f9fa; }
+        .data-table tr:hover { background-color: #e9ecef; }
+
+        .status { padding: 3px 8px; font-size: 11px; font-weight: 700; border-radius: 2px; text-transform: uppercase; }
+        .bg-gray { background: #e2e3e5; color: #383d41; }
+        .bg-green { background: #d4edda; color: #155724; }
+        .bg-yellow { background: #fff3cd; color: #856404; }
+
+        .action-list { display: flex; flex-direction: column; gap: 8px; }
+        .btn-action { display: block; width: 100%; padding: 10px; background: #f8f9fa; border: 1px solid var(--border-color); color: var(--primary); text-align: left; font-weight: 500; font-size: 13px; cursor: pointer; border-radius: var(--border-radius); transition: all 0.2s; }
+        .btn-action i { margin-right: 10px; color: var(--accent); }
+        .btn-action:hover { background: var(--primary); color: white; border-color: var(--primary); }
+
+    </style>
+</head>
+<body>
+
+    <aside class="sidebar">
+        <div class="logo-container">
+            <div class="logo">
+                <div class="logo-outer"></div><div class="logo-middle"></div><div class="logo-inner"></div>
+            </div>
+            <div class="brand"><h2>SIGNYBON</h2></div>
+        </div>
+        <nav class="nav-menu">
+            <a href="#" class="nav-item active"><i class="fa-solid fa-house"></i><span>Dashboard</span></a>
+            <a href="#" class="nav-item"><i class="fa-solid fa-calendar-alt"></i><span>Planning</span></a>
+            <a href="#" class="nav-item"><i class="fa-solid fa-users"></i><span>Werknemers</span></a>
+            <a href="#" class="nav-item"><i class="fa-solid fa-city"></i><span>Klanten</span></a>
+            <a href="#" class="nav-item"><i class="fa-solid fa-map-location-dot"></i><span>Werven</span></a>
+            <a href="#" class="nav-item"><i class="fa-solid fa-file-signature"></i><span>Werkbonnen</span></a>
+            <a href="#" class="nav-item"><i class="fa-solid fa-message"></i><span>Berichten</span><span class="badge">3</span></a>
+            <a href="#" class="nav-item"><i class="fa-solid fa-chart-pie"></i><span>Rapporten</span></a>
+            <a href="#" class="nav-item"><i class="fa-solid fa-gear"></i><span>Instellingen</span></a>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <span class="name">Jan Peeters</span>
+                <span class="role">Admin | Peeters Bouw NV</span>
+            </div>
+            <a href="#" class="logout-link"><i class="fa-solid fa-power-off"></i> Uitloggen</a>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <div class="alert-banner">
+            <div><i class="fa-solid fa-triangle-exclamation"></i> Uw proefperiode verloopt over 7 dagen. Om ononderbroken gebruik te maken van Signybon, activeer uw abonnement.</div>
+            <button>Activeer Abonnement</button>
+        </div>
+
+        <div class="topbar">
+            <h1>Bedrijfsoverzicht - Peeters Bouw NV</h1>
+            <div class="topbar-date">Dinsdag, 07 April 2026</div>
+        </div>
+
+        <div class="kpi-row">
+            <div class="kpi-card">
+                <div class="kpi-icon"><i class="fa-solid fa-helmet-safety"></i></div>
+                <div class="kpi-data"><div class="val">24</div><div class="lbl">Werknemers</div></div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon gold"><i class="fa-solid fa-city"></i></div>
+                <div class="kpi-data"><div class="val">42</div><div class="lbl">Klanten</div></div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon gold"><i class="fa-solid fa-map-location-dot"></i></div>
+                <div class="kpi-data"><div class="val">16</div><div class="lbl">Werven</div></div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon"><i class="fa-solid fa-calendar-check"></i></div>
+                <div class="kpi-data"><div class="val">38</div><div class="lbl">Planning (Week)</div></div>
+            </div>
+        </div>
+
+        <div class="dashboard-grid">
+            <div class="left-col">
+                <div class="panel">
+                    <div class="panel-header"><h2>Laatste Werkbon Activiteit</h2> <a href="#" style="font-size:12px; color:var(--primary);">Bekijk Alles</a></div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Referentie</th>
+                                <th>Datum</th>
+                                <th>Klant / Werf</th>
+                                <th>Werknemer(s)</th>
+                                <th>Status</th>
+                                <th>Aantal Uren</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>WB-260401</td>
+                                <td>07-04-2026</td>
+                                <td>Janssens NV / Kantoorgebouw Zuidas</td>
+                                <td>Jens De Smet</td>
+                                <td><span class="status bg-yellow">Ondertekend</span></td>
+                                <td>8.0</td>
+                            </tr>
+                            <tr>
+                                <td>WB-260402</td>
+                                <td>06-04-2026</td>
+                                <td>Stad Antwerpen / Renovatie Park</td>
+                                <td>Kevin Vandevelde</td>
+                                <td><span class="status bg-green">Verzonden</span></td>
+                                <td>7.5</td>
+                            </tr>
+                            <tr>
+                                <td>WB-260403</td>
+                                <td>06-04-2026</td>
+                                <td>Bogaert BV / Villa Kempen</td>
+                                <td>Tom Peeters</td>
+                                <td><span class="status bg-gray">Concept</span></td>
+                                <td>-</td>
+                            </tr>
+                            <tr>
+                                <td>WB-260404</td>
+                                <td>05-04-2026</td>
+                                <td>KBC Groep / Data Center</td>
+                                <td>Marc Verstappen</td>
+                                <td><span class="status bg-green">Verzonden</span></td>
+                                <td>12.0</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="right-col">
+                <div class="panel">
+                    <div class="panel-header"><h2>Snelkoppelingen</h2></div>
+                    <div class="panel-body">
+                        <div class="action-list">
+                            <button class="btn-action"><i class="fa-solid fa-plus"></i> Nieuwe Werkbon</button>
+                            <button class="btn-action"><i class="fa-solid fa-user-plus"></i> Werknemer Toevoegen</button>
+                            <button class="btn-action"><i class="fa-solid fa-building"></i> Nieuwe Klant</button>
+                            <button class="btn-action"><i class="fa-solid fa-map-pin"></i> Werf Registreren</button>
+                            <button class="btn-action"><i class="fa-solid fa-file-invoice"></i> Exporteer naar Billit</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header"><h2>Werkbonnen Overzicht</h2></div>
+                    <div class="panel-body" style="padding: 0 20px;">
+                        <table class="stats-table">
+                            <tr><td>Deze week</td><td>142</td></tr>
+                            <tr><td>Deze maand</td><td>538</td></tr>
+                            <tr><td>Totaal uren (maand)</td><td>3,142 u</td></tr>
+                            <tr><td style="border-bottom:none">Te factureren</td><td style="border-bottom:none; color:var(--accent);">48</td></tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+</body>
+</html>

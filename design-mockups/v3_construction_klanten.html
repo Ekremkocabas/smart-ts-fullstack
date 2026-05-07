@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Klant Detail - Signybon (Construction)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #1B4332;
+            --primary-dark: #081C15;
+            --accent: #D4A017;
+            --accent-light: #FFD23F;
+            --bg-color: #F0F2F5;
+            --sidebar-bg: #081C15;
+            --card-bg: #FFFFFF;
+            --text-main: #2B2D42;
+            --text-muted: #6C757D;
+            --border-color: #DEE2E6;
+            --border-radius: 8px;
+            --border-width: 2px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background-color: var(--bg-color); color: var(--text-main); display: flex; min-height: 100vh; font-family: 'Open Sans', sans-serif; }
+        h1, h2, h3, .brand h2, .btn, .tab-item { font-family: 'Montserrat', sans-serif; }
+
+        /* Sidebar - Minified */
+        .sidebar { width: 280px; background: var(--sidebar-bg); color: #FFF; position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; border-right: 4px solid var(--accent); }
+        .logo-box { padding: 30px 20px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .logo { width: 60px; height: 60px; margin: 0 auto 15px; position: relative; transform: rotate(45deg); display: flex; justify-content: center; align-items: center; }
+        .logo-outer { width: 100%; height: 100%; background: var(--accent); position: absolute; }
+        .logo-middle { width: 70%; height: 70%; background: var(--primary); position: absolute; z-index: 1; }
+        .logo-inner { width: 40%; height: 40%; background: var(--accent); position: absolute; z-index: 2; }
+        .brand h2 { font-size: 22px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; margin: 0; }
+        .nav-menu { padding: 20px 15px; flex: 1; }
+        .nav-item { display: flex; align-items: center; gap: 15px; padding: 14px 20px; margin-bottom: 8px; border-radius: 6px; color: #ADB5BD; text-decoration: none; font-weight: 600; font-size: 15px; }
+        .nav-item.active { background: var(--primary); color: var(--accent-light); border-left: 6px solid var(--accent); padding-left: 14px; }
+        
+        /* Main Content */
+        .main-content { flex: 1; padding: 40px; }
+        .page-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; border-bottom: var(--border-width) solid var(--text-main); padding-bottom: 15px; }
+        .page-header h1 { font-size: 32px; font-weight: 800; color: var(--text-main); text-transform: uppercase; margin-bottom: 5px; }
+
+        .btn { padding: 10px 20px; border-radius: 4px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; border: none; cursor: pointer; font-size: 13px; }
+        .btn-gold { background: var(--accent); color: #000; }
+        .btn-green { background: var(--primary); color: #FFF; }
+        .btn-outline { background: transparent; border: 2px solid var(--primary-dark); color: var(--primary-dark); }
+
+        .hero-banner { background: var(--primary-dark); border-left: 8px solid var(--accent); padding: 30px; border-radius: var(--border-radius); color: #FFF; margin-bottom: 30px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); display: flex; justify-content: space-between; align-items: center; }
+        .hero-banner h2 { font-size: 28px; font-weight: 800; margin-bottom: 10px; }
+        .tag-active { background: #28A745; color: #FFF; padding: 4px 10px; font-size: 12px; font-family: 'Montserrat', sans-serif; font-weight: 800; border-radius: 4px; text-transform: uppercase; vertical-align: middle; margin-left: 10px; }
+        .hero-meta { display: flex; gap: 20px; font-size: 14px; font-weight: 600; color: #ADB5BD; }
+        .hero-meta i { color: var(--accent); }
+
+        /* Tabs */
+        .tabs { display: flex; gap: 10px; margin-bottom: 30px; }
+        .tab-item { padding: 12px 25px; background: #E9ECEF; color: var(--text-muted); font-weight: 800; font-size: 13px; border-radius: 4px; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; }
+        .tab-item.active { background: var(--primary-dark); color: #FFF; }
+
+        /* Content Grid */
+        .content-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px; }
+        .info-card { background: var(--card-bg); border-radius: var(--border-radius); border: var(--border-width) solid var(--primary-dark); padding: 25px; border-bottom-width: 6px; }
+        .info-card h3 { font-size: 18px; font-weight: 800; text-transform: uppercase; margin-bottom: 20px; color: var(--primary-dark); display: flex; justify-content: space-between; border-bottom: var(--border-width) solid #E9ECEF; padding-bottom: 10px; }
+        .info-card h3 i { color: var(--text-muted); cursor: pointer; }
+        
+        .dt-row { margin-bottom: 15px; }
+        .dt-row:last-child { margin-bottom: 0; }
+        .dt-lbl { font-size: 11px; font-family: 'Montserrat', sans-serif; font-weight: 800; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; margin-bottom: 5px; }
+        .dt-val { font-size: 15px; font-weight: 700; color: var(--text-main); }
+
+        /* Sites List */
+        .site-item { padding: 15px; border: var(--border-width) solid var(--border-color); border-radius: 4px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; transition: border-color 0.2s; }
+        .site-item:last-child { margin-bottom: 0; }
+        .site-item:hover { border-color: var(--primary); }
+        .site-name { font-weight: 700; font-size: 16px; margin-bottom: 5px; font-family: 'Montserrat', sans-serif; }
+        .site-addr { font-size: 13px; color: var(--text-muted); font-weight: 600; }
+
+    </style>
+</head>
+<body>
+    <aside class="sidebar">
+        <!-- Minified for brevity -->
+        <div class="logo-box">
+            <div class="logo"><div class="logo-outer"></div><div class="logo-middle"></div><div class="logo-inner"></div></div>
+            <div class="brand"><h2>Signybon</h2></div>
+        </div>
+        <nav class="nav-menu">
+            <a href="#" class="nav-item"><i class="fa-solid fa-hard-hat"></i> Dashboard</a>
+            <a href="#" class="nav-item active"><i class="fa-solid fa-building"></i> Klanten</a>
+        </nav>
+    </aside>
+
+    <main class="main-content">
+        <div class="page-header">
+            <div>
+                <a href="#" style="color: var(--text-muted); text-decoration: none; font-weight: 700; font-size: 14px; text-transform: uppercase;"><i class="fa-solid fa-arrow-left"></i> Terug</a>
+                <h1 style="margin-top: 10px;">Klant Profiel</h1>
+            </div>
+            <button class="btn btn-outline"><i class="fa-solid fa-pen-to-square"></i> Aanpassen</button>
+        </div>
+
+        <div class="hero-banner">
+            <div>
+                <h2>Janssens Bouwonderneming NV <span class="tag-active">Actief</span></h2>
+                <div class="hero-meta">
+                    <span><i class="fa-solid fa-hashtag"></i> BE 0123.456.789</span>
+                    <span><i class="fa-solid fa-envelope"></i> info@janssensnv.be</span>
+                    <span><i class="fa-solid fa-phone"></i> +32 3 123 45 67</span>
+                </div>
+            </div>
+            <button class="btn btn-gold">Nieuwe Werf Maken</button>
+        </div>
+
+        <div class="tabs">
+            <div class="tab-item active">Gegevens</div>
+            <div class="tab-item">Werven (2)</div>
+            <div class="tab-item">Tarieven</div>
+        </div>
+
+        <div class="content-grid">
+            <div class="info-card">
+                <h3>Bedrijf & Contact <i class="fa-solid fa-pen"></i></h3>
+                <div class="dt-row">
+                    <div class="dt-lbl">Bedrijfsnaam</div>
+                    <div class="dt-val">Janssens Bouwonderneming NV</div>
+                </div>
+                <div class="dt-row">
+                    <div class="dt-lbl">Facturatieadres</div>
+                    <div class="dt-val">Industrielaan 42<br>2000 Antwerpen</div>
+                </div>
+                <div class="dt-row">
+                    <div class="dt-lbl">Vast Contactpersoon</div>
+                    <div class="dt-val">Peter Janssens (Directeur)</div>
+                </div>
+            </div>
+
+            <div class="info-card">
+                <h3>Prijsafspraken <i class="fa-solid fa-pen"></i></h3>
+                <div class="dt-row">
+                    <div class="dt-lbl">Regie Uurtarief</div>
+                    <div class="dt-val">€ 45,00 / uur</div>
+                </div>
+                <div class="dt-row">
+                    <div class="dt-lbl">Verplaatsing</div>
+                    <div class="dt-val">€ 0,42 / km</div>
+                </div>
+                <div class="dt-row">
+                    <div class="dt-lbl">Speciale Voorwaarden</div>
+                    <div class="dt-val">10% korting op gehuurd materiaal bij projecten groter dan 1 maand.</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-card" style="border-bottom-width: 2px;">
+            <h3>Gekoppelde Werven</h3>
+            <div class="site-item">
+                <div>
+                    <div class="site-name">Kantoorgebouw Zuidas</div>
+                    <div class="site-addr"><i class="fa-solid fa-location-dot" style="color:var(--accent);"></i> Zuidas 100, Antwerpen</div>
+                </div>
+                <button class="btn btn-green">Details</button>
+            </div>
+            <div class="site-item">
+                <div>
+                    <div class="site-name">Renovatie Magazijn</div>
+                    <div class="site-addr"><i class="fa-solid fa-location-dot" style="color:var(--accent);"></i> Havenweg 50, Antwerpen</div>
+                </div>
+                <button class="btn btn-green">Details</button>
+            </div>
+        </div>
+
+    </main>
+</body>
+</html>
