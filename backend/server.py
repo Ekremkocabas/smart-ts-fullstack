@@ -7454,7 +7454,9 @@ async def _create_planning_bulk_impl(data: PlanningBulkCreate, current_user: Dic
         item_doc = item.dict()
         item_doc["company_id"] = current_user.get("company_id") or "default_company"
         await db.planning.insert_one(item_doc)
-        created_items.append(item_doc)
+        # pymongo mutates item_doc in place to add _id (ObjectId) — strip
+        # Mongo-only fields so the response can be JSON-serialized.
+        created_items.append(serialize_mongo_doc(item_doc))
 
     # Send ONE push notification for all days combined
     if data.werknemer_ids and created_items:
@@ -7562,10 +7564,12 @@ async def _create_planning_impl(data: PlanningItemCreate, current_user: Dict):
     item_doc = item.dict()
     item_doc["company_id"] = current_user.get("company_id") or "default_company"
     await db.planning.insert_one(item_doc)
-    result = item_doc
+    # pymongo mutates item_doc in place to add _id (ObjectId) — strip the
+    # Mongo-only fields before returning so FastAPI can serialize the body.
+    result = serialize_mongo_doc(item_doc)
     if waarschuwingen:
         result["waarschuwingen"] = waarschuwingen
-    
+
     # Send push notifications to assigned workers
     if data.werknemer_ids:
         try:
@@ -7577,7 +7581,7 @@ async def _create_planning_impl(data: PlanningItemCreate, current_user: Dict):
             )
         except Exception as e:
             logging.error(f"Push notification failed: {e}")
-    
+
     return result
 
 @api_router.put("/planning/{planning_id}")
