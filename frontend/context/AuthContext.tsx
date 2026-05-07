@@ -170,11 +170,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loadUser = async () => {
     try {
-      const [userData, tokenData, platformData, planData] = await Promise.all([
+      const [userData, tokenData, platformData, planData, rolesData] = await Promise.all([
         AsyncStorage.getItem('user'),
         AsyncStorage.getItem('token'),
         AsyncStorage.getItem('platformAccess'),
         AsyncStorage.getItem('planInfo'),
+        AsyncStorage.getItem('validRoles'),
       ]);
 
       if (userData) {
@@ -189,6 +190,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (planData) {
         try {
           setPlanInfo(JSON.parse(planData) as PlanInfo);
+        } catch {}
+      }
+      if (rolesData) {
+        try {
+          const parsed = JSON.parse(rolesData);
+          if (Array.isArray(parsed)) setValidRoles(parsed);
         } catch {}
       }
     } catch (error) {
@@ -229,11 +236,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // IMMEDIATELY set axios default header before storing
     axios.defaults.headers.common['Authorization'] = `Bearer ${tokenData}`;
 
-    // Store all data
+    // Store all data — keys must match login.html exactly so a session
+    // started there hydrates cleanly on the React side.
     await Promise.all([
       AsyncStorage.setItem('user', JSON.stringify(userData)),
       AsyncStorage.setItem('token', tokenData),
       AsyncStorage.setItem('platformAccess', platform_access),
+      AsyncStorage.setItem('validRoles', JSON.stringify(valid_roles || [])),
     ]);
 
     setUser(userData);
@@ -253,6 +262,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       AsyncStorage.removeItem('token'),
       AsyncStorage.removeItem('platformAccess'),
       AsyncStorage.removeItem('planInfo'),
+      AsyncStorage.removeItem('validRoles'),
     ]);
     setUser(null);
     setToken(null);

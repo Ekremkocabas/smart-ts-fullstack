@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -25,16 +25,40 @@ function SignybonLogo() {
 }
 
 export default function AdminLogin() {
-  const { setUser, login: authLogin } = useAuth();
+  const { user, isLoading, setUser, login: authLogin } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // If a session already exists (e.g. user logged in via /login plain HTML
+  // and was sent here, or hit /admin/login directly while still authenticated),
+  // skip the form and route them onward instead of asking for credentials again.
+  useEffect(() => {
+    if (Platform.OS !== 'web' || isLoading || !user) return;
+    if (user.rol === 'platform_admin') {
+      router.replace('/masterpanel' as any);
+      return;
+    }
+    if (['beheerder', 'admin', 'manager', 'master_admin', 'planner'].includes(user.rol) && user.web_access !== false) {
+      router.replace('/admin/dashboard');
+    }
+  }, [user, isLoading]);
+
   // Only show on web
   if (Platform.OS !== 'web') {
     return null;
+  }
+
+  // While auth state is hydrating from localStorage, don't render the form —
+  // would briefly flash the login screen for an already-logged-in user.
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}>
+        <ActivityIndicator color="#1B4332" size="large" />
+      </View>
+    );
   }
 
   const handleLogin = async () => {
