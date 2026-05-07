@@ -297,13 +297,13 @@ export default function MasterKlantDetail() {
           <View style={{ flex: 1 }}>
             <Text style={styles.actionLabel}>Plan wijzigen</Text>
             <View style={styles.planChips}>
-              {['basic', 'pro'].map((p) => (
+              {['basic', 'pro', 'free'].map((p) => (
                 <TouchableOpacity
                   key={p}
                   style={[styles.chip, planDraft === p && styles.chipActive]}
                   onPress={() => setPlanDraft(p)}
                 >
-                  <Text style={[styles.chipText, planDraft === p && styles.chipTextActive]}>{p}</Text>
+                  <Text style={[styles.chipText, planDraft === p && styles.chipTextActive]}>{p === 'free' ? 'free (gratis)' : p}</Text>
                 </TouchableOpacity>
               ))}
             </View>

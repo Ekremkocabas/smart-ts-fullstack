@@ -69,21 +69,21 @@ const WERKBON_TYPES: WerkbonTypeOption[] = [
 export default function WerkbonTypeSelect() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
+  const { user, isWerkbonTypeAllowed } = useAuth();
   const { theme } = useTheme();
   const { hasDraft, type: existingType, setType, startNewDraft, clearDraft } = useWerkbonFormStore();
-  
+
   const [showDraftModal, setShowDraftModal] = useState(false);
   const [selectedType, setSelectedType] = useState<WerkbonType | null>(null);
-  
+
   const primary = theme?.primaryColor || '#F5A623';
-  
-  // User's allowed werkbon types
+
+  // User's allowed werkbon types (per-user permission)
   const userWerkbonTypes = user?.werkbon_types || ['uren'];
   const isAdmin = user?.rol === 'admin' || user?.rol === 'master_admin';
-  
-  // Filter types based on user permissions
-  const availableTypes = WERKBON_TYPES.filter(t => 
+
+  // Filter types based on user permissions; plan gating handled per-card
+  const availableTypes = WERKBON_TYPES.filter(t =>
     isAdmin || userWerkbonTypes.includes(t.type)
   );
 
@@ -95,6 +95,13 @@ export default function WerkbonTypeSelect() {
   }, []);
 
   const handleTypeSelect = (type: WerkbonType) => {
+    if (!isWerkbonTypeAllowed(type)) {
+      Alert.alert(
+        'Pro-abonnement vereist',
+        `Werkbon type "${type}" is alleen beschikbaar in het Pro-abonnement. Upgrade om deze functie te gebruiken.`,
+      );
+      return;
+    }
     if (hasDraft && existingType && existingType !== type) {
       // Different type selected, ask about existing draft
       setSelectedType(type);
@@ -162,23 +169,37 @@ export default function WerkbonTypeSelect() {
 
         {/* Type Cards */}
         <View style={styles.cardsContainer}>
-          {availableTypes.map((option) => (
-            <TouchableOpacity
-              key={option.type}
-              style={styles.typeCard}
-              onPress={() => handleTypeSelect(option.type)}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.iconContainer, { backgroundColor: `${option.color}15` }]}>
-                <Ionicons name={option.icon as any} size={32} color={option.color} />
-              </View>
-              <View style={styles.cardContent}>
-                <Text style={styles.cardTitle}>{option.title}</Text>
-                <Text style={styles.cardDescription}>{option.description}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={24} color="#C4C4C4" />
-            </TouchableOpacity>
-          ))}
+          {availableTypes.map((option) => {
+            const locked = !isWerkbonTypeAllowed(option.type);
+            return (
+              <TouchableOpacity
+                key={option.type}
+                style={[styles.typeCard, locked && { opacity: 0.6 }]}
+                onPress={() => handleTypeSelect(option.type)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.iconContainer, { backgroundColor: `${option.color}15` }]}>
+                  <Ionicons name={option.icon as any} size={32} color={option.color} />
+                </View>
+                <View style={styles.cardContent}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Text style={styles.cardTitle}>{option.title}</Text>
+                    {locked && (
+                      <View style={{ backgroundColor: '#D4A017', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+                        <Text style={{ color: '#1B4332', fontSize: 10, fontWeight: '700' }}>PRO</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={styles.cardDescription}>{option.description}</Text>
+                </View>
+                {locked ? (
+                  <Ionicons name="lock-closed" size={20} color="#9CA3AF" />
+                ) : (
+                  <Ionicons name="chevron-forward" size={24} color="#C4C4C4" />
+                )}
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         {/* No permissions message */}

@@ -16,7 +16,7 @@ import io
 import secrets
 from pathlib import Path
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Set, Any, Union
+from typing import List, Optional, Dict, Set, Any, Union, Tuple
 import uuid
 from datetime import datetime, timedelta, timezone
 import hashlib
@@ -2105,34 +2105,250 @@ async def get_instellingen_for_company(company_id: Optional[str]) -> dict:
     return doc or {}
 
 
-async def get_company_subscription_status(company_id: str) -> dict:
-    """Returns dict: {status, days_remaining, is_active, is_trial_expired}"""
-    if not company_id or company_id == "default_company":
-        return {"status": "active", "days_remaining": None, "is_active": True, "is_trial_expired": False}
-    company = await db.companies.find_one({"id": company_id})
-    if not company:
-        return {"status": "active", "days_remaining": None, "is_active": True, "is_trial_expired": False}
-    sub_status = company.get("subscription_status", "active")
-    if sub_status == "active":
-        return {"status": "active", "days_remaining": None, "is_active": True, "is_trial_expired": False}
-    # Trial: check end date
+# ==================== PLAN / FEATURE MATRIX ====================
+# Single source of truth for what each plan can do. Backend enforcement
+# reads from here; frontend reads via /api/subscription/plan-info.
+
+PLAN_LIMITS: Dict[str, Dict[str, Optional[int]]] = {
+    "basic": {"werknemers": 5, "klanten": 10, "werven": 5},
+    "pro": {"werknemers": None, "klanten": None, "werven": None},  # None = unlimited
+    "free": {"werknemers": None, "klanten": None, "werven": None},
+}
+
+PLAN_FEATURES: Dict[str, Dict[str, Any]] = {
+    "basic": {
+        "werkbon_types": ["uren"],
+        "billit": False,
+        "berichten": False,
+        "planning_advanced": False,
+        "pdf_custom": False,
+        "rapporten_export": False,
+    },
+    "pro": {
+        "werkbon_types": ["uren", "dag", "oplevering", "project", "prestatie"],
+        "billit": True,
+        "berichten": True,
+        "planning_advanced": True,
+        "pdf_custom": True,
+        "rapporten_export": True,
+    },
+    "free": {
+        "werkbon_types": ["uren", "dag", "oplevering", "project", "prestatie"],
+        "billit": True,
+        "berichten": True,
+        "planning_advanced": True,
+        "pdf_custom": True,
+        "rapporten_export": True,
+    },
+}
+
+
+def _normalize_plan(value: Optional[str]) -> str:
+    """Map any subscription_status / selected_plan flavour to a canonical plan key."""
+    if not value:
+        return "basic"
+    v = value.lower().strip()
+    if v in ("free",):
+        return "free"
+    if v in ("pro", "active_pro"):
+        return "pro"
+    if v in ("basic", "active_basic"):
+        return "basic"
+    return "basic"
+
+
+def _trial_remaining(company: dict) -> Tuple[bool, Optional[int]]:
+    """Returns (is_active_trial, days_remaining). is_active_trial=True only when trial not expired."""
     trial_end_str = company.get("trial_end_date")
     if not trial_end_str:
-        return {"status": sub_status, "days_remaining": None, "is_active": True, "is_trial_expired": False}
+        return False, None
     try:
         trial_end = datetime.fromisoformat(trial_end_str.replace("Z", "+00:00"))
     except Exception:
-        return {"status": sub_status, "days_remaining": None, "is_active": True, "is_trial_expired": False}
+        return False, None
     now = datetime.now(timezone.utc)
     delta = trial_end - now
     days_remaining = max(0, int(delta.total_seconds() // 86400))
-    is_expired = delta.total_seconds() <= 0
-    return {
-        "status": sub_status,
-        "days_remaining": days_remaining,
-        "is_active": (not is_expired) or sub_status == "active",
-        "is_trial_expired": is_expired and sub_status == "trial",
+    return delta.total_seconds() > 0, days_remaining
+
+
+async def _resolve_company_plan(company_id: str) -> Tuple[dict, str, dict]:
+    """Resolve effective plan for a company.
+
+    Returns (subscription_dict, effective_plan, company_doc).
+    Side effect: when subscription_status='trial' and trial_end has passed AND
+    selected_plan is set, auto-convert subscription_status to active_<plan>.
+
+    subscription_dict shape:
+      {status, days_remaining, is_active, is_trial_expired,
+       requires_plan_selection, plan, plan_source}
+    """
+    default_plan = "free"
+    default_sub = {
+        "status": "active",
+        "days_remaining": None,
+        "is_active": True,
+        "is_trial_expired": False,
+        "requires_plan_selection": False,
+        "plan": default_plan,
+        "plan_source": "platform",
     }
+
+    if not company_id or company_id == "default_company":
+        return default_sub, default_plan, {}
+
+    company = await db.companies.find_one({"id": company_id}) or {}
+    if not company:
+        return default_sub, default_plan, {}
+
+    sub_status = (company.get("subscription_status") or "active").lower()
+    selected_plan = company.get("selected_plan") or company.get("pakket")
+
+    # Free plan = always-on, ignore everything else
+    if (selected_plan or "").lower() == "free":
+        return ({
+            "status": "free",
+            "days_remaining": None,
+            "is_active": True,
+            "is_trial_expired": False,
+            "requires_plan_selection": False,
+            "plan": "free",
+            "plan_source": "free",
+        }, "free", company)
+
+    # active / active_basic / active_pro → fully active on the chosen plan
+    if sub_status.startswith("active"):
+        plan = _normalize_plan(sub_status if sub_status != "active" else selected_plan)
+        return ({
+            "status": sub_status,
+            "days_remaining": None,
+            "is_active": True,
+            "is_trial_expired": False,
+            "requires_plan_selection": False,
+            "plan": plan,
+            "plan_source": "subscription",
+        }, plan, company)
+
+    # blocked → blocked, no access
+    if sub_status == "blocked":
+        return ({
+            "status": "blocked",
+            "days_remaining": None,
+            "is_active": False,
+            "is_trial_expired": False,
+            "requires_plan_selection": False,
+            "plan": _normalize_plan(selected_plan) if selected_plan else "basic",
+            "plan_source": "subscription",
+        }, _normalize_plan(selected_plan) if selected_plan else "basic", company)
+
+    # trial path
+    if sub_status == "trial":
+        trial_active, days_remaining = _trial_remaining(company)
+        if trial_active:
+            # During trial: full Pro access regardless of selected_plan
+            return ({
+                "status": "trial",
+                "days_remaining": days_remaining,
+                "is_active": True,
+                "is_trial_expired": False,
+                "requires_plan_selection": False,
+                "plan": "pro",
+                "plan_source": "trial",
+            }, "pro", company)
+
+        # trial expired
+        if selected_plan and selected_plan.lower() in ("basic", "pro"):
+            new_status = f"active_{selected_plan.lower()}"
+            try:
+                await db.companies.update_one(
+                    {"id": company_id},
+                    {"$set": {"subscription_status": new_status}},
+                )
+                logging.info("[plan] Auto-converted %s trial→%s", company_id, new_status)
+            except Exception as exc:
+                logging.warning("[plan] Auto-convert persist failed: %s", exc)
+            return ({
+                "status": new_status,
+                "days_remaining": 0,
+                "is_active": True,
+                "is_trial_expired": False,
+                "requires_plan_selection": False,
+                "plan": selected_plan.lower(),
+                "plan_source": "auto_conversion",
+            }, selected_plan.lower(), company)
+
+        # trial expired with no plan picked → must choose
+        return ({
+            "status": "trial_expired_no_plan",
+            "days_remaining": 0,
+            "is_active": False,
+            "is_trial_expired": True,
+            "requires_plan_selection": True,
+            "plan": "basic",
+            "plan_source": "default",
+        }, "basic", company)
+
+    # unknown status → treat as basic active
+    return ({
+        "status": sub_status or "active",
+        "days_remaining": None,
+        "is_active": True,
+        "is_trial_expired": False,
+        "requires_plan_selection": False,
+        "plan": _normalize_plan(selected_plan),
+        "plan_source": "fallback",
+    }, _normalize_plan(selected_plan), company)
+
+
+async def get_company_subscription_status(company_id: str) -> dict:
+    """Backwards-compatible thin wrapper. Prefer _resolve_company_plan."""
+    sub, _plan, _company = await _resolve_company_plan(company_id)
+    # legacy callers expect at least these keys; keep extras for new callers
+    return sub
+
+
+def _plan_limit(plan: str, resource: str) -> Optional[int]:
+    return PLAN_LIMITS.get(plan, PLAN_LIMITS["basic"]).get(resource)
+
+
+def _plan_feature(plan: str, feature: str) -> Any:
+    return PLAN_FEATURES.get(plan, PLAN_FEATURES["basic"]).get(feature)
+
+
+async def _enforce_limit(company_id: str, plan: str, resource: str, collection: str, base_query: Optional[dict] = None):
+    """Raise 403 if creating one more would exceed the plan's limit on this resource."""
+    limit = _plan_limit(plan, resource)
+    if limit is None:
+        return
+    q = dict(base_query or {})
+    q["company_id"] = company_id
+    current = await db[collection].count_documents(q)
+    if current >= limit:
+        nice = {"werknemers": "werknemers", "klanten": "klanten", "werven": "werven"}.get(resource, resource)
+        raise HTTPException(
+            status_code=403,
+            detail=f"Limiet bereikt: uw plan staat maximaal {limit} {nice} toe. Upgrade naar Pro voor onbeperkt aantal {nice}.",
+        )
+
+
+def _require_feature(plan: str, feature: str, label: Optional[str] = None):
+    """Raise 403 when the feature is disabled on the caller's plan."""
+    if _plan_feature(plan, feature):
+        return
+    pretty = label or feature
+    raise HTTPException(
+        status_code=403,
+        detail=f"{pretty} is beschikbaar in het Pro-abonnement. Upgrade naar Pro om deze functie te gebruiken.",
+    )
+
+
+def _require_werkbon_type(plan: str, werkbon_type: str):
+    allowed = _plan_feature(plan, "werkbon_types") or ["uren"]
+    if werkbon_type not in allowed:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Werkbon type '{werkbon_type}' is alleen beschikbaar in het Pro-abonnement.",
+        )
 
 
 def get_unique_recipients(*emails: Optional[str]) -> List[str]:
@@ -3971,6 +4187,12 @@ async def register_worker_with_email(
     current_user: Dict = Depends(require_roles(["admin", "master_admin"]))
 ):
     """Register a new worker. Only admin/master_admin can create users."""
+    company_id = current_user.get("company_id") or "default_company"
+    _sub, plan, _co = await _resolve_company_plan(company_id)
+    await _enforce_limit(
+        company_id, plan, "werknemers", "users",
+        {"rol": {"$in": ["werknemer", "worker", "onderaannemer", "planner"]}, "actief": True},
+    )
     # Generate secure password server-side if not provided
     password = password or generate_temp_password()
 
@@ -4143,8 +4365,9 @@ async def login_user(request: Request, login_data: UserLogin):
         app_access=app_access,
     )
     
-    # Subscription / trial info
-    subscription = await get_company_subscription_status(company_id)
+    # Subscription / trial / plan info
+    subscription, plan, _co = await _resolve_company_plan(company_id)
+    plan_info = await _build_plan_info(company_id, plan, subscription)
 
     return {
         "user": user_response.dict(),
@@ -4152,6 +4375,7 @@ async def login_user(request: Request, login_data: UserLogin):
         "platform_access": platform,
         "valid_roles": list(VALID_ROLES),
         "subscription": subscription,
+        "plan_info": plan_info,
     }
 
 @api_router.get("/subscription/status")
@@ -4159,6 +4383,72 @@ async def subscription_status(current_user: Dict = Depends(get_current_user)):
     """Returns current company's subscription/trial status."""
     company_id = current_user.get("company_id", "default_company")
     return await get_company_subscription_status(company_id)
+
+
+async def _build_plan_info(company_id: str, plan: str, subscription: dict) -> dict:
+    """Bundle limits + features + current usage for the calling tenant."""
+    limits = PLAN_LIMITS.get(plan, PLAN_LIMITS["basic"])
+    features = PLAN_FEATURES.get(plan, PLAN_FEATURES["basic"])
+    if not company_id or company_id == "default_company":
+        usage = {"werknemers": 0, "klanten": 0, "werven": 0}
+    else:
+        usage = {
+            "werknemers": await db.users.count_documents(
+                {"company_id": company_id, "rol": {"$in": ["werknemer", "worker", "onderaannemer", "planner"]}, "actief": True}
+            ),
+            "klanten": await db.klanten.count_documents(
+                {"company_id": company_id, "actief": {"$ne": False}}
+            ),
+            "werven": await db.werven.count_documents(
+                {"company_id": company_id, "actief": True}
+            ),
+        }
+    return {
+        "plan": plan,
+        "plan_source": subscription.get("plan_source"),
+        "limits": limits,
+        "features": features,
+        "usage": usage,
+        "subscription": subscription,
+    }
+
+
+@api_router.get("/subscription/plan-info")
+async def subscription_plan_info(current_user: Dict = Depends(get_current_user)):
+    """Returns plan, limits, features and current usage for the caller's tenant."""
+    company_id = current_user.get("company_id") or "default_company"
+    sub, plan, _co = await _resolve_company_plan(company_id)
+    return await _build_plan_info(company_id, plan, sub)
+
+
+class SelfPlanSelectBody(BaseModel):
+    plan: str  # "basic" or "pro"
+
+
+@api_router.post("/subscription/select-plan")
+async def subscription_select_plan(
+    body: SelfPlanSelectBody,
+    current_user: Dict = Depends(require_roles(["admin", "master_admin"])),
+):
+    """Customer-facing plan selection. Only basic/pro — free is master-panel only."""
+    plan = (body.plan or "").lower().strip()
+    if plan not in ("basic", "pro"):
+        raise HTTPException(status_code=400, detail="Ongeldig plan — kies 'basic' of 'pro'")
+    company_id = current_user.get("company_id")
+    if not company_id or company_id == "default_company":
+        raise HTTPException(status_code=400, detail="Bedrijf ontbreekt")
+    company = await db.companies.find_one({"id": company_id}, {"_id": 0, "subscription_status": 1})
+    if not company:
+        raise HTTPException(status_code=404, detail="Bedrijf niet gevonden")
+    if (company.get("subscription_status") or "").lower() == "blocked":
+        raise HTTPException(status_code=403, detail="Account is geblokkeerd")
+    new_status = f"active_{plan}"
+    await db.companies.update_one(
+        {"id": company_id},
+        {"$set": {"selected_plan": plan, "pakket": plan, "subscription_status": new_status}},
+    )
+    sub, _eff_plan, _co = await _resolve_company_plan(company_id)
+    return {"ok": True, "plan": plan, "status": new_status, "subscription": sub}
 
 @api_router.get("/auth/users", response_model=List[UserResponse])
 async def get_all_users(current_user: Dict = Depends(require_web_access())):
@@ -4647,6 +4937,9 @@ async def get_klant(klant_id: str, current_user: Dict = Depends(get_current_user
 @api_router.post("/klanten", response_model=dict)
 async def create_klant(klant_data: KlantCreate, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Create new klant with auto-generated klantnummer - Admin/Master Admin only"""
+    company_id_for_limit = current_user.get("company_id") or "default_company"
+    _sub, plan, _co = await _resolve_company_plan(company_id_for_limit)
+    await _enforce_limit(company_id_for_limit, plan, "klanten", "klanten", {"actief": {"$ne": False}})
     klant_dict = klant_data.dict()
     
     # Handle legacy field mapping
@@ -4782,6 +5075,8 @@ async def get_werven_by_klant(klant_id: str, current_user: Dict = Depends(get_cu
 async def create_werf(werf_data: WerfCreate, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Create new werf - Admin/Master Admin only"""
     company_id = current_user.get("company_id") or "default_company"
+    _sub, plan, _co = await _resolve_company_plan(company_id)
+    await _enforce_limit(company_id, plan, "werven", "werven", {"actief": True})
     klant = await db.klanten.find_one({"id": werf_data.klant_id, "actief": True})
     if not klant:
         raise HTTPException(status_code=404, detail="Klant niet gevonden")
@@ -5116,8 +5411,11 @@ async def create_unified_werkbon(data: UnifiedWerkbonCreate, current_user: Dict 
     """
     user_id = current_user["user_id"]
     user_naam = current_user["naam"]
-    
+
     werkbon_type = data.type
+    company_id_for_plan = current_user.get("company_id") or "default_company"
+    _sub_p, plan_p, _co_p = await _resolve_company_plan(company_id_for_plan)
+    _require_werkbon_type(plan_p, werkbon_type)
     werkbon_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc)
     
@@ -5276,6 +5574,9 @@ async def create_unified_werkbon(data: UnifiedWerkbonCreate, current_user: Dict 
 async def create_werkbon(werkbon_data: WerkbonCreate, current_user: Dict = Depends(get_current_user)):
     """Create werkbon - uses authenticated user's identity from JWT"""
     company_id = current_user.get("company_id") or "default_company"
+    _sub, plan, _co = await _resolve_company_plan(company_id)
+    # POST /werkbonnen is the legacy "uren" path; ensure plan permits it
+    _require_werkbon_type(plan, "uren")
     klant = await db.klanten.find_one({"id": werkbon_data.klant_id, "company_id": company_id})
     werf = await db.werven.find_one({"id": werkbon_data.werf_id, "company_id": company_id})
 
@@ -5810,6 +6111,8 @@ async def send_werkbon_to_billit(werkbon: dict, klant: dict, instellingen: dict)
 async def verstuur_werkbon_naar_billit(werkbon_id: str, current_user: Dict = Depends(require_web_access())):
     """Werkbon handmatig naar Billit sturen."""
     company_id = current_user.get("company_id")
+    _sub_bl, plan_bl, _co_bl = await _resolve_company_plan(company_id or "default_company")
+    _require_feature(plan_bl, "billit", "Billit-koppeling")
     werkbon = await db.werkbonnen.find_one(_company_scope_query(company_id, {"id": werkbon_id}), {"_id": 0})
     if not werkbon:
         raise HTTPException(status_code=404, detail="Werkbon niet gevonden")
@@ -6427,6 +6730,8 @@ async def create_oplevering_werkbon(
     final_user_id = current_user["user_id"]
     final_user_naam = current_user["naam"]
     company_id = current_user.get("company_id") or "default_company"
+    _sub_o, plan_o, _co_o = await _resolve_company_plan(company_id)
+    _require_werkbon_type(plan_o, "oplevering")
 
     validate_oplevering_payload(data)
     klant = await db.klanten.find_one({"id": data.klant_id, "company_id": company_id})
@@ -6662,6 +6967,8 @@ async def create_project_werkbon(
     final_user_id = current_user["user_id"]
     final_user_naam = current_user["naam"]
     company_id = current_user.get("company_id") or "default_company"
+    _sub_pr, plan_pr, _co_pr = await _resolve_company_plan(company_id)
+    _require_werkbon_type(plan_pr, "project")
 
     klant = await db.klanten.find_one({"id": data.klant_id, "company_id": company_id})
     werf = await db.werven.find_one({"id": data.werf_id, "company_id": company_id})
@@ -6851,6 +7158,8 @@ async def create_productie_werkbon(
     final_user_id = current_user["user_id"]
     final_user_naam = current_user["naam"]
     company_id = current_user.get("company_id") or "default_company"
+    _sub_pe, plan_pe, _co_pe = await _resolve_company_plan(company_id)
+    _require_werkbon_type(plan_pe, "prestatie")
 
     klant = await db.klanten.find_one({"id": data.klant_id, "company_id": company_id})
     werf = await db.werven.find_one({"id": data.werf_id, "company_id": company_id})
@@ -7328,6 +7637,8 @@ async def bevestig_planning(planning_id: str, werknemer_id: str, werknemer_naam:
 async def get_berichten(user_id: str, current_user: Dict = Depends(get_current_user)):
     """Get messages for a user (broadcasts + direct messages). Excludes messages hidden by this user."""
     company_id = current_user.get("company_id") or "default_company"
+    _sub_b, plan_b, _co_b = await _resolve_company_plan(company_id)
+    _require_feature(plan_b, "berichten", "Berichten")
     base = {
         "$or": [{"naar_id": user_id}, {"is_broadcast": True}, {"van_id": user_id}],
         "hidden_for_users": {"$nin": [user_id]},
@@ -7351,6 +7662,9 @@ async def get_ongelezen_berichten(user_id: str, current_user: Dict = Depends(get
 @api_router.post("/berichten")
 async def create_bericht(data: BerichtCreate, current_user: Dict = Depends(get_current_user)):
     """Create bericht - uses authenticated user's identity from JWT"""
+    company_id_b = current_user.get("company_id") or "default_company"
+    _sub_b2, plan_b2, _co_b2 = await _resolve_company_plan(company_id_b)
+    _require_feature(plan_b2, "berichten", "Berichten")
     # Use authenticated user's identity from JWT (NOT from request parameters)
     van_id = current_user["user_id"]
     van_naam = current_user["naam"]
@@ -8121,7 +8435,7 @@ def _legacy_scope_query(company_id: str, base: Optional[dict] = None) -> dict:
         base["company_id"] = company_id
     return base
 
-PLAN_PRICING = {"basic": 29, "pro": 49}
+PLAN_PRICING = {"basic": 29, "pro": 49, "free": 0}
 
 
 def _company_status(company: dict) -> str:
@@ -8438,15 +8752,22 @@ async def master_klant_change_plan(
     current_user: Dict = Depends(_master_guard),
 ):
     _ensure_unprotected(company_id)
-    if body.plan not in PLAN_PRICING:
+    plan = (body.plan or "").lower().strip()
+    if plan not in PLAN_PRICING:
         raise HTTPException(status_code=400, detail="Ongeldig plan")
+    # Also flip subscription_status so middleware treats this company as
+    # actively paying (or free) rather than a (possibly expired) trial.
+    if plan == "free":
+        new_status = "active"
+    else:
+        new_status = f"active_{plan}"
     res = await db.companies.update_one(
         {"id": company_id},
-        {"$set": {"selected_plan": body.plan, "pakket": body.plan}},
+        {"$set": {"selected_plan": plan, "pakket": plan, "subscription_status": new_status}},
     )
     if res.matched_count == 0:
         raise HTTPException(status_code=404, detail="Bedrijf niet gevonden")
-    return {"ok": True, "plan": body.plan}
+    return {"ok": True, "plan": plan, "status": new_status}
 
 
 class MasterDeleteBody(BaseModel):
@@ -8657,9 +8978,8 @@ async def trial_check_middleware(request: Request, call_next):
     # Allow always-accessible endpoints
     if any(path.startswith(p) for p in TRIAL_ALLOWED_PREFIXES):
         return await call_next(request)
-    # Trial expiry only blocks write operations (POST/PUT/DELETE).
-    # GET requests (reading data, viewing pages) are always allowed so
-    # users can still browse their dashboard, werven, klanten etc.
+    # Reads are always allowed — users can still browse their dashboard
+    # even while their plan picker is up. Writes go through plan check.
     if method == "GET":
         return await call_next(request)
     # Try to read JWT to get company_id
@@ -8671,12 +8991,21 @@ async def trial_check_middleware(request: Request, call_next):
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         company_id = payload.get("company_id")
         if company_id:
-            sub = await get_company_subscription_status(company_id)
-            if sub.get("is_trial_expired"):
+            sub, _plan, _company = await _resolve_company_plan(company_id)
+            if sub.get("requires_plan_selection"):
                 from starlette.responses import JSONResponse
                 return JSONResponse(
                     status_code=403,
-                    content={"detail": "Uw proefperiode is verlopen. Activeer uw abonnement om door te gaan."}
+                    content={
+                        "detail": "Kies een abonnement om door te gaan.",
+                        "requires_plan_selection": True,
+                    },
+                )
+            if sub.get("status") == "blocked":
+                from starlette.responses import JSONResponse
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": "Uw account is geblokkeerd. Neem contact op met support."},
                 )
     except Exception:
         pass

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,11 +13,12 @@ import {
   Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useAuth, apiClient } from '../../context/AuthContext';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../../context/ThemeContext';
 import { getApiUrl } from '../../utils/config';
+import AbonnementSection from '../../components/AbonnementSection';
 
 const API_URL = getApiUrl();
 
@@ -135,6 +136,7 @@ const defaultInstellingen: Instellingen = {
 export default function InstellingenAdmin() {
   const { user } = useAuth();
   const { theme, refreshTheme } = useTheme();
+  const params = useLocalSearchParams<{ section?: string }>();
   const [instellingen, setInstellingen] = useState<Instellingen>(defaultInstellingen);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -143,6 +145,16 @@ export default function InstellingenAdmin() {
   const [activeColorField, setActiveColorField] = useState<'primary' | 'secondary' | 'accent'>('primary');
   const [colorPickerContext, setColorPickerContext] = useState<'branding' | 'pdf'>('branding');
   const [tempColor, setTempColor] = useState('#F5A623');
+  const abonnementRef = useRef<any>(null);
+  const scrollRef = useRef<ScrollView | null>(null);
+  const [abonnementY, setAbonnementY] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (params?.section === 'abonnement' && abonnementY !== null && scrollRef.current) {
+      // Scroll to abonnement section after layout is measured
+      scrollRef.current.scrollTo({ y: Math.max(0, abonnementY - 8), animated: true });
+    }
+  }, [params?.section, abonnementY]);
 
   // Handle screen resize
   useEffect(() => {
@@ -346,7 +358,14 @@ export default function InstellingenAdmin() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content} contentContainerStyle={[styles.contentInner, isCompact && styles.contentCompact]}>
+      <ScrollView ref={scrollRef} style={styles.content} contentContainerStyle={[styles.contentInner, isCompact && styles.contentCompact]}>
+        {/* Abonnement Section */}
+        <View
+          onLayout={(e) => setAbonnementY(e.nativeEvent.layout.y)}
+        >
+          <AbonnementSection highlight={params?.section === 'abonnement'} />
+        </View>
+
         {/* Logo Section */}
         <View style={[styles.section, isCompact && styles.sectionCompact]}>
           <Text style={styles.sectionTitle}>Logo</Text>

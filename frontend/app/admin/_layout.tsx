@@ -16,7 +16,9 @@ function SignybonLogoSvg() {
   return <View ref={ref} style={{width: 32, height: 32}} />;
 }
 
-const menuItems = [
+type MenuItem = { icon: string; label: string; route: string; feature?: 'berichten' };
+
+const menuItems: MenuItem[] = [
   { icon: 'grid-outline', label: 'Dashboard', route: '/admin/dashboard' },
   { icon: 'calendar-outline', label: 'Planning', route: '/admin/planning' },
   { icon: 'people-outline', label: 'Werknemers', route: '/admin/werknemers' },
@@ -24,14 +26,14 @@ const menuItems = [
   { icon: 'briefcase-outline', label: 'Klanten', route: '/admin/klanten' },
   { icon: 'business-outline', label: 'Werven', route: '/admin/werven' },
   { icon: 'document-text-outline', label: 'Werkbonnen', route: '/admin/werkbonnen' },
-  { icon: 'chatbubbles-outline', label: 'Berichten', route: '/admin/berichten' },
+  { icon: 'chatbubbles-outline', label: 'Berichten', route: '/admin/berichten', feature: 'berichten' },
   { icon: 'bar-chart-outline', label: 'Rapporten', route: '/admin/rapporten' },
   { icon: 'settings-outline', label: 'Instellingen', route: '/admin/instellingen' },
 ];
 
 function Sidebar() {
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const { user, logout, hasFeature } = useAuth();
   const { theme } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
   const [contactNaam, setContactNaam] = useState<string>('');
@@ -91,23 +93,39 @@ function Sidebar() {
       <ScrollView style={styles.menuContainer} showsVerticalScrollIndicator={false}>
         {menuItems.map((item, index) => {
           const isActive = pathname === item.route || pathname.startsWith(item.route + '/');
+          const locked = !!item.feature && !hasFeature(item.feature);
+          const handlePress = () => {
+            if (locked) {
+              router.push('/admin/instellingen?section=abonnement');
+            } else {
+              router.push(item.route as any);
+            }
+          };
           return (
             <TouchableOpacity
               key={index}
-              style={[styles.menuItem, isActive && { backgroundColor: `${theme.primaryColor || '#1B4332'}15` }]}
-              onPress={() => router.push(item.route as any)}
+              style={[styles.menuItem, isActive && { backgroundColor: `${theme.primaryColor || '#1B4332'}15` }, locked && { opacity: 0.55 }]}
+              onPress={handlePress}
             >
-              <Ionicons 
-                name={isActive ? item.icon.replace('-outline', '') as any : item.icon as any} 
-                size={22} 
-                color={isActive ? theme.primaryColor || '#1B4332' : '#6c757d'} 
+              <Ionicons
+                name={isActive ? item.icon.replace('-outline', '') as any : item.icon as any}
+                size={22}
+                color={isActive ? theme.primaryColor || '#1B4332' : '#6c757d'}
               />
               {!collapsed && (
                 <Text style={[styles.menuLabel, isActive && { color: theme.secondaryColor || '#1A1A2E' }]}>
                   {item.label}
                 </Text>
               )}
-              {isActive && !collapsed && <View style={[styles.activeIndicator, { backgroundColor: theme.primaryColor || '#1B4332' }]} />}
+              {locked && !collapsed && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 'auto', gap: 6 }}>
+                  <Ionicons name="lock-closed" size={12} color="#6c757d" />
+                  <View style={{ backgroundColor: '#D4A017', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+                    <Text style={{ color: '#1B4332', fontSize: 10, fontWeight: '700', letterSpacing: 0.5 }}>PRO</Text>
+                  </View>
+                </View>
+              )}
+              {isActive && !collapsed && !locked && <View style={[styles.activeIndicator, { backgroundColor: theme.primaryColor || '#1B4332' }]} />}
             </TouchableOpacity>
           );
         })}
@@ -391,7 +409,7 @@ export default function AdminLayout() {
             <Text style={{ color: '#1B4332', fontSize: 14, fontWeight: '600' }}>
               Uw proefperiode loopt af over {trialInfo!.days_remaining} dag{trialInfo!.days_remaining === 1 ? '' : 'en'}.
             </Text>
-            <TouchableOpacity onPress={() => router.push('/admin/instellingen')}>
+            <TouchableOpacity onPress={() => router.push('/admin/instellingen?section=abonnement')}>
               <Text style={{ color: '#1B4332', fontSize: 14, fontWeight: '700', textDecorationLine: 'underline' }}>Activeer abonnement</Text>
             </TouchableOpacity>
           </View>

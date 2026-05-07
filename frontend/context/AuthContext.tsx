@@ -71,11 +71,42 @@ interface User {
   app_access?: boolean;
 }
 
+export interface PlanLimits {
+  werknemers: number | null;
+  klanten: number | null;
+  werven: number | null;
+}
+
+export interface PlanFeatures {
+  werkbon_types: string[];
+  billit: boolean;
+  berichten: boolean;
+  planning_advanced: boolean;
+  pdf_custom: boolean;
+  rapporten_export: boolean;
+}
+
+export interface PlanInfo {
+  plan: 'basic' | 'pro' | 'free';
+  plan_source?: string;
+  limits: PlanLimits;
+  features: PlanFeatures;
+  usage: { werknemers: number; klanten: number; werven: number };
+  subscription?: {
+    status: string;
+    days_remaining: number | null;
+    is_active: boolean;
+    is_trial_expired: boolean;
+    requires_plan_selection?: boolean;
+  };
+}
+
 interface LoginResponse {
   user: User;
   token: string;
   platform_access: 'web' | 'app' | 'both';
   valid_roles: string[];
+  plan_info?: PlanInfo;
 }
 
 interface RoleInfo {
@@ -93,11 +124,15 @@ interface AuthContextType {
   isLoading: boolean;
   platformAccess: 'web' | 'app' | 'both' | null;
   validRoles: string[];
+  planInfo: PlanInfo | null;
   setUser: (user: User | null) => void;
   login: (email: string, password: string) => Promise<LoginResponse>;
   register: (email: string, password: string, naam: string) => Promise<void>;
   logout: () => Promise<void>;
   changePassword: (currentPassword: string, newPassword: string, confirmPassword: string) => Promise<void>;
+  refreshPlanInfo: () => Promise<PlanInfo | null>;
+  hasFeature: (feature: keyof PlanFeatures) => boolean;
+  isWerkbonTypeAllowed: (type: string) => boolean;
   hasWebAccess: () => boolean;
   hasAppAccess: () => boolean;
   isAdmin: () => boolean;
@@ -116,6 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [platformAccess, setPlatformAccess] = useState<'web' | 'app' | 'both' | null>(null);
   const [validRoles, setValidRoles] = useState<string[]>([]);
+  const [planInfo, setPlanInfo] = useState<PlanInfo | null>(null);
 
   useEffect(() => {
     loadUser();
@@ -134,12 +170,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loadUser = async () => {
     try {
-      const [userData, tokenData, platformData] = await Promise.all([
+      const [userData, tokenData, platformData, planData] = await Promise.all([
         AsyncStorage.getItem('user'),
         AsyncStorage.getItem('token'),
         AsyncStorage.getItem('platformAccess'),
+        AsyncStorage.getItem('planInfo'),
       ]);
-      
+
       if (userData) {
         setUser(JSON.parse(userData));
       }
@@ -149,10 +186,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (platformData) {
         setPlatformAccess(platformData as 'web' | 'app' | 'both');
       }
+      if (planData) {
+        try {
+          setPlanInfo(JSON.parse(planData) as PlanInfo);
+        } catch {}
+      }
     } catch (error) {
       if (__DEV__) console.error('Error loading user:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const persistPlanInfo = async (info: PlanInfo | null | undefined) => {
+    if (info) {
+      setPlanInfo(info);
+      try {
+        await AsyncStorage.setItem('planInfo', JSON.stringify(info));
+      } catch {}
+    }
+  };
+
+  const refreshPlanInfo = async (): Promise<PlanInfo | null> => {
+    try {
+      const resp = await apiClient.get<PlanInfo>('/api/subscription/plan-info');
+      await persistPlanInfo(resp.data);
+      return resp.data;
+    } catch (error) {
+      if (__DEV__) console.warn('[AuthContext] refreshPlanInfo failed:', error);
+      return null;
     }
   };
 
@@ -162,23 +224,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       password,
     });
     
-    const { user: userData, token: tokenData, platform_access, valid_roles } = response.data;
-    
+    const { user: userData, token: tokenData, platform_access, valid_roles, plan_info } = response.data;
+
     // IMMEDIATELY set axios default header before storing
     axios.defaults.headers.common['Authorization'] = `Bearer ${tokenData}`;
-    
+
     // Store all data
     await Promise.all([
       AsyncStorage.setItem('user', JSON.stringify(userData)),
       AsyncStorage.setItem('token', tokenData),
       AsyncStorage.setItem('platformAccess', platform_access),
     ]);
-    
+
     setUser(userData);
     setToken(tokenData);
     setPlatformAccess(platform_access);
     setValidRoles(valid_roles || []);
-    
+    if (plan_info) {
+      await persistPlanInfo(plan_info);
+    }
+
     return response.data;
   };
 
@@ -187,11 +252,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       AsyncStorage.removeItem('user'),
       AsyncStorage.removeItem('token'),
       AsyncStorage.removeItem('platformAccess'),
+      AsyncStorage.removeItem('planInfo'),
     ]);
     setUser(null);
     setToken(null);
     setPlatformAccess(null);
     setValidRoles([]);
+    setPlanInfo(null);
   };
 
   const register = async (email: string, password: string, naam: string) => {
@@ -250,23 +317,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const canAccessWebPanel = (): boolean => {
     if (!user) return false;
-    const webPanelRoles = ['master_admin', 'admin', 'manager', 'planner'];
+    const webPanelRoles = ['master_admin', 'admin', 'manager', 'planner', 'platform_admin'];
     return webPanelRoles.includes(user.rol);
   };
 
+  const hasFeature = (feature: keyof PlanFeatures): boolean => {
+    // No plan info loaded yet → assume gated features are disabled to avoid flashing UI
+    if (!planInfo) return false;
+    const value = (planInfo.features as any)[feature];
+    if (Array.isArray(value)) return value.length > 0;
+    return Boolean(value);
+  };
+
+  const isWerkbonTypeAllowed = (type: string): boolean => {
+    if (!planInfo) return type === 'uren';
+    const allowed = planInfo.features?.werkbon_types || ['uren'];
+    return allowed.includes(type);
+  };
+
   return (
-    <AuthContext.Provider 
-      value={{ 
-        user, 
+    <AuthContext.Provider
+      value={{
+        user,
         token,
-        isLoading, 
+        isLoading,
         platformAccess,
         validRoles,
-        setUser, 
+        planInfo,
+        setUser,
         login,
-        register, 
+        register,
         logout,
         changePassword,
+        refreshPlanInfo,
+        hasFeature,
+        isWerkbonTypeAllowed,
         hasWebAccess,
         hasAppAccess,
         isAdmin,
