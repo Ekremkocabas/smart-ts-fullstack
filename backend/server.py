@@ -477,8 +477,8 @@ class AdresGestructureerd(BaseModel):
 
 class EmailConfig(BaseModel):
     """Email configuration for company"""
-    uitgaand_algemeen: Optional[str] = None   # e.g., info@smart-techbv.be
-    inkomend_werkbon: Optional[str] = None    # e.g., ts@smart-techbv.be
+    uitgaand_algemeen: Optional[str] = None   # General outgoing sender
+    inkomend_werkbon: Optional[str] = None    # Werkbon-specific inbox (deprecated, prefer werkbon_email)
 
 class BrandingConfig(BaseModel):
     """Branding configuration for company"""
@@ -1150,13 +1150,61 @@ class Werkbon(BaseModel):
     
     ingevuld_door_id: str
     ingevuld_door_naam: str
-    
+
     status: str = "concept"  # concept, ondertekend, verzonden
     email_verzonden: bool = False
     toegewezen_aan: List[str] = []  # User IDs of assigned team members
     planning_id: Optional[str] = None
+    groep_id: Optional[str] = None  # Optional link to WerkbonGroep (monthly bundle)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+# ── WerkbonGroep ──────────────────────────────────────────────────────────────
+# Bundles multiple weekly Werkbon records (one per ISO week) into a single
+# multi-week deliverable: ONE combined PDF, ONE klant signature, ONE email.
+# Child werkbonnen keep their existing weekly shape so per-week views, exports,
+# Billit, etc. all keep working.
+class WerkbonGroep(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    company_id: str = "default_company"
+
+    # Periode covered by this groep (inclusive, ISO YYYY-MM-DD)
+    periode_van: str
+    periode_tot: str
+
+    # Linked child werkbonnen (ordered jaar/week_nummer)
+    werkbon_ids: List[str] = []
+
+    # Resolved klant/werf for the whole groep — all children share these
+    klant_id: str
+    klant_naam: str = ""
+    werf_id: str
+    werf_naam: str = ""
+
+    # Single signature spans every week
+    handtekening_data: Optional[str] = None
+    handtekening_naam: str = ""
+    handtekening_datum: Optional[datetime] = None
+    selfie_data: Optional[str] = None
+
+    ingevuld_door_id: str
+    ingevuld_door_naam: str = ""
+
+    status: str = "concept"  # concept, ondertekend, verzonden
+    email_verzonden: bool = False
+    email_error: Optional[str] = None
+    pdf_bestandsnaam: Optional[str] = None
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class WerkbonGroepUpdate(BaseModel):
+    handtekening_data: Optional[str] = None
+    handtekening_naam: Optional[str] = None
+    selfie_data: Optional[str] = None
+    status: Optional[str] = None
+
 
 class WerkbonCreate(BaseModel):
     week_nummer: int
@@ -1725,6 +1773,32 @@ class PlanningBulkCreate(BaseModel):
     belangrijk: bool = False
     notities: str = ""
 
+
+# Multi-week planning create — the backend slices the date range into ISO weeks,
+# creates planning items per day, and stitches them under a single WerkbonGroep.
+class PlanningMaandBulkCreate(BaseModel):
+    van_datum: str   # YYYY-MM-DD, inclusive
+    tot_datum: str   # YYYY-MM-DD, inclusive
+    start_uur: Optional[str] = ""
+    eind_uur: Optional[str] = ""
+    voorziene_uur: Optional[str] = ""
+    werknemer_ids: List[str] = []
+    werknemer_namen: List[str] = []
+    team_id: Optional[str] = None
+    klant_id: str
+    werf_id: str
+    omschrijving: str = ""
+    materiaallijst: List[str] = []
+    nodige_materiaal: str = ""
+    opmerking_aandachtspunt: str = ""
+    geschatte_duur: str = ""
+    prioriteit: str = "normaal"
+    belangrijk: bool = False
+    notities: str = ""
+    # Optional: skip weekend days (default keeps them in if the range includes
+    # a Saturday/Sunday — the worker may still need to be scheduled).
+    skip_weekend: bool = False
+
 # ==================== MESSAGES / BERICHTEN ====================
 
 class BerichtAttachment(BaseModel):
@@ -2073,26 +2147,23 @@ def get_email_brand_name(instellingen: dict) -> str:
 
 def get_company_recipient(instellingen: dict, user_email: Optional[str] = None) -> Optional[str]:
     """Get the company email for werkbon receipts.
-    Priority:
-      1. emails.inkomend_werkbon (structured)
-      2. werkbon_email (legacy/frontend field)
-      3. instellingen.email (general company email)
-      4. user_email (login email, fallback)
-    Returns None only if absolutely nothing configured.
+
+    Strict per-tenant priority (NO hardcoded fallbacks):
+      1. instellingen.werkbon_email (werkbon-specific company inbox)
+      2. instellingen.email (general company email)
+      3. user_email (the logged-in user's own login address)
+
+    Returns None only when none of the above is configured — caller
+    must then refuse to send rather than fall back to any default.
     """
-    emails = instellingen.get("emails")
-    if emails and isinstance(emails, dict):
-        werkbon_email = emails.get("inkomend_werkbon")
-        if werkbon_email:
-            return werkbon_email
-    werkbon_email = instellingen.get("werkbon_email")
+    werkbon_email = (instellingen.get("werkbon_email") or "").strip()
     if werkbon_email:
         return werkbon_email
-    company_email = instellingen.get("email")
+    company_email = (instellingen.get("email") or "").strip()
     if company_email:
         return company_email
-    if user_email:
-        return user_email
+    if user_email and user_email.strip():
+        return user_email.strip()
     return None
 
 
@@ -3114,6 +3185,537 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     return pdf_bytes, build_pdf_filename(werkbon)
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# COMBINED (multi-week) werkbon PDF
+#
+# A WerkbonGroep bundles N weekly werkbonnen into one document:
+#   • One cover page with periode totals
+#   • One page per week (identical layout to single-week PDF)
+#   • Signature renders only on the last week (single klant signature spans
+#     the whole bundle and is stored on the groep, not on individual weeks).
+#
+# To avoid touching the existing single-week generator, this path duplicates
+# the body but shares one styles object across pages.
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _setup_werkbon_pdf_styles(instellingen: dict) -> Dict[str, Any]:
+    """Return a fresh stylesheet + color palette dict reused across werkbon
+    pages within a single combined PDF document."""
+    _C = get_pdf_colors(instellingen)
+    _primary   = _C["primary"]
+    _secondary = _C["secondary"]
+    _accent    = _C["accent"]
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(name="SectionTitle", parent=styles["Heading2"], fontSize=9, textColor=colors.HexColor(_primary), spaceAfter=1, spaceBefore=0))
+    styles.add(ParagraphStyle(name="BodySmall", parent=styles["BodyText"], fontSize=6, leading=8))
+    styles.add(ParagraphStyle(name="FooterText", parent=styles["BodyText"], fontSize=7, leading=9, textColor=colors.HexColor("#555555")))
+    styles.add(ParagraphStyle(name="WeekHeader", parent=styles["Title"], fontSize=20, textColor=colors.HexColor(_secondary), fontName="Helvetica-Bold", alignment=2))
+    styles.add(ParagraphStyle(name="CoverTitle", parent=styles["Title"], fontSize=24, textColor=colors.HexColor(_secondary), fontName="Helvetica-Bold", alignment=1, spaceAfter=4))
+    styles.add(ParagraphStyle(name="CoverSub", parent=styles["BodyText"], fontSize=11, textColor=colors.HexColor(_primary), alignment=1, spaceAfter=8))
+    styles.add(ParagraphStyle(name="CoverLabel", parent=styles["BodyText"], fontSize=9, textColor=colors.HexColor("#555555")))
+    return {
+        "styles": styles,
+        "primary": _primary,
+        "secondary": _secondary,
+        "accent": _accent,
+        "hdr_text": colors.white if is_dark_color(_secondary) else colors.black,
+        "accent_text": colors.white if is_dark_color(_accent) else colors.black,
+    }
+
+
+def _build_groep_cover_page(story: list, ctx: Dict[str, Any], groep: dict, werkbonnen: List[dict], klant: dict, werf: dict, instellingen: dict) -> None:
+    """Cover page summarising the whole multi-week werkbon."""
+    styles = ctx["styles"]
+    _primary = ctx["primary"]
+    _secondary = ctx["secondary"]
+    _accent = ctx["accent"]
+    _hdr_text = ctx["hdr_text"]
+    _accent_text = ctx["accent_text"]
+
+    bedrijfsnaam_pdf = instellingen.get("bedrijfsnaam", "Signybon")
+    logo_bytes = decode_base64_data(get_company_logo(instellingen))
+    logo = make_safe_reportlab_image(logo_bytes, 60 * mm, 24 * mm)
+
+    # Header band with logo + title
+    header_left: list = [logo] if logo else [Paragraph(f"<b>{bedrijfsnaam_pdf}</b>", styles["CoverSub"])]
+    header_right = [
+        Paragraph("MAAND-WERKBON", styles["CoverTitle"]),
+        Paragraph(f"Periode {groep.get('periode_van', '?')} t/m {groep.get('periode_tot', '?')}", styles["CoverSub"]),
+    ]
+    header_table = Table([[header_left, header_right]], colWidths=[80 * mm, 188 * mm], rowHeights=[36 * mm])
+    header_table.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("BOX", (0, 0), (-1, -1), 1, colors.HexColor(_accent)),
+        ("BACKGROUND", (0, 0), (0, 0), colors.HexColor("#fff8ee")),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    story.append(header_table)
+    story.append(Spacer(1, 6))
+
+    # Klant + werf info block
+    info_rows = [
+        ["Klant", klant.get("naam") or groep.get("klant_naam") or "-"],
+        ["Klant e-mail", klant.get("email") or "-"],
+        ["Werf", werf.get("naam") or groep.get("werf_naam") or "-"],
+        ["Adres werf", werf.get("adres") or "-"],
+        ["Aantal weken", str(len(werkbonnen))],
+        ["Ingevuld door", groep.get("ingevuld_door_naam") or "-"],
+    ]
+    info_table = Table(info_rows, colWidths=[45 * mm, 220 * mm])
+    info_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#f5f5f5")),
+        ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#dddddd")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("TEXTCOLOR", (0, 0), (0, -1), colors.HexColor(_primary)),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+    ]))
+    story.append(info_table)
+    story.append(Spacer(1, 8))
+
+    # Per-week breakdown + totals
+    story.append(Paragraph("Overzicht per week", styles["SectionTitle"]))
+    week_header = [["Week", "Periode", "Uren", "KM", "Bedrag"]]
+    week_rows: list = []
+    grand_uren = 0.0
+    grand_km = 0.0
+    grand_bedrag = 0.0
+    for w in werkbonnen:
+        fin = compute_werkbon_financials(w, klant)
+        wk_uren = fin["total_uren"]
+        wk_km = fin["km_tot"]
+        wk_bedrag = fin["totaal_bedrag"]
+        grand_uren += wk_uren
+        grand_km += wk_km
+        grand_bedrag += wk_bedrag
+        week_rows.append([
+            f"W{w.get('week_nummer', '?')}-{w.get('jaar', '?')}",
+            f"{w.get('datum_maandag', '-')} t/m {w.get('datum_zondag', '-')}",
+            format_number(wk_uren),
+            format_number(wk_km),
+            f"€ {wk_bedrag:.2f}",
+        ])
+    week_rows.append(["TOTAAL", "", format_number(grand_uren), format_number(grand_km), f"€ {grand_bedrag:.2f}"])
+    weeks_table = Table(week_header + week_rows, colWidths=[28 * mm, 90 * mm, 35 * mm, 35 * mm, 40 * mm])
+    weeks_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(_secondary)),
+        ("TEXTCOLOR", (0, 0), (-1, 0), _hdr_text),
+        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor(_accent)),
+        ("TEXTCOLOR", (0, -1), (-1, -1), _accent_text),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+        ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor("#cccccc")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#d9d9d9")),
+        ("ALIGN", (2, 0), (-1, -1), "RIGHT"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+    ]))
+    story.append(weeks_table)
+    story.append(Spacer(1, 8))
+
+    # Note that the klant signature appears once at the end
+    note_para = Paragraph(
+        "<i>De handtekening van de klant geldt voor alle weken in dit document en bevindt zich op de laatste pagina.</i>",
+        ParagraphStyle("CoverNote", parent=styles["BodySmall"], fontSize=8, textColor=colors.HexColor("#555555"), alignment=1),
+    )
+    story.append(note_para)
+
+
+def _build_werkbon_section(
+    story: list,
+    ctx: Dict[str, Any],
+    werkbon: dict,
+    klant: dict,
+    werf: dict,
+    instellingen: dict,
+    total_uren: float,
+    totaal_bedrag: float,
+    *,
+    render_signature: bool = True,
+) -> None:
+    """Append one week's worth of werkbon flowables to ``story``.
+
+    This is a near-clone of the body of :func:`generate_werkbon_pdf`; the
+    single-week generator stays unchanged so existing email flows are not
+    perturbed. Differences:
+      • the caller supplies a shared styles+colors context (so a single
+        SimpleDocTemplate can host multiple werkbon pages)
+      • the signature block can be suppressed for non-final weeks via
+        ``render_signature=False`` so the klant only signs once
+    """
+    styles = ctx["styles"]
+    _primary = ctx["primary"]
+    _secondary = ctx["secondary"]
+    _accent = ctx["accent"]
+    _hdr_text = ctx["hdr_text"]
+    _accent_text = ctx["accent_text"]
+
+    # ── MAIN HEADER ──
+    logo_bytes = decode_base64_data(get_company_logo(instellingen))
+    logo = make_safe_reportlab_image(logo_bytes, 38 * mm, 28 * mm)
+    logo_cell: list = [logo] if logo else []
+
+    werkbon_jaar = werkbon.get('jaar', datetime.now().year)
+    werkbon_week = werkbon.get('week_nummer', '00')
+    werkbon_id = werkbon.get('id', werkbon.get('_id', ''))
+    if werkbon_id:
+        seq_num = str(werkbon_id)[-4:].upper()
+    else:
+        seq_num = str(hash(str(werkbon.get('created_at', ''))))[-4:]
+    werkbon_nummer = f"{werkbon_jaar}-W{werkbon_week:0>2}-{seq_num}"
+
+    center_cell: list = [
+        Paragraph(f"WEEK {werkbon_week}-{werkbon_jaar}", ParagraphStyle(
+            "TSWeek_C", fontName="Helvetica-Bold", fontSize=13,
+            textColor=colors.HexColor(_secondary), alignment=1, spaceBefore=0, spaceAfter=0,
+        )),
+        Spacer(1, 2),
+        Paragraph(f"Werkbon nr: {werkbon_nummer}", ParagraphStyle(
+            "TSNr_C", fontName="Helvetica-Bold", fontSize=9,
+            textColor=colors.HexColor(_primary), alignment=1, spaceBefore=0,
+        )),
+    ]
+
+    bedrijfsnaam_pdf = instellingen.get("bedrijfsnaam", "Signybon")
+    _adres_line1, _adres_line2 = get_company_address_2lines(instellingen)
+    company_lines = [
+        f"<b>{bedrijfsnaam_pdf}</b>",
+        _adres_line1 or "",
+        _adres_line2 or "",
+        instellingen.get("telefoon") or "",
+        instellingen.get("email") or COMPANY_EMAIL,
+        f"BTW: {instellingen['btw_nummer']}" if instellingen.get("btw_nummer") else "",
+    ]
+    company_detail_text = "<br/>".join(line for line in company_lines if line)
+
+    timesheet_para = Paragraph("TIMESHEET", ParagraphStyle(
+        "TSBig_C", fontName="Helvetica-Bold", fontSize=22,
+        textColor=colors.HexColor(_secondary), alignment=1, spaceBefore=0, spaceAfter=0,
+    ))
+    firma_para = Paragraph(company_detail_text or "-", ParagraphStyle(
+        "CompRight_C", fontSize=8, leading=11, textColor=colors.HexColor("#333333"), alignment=2,
+    ))
+    right_inner = Table([[timesheet_para, firma_para]], colWidths=[55 * mm, 101 * mm])
+    right_inner.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    right_cell: list = [right_inner]
+
+    header_table = Table([[logo_cell, center_cell, right_cell]], colWidths=[45 * mm, 65 * mm, 161 * mm], rowHeights=[32 * mm])
+    header_table.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("BOX", (0, 0), (-1, -1), 1, colors.HexColor(_accent)),
+        ("LINEAFTER", (0, 0), (0, -1), 0.5, colors.HexColor(_accent)),
+        ("LINEAFTER", (1, 0), (1, -1), 0.5, colors.HexColor(_accent)),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("BACKGROUND", (0, 0), (0, 0), colors.HexColor("#fff8ee")),
+    ]))
+    story.append(header_table)
+    story.append(Spacer(1, 1))
+
+    # ── INFO SECTION ──
+    info_left = [
+        ["Periode", f"{werkbon.get('datum_maandag', '-')} t/m {werkbon.get('datum_zondag', '-')}"],
+        ["Ingevuld door", werkbon.get("ingevuld_door_naam", "-")],
+        ["Status", werkbon.get("status", "concept").capitalize()],
+    ]
+    info_right = [
+        ["Klant", werkbon.get("klant_naam", "-")],
+        ["Werf", werkbon.get("werf_naam", "-")],
+        ["Adres werf", werf.get("adres") or "-"],
+        ["Klant e-mail", klant.get("email") or "-"],
+    ]
+    if klant.get("btw_nummer"):
+        info_right.append(["BTW Nr.", klant.get("btw_nummer")])
+
+    left_table = Table(info_left, colWidths=[32 * mm, 90 * mm])
+    right_table = Table(info_right, colWidths=[32 * mm, 100 * mm])
+    for table in (left_table, right_table):
+        table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#f5f5f5")),
+            ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
+            ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#dddddd")),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+            ("TEXTCOLOR", (0, 0), (0, -1), colors.HexColor(_primary)),
+            ("FONTSIZE", (0, 0), (-1, -1), 7),
+            ("LEFTPADDING", (0, 0), (-1, -1), 3),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+            ("TOPPADDING", (0, 0), (-1, -1), 1),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+        ]))
+    story.append(Table([[left_table, right_table]], colWidths=[125 * mm, 135 * mm], style=[("VALIGN", (0, 0), (-1, -1), "TOP")]))
+    story.append(Spacer(1, 1))
+
+    # ── UREN TABEL ──
+    story.append(Paragraph("Gewerkte uren", styles["SectionTitle"]))
+    hours_header = [[
+        Paragraph("<b>Werknemer</b>", ParagraphStyle("hdr_c", textColor=_hdr_text, fontSize=7, fontName="Helvetica-Bold")),
+        *[Paragraph(f"<b>{label}</b><br/><font size=6>{werkbon.get(date_key,'')}</font>",
+            ParagraphStyle("hdr2_c", textColor=_hdr_text, fontSize=7, fontName="Helvetica-Bold", alignment=1))
+          for _, label, date_key, _ in DAY_COLUMNS],
+        Paragraph("<b>Totaal</b>", ParagraphStyle("hdr3_c", textColor=_hdr_text, fontSize=7, fontName="Helvetica-Bold", alignment=1))
+    ]]
+    hours_rows: list = []
+    for regel in werkbon.get("uren", []):
+        totaal = sum(safe_float(regel.get(dag, 0)) for dag, _, _, _ in DAY_COLUMNS)
+        naam = (regel.get("teamlid_naam") or regel.get("werknemer_naam") or regel.get("naam") or "-")
+        hours_rows.append(
+            [naam]
+            + [get_hours_pdf(regel, dag) for dag, _, _, _ in DAY_COLUMNS]
+            + [format_number(totaal) if totaal else ""]
+        )
+    dag_totalen = [
+        format_number(s) if (s := sum(safe_float(r.get(dag, 0)) for r in werkbon.get("uren", []))) else ""
+        for dag, _, _, _ in DAY_COLUMNS
+    ]
+    hours_rows.append(["TOTAAL"] + dag_totalen + [format_number(total_uren)])
+    hours_table = Table(hours_header + hours_rows, colWidths=[58 * mm] + [22 * mm] * 7 + [22 * mm])
+    hours_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(_secondary)),
+        ("TEXTCOLOR", (0, 0), (-1, 0), _hdr_text),
+        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor(_accent)),
+        ("TEXTCOLOR", (0, -1), (-1, -1), _accent_text),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+        ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor("#cccccc")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#d9d9d9")),
+        ("ALIGN", (1, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("FONTSIZE", (0, 0), (-1, -1), 6),
+        ("LEFTPADDING", (0, 0), (-1, -1), 2),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+        ("TOPPADDING", (0, 0), (-1, -1), 1),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+    ]))
+    story.append(hours_table)
+
+    # ── KM ──
+    km_total = sum(safe_float(werkbon.get("km_afstand", {}).get(dag, 0)) for dag, _, _, _ in DAY_COLUMNS)
+    if km_total > 0:
+        story.append(Spacer(1, 1))
+        story.append(Paragraph("KM-afstand (heen & terug)", styles["SectionTitle"]))
+        km_header = [[
+            *[Paragraph(f"<b>{label}</b>", ParagraphStyle("kmhdr_c", textColor=_hdr_text, fontSize=6, fontName="Helvetica-Bold", alignment=1))
+              for _, label, _, _ in DAY_COLUMNS],
+            Paragraph("<b>Totaal</b>", ParagraphStyle("kmhdr2_c", textColor=_hdr_text, fontSize=6, fontName="Helvetica-Bold", alignment=1))
+        ]]
+        km_row = [[format_number(werkbon.get("km_afstand", {}).get(dag, 0)) for dag, _, _, _ in DAY_COLUMNS] + [format_number(km_total)]]
+        km_table = Table(km_header + km_row, colWidths=[22 * mm] * 7 + [22 * mm])
+        km_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(_secondary)),
+            ("TEXTCOLOR", (0, 0), (-1, 0), _hdr_text),
+            ("BACKGROUND", (-1, 1), (-1, 1), colors.HexColor(_accent)),
+            ("TEXTCOLOR", (-1, 1), (-1, 1), _accent_text),
+            ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor("#cccccc")),
+            ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#d9d9d9")),
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("FONTSIZE", (0, 0), (-1, -1), 6),
+            ("TOPPADDING", (0, 0), (-1, -1), 1),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+        ]))
+        story.append(km_table)
+
+    # ── WERKEN & OPMERKINGEN ──
+    has_werken = bool(werkbon.get("uitgevoerde_werken"))
+    has_opmerkingen = bool(werkbon.get("opmerkingen") or werkbon.get("extra_opmerkingen"))
+    has_mat = bool(werkbon.get("extra_materialen"))
+    if has_werken or has_opmerkingen or has_mat:
+        story.append(Spacer(1, 1))
+        _sec_style = ParagraphStyle("SecLabel_c", parent=styles["BodySmall"], fontName="Helvetica-Bold", textColor=colors.HexColor(_primary))
+        left_cell_d: list = []
+        right_cell_d: list = []
+        if has_werken:
+            left_cell_d.append(Paragraph("Uitgevoerde werken:", _sec_style))
+            left_cell_d.append(Paragraph(werkbon.get("uitgevoerde_werken", "-").replace("\n", "<br/>"), styles["BodySmall"]))
+        opm_text = werkbon.get("opmerkingen") or werkbon.get("extra_opmerkingen") or ""
+        if opm_text:
+            right_cell_d.append(Paragraph("Opmerkingen:", _sec_style))
+            right_cell_d.append(Paragraph(opm_text.replace("\n", "<br/>"), styles["BodySmall"]))
+        elif has_mat:
+            right_cell_d.append(Paragraph("Extra materialen:", _sec_style))
+            right_cell_d.append(Paragraph(werkbon.get("extra_materialen", "-").replace("\n", "<br/>"), styles["BodySmall"]))
+        _empty_cell = [Paragraph("", styles["BodySmall"])]
+        desc_table = Table([[left_cell_d or _empty_cell, right_cell_d or _empty_cell]], colWidths=[130 * mm, 130 * mm])
+        desc_table.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
+            ("LINEBEFORE", (1, 0), (1, 0), 0.5, colors.HexColor("#cccccc")),
+            ("LEFTPADDING", (0, 0), (-1, -1), 4),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            ("TOPPADDING", (0, 0), (-1, -1), 2),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+        ]))
+        story.append(desc_table)
+
+    # ── SAMENVATTING + HANDTEKENING ──
+    story.append(Spacer(1, 1))
+    fin = compute_werkbon_financials(werkbon, klant)
+    uurtarief_pdf = fin["uurtarief"]
+    km_totaal = fin["km_tot"]
+    km_tarief = fin["km_tarief"]
+    km_bedrag = fin["km_bedrag"]
+    totaal_bedrag_incl_km = fin["totaal_bedrag"]
+    summary_rows = [
+        ["Totaal uren", format_number(total_uren)],
+        ["Uurtarief", f"€ {uurtarief_pdf:.2f}"],
+    ]
+    if km_totaal > 0:
+        summary_rows.append(["Totaal KM", f"{format_number(km_totaal)} km"])
+    if klant.get("prijsafspraak"):
+        summary_rows.append(["Prijsafspraak", klant.get("prijsafspraak")])
+    if km_totaal > 0 and km_tarief > 0:
+        summary_rows.append(["KM vergoeding", f"{format_number(km_totaal)} km × € {km_tarief:.2f} = € {km_bedrag:.2f}"])
+    elif km_totaal > 0 and km_tarief <= 0:
+        summary_rows.append(["KM vergoeding", f"{format_number(km_totaal)} km (geen €/km)"])
+    summary_rows.append(["Totaalbedrag", f"€ {totaal_bedrag_incl_km:.2f}"])
+
+    summary_table = Table(summary_rows, colWidths=[40 * mm, 55 * mm])
+    summary_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (0, -2), colors.HexColor("#f5f5f5")),
+        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor(_accent)),
+        ("TEXTCOLOR", (0, -1), (-1, -1), _accent_text),
+        ("TEXTCOLOR", (0, 0), (0, -2), colors.HexColor(_primary)),
+        ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor(_accent)),
+        ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#dddddd")),
+        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 7),
+        ("LEFTPADDING", (0, 0), (-1, -1), 4),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 2),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+    ]))
+
+    sig_content: list = []
+    if render_signature:
+        signature_data = werkbon.get("handtekening_data") or werkbon.get("handtekening")
+        if signature_data:
+            confirmation_text = instellingen.get("uren_confirmation_text") or "Hierbij bevestigt de klant dat deze ingevulde werkbon juist is ingevuld."
+            sig_content.append(Paragraph(confirmation_text.replace("\n", "<br/>"), styles["BodySmall"]))
+            sig_content.append(Spacer(1, 3))
+            sig_content.append(Paragraph("<b>Handtekening klant (geldig voor alle weken)</b>", styles["BodySmall"]))
+            if werkbon.get("handtekening_naam"):
+                sig_content.append(Paragraph(f"Naam: {werkbon.get('handtekening_naam')}", styles["BodySmall"]))
+            if werkbon.get("handtekening_datum"):
+                datum = werkbon.get("handtekening_datum")
+                datum_text = datum.strftime("%d-%m-%Y %H:%M") if isinstance(datum, datetime) else str(datum)[:16]
+                sig_content.append(Paragraph(f"Datum: {datum_text}", styles["BodySmall"]))
+            sig_content.append(Spacer(1, 2))
+            sig_bytes = decode_base64_data(signature_data)
+            sig_img = make_safe_reportlab_image(sig_bytes, 50 * mm, 18 * mm)
+            selfie_data = werkbon.get("selfie_data") or werkbon.get("selfie")
+            selfie_col: list = []
+            if selfie_data:
+                selfie_bytes = decode_base64_data(selfie_data)
+                selfie_img = make_safe_reportlab_image(selfie_bytes, 20 * mm, 20 * mm)
+                if selfie_img:
+                    selfie_col = [Paragraph("<b>Foto</b>", styles["BodySmall"]), Spacer(1, 1), selfie_img]
+            if sig_img:
+                if selfie_col:
+                    inner_sig_table = Table([[sig_img, selfie_col]], colWidths=[75 * mm, 28 * mm])
+                    inner_sig_table.setStyle(TableStyle([
+                        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                        ("LINEAFTER", (0, 0), (0, -1), 0.5, colors.HexColor("#2d3a5f")),
+                        ("LEFTPADDING", (1, 0), (1, -1), 4),
+                    ]))
+                    sig_content.append(inner_sig_table)
+                else:
+                    sig_content.append(sig_img)
+        else:
+            sig_content.append(Paragraph("Nog niet ondertekend", styles["BodySmall"]))
+    else:
+        sig_content.append(Paragraph(
+            "<i>Onderdeel van maand-werkbon — handtekening op laatste pagina.</i>",
+            ParagraphStyle("BundleNote", parent=styles["BodySmall"], fontSize=7, textColor=colors.HexColor("#777777")),
+        ))
+
+    footer_text = instellingen.get("pdf_voettekst") or LEGAL_TEXT
+    footer_para = Paragraph(footer_text.replace("\n", "<br/>"), ParagraphStyle(
+        "FooterInline_c", parent=styles["FooterText"], fontSize=5, leading=7,
+        textColor=colors.HexColor("#777777"),
+    ))
+    left_col_content = [summary_table, Spacer(1, 1), footer_para]
+    bottom_table = Table([[left_col_content, sig_content]], colWidths=[100 * mm, 160 * mm])
+    bottom_table.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
+    story.append(bottom_table)
+
+
+def _build_groep_pdf_filename(groep: dict) -> str:
+    """Build a filesystem-safe filename for the combined PDF."""
+    klant_naam = (groep.get("klant_naam") or "klant").strip()
+    safe_klant = "".join(c if c.isalnum() or c in "-_" else "-" for c in klant_naam) or "klant"
+    return f"werkbon-maand-{groep.get('periode_van', '?')}-tot-{groep.get('periode_tot', '?')}-{safe_klant}.pdf"
+
+
+def generate_combined_werkbon_pdf(
+    groep: dict,
+    werkbonnen: List[dict],
+    klant: dict,
+    werf: dict,
+    instellingen: dict,
+) -> Tuple[bytes, str]:
+    """Generate a single multi-week PDF (cover page + one page per week).
+
+    Caller is responsible for injecting the groep's signature/selfie into the
+    last werkbon dict if it wants the final page to render the signature.
+    """
+    buffer = io.BytesIO()
+    pdf = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(A4),
+        leftMargin=8 * mm,
+        rightMargin=8 * mm,
+        topMargin=15 * mm,
+        bottomMargin=10 * mm,
+    )
+    ctx = _setup_werkbon_pdf_styles(instellingen)
+    story: list = []
+
+    sorted_wbs = sorted(werkbonnen, key=lambda w: (w.get("jaar", 0), w.get("week_nummer", 0)))
+    _build_groep_cover_page(story, ctx, groep, sorted_wbs, klant, werf, instellingen)
+
+    from reportlab.platypus import PageBreak as _PB
+    last_idx = len(sorted_wbs) - 1
+    for idx, w in enumerate(sorted_wbs):
+        story.append(_PB())
+        fin = compute_werkbon_financials(w, klant)
+        wb = w
+        if idx == last_idx and groep.get("handtekening_data"):
+            wb = {
+                **w,
+                "handtekening_data": groep.get("handtekening_data"),
+                "handtekening_naam": groep.get("handtekening_naam") or "",
+                "handtekening_datum": groep.get("handtekening_datum"),
+                "selfie_data": groep.get("selfie_data") or w.get("selfie_data"),
+            }
+        _build_werkbon_section(
+            story, ctx, wb, klant, werf, instellingen,
+            fin["total_uren"], fin["totaal_bedrag"],
+            render_signature=(idx == last_idx),
+        )
+
+    pdf.build(story)
+    pdf_bytes = buffer.getvalue()
+    buffer.close()
+    return pdf_bytes, _build_groep_pdf_filename(groep)
+
+
 def generate_oplevering_pdf(werkbon: dict, instellingen: dict) -> tuple[bytes, str]:
     buffer = io.BytesIO()
     pdf = SimpleDocTemplate(
@@ -3618,17 +4220,17 @@ def generate_productie_pdf(werkbon: dict, instellingen: dict) -> tuple[bytes, st
     return pdf_bytes, build_productie_pdf_filename(werkbon)
 
 
-async def send_productie_werkbon_email(werkbon: dict, instellingen: dict, pdf_bytes: bytes, pdf_filename: str, klant_email: Optional[str] = None):
+async def send_productie_werkbon_email(werkbon: dict, instellingen: dict, pdf_bytes: bytes, pdf_filename: str, klant_email: Optional[str] = None, user_email: Optional[str] = None):
     """Send productie werkbon PDF email. Uses same async pattern as other mail functions."""
     # API key check - same as other mail functions
     if not resend.api_key:
         logging.warning("RESEND_API_KEY not configured, skipping productie email")
         return {"success": False, "error": "Email not configured", "recipients": []}
-    
+
     bedrijfsnaam = get_email_brand_name(instellingen)
-    company_recipient = get_company_recipient(instellingen)
-    klant_recipient = klant_email or werkbon.get("klant_email_override")
-    
+    company_recipient = get_company_recipient(instellingen, user_email=user_email)
+    klant_recipient = (klant_email or werkbon.get("klant_email_override") or "").strip() or None
+
     # Build recipients list - same pattern as other functions
     recipients = [company_recipient] if company_recipient else []
     if werkbon.get("verstuur_naar_klant") and klant_recipient:
@@ -3928,12 +4530,14 @@ def generate_project_werkbon_pdf(werkbon: dict, instellingen: dict) -> tuple[byt
     return pdf_bytes, build_project_pdf_filename(werkbon)
 
 
-async def send_project_werkbon_email(werkbon: dict, instellingen: dict, pdf_bytes: bytes, pdf_filename: str, klant_email: Optional[str] = None):
+async def send_project_werkbon_email(werkbon: dict, instellingen: dict, pdf_bytes: bytes, pdf_filename: str, klant_email: Optional[str] = None, user_email: Optional[str] = None):
     if not resend.api_key:
         return {"success": False, "error": "Email not configured", "recipients": []}
 
-    company_recipient = get_company_recipient(instellingen)
-    klant_recipient = klant_email or werkbon.get("klant_email_override")
+    company_recipient = get_company_recipient(instellingen, user_email=user_email)
+    # Klant email: explicit param > werkbon override. NO further fallback —
+    # if the client has no address on file, the client copy is simply skipped.
+    klant_recipient = (klant_email or werkbon.get("klant_email_override") or "").strip() or None
     recipients = [company_recipient] if company_recipient else []
     if werkbon.get("verstuur_naar_klant") and klant_recipient:
         recipients = get_unique_recipients(company_recipient, klant_recipient)
@@ -6155,21 +6759,24 @@ async def send_werkbon_email(
     pdf_bytes: bytes,
     pdf_filename: str,
     klant_email: Optional[str] = None,  # Optional manual client email
+    user_email: Optional[str] = None,   # Logged-in user's address (final fallback)
 ):
-    """Send werkbon PDF email. By default only to company. If klant_email provided, also to that address."""
-    
+    """Send werkbon PDF email. Recipient priority: instellingen.werkbon_email →
+    instellingen.email → logged-in user_email. Never falls back to a hardcoded
+    address. Klant address is only included when explicitly provided here."""
+
     if not resend.api_key:
         logging.warning("RESEND_API_KEY not configured, skipping email")
         return {"success": False, "error": "Email not configured"}
-    
+
     week = werkbon.get("week_nummer", "?")
     year = werkbon.get("jaar", "?")
     werf_naam = werkbon.get("werf_naam", "Onbekend")
     klant_naam = werkbon.get("klant_naam", "Onbekend")
     ondertekend_door = werkbon.get("handtekening_naam", "Onbekend")
     bedrijfsnaam = get_email_brand_name(instellingen)
-    company_recipient = get_company_recipient(instellingen)
-    
+    company_recipient = get_company_recipient(instellingen, user_email=user_email)
+
     # Default: only company email. Add client email only when explicitly provided.
     if klant_email and klant_email.strip():
         recipients = get_unique_recipients(company_recipient, klant_email.strip())
@@ -6274,7 +6881,7 @@ async def send_werkbon_email(
             </table>
 
             <div class="disclaimer">
-                <strong>Belangrijk:</strong> Gelieve uw opmerkingen binnen 5 werkdagen door te sturen naar <a href="mailto:{get_company_recipient(instellingen)}">{get_company_recipient(instellingen)}</a>.<br/>
+                <strong>Belangrijk:</strong> Gelieve uw opmerkingen binnen 5 werkdagen door te sturen naar <a href="mailto:{company_recipient}">{company_recipient}</a>.<br/>
                 Zonder tegenbericht wordt deze werkbon als goedgekeurd beschouwd.
             </div>
             
@@ -6321,14 +6928,15 @@ async def send_oplevering_email(
     pdf_bytes: bytes,
     pdf_filename: str,
     klant_email: Optional[str] = None,
+    user_email: Optional[str] = None,
 ):
     if not resend.api_key:
         logging.warning("RESEND_API_KEY not configured, skipping oplevering email")
         return {"success": False, "error": "Email not configured", "recipients": []}
 
     bedrijfsnaam = get_email_brand_name(instellingen)
-    company_recipient = get_company_recipient(instellingen)
-    klant_recipient = klant_email or werkbon.get("klant_email_override") or werkbon.get("klant_email")
+    company_recipient = get_company_recipient(instellingen, user_email=user_email)
+    klant_recipient = (klant_email or werkbon.get("klant_email_override") or werkbon.get("klant_email") or "").strip() or None
 
     recipients = [company_recipient] if company_recipient else []
     if werkbon.get("verstuur_naar_klant") and klant_recipient:
@@ -6397,42 +7005,46 @@ async def send_oplevering_email(
         return {"success": False, "error": str(e), "recipients": recipients}
 
 @api_router.post("/werkbonnen/{werkbon_id}/verzenden")
-async def verzend_werkbon(werkbon_id: str, klant_email: Optional[str] = Query(None), force: bool = Query(False)):
+async def verzend_werkbon(
+    werkbon_id: str,
+    klant_email: Optional[str] = Query(None),
+    force: bool = Query(False),
+    current_user: Dict = Depends(get_current_user),
+):
     """Generate signed werkbon PDF and email it. By default only to company. Provide klant_email to also send to client. Use force=true to bypass status check."""
-    werkbon = await db.werkbonnen.find_one({"id": werkbon_id}, {"_id": 0})
+    company_id = current_user.get("company_id") or "default_company"
+    werkbon = await db.werkbonnen.find_one({"id": werkbon_id, "company_id": company_id}, {"_id": 0})
     if not werkbon:
         raise HTTPException(status_code=404, detail="Werkbon niet gevonden")
 
     if werkbon.get("status") != "ondertekend" and not force:
         raise HTTPException(status_code=400, detail="Werkbon moet eerst ondertekend worden")
     
-    # Get klant for hourly rate
-    klant = await db.klanten.find_one({"id": werkbon["klant_id"]}, {"_id": 0})
-    werf = await db.werven.find_one({"id": werkbon["werf_id"]}, {"_id": 0}) or {}
-    
-    # Get company settings
-    instellingen = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0})
-    if not instellingen:
-        instellingen = {}
+    # Get klant for hourly rate (tenant-scoped)
+    klant = await db.klanten.find_one({"id": werkbon["klant_id"], "company_id": company_id}, {"_id": 0})
+    werf = await db.werven.find_one({"id": werkbon["werf_id"], "company_id": company_id}, {"_id": 0}) or {}
+
+    # Get company settings (tenant-scoped — fall back to {} so caller can still try user_email)
+    instellingen = await get_instellingen_for_company(company_id)
 
     try:
         import gc
         # Force garbage collection before PDF generation to free memory
         gc.collect()
-        
+
         werkbon_prepared = await prepare_werkbon_for_pdf(werkbon)
         fin_pdf = compute_werkbon_financials(werkbon_prepared, klant or {})
         total_uren = fin_pdf["total_uren"]
         uurtarief = fin_pdf["uurtarief"]
         totaal_bedrag = fin_pdf["totaal_bedrag"]
         pdf_bytes, pdf_filename = generate_werkbon_pdf(werkbon_prepared, klant or {}, werf, instellingen, total_uren, totaal_bedrag)
-        
+
         # Force garbage collection after PDF generation
         gc.collect()
     except Exception as exc:
         logging.exception("PDF generation failed for werkbon %s", werkbon_id)
         raise HTTPException(status_code=500, detail=f"PDF genereren mislukt: {str(exc)}")
-    
+
     # Send email - klant_email is optional (only if user explicitly provided it)
     try:
         email_result = await send_werkbon_email(
@@ -6444,6 +7056,7 @@ async def verzend_werkbon(werkbon_id: str, klant_email: Optional[str] = Query(No
             pdf_bytes,
             pdf_filename,
             klant_email=klant_email,
+            user_email=current_user.get("email"),
         )
     except Exception as mail_err:
         logger.error(f"Mail verzenden mislukt: {mail_err}")
@@ -6495,6 +7108,317 @@ async def verzend_werkbon(werkbon_id: str, klant_email: Optional[str] = Query(No
         "billit_error": billit_result.get("error") if billit_result and not billit_result.get("success") else None,
         "success": True
     }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# WERKBON GROEP (multi-week bundle) — signature, PDF, email, verzenden
+# ─────────────────────────────────────────────────────────────────────────────
+
+@api_router.get("/werkbon-groepen")
+async def list_werkbon_groepen(current_user: Dict = Depends(get_current_user)):
+    """List werkbon groepen for the current tenant, newest first."""
+    company_id = current_user.get("company_id") or "default_company"
+    items = await db.werkbon_groepen.find({"company_id": company_id}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return items
+
+
+@api_router.get("/werkbon-groepen/{groep_id}")
+async def get_werkbon_groep(groep_id: str, current_user: Dict = Depends(get_current_user)):
+    company_id = current_user.get("company_id") or "default_company"
+    groep = await db.werkbon_groepen.find_one({"id": groep_id, "company_id": company_id}, {"_id": 0})
+    if not groep:
+        raise HTTPException(status_code=404, detail="Werkbon groep niet gevonden")
+    # Resolve children — handy for the signature screen and the verzenden UI
+    werkbonnen = await db.werkbonnen.find(
+        {"groep_id": groep_id, "company_id": company_id}, {"_id": 0}
+    ).sort([("jaar", 1), ("week_nummer", 1)]).to_list(200)
+    groep["werkbonnen"] = werkbonnen
+    return groep
+
+
+@api_router.put("/werkbon-groepen/{groep_id}")
+async def update_werkbon_groep(
+    groep_id: str,
+    update_data: WerkbonGroepUpdate,
+    current_user: Dict = Depends(get_current_user),
+):
+    """Update a werkbon groep — primarily used to persist the single klant
+    signature that covers every week in the bundle."""
+    company_id = current_user.get("company_id") or "default_company"
+    existing = await db.werkbon_groepen.find_one({"id": groep_id, "company_id": company_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Werkbon groep niet gevonden")
+
+    update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
+    update_dict["updated_at"] = datetime.now(timezone.utc)
+    if update_data.handtekening_data:
+        update_dict["handtekening_datum"] = datetime.now(timezone.utc)
+        update_dict["status"] = "ondertekend"
+
+    await db.werkbon_groepen.update_one(
+        {"id": groep_id, "company_id": company_id},
+        {"$set": update_dict},
+    )
+    return await db.werkbon_groepen.find_one({"id": groep_id, "company_id": company_id}, {"_id": 0})
+
+
+async def send_werkbon_groep_email(
+    groep: dict,
+    werkbonnen: List[dict],
+    klant: dict,
+    instellingen: dict,
+    pdf_bytes: bytes,
+    pdf_filename: str,
+    *,
+    totals: Dict[str, float],
+    klant_email: Optional[str] = None,
+    user_email: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Email the combined multi-week werkbon PDF. Subject and body reflect the
+    periode (not a single week). Recipient selection follows the same strict
+    no-hardcoded-fallback rules as send_werkbon_email."""
+    if not resend.api_key:
+        logging.warning("RESEND_API_KEY not configured, skipping email")
+        return {"success": False, "error": "Email not configured"}
+
+    bedrijfsnaam = get_email_brand_name(instellingen)
+    company_recipient = get_company_recipient(instellingen, user_email=user_email)
+    klant_recipient = (klant_email or "").strip() or None
+
+    if klant_recipient:
+        recipients = get_unique_recipients(company_recipient, klant_recipient)
+    else:
+        recipients = [company_recipient] if company_recipient else []
+    if not recipients:
+        return {"success": False, "error": "Geen ontvangers geconfigureerd", "recipients": []}
+
+    periode_van = groep.get("periode_van", "?")
+    periode_tot = groep.get("periode_tot", "?")
+    klant_naam = groep.get("klant_naam") or klant.get("naam") or "Onbekend"
+    werf_naam = groep.get("werf_naam") or "Onbekend"
+    ondertekend_door = groep.get("handtekening_naam", "Onbekend")
+    week_list = ", ".join(f"W{w.get('week_nummer','?')}-{w.get('jaar','?')}" for w in werkbonnen) or "-"
+
+    total_uren = totals.get("total_uren", 0.0)
+    total_bedrag = totals.get("totaal_bedrag", 0.0)
+    total_km = totals.get("km_tot", 0.0)
+
+    subject = f"Werkbon — Periode {periode_van} t/m {periode_tot} — {werf_naam}"
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 650px; margin: 0 auto; }}
+            .header {{ background: #1a1a2e; color: white; padding: 28px; text-align: center; border-bottom: 4px solid #F5A623; }}
+            .header h1 {{ color: #F5A623; margin: 0 0 6px 0; font-size: 22px; }}
+            .header p {{ color: #aaa; margin: 0; font-size: 14px; }}
+            .content {{ padding: 28px; }}
+            .info-box {{ background: #f8f9fa; border-left: 4px solid #F5A623; padding: 16px; margin: 20px 0; border-radius: 4px; }}
+            .info-box strong {{ color: #1a1a2e; }}
+            .highlight {{ color: #F5A623; font-weight: bold; }}
+            table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
+            th, td {{ border: 1px solid #ddd; padding: 10px 14px; text-align: left; font-size: 14px; }}
+            th {{ background: #1a1a2e; color: #F5A623; font-weight: 600; }}
+            .total-row {{ background: #fff3cd; font-weight: bold; }}
+            .disclaimer {{ background: #eef6ff; border-left: 4px solid #1a73e8; padding: 14px 18px; margin: 24px 0; border-radius: 4px; font-size: 13px; color: #333; }}
+            .footer {{ background: #f0f0f0; padding: 16px 20px; font-size: 12px; color: #777; margin-top: 24px; border-top: 1px solid #ddd; text-align: center; }}
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>{bedrijfsnaam}</h1>
+            <p>Werkbon — Periode {periode_van} t/m {periode_tot}</p>
+        </div>
+        <div class="content">
+            <p>Beste {klant_naam},</p>
+            <p>Hierbij vindt u de ondertekende werkbon voor de periode <span class="highlight">{periode_van} t/m {periode_tot}</span> voor werf <span class="highlight">{werf_naam}</span>. Het document bundelt {len(werkbonnen)} weken in één PDF.</p>
+            <div class="info-box">
+                <strong>Klant:</strong> {klant_naam}<br/>
+                <strong>Werf:</strong> {werf_naam}<br/>
+                <strong>Periode:</strong> {periode_van} t/m {periode_tot}<br/>
+                <strong>Weken:</strong> {week_list}<br/>
+                <strong>Ondertekend door:</strong> {ondertekend_door}<br/>
+            </div>
+            <table>
+                <tr><th>Omschrijving</th><th>Waarde</th></tr>
+                <tr><td>Totaal uren</td><td><strong>{format_number(total_uren)}</strong></td></tr>
+                {f'<tr><td>Totaal KM</td><td>{format_number(total_km)} km</td></tr>' if total_km > 0 else ''}
+                <tr class="total-row"><td>Totaalbedrag</td><td>€ {total_bedrag:.2f}</td></tr>
+            </table>
+            <div class="disclaimer">
+                <strong>Belangrijk:</strong> Gelieve uw opmerkingen binnen 5 werkdagen door te sturen naar <a href="mailto:{company_recipient}">{company_recipient}</a>.<br/>
+                Zonder tegenbericht wordt deze werkbon als goedgekeurd beschouwd.
+            </div>
+            <p>Met vriendelijke groeten,<br/><strong>{bedrijfsnaam}</strong></p>
+        </div>
+        <div class="footer">
+            <p>{instellingen.get('pdf_voettekst', 'Factuur wordt als goedgekeurd beschouwd indien geen klacht wordt ingediend binnen 1 week.')}</p>
+            <p style="margin-top:8px;">Dit is een automatisch gegenereerd bericht van {bedrijfsnaam}.</p>
+        </div>
+    </body>
+    </html>
+    """
+
+    try:
+        import base64 as _b64
+        pdf_b64 = _b64.b64encode(pdf_bytes).decode("ascii")
+        reply_to = get_reply_to(instellingen)
+        params: Dict[str, Any] = {
+            "from": f"{bedrijfsnaam} <onboarding@resend.dev>",
+            "to": recipients,
+            "subject": subject,
+            "html": html_content,
+            "attachments": [{"filename": pdf_filename, "content": pdf_b64}],
+        }
+        if reply_to:
+            params["reply_to"] = [reply_to]
+        result = await asyncio.to_thread(resend.Emails.send, params)
+        logging.info("Werkbon groep email sent: %s", result)
+        return {"success": True, "email_id": result.get("id"), "recipients": recipients}
+    except Exception as e:
+        logging.error("Failed to send werkbon groep email: %s", str(e))
+        return {"success": False, "error": str(e), "recipients": recipients}
+
+
+@api_router.post("/werkbon-groepen/{groep_id}/verzenden")
+async def verzend_werkbon_groep(
+    groep_id: str,
+    klant_email: Optional[str] = Query(None),
+    force: bool = Query(False),
+    current_user: Dict = Depends(get_current_user),
+):
+    """Generate ONE combined PDF for the whole maand-werkbon, email it, and
+    cascade the verzonden status to every child werkbon."""
+    company_id = current_user.get("company_id") or "default_company"
+    groep = await db.werkbon_groepen.find_one({"id": groep_id, "company_id": company_id}, {"_id": 0})
+    if not groep:
+        raise HTTPException(status_code=404, detail="Werkbon groep niet gevonden")
+    if not force and groep.get("status") != "ondertekend":
+        raise HTTPException(status_code=400, detail="Groep moet eerst ondertekend worden")
+
+    werkbonnen = await db.werkbonnen.find(
+        {"groep_id": groep_id, "company_id": company_id}, {"_id": 0}
+    ).sort([("jaar", 1), ("week_nummer", 1)]).to_list(200)
+    if not werkbonnen:
+        raise HTTPException(status_code=404, detail="Geen werkbonnen gekoppeld aan deze groep")
+
+    klant = await db.klanten.find_one({"id": groep["klant_id"], "company_id": company_id}, {"_id": 0}) or {}
+    werf = await db.werven.find_one({"id": groep["werf_id"], "company_id": company_id}, {"_id": 0}) or {}
+    instellingen = await get_instellingen_for_company(company_id)
+
+    # Resolve GridFS signatures/selfies before rendering.
+    werkbonnen_prepared: List[dict] = []
+    for w in werkbonnen:
+        werkbonnen_prepared.append(await prepare_werkbon_for_pdf(w))
+
+    # Compute periode totals up front so we can pass them to the email body
+    # AND store them on the groep doc for audit.
+    total_uren = 0.0
+    total_bedrag = 0.0
+    total_km = 0.0
+    for w in werkbonnen_prepared:
+        fin = compute_werkbon_financials(w, klant)
+        total_uren += fin["total_uren"]
+        total_bedrag += fin["totaal_bedrag"]
+        total_km += fin["km_tot"]
+    totals = {"total_uren": total_uren, "totaal_bedrag": total_bedrag, "km_tot": total_km}
+
+    try:
+        import gc
+        gc.collect()
+        pdf_bytes, pdf_filename = generate_combined_werkbon_pdf(groep, werkbonnen_prepared, klant, werf, instellingen)
+        gc.collect()
+    except Exception as exc:
+        logging.exception("Combined PDF generation failed for groep %s", groep_id)
+        raise HTTPException(status_code=500, detail=f"PDF genereren mislukt: {str(exc)}")
+
+    # Klant copy: only if explicit param OR klant record has email on file.
+    # Never invent a default address.
+    klant_target = (klant_email or "").strip() or (klant.get("email") or "").strip() or None
+
+    try:
+        email_result = await send_werkbon_groep_email(
+            groep,
+            werkbonnen_prepared,
+            klant,
+            instellingen,
+            pdf_bytes,
+            pdf_filename,
+            totals=totals,
+            klant_email=klant_target,
+            user_email=current_user.get("email"),
+        )
+    except Exception as mail_err:
+        logger.error(f"Groep mail verzenden mislukt: {mail_err}")
+        email_result = {"success": False, "error": str(mail_err)}
+
+    success = bool(email_result.get("success"))
+    nieuwe_status = "verzonden" if success else groep.get("status", "ondertekend")
+
+    await db.werkbon_groepen.update_one(
+        {"id": groep_id, "company_id": company_id},
+        {"$set": {
+            "status": nieuwe_status,
+            "email_verzonden": success,
+            "email_error": email_result.get("error"),
+            "pdf_bestandsnaam": pdf_filename,
+            "totaal_uren": total_uren,
+            "totaal_bedrag": total_bedrag,
+            "totaal_km": total_km,
+            "updated_at": datetime.now(timezone.utc),
+        }},
+    )
+
+    # Cascade: when the groep is sent, every child werkbon is sent too. Keeps
+    # the per-week lists/views consistent with the bundled outbound.
+    if success:
+        child_ids = [w.get("id") for w in werkbonnen if w.get("id")]
+        if child_ids:
+            await db.werkbonnen.update_many(
+                {"id": {"$in": child_ids}, "company_id": company_id},
+                {"$set": {
+                    "status": "verzonden",
+                    "email_verzonden": True,
+                    "pdf_bestandsnaam": pdf_filename,
+                    "updated_at": datetime.now(timezone.utc),
+                }},
+            )
+
+    return {
+        "success": True,
+        "status": nieuwe_status,
+        "totaal_uren": total_uren,
+        "totaal_bedrag": total_bedrag,
+        "totaal_km": total_km,
+        "pdf_filename": pdf_filename,
+        "recipients": email_result.get("recipients", []),
+        "email_sent": success,
+        "email_error": email_result.get("error"),
+        "child_werkbon_ids": [w.get("id") for w in werkbonnen],
+    }
+
+
+@api_router.get("/werkbon-groepen/{groep_id}/pdf")
+async def get_werkbon_groep_pdf(groep_id: str, current_user: Dict = Depends(get_current_user)):
+    """Preview the combined PDF without sending email — returns base64."""
+    company_id = current_user.get("company_id") or "default_company"
+    groep = await db.werkbon_groepen.find_one({"id": groep_id, "company_id": company_id}, {"_id": 0})
+    if not groep:
+        raise HTTPException(status_code=404, detail="Werkbon groep niet gevonden")
+    werkbonnen = await db.werkbonnen.find(
+        {"groep_id": groep_id, "company_id": company_id}, {"_id": 0}
+    ).sort([("jaar", 1), ("week_nummer", 1)]).to_list(200)
+    klant = await db.klanten.find_one({"id": groep["klant_id"], "company_id": company_id}, {"_id": 0}) or {}
+    werf = await db.werven.find_one({"id": groep["werf_id"], "company_id": company_id}, {"_id": 0}) or {}
+    instellingen = await get_instellingen_for_company(company_id)
+    werkbonnen_prepared = [await prepare_werkbon_for_pdf(w) for w in werkbonnen]
+    pdf_bytes, pdf_filename = generate_combined_werkbon_pdf(groep, werkbonnen_prepared, klant, werf, instellingen)
+    import base64 as _b64
+    return {"filename": pdf_filename, "pdf_base64": _b64.b64encode(pdf_bytes).decode("ascii")}
+
 
 @api_router.get("/werkbonnen/{werkbon_id}/pdf")
 async def get_werkbon_pdf(werkbon_id: str):
@@ -6870,8 +7794,14 @@ async def update_oplevering_werkbon(werkbon_id: str, update_data: OpleveringWerk
 
 
 @api_router.post("/oplevering-werkbonnen/{werkbon_id}/verzenden")
-async def verzend_oplevering_werkbon(werkbon_id: str, klant_email: Optional[str] = Query(None), force: bool = Query(False)):
-    werkbon = await db.oplevering_werkbonnen.find_one({"id": werkbon_id}, {"_id": 0})
+async def verzend_oplevering_werkbon(
+    werkbon_id: str,
+    klant_email: Optional[str] = Query(None),
+    force: bool = Query(False),
+    current_user: Dict = Depends(get_current_user),
+):
+    company_id = current_user.get("company_id") or "default_company"
+    werkbon = await db.oplevering_werkbonnen.find_one({"id": werkbon_id, "company_id": company_id}, {"_id": 0})
     if not werkbon:
         raise HTTPException(status_code=404, detail="Oplevering werkbon niet gevonden")
 
@@ -6902,6 +7832,7 @@ async def verzend_oplevering_werkbon(werkbon_id: str, klant_email: Optional[str]
         pdf_bytes,
         pdf_filename,
         klant_email=override_email,
+        user_email=current_user.get("email"),
     )
     nieuwe_status = "verzonden" if email_result.get("success") else werkbon.get("status", "ondertekend")
 
@@ -7075,8 +8006,14 @@ async def update_project_werkbon(werkbon_id: str, update_data: ProjectWerkbonUpd
 
 
 @api_router.post("/project-werkbonnen/{werkbon_id}/verzenden")
-async def verzend_project_werkbon(werkbon_id: str, klant_email: Optional[str] = Query(None), force: bool = Query(False)):
-    werkbon = await db.project_werkbonnen.find_one({"id": werkbon_id}, {"_id": 0})
+async def verzend_project_werkbon(
+    werkbon_id: str,
+    klant_email: Optional[str] = Query(None),
+    force: bool = Query(False),
+    current_user: Dict = Depends(get_current_user),
+):
+    company_id = current_user.get("company_id") or "default_company"
+    werkbon = await db.project_werkbonnen.find_one({"id": werkbon_id, "company_id": company_id}, {"_id": 0})
     if not werkbon:
         raise HTTPException(status_code=404, detail="Project werkbon niet gevonden")
     if not force and (not werkbon.get("handtekening_klant") or not werkbon.get("handtekening_klant_naam")):
@@ -7085,15 +8022,22 @@ async def verzend_project_werkbon(werkbon_id: str, klant_email: Optional[str] = 
     # Prepare werkbon data - resolve GridFS file IDs to base64 for PDF generation
     werkbon_prepared = await prepare_werkbon_for_pdf(werkbon)
 
-    instellingen = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0}) or {}
-    
+    instellingen = await get_instellingen_for_company(company_id)
+
     import gc
     gc.collect()  # Free memory before PDF generation
     pdf_bytes, pdf_filename = generate_project_werkbon_pdf(werkbon_prepared, instellingen)
     gc.collect()  # Free memory after PDF generation
-    
+
     override_email = (klant_email or werkbon.get("klant_email_override") or "").strip()
-    email_result = await send_project_werkbon_email(werkbon, instellingen, pdf_bytes, pdf_filename, klant_email=override_email)
+    email_result = await send_project_werkbon_email(
+        werkbon,
+        instellingen,
+        pdf_bytes,
+        pdf_filename,
+        klant_email=override_email,
+        user_email=current_user.get("email"),
+    )
 
     await db.project_werkbonnen.update_one(
         {"id": werkbon_id},
@@ -7272,15 +8216,20 @@ async def create_productie_werkbon(
     return serialize_mongo_doc(werkbon_dict)
 
 @api_router.post("/productie-werkbonnen/{werkbon_id}/verzenden")
-async def verzend_productie_werkbon(werkbon_id: str, klant_email: Optional[str] = Query(None)):
-    werkbon = await db.productie_werkbonnen.find_one({"id": werkbon_id}, {"_id": 0})
+async def verzend_productie_werkbon(
+    werkbon_id: str,
+    klant_email: Optional[str] = Query(None),
+    current_user: Dict = Depends(get_current_user),
+):
+    company_id = current_user.get("company_id") or "default_company"
+    werkbon = await db.productie_werkbonnen.find_one({"id": werkbon_id, "company_id": company_id}, {"_id": 0})
     if not werkbon:
         raise HTTPException(status_code=404, detail="Productie werkbon niet gevonden")
-    
+
     # Prepare werkbon data - resolve GridFS file IDs to base64 for PDF generation
     werkbon_prepared = await prepare_werkbon_for_pdf(werkbon)
-    
-    instellingen = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0}) or {}
+
+    instellingen = await get_instellingen_for_company(company_id)
     try:
         import gc
         gc.collect()  # Free memory before PDF generation
@@ -7291,7 +8240,14 @@ async def verzend_productie_werkbon(werkbon_id: str, klant_email: Optional[str] 
         raise HTTPException(status_code=500, detail=f"PDF genereren mislukt: {str(exc)}")
 
     override_email = (klant_email or werkbon.get("klant_email_override") or "").strip()
-    email_result = await send_productie_werkbon_email(werkbon, instellingen, pdf_bytes, pdf_filename, klant_email=override_email)
+    email_result = await send_productie_werkbon_email(
+        werkbon,
+        instellingen,
+        pdf_bytes,
+        pdf_filename,
+        klant_email=override_email,
+        user_email=current_user.get("email"),
+    )
     await db.productie_werkbonnen.update_one(
         {"id": werkbon_id},
         {"$set": {
@@ -7476,6 +8432,245 @@ async def _create_planning_bulk_impl(data: PlanningBulkCreate, current_user: Dic
         result["waarschuwingen"] = waarschuwingen
     return result
 
+
+# ── Maand (multi-week) planning ───────────────────────────────────────────────
+# Dutch ISO weekday names used throughout the planning data model.
+_DAGEN_NL = ["maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag"]
+
+
+def _split_date_range_into_iso_weeks(
+    van: "date",
+    tot: "date",
+    skip_weekend: bool = False,
+) -> List[Dict[str, Any]]:
+    """Walk every day in [van, tot] (inclusive) and group by ISO week.
+
+    Returns a list of {week_nummer, jaar, dagen[], datums{}} dicts ordered by
+    (jaar, week_nummer). 'datums' is keyed by the Dutch weekday name with the
+    DD-MM-YYYY format the rest of the planning model already uses.
+    """
+    from datetime import timedelta as _td
+    if tot < van:
+        return []
+    buckets: Dict[Tuple[int, int], Dict[str, Any]] = {}
+    cur = van
+    while cur <= tot:
+        iso_year, iso_week, iso_weekday = cur.isocalendar()  # weekday: 1=Mon..7=Sun
+        if skip_weekend and iso_weekday >= 6:
+            cur = cur + _td(days=1)
+            continue
+        dag_naam = _DAGEN_NL[iso_weekday - 1]
+        datum_str = cur.strftime("%d-%m-%Y")
+        key = (iso_year, iso_week)
+        bucket = buckets.get(key)
+        if not bucket:
+            bucket = {"jaar": iso_year, "week_nummer": iso_week, "dagen": [], "datums": {}}
+            buckets[key] = bucket
+        # Same ISO weekday twice in one range is impossible by definition,
+        # so we can just append.
+        bucket["dagen"].append(dag_naam)
+        bucket["datums"][dag_naam] = datum_str
+        cur = cur + _td(days=1)
+    return [buckets[k] for k in sorted(buckets.keys())]
+
+
+@api_router.post("/planning/maand-bulk")
+async def create_planning_maand_bulk(
+    data: PlanningMaandBulkCreate,
+    current_user: Dict = Depends(require_roles(["admin", "master_admin"])),
+):
+    """Create planning items spanning multiple ISO weeks AND a WerkbonGroep
+    that will later bundle each week's werkbon into a single PDF + email.
+
+    The frontend picks a date range (e.g. 1 mei → 31 mei); the backend slices
+    it into ISO weeks so the per-week planning/werkbon model stays untouched.
+    """
+    try:
+        return await _create_planning_maand_bulk_impl(data, current_user)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception(
+            "[planning/maand-bulk] save failed | company=%s user=%s klant=%s werf=%s van=%s tot=%s err=%s",
+            current_user.get("company_id"),
+            current_user.get("user_id"),
+            getattr(data, "klant_id", None),
+            getattr(data, "werf_id", None),
+            getattr(data, "van_datum", None),
+            getattr(data, "tot_datum", None),
+            exc,
+        )
+        raise HTTPException(status_code=500, detail=f"Maand-planning kon niet worden opgeslagen: {exc}")
+
+
+async def _create_planning_maand_bulk_impl(data: PlanningMaandBulkCreate, current_user: Dict):
+    from datetime import date as _date
+    company_id = current_user.get("company_id") or "default_company"
+
+    # Parse + validate date range.
+    try:
+        van = _date.fromisoformat(data.van_datum)
+        tot = _date.fromisoformat(data.tot_datum)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Ongeldig datumformaat (verwacht YYYY-MM-DD)")
+    if tot < van:
+        raise HTTPException(status_code=400, detail="Tot-datum ligt vóór van-datum")
+    if (tot - van).days > 366:
+        raise HTTPException(status_code=400, detail="Periode is te lang (max 12 maanden)")
+
+    weeks = _split_date_range_into_iso_weeks(van, tot, skip_weekend=data.skip_weekend)
+    if not weeks:
+        raise HTTPException(status_code=400, detail="Geen werkdagen in de geselecteerde periode")
+
+    klant = await db.klanten.find_one({"id": data.klant_id, "company_id": company_id})
+    werf = await db.werven.find_one({"id": data.werf_id, "company_id": company_id})
+    if not klant:
+        raise HTTPException(status_code=404, detail="Klant niet gevonden")
+    if not werf:
+        raise HTTPException(status_code=404, detail="Werf niet gevonden")
+
+    werknemer_namen = list(data.werknemer_namen)
+    if data.werknemer_ids and not werknemer_namen:
+        for wid in data.werknemer_ids:
+            user = await db.users.find_one({"id": wid, "company_id": company_id})
+            if user:
+                werknemer_namen.append(user["naam"])
+
+    team_naam = None
+    if data.team_id:
+        team = await db.teams.find_one({"id": data.team_id, "company_id": company_id})
+        if team:
+            team_naam = team["naam"]
+
+    # 1) Create the WerkbonGroep first so child werkbon stubs can carry its id.
+    groep = WerkbonGroep(
+        company_id=company_id,
+        periode_van=data.van_datum,
+        periode_tot=data.tot_datum,
+        klant_id=data.klant_id,
+        klant_naam=klant["naam"],
+        werf_id=data.werf_id,
+        werf_naam=werf["naam"],
+        ingevuld_door_id=current_user["user_id"],
+        ingevuld_door_naam=current_user.get("naam") or "",
+    )
+    groep_doc = groep.dict()
+    await db.werkbon_groepen.insert_one(groep_doc)
+
+    created_items: List[dict] = []
+    werkbon_ids: List[str] = []
+    waarschuwingen: List[str] = []
+
+    # 2) For each ISO week, create per-day planning items AND a Werkbon stub
+    #    that will later be filled with hours/signature. Werkbon carries
+    #    groep_id so the verzenden endpoint can find all siblings.
+    for wk in weeks:
+        week_nummer = wk["week_nummer"]
+        jaar = wk["jaar"]
+
+        for dag in wk["dagen"]:
+            for wid in data.werknemer_ids:
+                existing = await db.planning.find_one({
+                    "company_id": company_id,
+                    "werknemer_ids": wid,
+                    "week_nummer": week_nummer,
+                    "jaar": jaar,
+                    "dag": dag,
+                })
+                if existing:
+                    user = await db.users.find_one({"id": wid, "company_id": company_id})
+                    naam = user["naam"] if user else wid
+                    waarschuwingen.append(f"{naam} is al ingepland op {dag} (wk {week_nummer})")
+
+            item = PlanningItem(
+                week_nummer=week_nummer,
+                jaar=jaar,
+                dag=dag,
+                datum=wk["datums"].get(dag, ""),
+                start_uur=data.start_uur or "",
+                eind_uur=data.eind_uur or "",
+                voorziene_uur=data.voorziene_uur or "",
+                werknemer_ids=data.werknemer_ids,
+                werknemer_namen=werknemer_namen,
+                team_id=data.team_id,
+                team_naam=team_naam,
+                klant_id=data.klant_id,
+                klant_naam=klant["naam"],
+                werf_id=data.werf_id,
+                werf_naam=werf["naam"],
+                werf_adres=werf.get("adres", ""),
+                omschrijving=data.omschrijving,
+                materiaallijst=data.materiaallijst,
+                nodige_materiaal=data.nodige_materiaal or "\n".join(data.materiaallijst),
+                opmerking_aandachtspunt=data.opmerking_aandachtspunt or "",
+                geschatte_duur=data.geschatte_duur or data.voorziene_uur or "",
+                prioriteit=data.prioriteit,
+                belangrijk=data.belangrijk,
+                notities=data.notities,
+            )
+            item_doc = item.dict()
+            item_doc["company_id"] = company_id
+            await db.planning.insert_one(item_doc)
+            created_items.append(serialize_mongo_doc(item_doc))
+
+        # Create the Werkbon stub for this ISO week. ingevuld_door_* comes from
+        # the admin who is planning — the worker will edit/sign later.
+        week_dates = get_week_dates(jaar, week_nummer)
+        werkbon = Werkbon(
+            company_id=company_id,
+            week_nummer=week_nummer,
+            jaar=jaar,
+            klant_id=data.klant_id,
+            klant_naam=klant["naam"],
+            werf_id=data.werf_id,
+            werf_naam=werf["naam"],
+            uren=[],
+            km_afstand=KmRegel(),
+            uitgevoerde_werken=data.omschrijving or "",
+            extra_materialen=data.nodige_materiaal or "",
+            ingevuld_door_id=current_user["user_id"],
+            ingevuld_door_naam=current_user.get("naam") or "",
+            toegewezen_aan=list(data.werknemer_ids),
+            groep_id=groep.id,
+            **week_dates,
+        )
+        wb_doc = werkbon.dict()
+        wb_doc["company_id"] = company_id
+        await db.werkbonnen.insert_one(wb_doc)
+        werkbon_ids.append(werkbon.id)
+
+    # Persist the resolved werkbon list back on the groep.
+    await db.werkbon_groepen.update_one(
+        {"id": groep.id},
+        {"$set": {"werkbon_ids": werkbon_ids, "updated_at": datetime.now(timezone.utc)}}
+    )
+
+    # Single push covering the entire range — workers don't need a notification
+    # per ISO week.
+    if data.werknemer_ids and created_items:
+        try:
+            periode_str = f"{data.van_datum} t/m {data.tot_datum}"
+            await send_push_notifications(
+                data.werknemer_ids,
+                "Nieuwe maand-planning",
+                f"U bent ingepland bij {klant['naam']} - {werf['naam']} ({periode_str})",
+                {"type": "planning", "groep_id": groep.id},
+            )
+        except Exception as e:
+            logging.error(f"Push notification failed: {e}")
+
+    result: Dict[str, Any] = {
+        "groep_id": groep.id,
+        "werkbon_ids": werkbon_ids,
+        "weken": [{"week_nummer": w["week_nummer"], "jaar": w["jaar"], "aantal_dagen": len(w["dagen"])} for w in weeks],
+        "items": created_items,
+        "count": len(created_items),
+    }
+    if waarschuwingen:
+        result["waarschuwingen"] = waarschuwingen
+    return result
+
+
 @api_router.post("/planning")
 async def create_planning(data: PlanningItemCreate, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Create planning item - Admin/Master Admin only"""
@@ -7650,14 +8845,22 @@ async def bevestig_planning(planning_id: str, werknemer_id: str, werknemer_naam:
             {"$set": {"bevestigd_door": bevestigd, "bevestigingen": bevestigingen}}
         )
 
-        # Send notification to admins (tenant-scoped)
+        # Send notification ONLY to company admins/master_admins.
+        # Explicitly exclude the confirming werknemer (in case their account
+        # also carries an admin role) so the worker never gets their own push.
         try:
-            admin_users = await db.users.find(
-                {"company_id": company_id, "rol": {"$in": ["admin", "master_admin"]}, "push_token": {"$ne": None}},
-                {"push_token": 1, "id": 1}
-            ).to_list(100)
-            
-            admin_ids = [a["id"] for a in admin_users if a.get("push_token")]
+            admin_ids: List[str] = []
+            async for admin in db.users.find(
+                {
+                    "company_id": company_id,
+                    "rol": {"$in": ["admin", "master_admin"]},
+                    "actief": True,
+                    "id": {"$ne": werknemer_id},
+                },
+                {"id": 1},
+            ):
+                admin_ids.append(admin["id"])
+
             if admin_ids:
                 werf_naam = item.get("werf_naam", "onbekend")
                 dag = item.get("dag", "")

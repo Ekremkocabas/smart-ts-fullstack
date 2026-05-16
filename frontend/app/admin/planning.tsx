@@ -68,6 +68,15 @@ function getISOWeek(date: Date): number {
   return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
 }
 
+function getISOWeekYear(date: Date): number {
+  // The ISO week-year a date belongs to may differ from its calendar year
+  // (week 1 can start in late December, week 53 can extend into January).
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  return d.getUTCFullYear();
+}
+
 function getWeekDates(year: number, week: number): Record<string, string> {
   const simple = new Date(year, 0, 1 + (week - 1) * 7);
   const dow = simple.getDay();
@@ -81,6 +90,30 @@ function getWeekDates(year: number, week: number): Record<string, string> {
     dates[dag] = `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
   });
   return dates;
+}
+
+// Split a YYYY-MM-DD range (inclusive) into ISO-week buckets so the UI can
+// preview how many weekly werkbonnen the backend will create.
+function splitDateRangeIntoWeeks(vanStr: string, totStr: string): Array<{ jaar: number; week_nummer: number; aantal_dagen: number }> {
+  if (!vanStr || !totStr) return [];
+  const [vy, vm, vd] = vanStr.split('-').map(Number);
+  const [ty, tm, td] = totStr.split('-').map(Number);
+  if (!vy || !ty) return [];
+  const start = new Date(vy, vm - 1, vd);
+  const end = new Date(ty, tm - 1, td);
+  if (end < start) return [];
+  const buckets = new Map<string, { jaar: number; week_nummer: number; aantal_dagen: number }>();
+  const cur = new Date(start);
+  while (cur <= end) {
+    const wk = getISOWeek(cur);
+    const yr = getISOWeekYear(cur);
+    const key = `${yr}-${wk}`;
+    const b = buckets.get(key);
+    if (b) b.aantal_dagen += 1;
+    else buckets.set(key, { jaar: yr, week_nummer: wk, aantal_dagen: 1 });
+    cur.setDate(cur.getDate() + 1);
+  }
+  return Array.from(buckets.values()).sort((a, b) => a.jaar - b.jaar || a.week_nummer - b.week_nummer);
 }
 
 // Smart time parser: "8" → "08:00", "930" → "09:30", "1230" → "12:30", "8.30"/"8,30" → "08:30"
@@ -150,7 +183,7 @@ export default function PlanningAdmin() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   // Multi-day selection states
   const [selectedDagen, setSelectedDagen] = useState<string[]>(['maandag']);
-  const [dagPickMode, setDagPickMode] = useState<'individueel' | 'range'>('individueel');
+  const [dagPickMode, setDagPickMode] = useState<'individueel' | 'range' | 'maand'>('individueel');
   const [vanDatum, setVanDatum] = useState('');
   const [totDatum, setTotDatum] = useState('');
   // Time validation errors
@@ -334,17 +367,20 @@ export default function PlanningAdmin() {
       alert('Selecteer minimaal één werknemer');
       return;
     }
-    if (!isEditing && selectedDagen.length === 0) {
-      alert('Selecteer minimaal één dag');
-      return;
+    if (!isEditing) {
+      if (dagPickMode === 'maand') {
+        if (!vanDatum || !totDatum) { alert('Selecteer een van- en tot-datum voor de maand-werkbon'); return; }
+        if (new Date(totDatum) < new Date(vanDatum)) { alert('Tot-datum ligt vóór van-datum'); return; }
+      } else if (selectedDagen.length === 0) {
+        alert('Selecteer minimaal één dag');
+        return;
+      }
     }
     setSaving(true);
     setWaarschuwingen([]);
     try {
       const materiaalItems = form.nodige_materiaal.split('\n').map(m => m.trim()).filter(Boolean);
-      const baseBody = {
-        week_nummer: weekNummer,
-        jaar: jaar,
+      const baseBody: Record<string, any> = {
         werknemer_ids: form.werknemer_ids,
         werknemer_namen: [],
         team_id: form.team_id || null,
@@ -364,11 +400,35 @@ export default function PlanningAdmin() {
       };
 
       if (isEditing && selectedItem) {
-        await apiClient.put(`/api/planning/${selectedItem.id}`, { ...baseBody, dag: form.dag, datum: weekDates[form.dag] || '' });
+        await apiClient.put(`/api/planning/${selectedItem.id}`, {
+          ...baseBody,
+          week_nummer: weekNummer,
+          jaar: jaar,
+          dag: form.dag,
+          datum: weekDates[form.dag] || '',
+        });
+      } else if (dagPickMode === 'maand') {
+        // Multi-week: backend slices the range into ISO weeks AND creates a
+        // WerkbonGroep so the eventual werkbon is one combined PDF + one
+        // signature + one email.
+        const res = await apiClient.post('/api/planning/maand-bulk', {
+          ...baseBody,
+          van_datum: vanDatum,
+          tot_datum: totDatum,
+          skip_weekend: false,
+        });
+        const result = res.data;
+        if (result.waarschuwingen?.length > 0) setWaarschuwingen(result.waarschuwingen);
       } else {
         const datums: Record<string, string> = {};
         for (const dag of selectedDagen) datums[dag] = weekDates[dag] || '';
-        const res = await apiClient.post('/api/planning/bulk', { ...baseBody, dagen: selectedDagen, datums });
+        const res = await apiClient.post('/api/planning/bulk', {
+          ...baseBody,
+          week_nummer: weekNummer,
+          jaar: jaar,
+          dagen: selectedDagen,
+          datums,
+        });
         const result = res.data;
         if (result.waarschuwingen?.length > 0) setWaarschuwingen(result.waarschuwingen);
       }
@@ -787,7 +847,7 @@ export default function PlanningAdmin() {
                 {/* Dag selectie modus (alleen bij aanmaken) */}
                 {!isEditing && (
                   <>
-                    <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+                    <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
                       <TouchableOpacity
                         style={[styles.chip, dagPickMode === 'individueel' && { backgroundColor: theme.primaryColor || '#F5A623', borderColor: theme.primaryColor || '#F5A623' }]}
                         onPress={() => setDagPickMode('individueel')}
@@ -798,7 +858,13 @@ export default function PlanningAdmin() {
                         style={[styles.chip, dagPickMode === 'range' && { backgroundColor: theme.primaryColor || '#F5A623', borderColor: theme.primaryColor || '#F5A623' }]}
                         onPress={() => setDagPickMode('range')}
                       >
-                        <Text style={[styles.chipText, dagPickMode === 'range' && styles.chipTextActive]}>Van — Tot</Text>
+                        <Text style={[styles.chipText, dagPickMode === 'range' && styles.chipTextActive]}>Van — Tot (1 week)</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.chip, dagPickMode === 'maand' && { backgroundColor: theme.primaryColor || '#F5A623', borderColor: theme.primaryColor || '#F5A623' }]}
+                        onPress={() => setDagPickMode('maand')}
+                      >
+                        <Text style={[styles.chipText, dagPickMode === 'maand' && styles.chipTextActive]}>Maand-werkbon</Text>
                       </TouchableOpacity>
                     </View>
 
@@ -824,9 +890,9 @@ export default function PlanningAdmin() {
                           </View>
                         </ScrollView>
                       </>
-                    ) : (
+                    ) : dagPickMode === 'range' ? (
                       <>
-                        <Text style={styles.label}>Datum bereik *</Text>
+                        <Text style={styles.label}>Datum bereik (binnen 1 week) *</Text>
                         <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                           <View style={{ flex: 1, minWidth: 140 }}>
                             <Text style={{ fontSize: 12, color: '#6c757d', marginBottom: 4 }}>Van</Text>
@@ -868,6 +934,54 @@ export default function PlanningAdmin() {
                             </Text>
                           </View>
                         )}
+                      </>
+                    ) : (
+                      // Maand-werkbon: meerdere ISO-weken → 1 combined PDF + 1 handtekening + 1 mail.
+                      <>
+                        <Text style={styles.label}>Periode (over meerdere weken) *</Text>
+                        <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                          <View style={{ flex: 1, minWidth: 140 }}>
+                            <Text style={{ fontSize: 12, color: '#6c757d', marginBottom: 4 }}>Van</Text>
+                            {Platform.OS === 'web' ? (
+                              <input
+                                type="date"
+                                value={vanDatum}
+                                onChange={(e: any) => setVanDatum(e.target.value)}
+                                style={{ fontSize: 14, padding: '10px 12px', borderRadius: 8, border: '1px solid #E8E9ED', outline: 'none', width: '100%' }}
+                              />
+                            ) : (
+                              <TextInput style={styles.input} value={vanDatum} onChangeText={setVanDatum} placeholder="YYYY-MM-DD" placeholderTextColor="#999" />
+                            )}
+                          </View>
+                          <View style={{ flex: 1, minWidth: 140 }}>
+                            <Text style={{ fontSize: 12, color: '#6c757d', marginBottom: 4 }}>Tot</Text>
+                            {Platform.OS === 'web' ? (
+                              <input
+                                type="date"
+                                value={totDatum}
+                                onChange={(e: any) => setTotDatum(e.target.value)}
+                                style={{ fontSize: 14, padding: '10px 12px', borderRadius: 8, border: '1px solid #E8E9ED', outline: 'none', width: '100%' }}
+                              />
+                            ) : (
+                              <TextInput style={styles.input} value={totDatum} onChangeText={setTotDatum} placeholder="YYYY-MM-DD" placeholderTextColor="#999" />
+                            )}
+                          </View>
+                        </View>
+                        {(() => {
+                          const weeks = splitDateRangeIntoWeeks(vanDatum, totDatum);
+                          if (weeks.length === 0) return null;
+                          const totalDagen = weeks.reduce((s, w) => s + w.aantal_dagen, 0);
+                          return (
+                            <View style={{ backgroundColor: (theme.primaryColor || '#F5A623') + '15', borderRadius: 8, padding: 12, marginTop: 8 }}>
+                              <Text style={{ fontSize: 13, color: theme.primaryColor || '#F5A623', fontWeight: '700', marginBottom: 4 }}>
+                                {weeks.length} weken — {totalDagen} dagen → 1 maand-werkbon (1 PDF, 1 handtekening, 1 e-mail)
+                              </Text>
+                              <Text style={{ fontSize: 12, color: '#555' }}>
+                                {weeks.map(w => `W${w.week_nummer}-${w.jaar} (${w.aantal_dagen}d)`).join(' · ')}
+                              </Text>
+                            </View>
+                          );
+                        })()}
                       </>
                     )}
                   </>
