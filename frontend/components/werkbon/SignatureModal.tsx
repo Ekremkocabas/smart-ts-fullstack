@@ -122,7 +122,7 @@ const WebSignatureCanvas = ({ onEnd, onClear, signatureRef }: any) => {
     if (!ctx) return;
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.strokeStyle = '#1A1A2E';
+    ctx.strokeStyle = '#1B4332';
     ctx.lineWidth = 2.5;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -142,7 +142,7 @@ const WebSignatureCanvas = ({ onEnd, onClear, signatureRef }: any) => {
     if (!ctx) return;
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.strokeStyle = '#1A1A2E';
+    ctx.strokeStyle = '#1B4332';
     ctx.lineWidth = 2.5;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -207,7 +207,7 @@ export default function SignatureModal({
   visible, 
   onClose, 
   onSave,
-  primaryColor = '#F5A623' 
+  primaryColor = '#D4A017' 
 }: SignatureModalProps) {
   const insets = useSafeAreaInsets();
   const signatureRef = useRef<any>(null);
@@ -343,7 +343,7 @@ export default function SignatureModal({
                 clearText=""
                 confirmText=""
                 backgroundColor="#FFFFFF"
-                penColor="#1A1A2E"
+                penColor="#1B4332"
                 minWidth={2}
                 maxWidth={4}
                 dotSize={3}
@@ -419,7 +419,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1B4332',
   },
   clearButton: {
     flexDirection: 'row',

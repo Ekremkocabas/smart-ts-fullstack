@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+﻿import React, { useEffect } from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
@@ -19,7 +19,7 @@ export default function Index() {
 
   return (
     <View style={styles.container}>
-      <ActivityIndicator size="large" color="#F5A623" />
+      <ActivityIndicator size="large" color="#D4A017" />
     </View>
   );
 }

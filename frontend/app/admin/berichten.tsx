@@ -469,7 +469,7 @@ export default function BerichtenAdmin() {
     return (
       <View style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.primaryColor || '#F5A623'} />
+          <ActivityIndicator size="large" color={theme.primaryColor || '#D4A017'} />
           <Text style={styles.loadingText}>Laden...</Text>
         </View>
       </View>
@@ -494,7 +494,7 @@ export default function BerichtenAdmin() {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={[styles.title, { color: theme.secondaryColor || '#1A1A2E' }]}>Berichten</Text>
+          <Text style={[styles.title, { color: theme.secondaryColor || '#1B4332' }]}>Berichten</Text>
           <Text style={styles.subtitle}>Communicatie met werknemers en onderaannemers</Text>
         </View>
         <TouchableOpacity 
@@ -510,60 +510,60 @@ export default function BerichtenAdmin() {
       <View style={styles.tabsContainer}>
         <View style={styles.tabs}>
           <TouchableOpacity
-            style={[styles.tab, activeTab === 'werknemers' && styles.tabActive, activeTab === 'werknemers' && { borderBottomColor: theme.primaryColor || '#F5A623' }]}
+            style={[styles.tab, activeTab === 'werknemers' && styles.tabActive, activeTab === 'werknemers' && { borderBottomColor: theme.primaryColor || '#D4A017' }]}
             onPress={() => setActiveTab('werknemers')}
           >
-            <Ionicons name="people" size={18} color={activeTab === 'werknemers' ? (theme.primaryColor || '#F5A623') : '#6c757d'} />
+            <Ionicons name="people" size={18} color={activeTab === 'werknemers' ? (theme.primaryColor || '#D4A017') : '#6c757d'} />
             <Text style={[styles.tabText, activeTab === 'werknemers' && styles.tabTextActive]}>
               Werknemers
             </Text>
-            <View style={[styles.tabBadge, activeTab === 'werknemers' && styles.tabBadgeActive, activeTab === 'werknemers' && { backgroundColor: `${theme.primaryColor || '#F5A623'}20` }]}>
-              <Text style={[styles.tabBadgeText, activeTab === 'werknemers' && styles.tabBadgeTextActive, activeTab === 'werknemers' && { color: theme.primaryColor || '#F5A623' }]}>
+            <View style={[styles.tabBadge, activeTab === 'werknemers' && styles.tabBadgeActive, activeTab === 'werknemers' && { backgroundColor: `${theme.primaryColor || '#D4A017'}20` }]}>
+              <Text style={[styles.tabBadgeText, activeTab === 'werknemers' && styles.tabBadgeTextActive, activeTab === 'werknemers' && { color: theme.primaryColor || '#D4A017' }]}>
                 {werknemersByType.werknemers.length}
               </Text>
             </View>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.tab, activeTab === 'onderaannemers' && styles.tabActive, activeTab === 'onderaannemers' && { borderBottomColor: theme.primaryColor || '#F5A623' }]}
+            style={[styles.tab, activeTab === 'onderaannemers' && styles.tabActive, activeTab === 'onderaannemers' && { borderBottomColor: theme.primaryColor || '#D4A017' }]}
             onPress={() => setActiveTab('onderaannemers')}
           >
-            <Ionicons name="construct" size={18} color={activeTab === 'onderaannemers' ? (theme.primaryColor || '#F5A623') : '#6c757d'} />
+            <Ionicons name="construct" size={18} color={activeTab === 'onderaannemers' ? (theme.primaryColor || '#D4A017') : '#6c757d'} />
             <Text style={[styles.tabText, activeTab === 'onderaannemers' && styles.tabTextActive]}>
               Onderaannemers
             </Text>
-            <View style={[styles.tabBadge, activeTab === 'onderaannemers' && styles.tabBadgeActive, activeTab === 'onderaannemers' && { backgroundColor: `${theme.primaryColor || '#F5A623'}20` }]}>
-              <Text style={[styles.tabBadgeText, activeTab === 'onderaannemers' && styles.tabBadgeTextActive, activeTab === 'onderaannemers' && { color: theme.primaryColor || '#F5A623' }]}>
+            <View style={[styles.tabBadge, activeTab === 'onderaannemers' && styles.tabBadgeActive, activeTab === 'onderaannemers' && { backgroundColor: `${theme.primaryColor || '#D4A017'}20` }]}>
+              <Text style={[styles.tabBadgeText, activeTab === 'onderaannemers' && styles.tabBadgeTextActive, activeTab === 'onderaannemers' && { color: theme.primaryColor || '#D4A017' }]}>
                 {werknemersByType.onderaannemers.length}
               </Text>
             </View>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.tab, activeTab === 'archief' && styles.tabActive, activeTab === 'archief' && { borderBottomColor: theme.primaryColor || '#F5A623' }]}
+            style={[styles.tab, activeTab === 'archief' && styles.tabActive, activeTab === 'archief' && { borderBottomColor: theme.primaryColor || '#D4A017' }]}
             onPress={() => setActiveTab('archief')}
           >
-            <Ionicons name="archive" size={18} color={activeTab === 'archief' ? (theme.primaryColor || '#F5A623') : '#6c757d'} />
+            <Ionicons name="archive" size={18} color={activeTab === 'archief' ? (theme.primaryColor || '#D4A017') : '#6c757d'} />
             <Text style={[styles.tabText, activeTab === 'archief' && styles.tabTextActive]}>
               Archief
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.tab, activeTab === 'per_werknemer' && styles.tabActive, activeTab === 'per_werknemer' && { borderBottomColor: theme.primaryColor || '#F5A623' }]}
+            style={[styles.tab, activeTab === 'per_werknemer' && styles.tabActive, activeTab === 'per_werknemer' && { borderBottomColor: theme.primaryColor || '#D4A017' }]}
             onPress={() => { setActiveTab('per_werknemer'); setSelectedWerknemer(null); }}
           >
-            <Ionicons name="folder-open" size={18} color={activeTab === 'per_werknemer' ? (theme.primaryColor || '#F5A623') : '#6c757d'} />
+            <Ionicons name="folder-open" size={18} color={activeTab === 'per_werknemer' ? (theme.primaryColor || '#D4A017') : '#6c757d'} />
             <Text style={[styles.tabText, activeTab === 'per_werknemer' && styles.tabTextActive]}>
               Per Werknemer
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.tab, activeTab === 'mappen' && styles.tabActive, activeTab === 'mappen' && { borderBottomColor: theme.primaryColor || '#F5A623' }]}
+            style={[styles.tab, activeTab === 'mappen' && styles.tabActive, activeTab === 'mappen' && { borderBottomColor: theme.primaryColor || '#D4A017' }]}
             onPress={() => { setActiveTab('mappen'); setMappenWerknemer(null); setMappenDocs([]); }}
           >
-            <Ionicons name="folder" size={18} color={activeTab === 'mappen' ? (theme.primaryColor || '#F5A623') : '#6c757d'} />
+            <Ionicons name="folder" size={18} color={activeTab === 'mappen' ? (theme.primaryColor || '#D4A017') : '#6c757d'} />
             <Text style={[styles.tabText, activeTab === 'mappen' && styles.tabTextActive]}>
               Mappen
             </Text>
@@ -623,7 +623,7 @@ export default function BerichtenAdmin() {
               {werknemers.filter(w => w.actief).map((wn) => (
                 <TouchableOpacity
                   key={wn.id}
-                  style={[styles.werknemerItem, mappenWerknemer?.id === wn.id && styles.werknemerItemActive, mappenWerknemer?.id === wn.id && { backgroundColor: `${theme.primaryColor || '#F5A623'}10`, borderLeftColor: theme.primaryColor || '#F5A623' }]}
+                  style={[styles.werknemerItem, mappenWerknemer?.id === wn.id && styles.werknemerItemActive, mappenWerknemer?.id === wn.id && { backgroundColor: `${theme.primaryColor || '#D4A017'}10`, borderLeftColor: theme.primaryColor || '#D4A017' }]}
                   onPress={() => selectMappenWerknemer(wn)}
                 >
                   <View style={styles.werknemerAvatar}>
@@ -658,7 +658,7 @@ export default function BerichtenAdmin() {
                 </View>
                 {mappenLoading ? (
                   <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                    <ActivityIndicator size="large" color={theme.primaryColor || '#F5A623'} />
+                    <ActivityIndicator size="large" color={theme.primaryColor || '#D4A017'} />
                   </View>
                 ) : (
                   <ScrollView style={styles.werknemerMessagesScroll}>
@@ -672,7 +672,7 @@ export default function BerichtenAdmin() {
                       <View key={doc.id} style={[styles.messageCard, { flexDirection: 'row', alignItems: 'center' }]}>
                         <Ionicons
                           name={doc.type?.includes('pdf') ? 'document-text-outline' : 'image-outline'}
-                          size={24} color={theme.primaryColor || '#F5A623'}
+                          size={24} color={theme.primaryColor || '#D4A017'}
                           style={{ marginRight: 12 }}
                         />
                         <View style={{ flex: 1 }}>
@@ -726,7 +726,7 @@ export default function BerichtenAdmin() {
                     style={[
                       styles.werknemerItem,
                       selectedWerknemer?.id === wn.id && styles.werknemerItemActive,
-                      selectedWerknemer?.id === wn.id && { backgroundColor: `${theme.primaryColor || '#F5A623'}10`, borderLeftColor: theme.primaryColor || '#F5A623' }
+                      selectedWerknemer?.id === wn.id && { backgroundColor: `${theme.primaryColor || '#D4A017'}10`, borderLeftColor: theme.primaryColor || '#D4A017' }
                     ]}
                     onPress={() => setSelectedWerknemer(wn)}
                   >
@@ -824,7 +824,7 @@ export default function BerichtenAdmin() {
         <View style={styles.messagesList}>
           {loading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={theme.primaryColor || '#F5A623'} />
+              <ActivityIndicator size="large" color={theme.primaryColor || '#D4A017'} />
             </View>
           ) : filteredBerichten.length === 0 ? (
             <View style={styles.emptyState}>
@@ -848,7 +848,7 @@ export default function BerichtenAdmin() {
                     styles.messageCard,
                     selectedBericht?.id === bericht.id && styles.messageCardSelected,
                     bericht.vastgepind && styles.messageCardPinned,
-                    bericht.vastgepind && { backgroundColor: `${theme.primaryColor || '#F5A623'}08` },
+                    bericht.vastgepind && { backgroundColor: `${theme.primaryColor || '#D4A017'}08` },
                     { flexDirection: 'row', alignItems: 'flex-start' },
                   ]}
                   onPress={() => setSelectedBericht(bericht)}
@@ -867,8 +867,8 @@ export default function BerichtenAdmin() {
                     </View>
                     <View style={styles.messageBadges}>
                       {bericht.vastgepind && (
-                        <View style={[styles.pinBadge, { backgroundColor: `${theme.primaryColor || '#F5A623'}20` }]}>
-                          <Ionicons name="pin" size={12} color={theme.primaryColor || '#F5A623'} />
+                        <View style={[styles.pinBadge, { backgroundColor: `${theme.primaryColor || '#D4A017'}20` }]}>
+                          <Ionicons name="pin" size={12} color={theme.primaryColor || '#D4A017'} />
                         </View>
                       )}
                       {bericht.is_broadcast && (
@@ -945,11 +945,11 @@ export default function BerichtenAdmin() {
 
               <View style={styles.detailActions}>
                 <TouchableOpacity
-                  style={[styles.actionBtn, { backgroundColor: `${theme.primaryColor || '#F5A623'}20` }]}
+                  style={[styles.actionBtn, { backgroundColor: `${theme.primaryColor || '#D4A017'}20` }]}
                   onPress={() => togglePin(selectedBericht)}
                 >
-                  <Ionicons name={selectedBericht.vastgepind ? 'pin' : 'pin-outline'} size={18} color={theme.primaryColor || '#F5A623'} />
-                  <Text style={[styles.actionBtnText, { color: theme.primaryColor || '#F5A623' }]}>
+                  <Ionicons name={selectedBericht.vastgepind ? 'pin' : 'pin-outline'} size={18} color={theme.primaryColor || '#D4A017'} />
+                  <Text style={[styles.actionBtnText, { color: theme.primaryColor || '#D4A017' }]}>
                     {selectedBericht.vastgepind ? 'Losmaken' : 'Vastpinnen'}
                   </Text>
                 </TouchableOpacity>
@@ -1109,8 +1109,8 @@ export default function BerichtenAdmin() {
                   style={[styles.optionBtn, form.vastgepind && styles.optionBtnActive]}
                   onPress={() => setForm(prev => ({ ...prev, vastgepind: !prev.vastgepind }))}
                 >
-                  <Ionicons name="pin" size={18} color={form.vastgepind ? (theme.primaryColor || '#F5A623') : '#6c757d'} />
-                  <Text style={[styles.optionText, form.vastgepind && styles.optionTextActive, form.vastgepind && { color: theme.primaryColor || '#F5A623' }]}>Vastpinnen</Text>
+                  <Ionicons name="pin" size={18} color={form.vastgepind ? (theme.primaryColor || '#D4A017') : '#6c757d'} />
+                  <Text style={[styles.optionText, form.vastgepind && styles.optionTextActive, form.vastgepind && { color: theme.primaryColor || '#D4A017' }]}>Vastpinnen</Text>
                 </TouchableOpacity>
                 
                 <TouchableOpacity 
@@ -1150,11 +1150,11 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { marginTop: 12, fontSize: 16, color: '#6c757d' },
   noAccess: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  noAccessText: { fontSize: 20, color: '#1A1A2E', marginTop: 16 },
+  noAccessText: { fontSize: 20, color: '#1B4332', marginTop: 16 },
   
   // Header
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 24, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E8E9ED' },
-  title: { fontSize: 28, fontWeight: '700', color: '#1A1A2E' },
+  title: { fontSize: 28, fontWeight: '700', color: '#1B4332' },
   subtitle: { fontSize: 14, color: '#6c757d', marginTop: 4 },
   newBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#3498db', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 10 },
   newBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
@@ -1163,18 +1163,18 @@ const styles = StyleSheet.create({
   tabsContainer: { backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E8E9ED' },
   tabs: { flexDirection: 'row', paddingHorizontal: 24 },
   tab: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 16, paddingHorizontal: 20, marginRight: 8, borderBottomWidth: 3, borderBottomColor: 'transparent' },
-  tabActive: { borderBottomColor: '#F5A623' },
+  tabActive: { borderBottomColor: '#D4A017' },
   tabText: { fontSize: 15, color: '#6c757d', fontWeight: '500' },
-  tabTextActive: { color: '#1A1A2E', fontWeight: '600' },
+  tabTextActive: { color: '#1B4332', fontWeight: '600' },
   tabBadge: { backgroundColor: '#E8E9ED', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
-  tabBadgeActive: { backgroundColor: '#F5A62320' },
+  tabBadgeActive: { backgroundColor: '#D4A01720' },
   tabBadgeText: { fontSize: 12, color: '#6c757d', fontWeight: '600' },
-  tabBadgeTextActive: { color: '#F5A623' },
+  tabBadgeTextActive: { color: '#D4A017' },
   
   // Filters
   filtersRow: { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E8E9ED' },
   searchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#F5F6FA', borderRadius: 10, paddingHorizontal: 12, gap: 8 },
-  searchInput: { flex: 1, paddingVertical: 10, fontSize: 14, color: '#1A1A2E' },
+  searchInput: { flex: 1, paddingVertical: 10, fontSize: 14, color: '#1B4332' },
   filterButtons: { flexDirection: 'row', gap: 8 },
   filterBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: '#F5F6FA' },
   filterBtnActive: { backgroundColor: '#3498db' },
@@ -1189,43 +1189,43 @@ const styles = StyleSheet.create({
   messagesScroll: { flex: 1 },
   messageCard: { padding: 16, borderBottomWidth: 1, borderBottomColor: '#E8E9ED' },
   messageCardSelected: { backgroundColor: '#3498db10' },
-  messageCardPinned: { backgroundColor: '#F5A62308' },
+  messageCardPinned: { backgroundColor: '#D4A01708' },
   messageHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 },
   messageFrom: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#3498db20', alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontSize: 14, fontWeight: '600', color: '#3498db' },
-  senderName: { fontSize: 14, fontWeight: '600', color: '#1A1A2E' },
+  senderName: { fontSize: 14, fontWeight: '600', color: '#1B4332' },
   messageTime: { fontSize: 12, color: '#6c757d' },
   messageBadges: { flexDirection: 'row', gap: 6 },
-  pinBadge: { padding: 4, backgroundColor: '#F5A62320', borderRadius: 4 },
+  pinBadge: { padding: 4, backgroundColor: '#D4A01720', borderRadius: 4 },
   broadcastBadge: { padding: 4, backgroundColor: '#3498db20', borderRadius: 4 },
   attachBadge: { padding: 4, backgroundColor: '#6c757d20', borderRadius: 4 },
-  messageSubject: { fontSize: 15, fontWeight: '600', color: '#1A1A2E', marginBottom: 4 },
+  messageSubject: { fontSize: 15, fontWeight: '600', color: '#1B4332', marginBottom: 4 },
   messagePreview: { fontSize: 13, color: '#6c757d', lineHeight: 18 },
   recipientText: { fontSize: 12, color: '#3498db', marginTop: 6 },
   
   // Empty State
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
-  emptyTitle: { fontSize: 18, fontWeight: '600', color: '#1A1A2E', marginTop: 16 },
+  emptyTitle: { fontSize: 18, fontWeight: '600', color: '#1B4332', marginTop: 16 },
   emptySubtitle: { fontSize: 14, color: '#6c757d', marginTop: 4, textAlign: 'center' },
   
   // Message Detail
   messageDetail: { flex: 1, backgroundColor: '#fff' },
   detailScroll: { flex: 1, padding: 24 },
   detailHeader: { marginBottom: 24, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: '#E8E9ED' },
-  detailSubject: { fontSize: 24, fontWeight: '700', color: '#1A1A2E', marginBottom: 12 },
+  detailSubject: { fontSize: 24, fontWeight: '700', color: '#1B4332', marginBottom: 12 },
   detailMeta: { gap: 6 },
-  detailFrom: { fontSize: 14, color: '#1A1A2E' },
+  detailFrom: { fontSize: 14, color: '#1B4332' },
   detailTo: { fontSize: 14, color: '#6c757d' },
   broadcastTag: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', backgroundColor: '#3498db20', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, marginTop: 4 },
   broadcastTagText: { fontSize: 12, color: '#3498db', fontWeight: '500' },
   detailDate: { fontSize: 13, color: '#6c757d', marginTop: 4 },
   detailContent: { marginBottom: 24 },
-  detailText: { fontSize: 15, color: '#1A1A2E', lineHeight: 24 },
+  detailText: { fontSize: 15, color: '#1B4332', lineHeight: 24 },
   detailAttachments: { backgroundColor: '#F5F6FA', borderRadius: 12, padding: 16, marginBottom: 24 },
-  attachmentsTitle: { fontSize: 14, fontWeight: '600', color: '#1A1A2E', marginBottom: 12 },
+  attachmentsTitle: { fontSize: 14, fontWeight: '600', color: '#1B4332', marginBottom: 12 },
   attachmentItem: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', padding: 12, borderRadius: 8, marginBottom: 8 },
-  attachmentName: { flex: 1, fontSize: 14, color: '#1A1A2E' },
+  attachmentName: { flex: 1, fontSize: 14, color: '#1B4332' },
   detailActions: { flexDirection: 'row', gap: 12, flexWrap: 'wrap' },
   actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8 },
   actionBtnText: { fontSize: 14, fontWeight: '500' },
@@ -1238,13 +1238,13 @@ const styles = StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   modalContent: { backgroundColor: '#fff', borderRadius: 16, width: '100%', maxWidth: 600, maxHeight: '90%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: '#E8E9ED' },
-  modalTitle: { fontSize: 20, fontWeight: '600', color: '#1A1A2E' },
+  modalTitle: { fontSize: 20, fontWeight: '600', color: '#1B4332' },
   modalBody: { padding: 20, maxHeight: 500 },
   modalFooter: { flexDirection: 'row', gap: 12, padding: 20, borderTopWidth: 1, borderTopColor: '#E8E9ED' },
   
   // Form
-  label: { fontSize: 14, fontWeight: '600', color: '#1A1A2E', marginBottom: 8, marginTop: 16 },
-  input: { backgroundColor: '#F5F6FA', borderRadius: 10, padding: 14, fontSize: 15, color: '#1A1A2E', borderWidth: 1, borderColor: '#E8E9ED' },
+  label: { fontSize: 14, fontWeight: '600', color: '#1B4332', marginBottom: 8, marginTop: 16 },
+  input: { backgroundColor: '#F5F6FA', borderRadius: 10, padding: 14, fontSize: 15, color: '#1B4332', borderWidth: 1, borderColor: '#E8E9ED' },
   textArea: { minHeight: 120, textAlignVertical: 'top' },
   
   // Target Group
@@ -1264,7 +1264,7 @@ const styles = StyleSheet.create({
   recipientItemSelected: { backgroundColor: '#3498db10' },
   recipientCheckbox: { width: 24, height: 24, borderRadius: 6, backgroundColor: '#E8E9ED', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   recipientCheckboxSelected: { backgroundColor: '#3498db' },
-  recipientName: { flex: 1, fontSize: 14, color: '#1A1A2E' },
+  recipientName: { flex: 1, fontSize: 14, color: '#1B4332' },
   recipientRole: { fontSize: 12, color: '#6c757d', backgroundColor: '#F5F6FA', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 },
   
   // Upload
@@ -1272,14 +1272,14 @@ const styles = StyleSheet.create({
   uploadBtnText: { fontSize: 14, color: '#3498db', fontWeight: '500' },
   attachmentsList: { marginTop: 8, gap: 6 },
   attachmentRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#F5F6FA', padding: 10, borderRadius: 8 },
-  attachmentFileName: { flex: 1, fontSize: 13, color: '#1A1A2E' },
+  attachmentFileName: { flex: 1, fontSize: 13, color: '#1B4332' },
   
   // Options
   optionsRow: { flexDirection: 'row', gap: 16, marginTop: 16 },
   optionBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },
   optionBtnActive: {},
   optionText: { fontSize: 14, color: '#6c757d' },
-  optionTextActive: { color: '#F5A623' },
+  optionTextActive: { color: '#D4A017' },
   
   // Buttons
   cancelBtn: { flex: 1, padding: 14, borderRadius: 10, borderWidth: 1, borderColor: '#E8E9ED', alignItems: 'center' },
@@ -1290,14 +1290,14 @@ const styles = StyleSheet.create({
   // Per Werknemer View
   perWerknemerContainer: { flex: 1, flexDirection: 'row' },
   werknemerListPanel: { width: 280, backgroundColor: '#fff', borderRightWidth: 1, borderRightColor: '#E8E9ED' },
-  panelTitle: { fontSize: 16, fontWeight: '600', color: '#1A1A2E', padding: 16, borderBottomWidth: 1, borderBottomColor: '#E8E9ED' },
+  panelTitle: { fontSize: 16, fontWeight: '600', color: '#1B4332', padding: 16, borderBottomWidth: 1, borderBottomColor: '#E8E9ED' },
   werknemerScroll: { flex: 1 },
   werknemerItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: '#F5F6FA' },
-  werknemerItemActive: { backgroundColor: '#F5A62310', borderLeftWidth: 3, borderLeftColor: '#F5A623' },
+  werknemerItemActive: { backgroundColor: '#D4A01710', borderLeftWidth: 3, borderLeftColor: '#D4A017' },
   werknemerAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#3498db', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   werknemerAvatarText: { color: '#fff', fontWeight: '600', fontSize: 16 },
   werknemerInfo: { flex: 1 },
-  werknemerName: { fontSize: 14, fontWeight: '600', color: '#1A1A2E' },
+  werknemerName: { fontSize: 14, fontWeight: '600', color: '#1B4332' },
   werknemerRole: { fontSize: 12, color: '#6c757d', marginTop: 2 },
   unreadBadge: { backgroundColor: '#dc3545', borderRadius: 10, minWidth: 20, height: 20, alignItems: 'center', justifyContent: 'center', marginRight: 8 },
   unreadBadgeText: { color: '#fff', fontSize: 11, fontWeight: '600' },
@@ -1305,7 +1305,7 @@ const styles = StyleSheet.create({
   messageCountText: { color: '#6c757d', fontSize: 11, fontWeight: '500' },
   werknemerMessagesPanel: { flex: 1, backgroundColor: '#F5F6FA' },
   selectedWerknemerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E8E9ED' },
-  selectedWerknemerName: { fontSize: 18, fontWeight: '600', color: '#1A1A2E' },
+  selectedWerknemerName: { fontSize: 18, fontWeight: '600', color: '#1B4332' },
   sendToWerknemerBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#3498db', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
   sendToWerknemerBtnText: { color: '#fff', fontSize: 14, fontWeight: '500' },
   werknemerMessagesScroll: { flex: 1, padding: 16 },

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Oplevering Werkbon - Unified System
  * Uses shared components from /components/werkbon
  */
@@ -38,7 +38,7 @@ export default function OpleveringWerkbonScreen() {
   const insets = useSafeAreaInsets();
   const signatureRef = useRef<any>(null);
   
-  const primary = theme.primaryColor || '#F5A623';
+  const primary = theme.primaryColor || '#D4A017';
   const secondary = theme.secondaryColor || '#000000';
 
   // Page state
@@ -208,7 +208,7 @@ export default function OpleveringWerkbonScreen() {
           style={styles.backButton} 
           onPress={page === 2 ? () => setPage(1) : () => router.back()}
         >
-          <Ionicons name="arrow-back" size={24} color="#1A1A2E" />
+          <Ionicons name="arrow-back" size={24} color="#1B4332" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Oplevering Werkbon</Text>
         <View style={styles.pageIndicators}>
@@ -519,7 +519,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F6FA',
     justifyContent: 'center', alignItems: 'center',
   },
-  headerTitle: { flex: 1, fontSize: 18, fontWeight: '700', color: '#1A1A2E', textAlign: 'center' },
+  headerTitle: { flex: 1, fontSize: 18, fontWeight: '700', color: '#1B4332', textAlign: 'center' },
   pageIndicators: { flexDirection: 'row', gap: 6, width: 40, justifyContent: 'flex-end' },
   pageIndicator: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#E8E9ED' },
   scrollContent: { padding: 16 },
@@ -528,12 +528,12 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
   },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A2E', marginBottom: 12 },
-  fieldLabel: { fontSize: 14, fontWeight: '600', color: '#1A1A2E', marginBottom: 8 },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#1B4332', marginBottom: 12 },
+  fieldLabel: { fontSize: 14, fontWeight: '600', color: '#1B4332', marginBottom: 8 },
   input: {
     backgroundColor: '#F5F6FA', borderRadius: 12,
     paddingHorizontal: 16, paddingVertical: 14,
-    fontSize: 16, color: '#1A1A2E',
+    fontSize: 16, color: '#1B4332',
     borderWidth: 1, borderColor: '#E8E9ED', minHeight: 52,
   },
   inputLarge: { minHeight: 100, textAlignVertical: 'top' },
@@ -550,7 +550,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 14,
     borderWidth: 1, borderColor: '#E8E9ED',
   },
-  pickerText: { fontSize: 16, color: '#1A1A2E' },
+  pickerText: { fontSize: 16, color: '#1B4332' },
   placeholder: { color: '#8C9199' },
   signaturePage: { flex: 1 },
   signatureScrollSection: { maxHeight: 200 },
@@ -591,9 +591,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20,
     width: '100%', maxWidth: 400,
   },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: '#1A1A2E', marginBottom: 16, textAlign: 'center' },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: '#1B4332', marginBottom: 16, textAlign: 'center' },
   modalOption: { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#E8E9ED' },
-  modalOptionText: { fontSize: 16, color: '#1A1A2E' },
+  modalOptionText: { fontSize: 16, color: '#1B4332' },
   modalCancel: { marginTop: 12, paddingVertical: 14, alignItems: 'center' },
   modalCancelText: { fontSize: 16, color: '#dc3545', fontWeight: '600' },
 });

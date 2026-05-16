@@ -34,7 +34,7 @@ const WebSignatureCanvas = ({ onEnd, onClear, signatureRef }: any) => {
     
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.strokeStyle = '#1A1A2E';
+    ctx.strokeStyle = '#1B4332';
     ctx.lineWidth = 3;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -254,7 +254,7 @@ export default function HandtekeningScreen() {
       >
         <View style={styles.header}>
           <TouchableOpacity testID="signature-close-button" onPress={() => router.back()}>
-            <Ionicons name="close" size={28} color="#1A1A2E" />
+            <Ionicons name="close" size={28} color="#1B4332" />
           </TouchableOpacity>
           <Text style={styles.title}>Handtekening</Text>
           <View style={{ width: 28 }} />
@@ -284,7 +284,7 @@ export default function HandtekeningScreen() {
               {selfieUri ? (
                 <Image source={{ uri: selfieUri }} style={styles.selfieThumbnail} />
               ) : (
-                <Ionicons name="camera-outline" size={20} color="#F5A623" />
+                <Ionicons name="camera-outline" size={20} color="#D4A017" />
               )}
               <Text style={styles.securityBtnText}>
                 {selfieUri ? 'Selfie ✓' : 'Selfie'}
@@ -323,7 +323,7 @@ export default function HandtekeningScreen() {
                 descriptionText=""
                 webStyle={signaturePadStyle}
                 backgroundColor="#FFFFFF"
-                penColor="#1A1A2E"
+                penColor="#1B4332"
                 autoClear={false}
               />
             )}
@@ -377,7 +377,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1A1A2E',
+    color: '#1B4332',
   },
   topSection: {
     padding: 16,
@@ -396,7 +396,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
-    color: '#1A1A2E',
+    color: '#1B4332',
     fontSize: 17,
     borderWidth: 1,
     borderColor: '#E8E9ED',
@@ -446,7 +446,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#F5A62350',
+    borderColor: '#D4A01750',
     paddingVertical: 10,
     paddingHorizontal: 6,
     gap: 4,
@@ -458,7 +458,7 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
   securityBtnText: {
-    color: '#F5A623',
+    color: '#D4A017',
     fontSize: 12,
     fontWeight: '600',
   },

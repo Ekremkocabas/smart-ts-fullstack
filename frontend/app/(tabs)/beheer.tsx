@@ -531,7 +531,7 @@ export default function BeheerScreen() {
                     style={styles.listItemLeft}
                     onPress={() => openModal('werknemer', werknemer)}
                   >
-                    <Ionicons name="person" size={20} color={werknemer.actief ? "#F5A623" : "#6c757d"} />
+                    <Ionicons name="person" size={20} color={werknemer.actief ? "#D4A017" : "#6c757d"} />
                     <View>
                       <Text style={[styles.listItemText, !werknemer.actief && styles.textInactive]}>
                         {werknemer.naam}
@@ -545,7 +545,7 @@ export default function BeheerScreen() {
                       testID={`werknemer-active-switch-${werknemer.id}`}
                       value={werknemer.actief}
                       onValueChange={() => toggleWerknemerActief(werknemer)}
-                      trackColor={{ false: '#2d3a5f', true: '#F5A623' }}
+                      trackColor={{ false: '#2d3a5f', true: '#D4A017' }}
                       thumbColor="#fff"
                     />
                     <TouchableOpacity
@@ -553,7 +553,7 @@ export default function BeheerScreen() {
                       style={styles.mailBtn}
                       onPress={() => handleResendInfoMail(werknemer)}
                     >
-                      <Ionicons name="mail-outline" size={18} color="#F5A623" />
+                      <Ionicons name="mail-outline" size={18} color="#D4A017" />
                     </TouchableOpacity>
                     <TouchableOpacity 
                       testID={`werknemer-delete-button-${werknemer.id}`}
@@ -592,7 +592,7 @@ export default function BeheerScreen() {
                 onPress={() => openModal('team', team)}
               >
                 <View style={styles.listItemLeft}>
-                  <Ionicons name="people" size={20} color="#F5A623" />
+                  <Ionicons name="people" size={20} color="#D4A017" />
                   <View>
                     <Text style={styles.listItemText}>{team.naam}</Text>
                     <Text style={styles.listItemSubtext}>
@@ -627,7 +627,7 @@ export default function BeheerScreen() {
                 onPress={() => openModal('klant', klant)}
               >
                 <View style={styles.listItemLeft}>
-                  <Ionicons name="business" size={20} color="#F5A623" />
+                  <Ionicons name="business" size={20} color="#D4A017" />
                   <View>
                     <Text style={styles.listItemText}>{klant.naam}</Text>
                     <Text style={styles.listItemSubtext}>{klant.email}</Text>
@@ -665,7 +665,7 @@ export default function BeheerScreen() {
               return (
                 <TouchableOpacity key={werf.id} style={styles.listItem} onPress={() => openModal('werf', werf)}>
                   <View style={styles.listItemLeft}>
-                    <Ionicons name="construct" size={20} color="#F5A623" />
+                    <Ionicons name="construct" size={20} color="#D4A017" />
                     <View>
                       <Text style={styles.listItemText}>{werf.naam}</Text>
                       <Text style={styles.listItemSubtext}>{klant?.naam || 'Onbekende klant'}</Text>
@@ -815,7 +815,7 @@ export default function BeheerScreen() {
                   </View>
                 ) : (
                   <View style={styles.logoUploadContent}>
-                    <Ionicons name="image-outline" size={32} color="#F5A623" />
+                    <Ionicons name="image-outline" size={32} color="#D4A017" />
                     <Text style={styles.logoUploadText}>Logo uploaden</Text>
                     <Text style={styles.logoUploadSubtext}>PNG of JPG, max 1MB</Text>
                   </View>
@@ -891,7 +891,7 @@ export default function BeheerScreen() {
 
             <View style={styles.toggleRow}>
               <View style={styles.toggleInfo}>
-                <Ionicons name="camera" size={18} color="#F5A623" style={{ marginRight: 8 }} />
+                <Ionicons name="camera" size={18} color="#D4A017" style={{ marginRight: 8 }} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.toggleLabel}>Selfie bij handtekening</Text>
                   <Text style={styles.toggleSubLabel}>Optionele selfie op het handtekeningscherm</Text>
@@ -900,8 +900,8 @@ export default function BeheerScreen() {
               <Switch
                 value={selfieActiveren}
                 onValueChange={setSelfieActiveren}
-                trackColor={{ false: '#2d3a5f', true: '#F5A62380' }}
-                thumbColor={selfieActiveren ? '#F5A623' : '#555'}
+                trackColor={{ false: '#2d3a5f', true: '#D4A01780' }}
+                thumbColor={selfieActiveren ? '#D4A017' : '#555'}
               />
             </View>
 
@@ -916,15 +916,15 @@ export default function BeheerScreen() {
               <Switch
                 value={smsVerificatieActiveren}
                 onValueChange={setSmsVerificatieActiveren}
-                trackColor={{ false: '#2d3a5f', true: '#F5A62380' }}
-                thumbColor={smsVerificatieActiveren ? '#F5A623' : '#555'}
+                trackColor={{ false: '#2d3a5f', true: '#D4A01780' }}
+                thumbColor={smsVerificatieActiveren ? '#D4A017' : '#555'}
                 disabled={true}
               />
             </View>
 
             <View style={styles.toggleRow}>
               <View style={styles.toggleInfo}>
-                <Ionicons name="mail" size={18} color="#F5A623" style={{ marginRight: 8 }} />
+                <Ionicons name="mail" size={18} color="#D4A017" style={{ marginRight: 8 }} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.toggleLabel}>Automatisch naar klant sturen</Text>
                   <Text style={styles.toggleSubLabel}>Werkbon e-mail standaard ook naar klant</Text>
@@ -933,8 +933,8 @@ export default function BeheerScreen() {
               <Switch
                 value={automatischNaarKlant}
                 onValueChange={setAutomatischNaarKlant}
-                trackColor={{ false: '#2d3a5f', true: '#F5A62380' }}
-                thumbColor={automatischNaarKlant ? '#F5A623' : '#555'}
+                trackColor={{ false: '#2d3a5f', true: '#D4A01780' }}
+                thumbColor={automatischNaarKlant ? '#D4A017' : '#555'}
               />
             </View>
 
@@ -1306,49 +1306,49 @@ export default function BeheerScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F6FA' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E8E9ED' },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#1A1A2E' },
-  adminBadge: { backgroundColor: '#F5A623', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 },
+  title: { fontSize: 28, fontWeight: 'bold', color: '#1B4332' },
+  adminBadge: { backgroundColor: '#D4A017', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 },
   adminBadgeText: { color: '#000', fontSize: 12, fontWeight: '600' },
   noAccessContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  noAccessText: { fontSize: 20, fontWeight: '600', color: '#1A1A2E', marginTop: 16 },
+  noAccessText: { fontSize: 20, fontWeight: '600', color: '#1B4332', marginTop: 16 },
   noAccessSubtext: { fontSize: 14, color: '#6c757d', marginTop: 8, textAlign: 'center' },
   tabsScroll: { maxHeight: 50, backgroundColor: '#FFFFFF' },
   tabs: { flexDirection: 'row', paddingHorizontal: 16, gap: 8, paddingVertical: 8 },
   tab: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, backgroundColor: '#F5F6FA', borderWidth: 1, borderColor: '#E8E9ED' },
-  activeTab: { backgroundColor: '#F5A623', borderColor: '#F5A623' },
+  activeTab: { backgroundColor: '#D4A017', borderColor: '#D4A017' },
   tabText: { color: '#6c757d', fontSize: 13, fontWeight: '500' },
   activeTabText: { color: '#000' },
   content: { flex: 1 },
   tabContent: { padding: 16 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  sectionTitle: { fontSize: 20, fontWeight: '600', color: '#1A1A2E', marginBottom: 12 },
+  sectionTitle: { fontSize: 20, fontWeight: '600', color: '#1B4332', marginBottom: 12 },
   infoText: { color: '#6c757d', fontSize: 13, marginBottom: 16, lineHeight: 20 },
   noticeCard: { flexDirection: 'row', gap: 10, backgroundColor: '#FFFFFF', borderRadius: 12, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: '#E8E9ED' },
   noticeText: { color: '#6c757d', fontSize: 12, flex: 1, lineHeight: 18 },
-  noticeBold: { color: '#F5A623', fontWeight: '600' },
+  noticeBold: { color: '#D4A017', fontWeight: '600' },
   overviewStatsRow: { flexDirection: 'row', gap: 10, marginBottom: 16, flexWrap: 'wrap' },
   overviewStatCard: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 14, minWidth: 100, borderWidth: 1, borderColor: '#E8E9ED', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
   overviewStatLabel: { color: '#6c757d', fontSize: 12, marginBottom: 6 },
-  overviewStatValue: { color: '#1A1A2E', fontSize: 22, fontWeight: '700' },
+  overviewStatValue: { color: '#1B4332', fontSize: 22, fontWeight: '700' },
   statusFilterScroll: { marginBottom: 16 },
   overviewCard: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: '#E8E9ED', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
   overviewCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   weekMiniBadge: { backgroundColor: '#F5F6FA', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: '#E8E9ED' },
-  weekMiniBadgeText: { color: '#1A1A2E', fontSize: 12, fontWeight: '600' },
+  weekMiniBadgeText: { color: '#1B4332', fontSize: 12, fontWeight: '600' },
   overviewStatusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
   overviewStatusText: { color: '#fff', fontSize: 11, fontWeight: '700' },
   statusConcept: { backgroundColor: '#ffc107' },
   statusOndertekend: { backgroundColor: '#28a745' },
-  statusVerzonden: { backgroundColor: '#F5A623' },
-  addBtn: { backgroundColor: '#F5A623', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  statusVerzonden: { backgroundColor: '#D4A017' },
+  addBtn: { backgroundColor: '#D4A017', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   listItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#FFFFFF', padding: 16, borderRadius: 12, marginBottom: 8, borderWidth: 1, borderColor: '#E8E9ED', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
   listItemInactive: { opacity: 0.6 },
   listItemLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-  listItemText: { color: '#1A1A2E', fontSize: 16, fontWeight: '500' },
+  listItemText: { color: '#1B4332', fontSize: 16, fontWeight: '500' },
   textInactive: { color: '#6c757d' },
   listItemSubtext: { color: '#6c757d', fontSize: 12, marginTop: 2 },
-  teamBadge: { color: '#F5A623', fontSize: 11, marginTop: 4, backgroundColor: 'rgba(245, 166, 35, 0.1)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, overflow: 'hidden' },
-  uurtariefText: { color: '#F5A623', fontSize: 12, fontWeight: '600', marginTop: 2 },
+  teamBadge: { color: '#D4A017', fontSize: 11, marginTop: 4, backgroundColor: 'rgba(245, 166, 35, 0.1)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, overflow: 'hidden' },
+  uurtariefText: { color: '#D4A017', fontSize: 12, fontWeight: '600', marginTop: 2 },
   emptyText: { color: '#6c757d', textAlign: 'center', marginTop: 24 },
   switchContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   switchLabel: { color: '#6c757d', fontSize: 12 },
@@ -1358,31 +1358,31 @@ const styles = StyleSheet.create({
   formGroup: { marginBottom: 16 },
   rowGroup: { flexDirection: 'row', gap: 12, marginBottom: 16 },
   halfInput: { flex: 1 },
-  label: { color: '#1A1A2E', fontSize: 14, marginBottom: 8, fontWeight: '500' },
-  textInput: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 16, color: '#1A1A2E', fontSize: 16, borderWidth: 1, borderColor: '#E8E9ED' },
+  label: { color: '#1B4332', fontSize: 14, marginBottom: 8, fontWeight: '500' },
+  textInput: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 16, color: '#1B4332', fontSize: 16, borderWidth: 1, borderColor: '#E8E9ED' },
   inputDisabled: { opacity: 0.5 },
   textArea: { minHeight: 120, textAlignVertical: 'top' },
   textAreaSmall: { minHeight: 80, textAlignVertical: 'top' },
   helpText: { color: '#6c757d', fontSize: 12, marginTop: 4 },
-  saveButton: { backgroundColor: '#F5A623', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 8 },
+  saveButton: { backgroundColor: '#D4A017', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 8 },
   saveButtonText: { color: '#000', fontSize: 16, fontWeight: '600' },
   modalContainer: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
   modalContent: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: '85%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
-  modalTitle: { fontSize: 20, fontWeight: '600', color: '#1A1A2E' },
+  modalTitle: { fontSize: 20, fontWeight: '600', color: '#1B4332' },
   klantSelector: { flexDirection: 'row', gap: 8 },
   klantOption: { paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#F5F6FA', borderRadius: 8, borderWidth: 1, borderColor: '#E8E9ED' },
-  klantOptionActive: { backgroundColor: '#F5A623', borderColor: '#F5A623' },
+  klantOptionActive: { backgroundColor: '#D4A017', borderColor: '#D4A017' },
   klantOptionText: { color: '#6c757d', fontSize: 14 },
   klantOptionTextActive: { color: '#000' },
   // PDF Settings styles
   logoUploadBtn: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 20, borderWidth: 2, borderStyle: 'dashed', borderColor: '#E8E9ED', alignItems: 'center' },
   logoUploadContent: { alignItems: 'center', gap: 8 },
-  logoUploadText: { color: '#F5A623', fontSize: 16, fontWeight: '600' },
+  logoUploadText: { color: '#D4A017', fontSize: 16, fontWeight: '600' },
   logoUploadSubtext: { color: '#6c757d', fontSize: 12 },
   logoPreviewContainer: { alignItems: 'center', gap: 8 },
   logoPreview: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  logoPreviewText: { color: '#1A1A2E', fontSize: 16 },
+  logoPreviewText: { color: '#1B4332', fontSize: 16 },
   changeLogoText: { color: '#6c757d', fontSize: 12 },
   removeLogo: { marginTop: 8, alignItems: 'center' },
   removeLogoText: { color: '#dc3545', fontSize: 14 },
@@ -1399,20 +1399,20 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E8E9ED',
   },
   toggleInfo: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 12 },
-  toggleLabel: { color: '#1A1A2E', fontSize: 14, fontWeight: '600' },
+  toggleLabel: { color: '#1B4332', fontSize: 14, fontWeight: '600' },
   toggleSubLabel: { color: '#6c757d', fontSize: 12, marginTop: 2 },
   // Result modal styles
   resultModalContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.7)' },
   resultModalContent: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 30, width: '85%', alignItems: 'center' },
   resultIcon: { marginBottom: 16 },
-  resultTitle: { fontSize: 22, fontWeight: 'bold', color: '#1A1A2E', marginBottom: 8 },
+  resultTitle: { fontSize: 22, fontWeight: 'bold', color: '#1B4332', marginBottom: 8 },
   resultSubtitle: { fontSize: 14, color: '#6c757d', marginBottom: 24 },
   passwordBox: { backgroundColor: '#F5F6FA', borderRadius: 12, padding: 20, width: '100%', alignItems: 'center', marginBottom: 16 },
   passwordLabel: { color: '#6c757d', fontSize: 12, marginBottom: 8 },
-  passwordValue: { color: '#F5A623', fontSize: 24, fontWeight: 'bold', letterSpacing: 2 },
+  passwordValue: { color: '#D4A017', fontSize: 24, fontWeight: 'bold', letterSpacing: 2 },
   emailStatusBox: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 24 },
   emailStatusText: { color: '#6c757d', fontSize: 12, flex: 1 },
   emailErrorText: { color: '#ffc107', fontSize: 12, textAlign: 'center', marginBottom: 16 },
-  resultButton: { backgroundColor: '#F5A623', paddingVertical: 14, paddingHorizontal: 40, borderRadius: 12 },
+  resultButton: { backgroundColor: '#D4A017', paddingVertical: 14, paddingHorizontal: 40, borderRadius: 12 },
   resultButtonText: { color: '#000', fontSize: 16, fontWeight: '600' },
 });

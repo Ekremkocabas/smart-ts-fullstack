@@ -64,7 +64,7 @@ export const PhotoUpload: React.FC<PhotoUploadProps> = ({
   photos,
   onPhotosChange,
   maxPhotos = 5,
-  primaryColor = '#F5A623',
+  primaryColor = '#D4A017',
   label = "Foto's",
 }) => {
   const [loading, setLoading] = useState(false);
@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1A1A2E',
+    color: '#1B4332',
   },
   counter: {
     fontSize: 13,

@@ -609,10 +609,14 @@ def is_dark_color(hex_color: str) -> bool:
 
 def get_pdf_colors(instellingen: dict) -> dict:
     """Get werkbon PDF colors — ONLY from werkbon_* fields, never from branding colors.
-    Defaults: primary=#E8A020 secondary=#1a1a2e accent=#F5A623"""
-    primary   = instellingen.get("werkbon_primary_color")   or "#E8A020"
-    secondary = instellingen.get("werkbon_secondary_color") or "#1a1a2e"
-    accent    = instellingen.get("werkbon_accent_color")    or "#F5A623"
+
+    Defaults are the Signybon brand palette (green/gold). NEVER use a legacy
+    Smart-Tech color (orange / dark navy) as a fallback — that would leak the
+    look of one tenant onto every other tenant who hasn't picked colors yet.
+    """
+    primary   = instellingen.get("werkbon_primary_color")   or "#1B4332"
+    secondary = instellingen.get("werkbon_secondary_color") or "#D4A017"
+    accent    = instellingen.get("werkbon_accent_color")    or "#1B4332"
     return {"primary": primary, "secondary": secondary, "accent": accent}
 
 def get_company_address_2lines(settings: dict) -> tuple[str, str]:
@@ -636,8 +640,47 @@ def get_company_logo(settings: dict) -> Optional[str]:
     # Fallback to legacy base64
     return settings.get("logo_base64")
 
+
+def make_logo_or_brand_flowable(instellingen: dict, width_mm: float, height_mm: float):
+    """Return a ReportLab flowable for the top-left "logo slot" on PDFs.
+
+    Rule (multi-tenant brand isolation): if THIS tenant has uploaded a logo we
+    render it; otherwise we render the tenant's bedrijfsnaam in caps. We never
+    fall back to a Signybon platform logo — that would brand another tenant's
+    document as if Signybon issued it. Keeps PDFs unmistakably the customer's.
+    """
+    from reportlab.platypus import Paragraph as _Paragraph
+    from reportlab.lib.styles import ParagraphStyle as _PS
+
+    logo_bytes = decode_base64_data(get_company_logo(instellingen))
+    if logo_bytes:
+        img = make_safe_reportlab_image(logo_bytes, width_mm, height_mm)
+        if img is not None:
+            return img
+
+    # Brand-color title fallback so the slot stays visually balanced.
+    _C = get_pdf_colors(instellingen)
+    bedrijfsnaam = (instellingen.get("bedrijfsnaam") or "Signybon").upper()
+    # Cap length so a very long company name doesn't crash out of the cell.
+    if len(bedrijfsnaam) > 24:
+        bedrijfsnaam = bedrijfsnaam[:24]
+    return _Paragraph(
+        f"<b>{bedrijfsnaam}</b>",
+        _PS(
+            "BrandFallback",
+            fontName="Helvetica-Bold",
+            fontSize=14,
+            leading=16,
+            textColor=colors.HexColor(_C["primary"]),
+            alignment=1,  # center
+        ),
+    )
+
 def get_company_color(settings: dict, color_type: str = "primary") -> str:
-    """Get company color - prefer new structured fields, fallback to legacy"""
+    """Get company color — prefer structured branding fields, fallback to legacy
+    flat fields, and finally to the Signybon brand palette. NEVER falls back to
+    any legacy Smart-Tech color so tenants without picked colors see Signybon's
+    defaults, not another tenant's identity."""
     branding = settings.get("branding")
     if branding and isinstance(branding, dict):
         if color_type == "primary":
@@ -646,10 +689,10 @@ def get_company_color(settings: dict, color_type: str = "primary") -> str:
             color = branding.get("accent_kleur")
         if color:
             return color
-    # Fallback to legacy
+    # Fallback chain: legacy flat field → Signybon brand color
     if color_type == "primary":
-        return settings.get("primary_color") or "#1a1a2e"
-    return settings.get("accent_color") or settings.get("secondary_color") or "#F5A623"
+        return settings.get("primary_color") or "#1B4332"
+    return settings.get("accent_color") or settings.get("secondary_color") or "#D4A017"
 
 def get_pdf_text(settings: dict, text_type: str) -> str:
     """Get PDF text - prefer new structured fields, fallback to legacy"""
@@ -2132,9 +2175,19 @@ def get_sender_email(instellingen: dict) -> str:
     sender_email = os.environ.get("SENDER_EMAIL", "noreply@signybon.com")
     return f"{bedrijfsnaam} <{sender_email}>"
 
-def get_reply_to(instellingen: dict) -> Optional[str]:
-    """Return company's own email so replies go to them."""
-    return instellingen.get("email") or None
+def get_reply_to(instellingen: dict, user_email: Optional[str] = None) -> Optional[str]:
+    """Return the address that replies should land in. Priority:
+      1. instellingen.email (the company's own inbox)
+      2. user_email (the logged-in user — so replies still reach a real person
+         instead of vanishing into the Signybon noreply mailbox).
+    Never falls back to a Signybon platform address — that would route a
+    tenant's client replies to the wrong inbox."""
+    inst_email = (instellingen.get("email") or "").strip()
+    if inst_email:
+        return inst_email
+    if user_email and user_email.strip():
+        return user_email.strip()
+    return None
 
 
 def get_email_brand_name(instellingen: dict) -> str:
@@ -2174,6 +2227,22 @@ async def get_instellingen_for_company(company_id: Optional[str]) -> dict:
         return {}
     doc = await db.instellingen.find_one({"id": "company_settings", "company_id": company_id}, {"_id": 0})
     return doc or {}
+
+
+def _require_tenant(current_user: Dict) -> str:
+    """Return the user's company_id or raise 403 — NEVER silently fall back to
+    'default_company'. A missing company_id on the JWT means we cannot identify
+    the tenant, and assuming default_company would hand the requester all of
+    the legacy Smart-Tech data. Platform/master admin endpoints that legitimately
+    cross tenants must NOT call this helper — they pass the target company_id
+    explicitly as a path/query parameter."""
+    company_id = current_user.get("company_id") if current_user else None
+    if not company_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Geen company_id in token — toegang geweigerd",
+        )
+    return company_id
 
 
 # ==================== PLAN / FEATURE MATRIX ====================
@@ -2807,10 +2876,9 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     story = []
 
     # ── MAIN HEADER: 3-column [Logo | TIMESHEET + Week | Firma info] ──
-    # 3C: logo dynamically from instellingen (supports both base64 and URL)
-    logo_bytes = decode_base64_data(get_company_logo(instellingen))
-    logo = make_safe_reportlab_image(logo_bytes, 38 * mm, 28 * mm)
-    logo_cell: list = [logo] if logo else []
+    # Logo slot: tenant's uploaded logo OR tenant's bedrijfsnaam in caps —
+    # never the Signybon platform logo.
+    logo_cell: list = [make_logo_or_brand_flowable(instellingen, 38 * mm, 28 * mm)]
 
     # Use current year dynamically
     current_year = datetime.now().year
@@ -2846,7 +2914,7 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
         _adres_line1 or "",
         _adres_line2 or "",
         instellingen.get("telefoon") or "",
-        instellingen.get("email") or COMPANY_EMAIL,
+        instellingen.get("email") or "",
         f"BTW: {instellingen['btw_nummer']}" if instellingen.get("btw_nummer") else "",
     ]
     company_detail_text = "<br/>".join(line for line in company_lines if line)
@@ -3232,12 +3300,8 @@ def _build_groep_cover_page(story: list, ctx: Dict[str, Any], groep: dict, werkb
     _hdr_text = ctx["hdr_text"]
     _accent_text = ctx["accent_text"]
 
-    bedrijfsnaam_pdf = instellingen.get("bedrijfsnaam", "Signybon")
-    logo_bytes = decode_base64_data(get_company_logo(instellingen))
-    logo = make_safe_reportlab_image(logo_bytes, 60 * mm, 24 * mm)
-
-    # Header band with logo + title
-    header_left: list = [logo] if logo else [Paragraph(f"<b>{bedrijfsnaam_pdf}</b>", styles["CoverSub"])]
+    # Header band: tenant logo OR tenant bedrijfsnaam in caps.
+    header_left: list = [make_logo_or_brand_flowable(instellingen, 60 * mm, 24 * mm)]
     header_right = [
         Paragraph("MAAND-WERKBON", styles["CoverTitle"]),
         Paragraph(f"Periode {groep.get('periode_van', '?')} t/m {groep.get('periode_tot', '?')}", styles["CoverSub"]),
@@ -3361,9 +3425,8 @@ def _build_werkbon_section(
     _accent_text = ctx["accent_text"]
 
     # ── MAIN HEADER ──
-    logo_bytes = decode_base64_data(get_company_logo(instellingen))
-    logo = make_safe_reportlab_image(logo_bytes, 38 * mm, 28 * mm)
-    logo_cell: list = [logo] if logo else []
+    # Logo slot: tenant logo OR tenant bedrijfsnaam caps — no platform fallback.
+    logo_cell: list = [make_logo_or_brand_flowable(instellingen, 38 * mm, 28 * mm)]
 
     werkbon_jaar = werkbon.get('jaar', datetime.now().year)
     werkbon_week = werkbon.get('week_nummer', '00')
@@ -3393,7 +3456,7 @@ def _build_werkbon_section(
         _adres_line1 or "",
         _adres_line2 or "",
         instellingen.get("telefoon") or "",
-        instellingen.get("email") or COMPANY_EMAIL,
+        instellingen.get("email") or "",
         f"BTW: {instellingen['btw_nummer']}" if instellingen.get("btw_nummer") else "",
     ]
     company_detail_text = "<br/>".join(line for line in company_lines if line)
@@ -3740,12 +3803,8 @@ def generate_oplevering_pdf(werkbon: dict, instellingen: dict) -> tuple[bytes, s
     styles.add(ParagraphStyle(name="OVLegal", parent=styles["BodyText"], fontSize=7, leading=9, textColor=colors.HexColor("#666666"), fontName="Helvetica-Oblique"))
 
     story = []
-    
-    # Company info from instellingen (same as werkbon PDF)
-    logo_bytes = decode_base64_data(get_company_logo(instellingen))
-    logo = make_safe_reportlab_image(logo_bytes, 40 * mm, 17 * mm)
 
-    # Professional Header
+    # Company info from instellingen — logo OR bedrijfsnaam caps fallback
     _bedrijfsnaam = instellingen.get("bedrijfsnaam", "Signybon")
     _adres_line1, _adres_line2 = get_company_address_2lines(instellingen)
     _company_email = instellingen.get("email") or ""
@@ -3753,10 +3812,7 @@ def generate_oplevering_pdf(werkbon: dict, instellingen: dict) -> tuple[bytes, s
     company_lines = [f"<b>{_bedrijfsnaam}</b>", _adres_line1, _adres_line2, f"BTW: {_btw}" if _btw else "", _company_email]
     company_info_text = "<br/>".join(line for line in company_lines if line)
 
-    left_cell = []
-    if logo:
-        left_cell.append(logo)
-        left_cell.append(Spacer(1, 4))
+    left_cell = [make_logo_or_brand_flowable(instellingen, 40 * mm, 17 * mm), Spacer(1, 4)]
     left_cell.append(Paragraph(company_info_text, ParagraphStyle("CompInfo", fontSize=8, leading=10, textColor=colors.HexColor("#333333"))))
 
     title_style = ParagraphStyle("OVTitle", fontName="Helvetica-Bold", fontSize=18, textColor=colors.HexColor(_secondary), alignment=2)
@@ -3972,11 +4028,7 @@ def generate_productie_pdf(werkbon: dict, instellingen: dict) -> tuple[bytes, st
 
     story = []
     
-    # Company info from instellingen (same as werkbon PDF)
-    logo_bytes = decode_base64_data(get_company_logo(instellingen))
-    logo = make_safe_reportlab_image(logo_bytes, 40 * mm, 17 * mm)
-
-    # Professional Header - Left: Logo + Company Info, Right: Werkbon Type + Date/Status
+    # Company info from instellingen — logo OR bedrijfsnaam caps fallback
     _bedrijfsnaam = instellingen.get("bedrijfsnaam", "Signybon")
     _adres_line1, _adres_line2 = get_company_address_2lines(instellingen)
     _company_email = instellingen.get("email") or ""
@@ -3984,10 +4036,7 @@ def generate_productie_pdf(werkbon: dict, instellingen: dict) -> tuple[bytes, st
     company_lines = [f"<b>{_bedrijfsnaam}</b>", _adres_line1, _adres_line2, f"BTW: {_btw}" if _btw else "", _company_email]
     company_info_text = "<br/>".join(line for line in company_lines if line)
 
-    left_cell: list = []
-    if logo:
-        left_cell.append(logo)
-        left_cell.append(Spacer(1, 4))
+    left_cell: list = [make_logo_or_brand_flowable(instellingen, 40 * mm, 17 * mm), Spacer(1, 4)]
     left_cell.append(Paragraph(company_info_text, ParagraphStyle("CompInfo", fontSize=8, leading=10, textColor=colors.HexColor("#333333"))))
 
     # Right side: Werkbon type and info
@@ -4278,7 +4327,7 @@ async def send_productie_werkbon_email(werkbon: dict, instellingen: dict, pdf_by
         """
         params = {
             "from": get_sender_email(instellingen),
-            **({"reply_to": [get_reply_to(instellingen)]} if get_reply_to(instellingen) else {}),
+            **({"reply_to": [get_reply_to(instellingen, user_email=user_email)]} if get_reply_to(instellingen, user_email=user_email) else {}),
             "headers": {"List-Unsubscribe": "<mailto:info@signybon.com>"},
             "to": recipients,
             "subject": subject,
@@ -4407,11 +4456,12 @@ def generate_project_werkbon_pdf(werkbon: dict, instellingen: dict) -> tuple[byt
     styles.add(ParagraphStyle(name="PJSmall", parent=styles["BodyText"], fontSize=8, leading=10, textColor=colors.HexColor("#555555")))
     story = []
 
-    logo = make_safe_reportlab_image(decode_base64_data(instellingen.get("logo_base64")), 26 * mm, 18 * mm)
+    # Logo OR bedrijfsnaam caps — also pulls branding.logo_url (the old direct
+    # logo_base64 lookup missed URL-based logos uploaded via the new branding UI).
     bedrijfsnaam = instellingen.get("bedrijfsnaam") or "Signybon"
-    header_left = [logo, Spacer(1, 3)] if logo else []
+    header_left: list = [make_logo_or_brand_flowable(instellingen, 26 * mm, 18 * mm), Spacer(1, 3)]
     header_left.append(Paragraph(f"<b>{bedrijfsnaam}</b>", ParagraphStyle("PJCompany", fontName="Helvetica-Bold", fontSize=14, textColor=colors.HexColor(_secondary))))
-    header_left.append(Paragraph(instellingen.get("email") or COMPANY_EMAIL, styles["PJSmall"]))
+    header_left.append(Paragraph(instellingen.get("email") or "", styles["PJSmall"]))
     header_right = [
         Paragraph("<b>PROJECT WERKBON</b>", ParagraphStyle("PJTitle", fontName="Helvetica-Bold", fontSize=16, textColor=colors.HexColor(_secondary), alignment=2)),
         Paragraph(f"Status: {(werkbon.get('status') or 'ondertekend').capitalize()}", styles["PJBody"]),
@@ -4561,7 +4611,7 @@ async def send_project_werkbon_email(werkbon: dict, instellingen: dict, pdf_byte
     try:
         params = {
             "from": get_sender_email(instellingen),
-            **({"reply_to": [get_reply_to(instellingen)]} if get_reply_to(instellingen) else {}),
+            **({"reply_to": [get_reply_to(instellingen, user_email=user_email)]} if get_reply_to(instellingen, user_email=user_email) else {}),
             "headers": {"List-Unsubscribe": "<mailto:info@signybon.com>"},
             "to": recipients,
             "subject": subject,
@@ -4791,7 +4841,7 @@ async def register_worker_with_email(
     current_user: Dict = Depends(require_roles(["admin", "master_admin"]))
 ):
     """Register a new worker. Only admin/master_admin can create users."""
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     _sub, plan, _co = await _resolve_company_plan(company_id)
     await _enforce_limit(
         company_id, plan, "werknemers", "users",
@@ -4818,7 +4868,7 @@ async def register_worker_with_email(
         team_id=team_id,
         telefoon=telefoon,
         werkbon_types=wbt,
-        company_id=current_user.get("company_id") or "default_company",
+        company_id=_require_tenant(current_user),
     )
     await db.users.insert_one(user.dict())
     clear_cache("auth:users")
@@ -4838,7 +4888,7 @@ async def register_worker_with_email(
 
 @api_router.post("/auth/users/{user_id}/resend-info", response_model=ResendInfoMailResponse)
 async def resend_worker_info_email(user_id: str, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     user = await db.users.find_one({"id": user_id, "company_id": company_id}, {"_id": 0})
     if not user:
         raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
@@ -5020,7 +5070,7 @@ async def _build_plan_info(company_id: str, plan: str, subscription: dict) -> di
 @api_router.get("/subscription/plan-info")
 async def subscription_plan_info(current_user: Dict = Depends(get_current_user)):
     """Returns plan, limits, features and current usage for the caller's tenant."""
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     sub, plan, _co = await _resolve_company_plan(company_id)
     return await _build_plan_info(company_id, plan, sub)
 
@@ -5057,7 +5107,7 @@ async def subscription_select_plan(
 @api_router.get("/auth/users", response_model=List[UserResponse])
 async def get_all_users(current_user: Dict = Depends(require_web_access())):
     """Get all users. Only web panel users can access."""
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     cache_key = f"auth:users:{company_id}"
     cached = get_cache(cache_key, ttl_seconds=60)
     if cached is not None:
@@ -5088,7 +5138,7 @@ async def get_all_users(current_user: Dict = Depends(require_web_access())):
 @api_router.put("/auth/users/{user_id}", response_model=UserResponse)
 async def update_user(user_id: str, update_data: UserUpdate, current_user: Dict = Depends(get_current_user)):
     """Update user. Tenant-scoped — admins can only update users in their own company."""
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
     if not update_dict:
         raise HTTPException(status_code=400, detail="Geen wijzigingen opgegeven")
@@ -5182,7 +5232,7 @@ async def admin_reset_password(user_id: str, data: dict, current_user: Dict = De
     Admin endpoint to reset user password — tenant-scoped.
     Only admins of the same tenant can reset.
     """
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     new_password = data.get("new_password")
     if not new_password:
         raise HTTPException(status_code=400, detail="Nieuw wachtwoord is verplicht")
@@ -5214,7 +5264,7 @@ async def get_user_password(user_id: str, current_user: Dict = Depends(require_r
     """
     Admin endpoint to get user's plain password (if available) — tenant-scoped.
     """
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     user = await db.users.find_one({"id": user_id, "company_id": company_id})
     if not user:
         raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
@@ -5267,7 +5317,7 @@ async def assign_user_role(
     Validates that the assigner has permission to assign the requested role and
     that both assigner and target belong to the caller's tenant.
     """
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     new_role = role_data.get("role")
     if not new_role:
         raise HTTPException(status_code=400, detail="Rol is vereist")
@@ -5328,7 +5378,7 @@ async def delete_user(user_id: str, current_user: Dict = Depends(require_roles([
     if is_platform_admin:
         scope = {"id": user_id}
     else:
-        company_id = current_user.get("company_id") or "default_company"
+        company_id = _require_tenant(current_user)
         scope = {"id": user_id, "company_id": company_id}
 
     user = await db.users.find_one(scope)
@@ -5461,7 +5511,7 @@ async def send_notification_api(data: dict):
 
 @api_router.get("/teams", response_model=List[Team])
 async def get_teams(current_user: Dict = Depends(get_current_user)):
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     cache_key = f"teams:active:{company_id}"
     cached = get_cache(cache_key, ttl_seconds=60)
     if cached is not None:
@@ -5473,7 +5523,7 @@ async def get_teams(current_user: Dict = Depends(get_current_user)):
 
 @api_router.get("/teams/{team_id}", response_model=Team)
 async def get_team(team_id: str, current_user: Dict = Depends(get_current_user)):
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     team = await db.teams.find_one({"id": team_id, "actief": True, "company_id": company_id})
     if not team:
         raise HTTPException(status_code=404, detail="Team niet gevonden")
@@ -5484,7 +5534,7 @@ async def create_team(team_data: TeamCreate, current_user: Dict = Depends(requir
     """Create a new team. Only admin/master_admin can create teams."""
     team = Team(**team_data.dict())
     team_dict = team.dict()
-    team_dict["company_id"] = current_user.get("company_id") or "default_company"
+    team_dict["company_id"] = _require_tenant(current_user)
     await db.teams.insert_one(team_dict)
     clear_cache("teams")
     return team
@@ -5492,7 +5542,7 @@ async def create_team(team_data: TeamCreate, current_user: Dict = Depends(requir
 @api_router.put("/teams/{team_id}", response_model=Team)
 async def update_team(team_id: str, team_data: TeamUpdate, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Update a team. Only admin/master_admin can update teams."""
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     update_dict = {k: v for k, v in team_data.dict().items() if v is not None}
     result = await db.teams.update_one({"id": team_id, "company_id": company_id}, {"$set": update_dict})
     if result.matched_count == 0:
@@ -5504,7 +5554,7 @@ async def update_team(team_id: str, team_data: TeamUpdate, current_user: Dict = 
 @api_router.delete("/teams/{team_id}")
 async def delete_team(team_id: str, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Delete a team. Only admin/master_admin can delete teams."""
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     result = await db.teams.update_one({"id": team_id, "company_id": company_id}, {"$set": {"actief": False}})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Team niet gevonden")
@@ -5516,7 +5566,7 @@ async def delete_team(team_id: str, current_user: Dict = Depends(require_roles([
 @api_router.get("/klanten", response_model=List[dict])
 async def get_klanten(include_inactive: bool = Query(False), current_user: Dict = Depends(get_current_user)):
     """Get all klanten with migration to new structure (company-scoped)"""
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     cache_key = f"klanten:{company_id}:{'all' if include_inactive else 'active'}"
     cached = get_cache(cache_key, ttl_seconds=60)
     if cached is not None:
@@ -5532,7 +5582,7 @@ async def get_klanten(include_inactive: bool = Query(False), current_user: Dict 
 @api_router.get("/klanten/{klant_id}")
 async def get_klant(klant_id: str, current_user: Dict = Depends(get_current_user)):
     """Get single klant by ID (company-scoped)"""
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     klant = await db.klanten.find_one({"id": klant_id, "company_id": company_id})
     if not klant:
         raise HTTPException(status_code=404, detail="Klant niet gevonden")
@@ -5541,7 +5591,7 @@ async def get_klant(klant_id: str, current_user: Dict = Depends(get_current_user
 @api_router.post("/klanten", response_model=dict)
 async def create_klant(klant_data: KlantCreate, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Create new klant with auto-generated klantnummer - Admin/Master Admin only"""
-    company_id_for_limit = current_user.get("company_id") or "default_company"
+    company_id_for_limit = _require_tenant(current_user)
     _sub, plan, _co = await _resolve_company_plan(company_id_for_limit)
     await _enforce_limit(company_id_for_limit, plan, "klanten", "klanten", {"actief": {"$ne": False}})
     klant_dict = klant_data.dict()
@@ -5565,7 +5615,7 @@ async def create_klant(klant_data: KlantCreate, current_user: Dict = Depends(req
     
     # Set defaults
     klant_dict["id"] = str(uuid.uuid4())
-    klant_dict["company_id"] = current_user.get("company_id") or "default_company"
+    klant_dict["company_id"] = company_id_for_limit
     klant_dict["actief"] = True
     klant_dict["created_at"] = datetime.now(timezone.utc)
     
@@ -5583,7 +5633,7 @@ async def create_klant(klant_data: KlantCreate, current_user: Dict = Depends(req
 @api_router.put("/klanten/{klant_id}", response_model=dict)
 async def update_klant(klant_id: str, klant_data: dict, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Update klant - accepts full klant object - Admin/Master Admin only"""
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     existing = await db.klanten.find_one({"id": klant_id, "company_id": company_id})
     if not existing:
         raise HTTPException(status_code=404, detail="Klant niet gevonden")
@@ -5612,7 +5662,7 @@ async def update_klant(klant_id: str, klant_data: dict, current_user: Dict = Dep
 @api_router.delete("/klanten/{klant_id}")
 async def delete_klant(klant_id: str, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Delete (deactivate) klant - Admin/Master Admin only"""
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     result = await db.klanten.update_one({"id": klant_id, "company_id": company_id}, {"$set": {"actief": False}})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Klant niet gevonden")
@@ -5631,35 +5681,48 @@ async def get_prijs_modellen():
 
 @api_router.post("/klanten/{klant_id}/send-welcome-email")
 async def send_klant_welcome(klant_id: str, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
-    """Send a welcome email to a client - Admin/Master Admin only"""
-    klant = await db.klanten.find_one({"id": klant_id})
+    """Send a welcome email to a client - Admin/Master Admin only. Strict
+    tenant scope on both the klant lookup AND the instellingen used to brand
+    the email, so the message goes out under the sender's identity — not some
+    other tenant's logo/colors."""
+    company_id = _require_tenant(current_user)
+    klant = await db.klanten.find_one({"id": klant_id, "company_id": company_id})
     if not klant:
         raise HTTPException(status_code=404, detail="Klant niet gevonden")
-    
+
     # Use new field with fallback to legacy
     email = klant.get("algemeen_email") or klant.get("email")
     naam = klant.get("bedrijfsnaam") or klant.get("naam")
-    
+
     if not email:
         raise HTTPException(status_code=400, detail="Klant heeft geen e-mailadres")
-    
-    instellingen = await db.instellingen.find_one({"id": "company_settings"}) or {}
+
+    instellingen = await get_instellingen_for_company(company_id)
     result = await send_klant_welcome_email(email, naam, instellingen)
     return {"email_sent": result.get("success", False), "error": result.get("error")}
 
 # ==================== WERF ROUTES ====================
 
-def _company_scope_query(company_id: str, base: Optional[dict] = None) -> dict:
+def _company_scope_query(company_id: Optional[str], base: Optional[dict] = None) -> dict:
     """Strict tenant scoping. Returns a query that ONLY matches documents whose
     company_id equals the supplied value. No legacy fallback — a missing
-    company_id field on a document means it belongs to no one and must not leak."""
+    company_id field on a document means it belongs to no one and must not leak.
+
+    Defensive guard: if the caller passes a falsy company_id we raise 403 instead
+    of building a `{"company_id": None}` query — that filter would match every
+    legacy doc without a company_id field and silently leak data."""
+    if not company_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Geen company_id — toegang geweigerd",
+        )
     base = dict(base or {})
     base["company_id"] = company_id
     return base
 
 @api_router.get("/werven", response_model=List[Werf])
 async def get_werven(current_user: Dict = Depends(get_current_user)):
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     cache_key = f"werven:active:{company_id}"
     cached = get_cache(cache_key, ttl_seconds=60)
     if cached is not None:
@@ -5671,14 +5734,14 @@ async def get_werven(current_user: Dict = Depends(get_current_user)):
 
 @api_router.get("/werven/klant/{klant_id}", response_model=List[Werf])
 async def get_werven_by_klant(klant_id: str, current_user: Dict = Depends(get_current_user)):
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     werven = await db.werven.find(_company_scope_query(company_id, {"klant_id": klant_id, "actief": True})).to_list(1000)
     return [Werf(**werf) for werf in werven]
 
 @api_router.post("/werven", response_model=Werf)
 async def create_werf(werf_data: WerfCreate, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Create new werf - Admin/Master Admin only"""
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     _sub, plan, _co = await _resolve_company_plan(company_id)
     await _enforce_limit(company_id, plan, "werven", "werven", {"actief": True})
     klant = await db.klanten.find_one({"id": werf_data.klant_id, "actief": True})
@@ -5696,7 +5759,7 @@ async def create_werf(werf_data: WerfCreate, current_user: Dict = Depends(requir
 @api_router.put("/werven/{werf_id}", response_model=Werf)
 async def update_werf(werf_id: str, werf_data: WerfCreate, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Update werf - Admin/Master Admin only"""
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     update_dict = werf_data.dict()
     # Validate the optional klant_id targets a klant in same tenant
     if update_dict.get("klant_id"):
@@ -5713,7 +5776,7 @@ async def update_werf(werf_id: str, werf_data: WerfCreate, current_user: Dict = 
 @api_router.delete("/werven/{werf_id}")
 async def delete_werf(werf_id: str, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Delete (deactivate) werf - Admin/Master Admin only"""
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     result = await db.werven.update_one({"id": werf_id, "company_id": company_id}, {"$set": {"actief": False}})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Werf niet gevonden")
@@ -5774,7 +5837,7 @@ async def get_werkbonnen(
     limit: int = Query(100, ge=1, le=500),
     current_user: Dict = Depends(get_current_user),
 ):
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     projection = {
         "_id": 0,
         "handtekening_data": 0,
@@ -6017,16 +6080,16 @@ async def create_unified_werkbon(data: UnifiedWerkbonCreate, current_user: Dict 
     user_naam = current_user["naam"]
 
     werkbon_type = data.type
-    company_id_for_plan = current_user.get("company_id") or "default_company"
+    company_id_for_plan = _require_tenant(current_user)
     _sub_p, plan_p, _co_p = await _resolve_company_plan(company_id_for_plan)
     _require_werkbon_type(plan_p, werkbon_type)
     werkbon_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc)
-    
+
     # Base document
     base_doc = {
         "id": werkbon_id,
-        "company_id": current_user.get("company_id") or "default_company",
+        "company_id": company_id_for_plan,
         "type": werkbon_type,
         "klant_id": data.klant_id,
         "klant_naam": data.klant_naam or "",
@@ -6177,7 +6240,7 @@ async def create_unified_werkbon(data: UnifiedWerkbonCreate, current_user: Dict 
 @api_router.post("/werkbonnen", response_model=Werkbon)
 async def create_werkbon(werkbon_data: WerkbonCreate, current_user: Dict = Depends(get_current_user)):
     """Create werkbon - uses authenticated user's identity from JWT"""
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     _sub, plan, _co = await _resolve_company_plan(company_id)
     # POST /werkbonnen is the legacy "uren" path; ensure plan permits it
     _require_werkbon_type(plan, "uren")
@@ -6210,7 +6273,7 @@ async def create_werkbon(werkbon_data: WerkbonCreate, current_user: Dict = Depen
     
     werkbon = Werkbon(**werkbon_dict)
     werkbon_doc = werkbon.dict()
-    werkbon_doc["company_id"] = current_user.get("company_id") or "default_company"
+    werkbon_doc["company_id"] = _require_tenant(current_user)
     await db.werkbonnen.insert_one(werkbon_doc)
 
     # Push notification to admins about new werkbon (tenant-scoped)
@@ -6236,7 +6299,7 @@ async def create_werkbon(werkbon_data: WerkbonCreate, current_user: Dict = Depen
 
 @api_router.put("/werkbonnen/{werkbon_id}", response_model=Werkbon)
 async def update_werkbon(werkbon_id: str, update_data: WerkbonUpdate, current_user: Dict = Depends(get_current_user)):
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
     update_dict["updated_at"] = datetime.now(timezone.utc)
 
@@ -6282,7 +6345,7 @@ async def update_werkbon(werkbon_id: str, update_data: WerkbonUpdate, current_us
 
 @api_router.delete("/werkbonnen/{werkbon_id}")
 async def delete_werkbon(werkbon_id: str, current_user: Dict = Depends(get_current_user)):
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     result = await db.werkbonnen.delete_one({"id": werkbon_id, "company_id": company_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Werkbon niet gevonden")
@@ -6291,7 +6354,7 @@ async def delete_werkbon(werkbon_id: str, current_user: Dict = Depends(get_curre
 @api_router.post("/werkbonnen/{werkbon_id}/dupliceer", response_model=Werkbon)
 async def dupliceer_werkbon(werkbon_id: str, current_user: Dict = Depends(get_current_user)):
     """Create a copy of an existing werkbon with current week number - uses authenticated user's identity from JWT"""
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     original = await db.werkbonnen.find_one({"id": werkbon_id, "company_id": company_id}, {"_id": 0})
     if not original:
         raise HTTPException(status_code=404, detail="Werkbon niet gevonden")
@@ -6424,7 +6487,7 @@ async def reassign_users(body: ReassignUsersBody, current_user: Dict = Depends(r
 @api_router.get("/onboarding/status")
 async def onboarding_status(current_user: Dict = Depends(get_current_user)):
     """Counts used by the dashboard onboarding wizard. Returns zeros for fresh tenants."""
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     scope = _company_scope_query(company_id)
     klanten = await db.klanten.count_documents(scope)
     werknemers = await db.users.count_documents(scope)
@@ -6449,7 +6512,7 @@ async def onboarding_status(current_user: Dict = Depends(get_current_user)):
 @api_router.get("/instellingen")
 async def get_instellingen(current_user: Dict = Depends(require_web_access())):
     """Get company settings. Web panel users can read."""
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     cache_key = f"instellingen:company:{company_id}"
     cached = get_cache(cache_key, ttl_seconds=120)
     if cached is not None:
@@ -6486,7 +6549,7 @@ async def get_instellingen(current_user: Dict = Depends(require_web_access())):
 @api_router.put("/instellingen")
 async def update_instellingen(update_data: BedrijfsInstellingenUpdate, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Update company settings. Only admin/master_admin can modify."""
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     # "DELETE" sentinel signals explicit removal (empty string in DB)
     update_dict = {}
     for k, v in update_data.dict().items():
@@ -6550,7 +6613,7 @@ async def update_instellingen(update_data: BedrijfsInstellingenUpdate, current_u
 @api_router.get("/instellingen/facturatie")
 async def get_facturatie_instellingen(current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Facturatie koppeling instellingen ophalen."""
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     settings = await get_instellingen_for_company(company_id)
     if not settings:
         return {
@@ -6573,7 +6636,7 @@ async def get_facturatie_instellingen(current_user: Dict = Depends(require_roles
 @api_router.put("/instellingen/facturatie")
 async def update_facturatie_instellingen(update_data: Dict, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Facturatie koppeling instellingen opslaan."""
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     allowed_keys = {"billit_api_key", "billit_party_id", "billit_omschrijving_template", "billit_referentie_veld", "billit_actief", "billit_auto_versturen"}
     update_dict = {k: v for k, v in update_data.items() if k in allowed_keys}
     update_dict["company_id"] = company_id
@@ -6714,8 +6777,8 @@ async def send_werkbon_to_billit(werkbon: dict, klant: dict, instellingen: dict)
 @api_router.post("/werkbonnen/{werkbon_id}/verstuur-billit")
 async def verstuur_werkbon_naar_billit(werkbon_id: str, current_user: Dict = Depends(require_web_access())):
     """Werkbon handmatig naar Billit sturen."""
-    company_id = current_user.get("company_id")
-    _sub_bl, plan_bl, _co_bl = await _resolve_company_plan(company_id or "default_company")
+    company_id = _require_tenant(current_user)
+    _sub_bl, plan_bl, _co_bl = await _resolve_company_plan(company_id)
     _require_feature(plan_bl, "billit", "Billit-koppeling")
     werkbon = await db.werkbonnen.find_one(_company_scope_query(company_id, {"id": werkbon_id}), {"_id": 0})
     if not werkbon:
@@ -6899,7 +6962,7 @@ async def send_werkbon_email(
     try:
         params = {
             "from": get_sender_email(instellingen),
-            **({"reply_to": [get_reply_to(instellingen)]} if get_reply_to(instellingen) else {}),
+            **({"reply_to": [get_reply_to(instellingen, user_email=user_email)]} if get_reply_to(instellingen, user_email=user_email) else {}),
             "headers": {"List-Unsubscribe": "<mailto:info@signybon.com>"},
             "to": recipients,
             "subject": f"Werkbon PDF - Week {week} - {werf_naam}",
@@ -6984,7 +7047,7 @@ async def send_oplevering_email(
     try:
         params = {
             "from": get_sender_email(instellingen),
-            **({"reply_to": [get_reply_to(instellingen)]} if get_reply_to(instellingen) else {}),
+            **({"reply_to": [get_reply_to(instellingen, user_email=user_email)]} if get_reply_to(instellingen, user_email=user_email) else {}),
             "headers": {"List-Unsubscribe": "<mailto:info@signybon.com>"},
             "to": recipients,
             "subject": subject,
@@ -7012,7 +7075,7 @@ async def verzend_werkbon(
     current_user: Dict = Depends(get_current_user),
 ):
     """Generate signed werkbon PDF and email it. By default only to company. Provide klant_email to also send to client. Use force=true to bypass status check."""
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     werkbon = await db.werkbonnen.find_one({"id": werkbon_id, "company_id": company_id}, {"_id": 0})
     if not werkbon:
         raise HTTPException(status_code=404, detail="Werkbon niet gevonden")
@@ -7117,14 +7180,14 @@ async def verzend_werkbon(
 @api_router.get("/werkbon-groepen")
 async def list_werkbon_groepen(current_user: Dict = Depends(get_current_user)):
     """List werkbon groepen for the current tenant, newest first."""
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     items = await db.werkbon_groepen.find({"company_id": company_id}, {"_id": 0}).sort("created_at", -1).to_list(500)
     return items
 
 
 @api_router.get("/werkbon-groepen/{groep_id}")
 async def get_werkbon_groep(groep_id: str, current_user: Dict = Depends(get_current_user)):
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     groep = await db.werkbon_groepen.find_one({"id": groep_id, "company_id": company_id}, {"_id": 0})
     if not groep:
         raise HTTPException(status_code=404, detail="Werkbon groep niet gevonden")
@@ -7144,7 +7207,7 @@ async def update_werkbon_groep(
 ):
     """Update a werkbon groep — primarily used to persist the single klant
     signature that covers every week in the bundle."""
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     existing = await db.werkbon_groepen.find_one({"id": groep_id, "company_id": company_id})
     if not existing:
         raise HTTPException(status_code=404, detail="Werkbon groep niet gevonden")
@@ -7265,9 +7328,9 @@ async def send_werkbon_groep_email(
     try:
         import base64 as _b64
         pdf_b64 = _b64.b64encode(pdf_bytes).decode("ascii")
-        reply_to = get_reply_to(instellingen)
+        reply_to = get_reply_to(instellingen, user_email=user_email)
         params: Dict[str, Any] = {
-            "from": f"{bedrijfsnaam} <onboarding@resend.dev>",
+            "from": get_sender_email(instellingen),
             "to": recipients,
             "subject": subject,
             "html": html_content,
@@ -7292,7 +7355,7 @@ async def verzend_werkbon_groep(
 ):
     """Generate ONE combined PDF for the whole maand-werkbon, email it, and
     cascade the verzonden status to every child werkbon."""
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     groep = await db.werkbon_groepen.find_one({"id": groep_id, "company_id": company_id}, {"_id": 0})
     if not groep:
         raise HTTPException(status_code=404, detail="Werkbon groep niet gevonden")
@@ -7404,7 +7467,7 @@ async def verzend_werkbon_groep(
 @api_router.get("/werkbon-groepen/{groep_id}/pdf")
 async def get_werkbon_groep_pdf(groep_id: str, current_user: Dict = Depends(get_current_user)):
     """Preview the combined PDF without sending email — returns base64."""
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     groep = await db.werkbon_groepen.find_one({"id": groep_id, "company_id": company_id}, {"_id": 0})
     if not groep:
         raise HTTPException(status_code=404, detail="Werkbon groep niet gevonden")
@@ -7421,19 +7484,19 @@ async def get_werkbon_groep_pdf(groep_id: str, current_user: Dict = Depends(get_
 
 
 @api_router.get("/werkbonnen/{werkbon_id}/pdf")
-async def get_werkbon_pdf(werkbon_id: str):
-    """Generate and return werkbon PDF as base64 (for download without sending email)"""
-    werkbon = await db.werkbonnen.find_one({"id": werkbon_id}, {"_id": 0})
+async def get_werkbon_pdf(werkbon_id: str, current_user: Dict = Depends(get_current_user)):
+    """Generate and return werkbon PDF as base64. Strict tenant scope on every
+    document the PDF renders — werkbon, klant, werf, AND instellingen — so a
+    Signybon customer can never see another tenant's data even by guessing IDs."""
+    company_id = _require_tenant(current_user)
+    werkbon = await db.werkbonnen.find_one({"id": werkbon_id, "company_id": company_id}, {"_id": 0})
     if not werkbon:
         raise HTTPException(status_code=404, detail="Werkbon niet gevonden")
-    
-    # Get klant for hourly rate
-    klant = await db.klanten.find_one({"id": werkbon["klant_id"]}, {"_id": 0}) or {}
-    werf = await db.werven.find_one({"id": werkbon["werf_id"]}, {"_id": 0}) or {}
-    
-    # Get company settings
-    instellingen = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0}) or {}
-    
+
+    klant = await db.klanten.find_one({"id": werkbon["klant_id"], "company_id": company_id}, {"_id": 0}) or {}
+    werf = await db.werven.find_one({"id": werkbon["werf_id"], "company_id": company_id}, {"_id": 0}) or {}
+    instellingen = await get_instellingen_for_company(company_id)
+
     fin = compute_werkbon_financials(werkbon, klant)
     total_uren = fin["total_uren"]
     uurtarief = fin["uurtarief"]
@@ -7626,7 +7689,7 @@ async def get_csv_export(jaar: int, week: Optional[int] = None, maand: Optional[
 
 @api_router.get("/oplevering-werkbonnen")
 async def get_oplevering_werkbonnen(user_id: str, current_user: Dict = Depends(get_current_user)):
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     user = await db.users.find_one({"id": user_id, "company_id": company_id})
     if not user:
         raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
@@ -7639,7 +7702,7 @@ async def get_oplevering_werkbonnen(user_id: str, current_user: Dict = Depends(g
 
 @api_router.get("/oplevering-werkbonnen/{werkbon_id}")
 async def get_oplevering_werkbon(werkbon_id: str, current_user: Dict = Depends(get_current_user)):
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     item = await db.oplevering_werkbonnen.find_one({"id": werkbon_id, "company_id": company_id}, {"_id": 0})
     if not item:
         raise HTTPException(status_code=404, detail="Oplevering werkbon niet gevonden")
@@ -7653,7 +7716,7 @@ async def create_oplevering_werkbon(
     """Create oplevering werkbon - uses authenticated user's identity from JWT"""
     final_user_id = current_user["user_id"]
     final_user_naam = current_user["naam"]
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     _sub_o, plan_o, _co_o = await _resolve_company_plan(company_id)
     _require_werkbon_type(plan_o, "oplevering")
 
@@ -7772,7 +7835,7 @@ async def create_oplevering_werkbon(
 
 @api_router.put("/oplevering-werkbonnen/{werkbon_id}")
 async def update_oplevering_werkbon(werkbon_id: str, update_data: OpleveringWerkbonUpdate, current_user: Dict = Depends(get_current_user)):
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
     update_dict["updated_at"] = datetime.now(timezone.utc)
 
@@ -7800,7 +7863,7 @@ async def verzend_oplevering_werkbon(
     force: bool = Query(False),
     current_user: Dict = Depends(get_current_user),
 ):
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     werkbon = await db.oplevering_werkbonnen.find_one({"id": werkbon_id, "company_id": company_id}, {"_id": 0})
     if not werkbon:
         raise HTTPException(status_code=404, detail="Oplevering werkbon niet gevonden")
@@ -7814,7 +7877,7 @@ async def verzend_oplevering_werkbon(
     # Prepare werkbon data - resolve GridFS file IDs to base64 for PDF generation
     werkbon_prepared = await prepare_werkbon_for_pdf(werkbon)
 
-    instellingen = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0}) or {}
+    instellingen = await get_instellingen_for_company(company_id)
 
     try:
         import gc
@@ -7860,7 +7923,7 @@ async def verzend_oplevering_werkbon(
 
 @api_router.delete("/oplevering-werkbonnen/{werkbon_id}")
 async def delete_oplevering_werkbon(werkbon_id: str, current_user: Dict = Depends(get_current_user)):
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     result = await db.oplevering_werkbonnen.delete_one({"id": werkbon_id, "company_id": company_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Oplevering werkbon niet gevonden")
@@ -7870,7 +7933,7 @@ async def delete_oplevering_werkbon(werkbon_id: str, current_user: Dict = Depend
 
 @api_router.get("/project-werkbonnen")
 async def get_project_werkbonnen(user_id: str, current_user: Dict = Depends(get_current_user)):
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     user = await db.users.find_one({"id": user_id, "company_id": company_id})
     if not user:
         raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
@@ -7883,7 +7946,7 @@ async def get_project_werkbonnen(user_id: str, current_user: Dict = Depends(get_
 
 @api_router.get("/project-werkbonnen/{werkbon_id}")
 async def get_project_werkbon(werkbon_id: str, current_user: Dict = Depends(get_current_user)):
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     item = await db.project_werkbonnen.find_one({"id": werkbon_id, "company_id": company_id}, {"_id": 0})
     if not item:
         raise HTTPException(status_code=404, detail="Project werkbon niet gevonden")
@@ -7897,7 +7960,7 @@ async def create_project_werkbon(
     """Create project werkbon - uses authenticated user's identity from JWT"""
     final_user_id = current_user["user_id"]
     final_user_naam = current_user["naam"]
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     _sub_pr, plan_pr, _co_pr = await _resolve_company_plan(company_id)
     _require_werkbon_type(plan_pr, "project")
 
@@ -7976,7 +8039,7 @@ async def create_project_werkbon(
 
 @api_router.put("/project-werkbonnen/{werkbon_id}")
 async def update_project_werkbon(werkbon_id: str, update_data: ProjectWerkbonUpdate, current_user: Dict = Depends(get_current_user)):
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
     update_dict["updated_at"] = datetime.now(timezone.utc)
 
@@ -8012,7 +8075,7 @@ async def verzend_project_werkbon(
     force: bool = Query(False),
     current_user: Dict = Depends(get_current_user),
 ):
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     werkbon = await db.project_werkbonnen.find_one({"id": werkbon_id, "company_id": company_id}, {"_id": 0})
     if not werkbon:
         raise HTTPException(status_code=404, detail="Project werkbon niet gevonden")
@@ -8061,7 +8124,7 @@ async def verzend_project_werkbon(
 
 @api_router.delete("/project-werkbonnen/{werkbon_id}")
 async def delete_project_werkbon(werkbon_id: str, current_user: Dict = Depends(get_current_user)):
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     result = await db.project_werkbonnen.delete_one({"id": werkbon_id, "company_id": company_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Project werkbon niet gevonden")
@@ -8071,7 +8134,7 @@ async def delete_project_werkbon(werkbon_id: str, current_user: Dict = Depends(g
 
 @api_router.get("/productie-werkbonnen")
 async def get_productie_werkbonnen(user_id: str, is_admin: bool = False, current_user: Dict = Depends(get_current_user)):
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     if is_admin:
         items = await db.productie_werkbonnen.find({"company_id": company_id}, {"_id": 0}).sort("created_at", -1).to_list(1000)
         return items
@@ -8087,7 +8150,7 @@ async def get_productie_werkbonnen(user_id: str, is_admin: bool = False, current
 
 @api_router.get("/productie-werkbonnen/{werkbon_id}")
 async def get_productie_werkbon(werkbon_id: str, current_user: Dict = Depends(get_current_user)):
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     item = await db.productie_werkbonnen.find_one({"id": werkbon_id, "company_id": company_id}, {"_id": 0})
     if not item:
         raise HTTPException(status_code=404, detail="Productie werkbon niet gevonden")
@@ -8101,7 +8164,7 @@ async def create_productie_werkbon(
     """Create productie werkbon - uses authenticated user's identity from JWT"""
     final_user_id = current_user["user_id"]
     final_user_naam = current_user["naam"]
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     _sub_pe, plan_pe, _co_pe = await _resolve_company_plan(company_id)
     _require_werkbon_type(plan_pe, "prestatie")
 
@@ -8221,7 +8284,7 @@ async def verzend_productie_werkbon(
     klant_email: Optional[str] = Query(None),
     current_user: Dict = Depends(get_current_user),
 ):
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     werkbon = await db.productie_werkbonnen.find_one({"id": werkbon_id, "company_id": company_id}, {"_id": 0})
     if not werkbon:
         raise HTTPException(status_code=404, detail="Productie werkbon niet gevonden")
@@ -8267,15 +8330,16 @@ async def verzend_productie_werkbon(
     }
 
 @api_router.get("/productie-werkbonnen/{werkbon_id}/pdf")
-async def get_productie_werkbon_pdf(werkbon_id: str):
-    werkbon = await db.productie_werkbonnen.find_one({"id": werkbon_id}, {"_id": 0})
+async def get_productie_werkbon_pdf(werkbon_id: str, current_user: Dict = Depends(get_current_user)):
+    company_id = _require_tenant(current_user)
+    werkbon = await db.productie_werkbonnen.find_one({"id": werkbon_id, "company_id": company_id}, {"_id": 0})
     if not werkbon:
         raise HTTPException(status_code=404, detail="Productie werkbon niet gevonden")
-    
+
     # Prepare werkbon data - resolve GridFS file IDs to base64 for PDF generation
     werkbon_prepared = await prepare_werkbon_for_pdf(werkbon)
-    
-    instellingen = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0}) or {}
+
+    instellingen = await get_instellingen_for_company(company_id)
     try:
         pdf_bytes, pdf_filename = generate_productie_pdf(werkbon_prepared, instellingen)
     except Exception as exc:
@@ -8286,7 +8350,7 @@ async def get_productie_werkbon_pdf(werkbon_id: str):
 
 @api_router.delete("/productie-werkbonnen/{werkbon_id}")
 async def delete_productie_werkbon(werkbon_id: str, current_user: Dict = Depends(get_current_user)):
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     result = await db.productie_werkbonnen.delete_one({"id": werkbon_id, "company_id": company_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Productie werkbon niet gevonden")
@@ -8296,14 +8360,14 @@ async def delete_productie_werkbon(werkbon_id: str, current_user: Dict = Depends
 
 @api_router.get("/planning")
 async def get_planning(week_nummer: int, jaar: int, current_user: Dict = Depends(get_current_user)):
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     q = _company_scope_query(company_id, {"week_nummer": week_nummer, "jaar": jaar})
     items = await db.planning.find(q, {"_id": 0}).sort("dag", 1).to_list(500)
     return items
 
 @api_router.get("/planning/werknemer/{werknemer_id}")
 async def get_planning_werknemer(werknemer_id: str, week_nummer: Optional[int] = None, jaar: Optional[int] = None, current_user: Dict = Depends(get_current_user)):
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     base = {"werknemer_ids": werknemer_id}
     if week_nummer is not None:
         base["week_nummer"] = week_nummer
@@ -8315,7 +8379,7 @@ async def get_planning_werknemer(werknemer_id: str, week_nummer: Optional[int] =
 
 @api_router.get("/planning/{planning_id}")
 async def get_planning_item(planning_id: str, current_user: Dict = Depends(get_current_user)):
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     item = await db.planning.find_one({"id": planning_id, "company_id": company_id}, {"_id": 0})
     if not item:
         raise HTTPException(status_code=404, detail="Planning item niet gevonden")
@@ -8343,7 +8407,7 @@ async def create_planning_bulk(data: PlanningBulkCreate, current_user: Dict = De
 
 
 async def _create_planning_bulk_impl(data: PlanningBulkCreate, current_user: Dict):
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     klant = await db.klanten.find_one({"id": data.klant_id, "company_id": company_id})
     werf = await db.werven.find_one({"id": data.werf_id, "company_id": company_id})
     if not klant:
@@ -8408,7 +8472,7 @@ async def _create_planning_bulk_impl(data: PlanningBulkCreate, current_user: Dic
             notities=data.notities,
         )
         item_doc = item.dict()
-        item_doc["company_id"] = current_user.get("company_id") or "default_company"
+        item_doc["company_id"] = _require_tenant(current_user)
         await db.planning.insert_one(item_doc)
         # pymongo mutates item_doc in place to add _id (ObjectId) — strip
         # Mongo-only fields so the response can be JSON-serialized.
@@ -8505,7 +8569,7 @@ async def create_planning_maand_bulk(
 
 async def _create_planning_maand_bulk_impl(data: PlanningMaandBulkCreate, current_user: Dict):
     from datetime import date as _date
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
 
     # Parse + validate date range.
     try:
@@ -8692,7 +8756,7 @@ async def create_planning(data: PlanningItemCreate, current_user: Dict = Depends
 
 
 async def _create_planning_impl(data: PlanningItemCreate, current_user: Dict):
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     # Resolve names (tenant-scoped)
     klant = await db.klanten.find_one({"id": data.klant_id, "company_id": company_id})
     werf = await db.werven.find_one({"id": data.werf_id, "company_id": company_id})
@@ -8757,7 +8821,7 @@ async def _create_planning_impl(data: PlanningItemCreate, current_user: Dict):
         notities=data.notities,
     )
     item_doc = item.dict()
-    item_doc["company_id"] = current_user.get("company_id") or "default_company"
+    item_doc["company_id"] = _require_tenant(current_user)
     await db.planning.insert_one(item_doc)
     # pymongo mutates item_doc in place to add _id (ObjectId) — strip the
     # Mongo-only fields before returning so FastAPI can serialize the body.
@@ -8782,7 +8846,7 @@ async def _create_planning_impl(data: PlanningItemCreate, current_user: Dict):
 @api_router.put("/planning/{planning_id}")
 async def update_planning(planning_id: str, update_data: PlanningItemUpdate, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Update planning item - Admin/Master Admin only"""
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
     update_dict["updated_at"] = datetime.now(timezone.utc)
 
@@ -8813,7 +8877,7 @@ async def update_planning(planning_id: str, update_data: PlanningItemUpdate, cur
 @api_router.delete("/planning/{planning_id}")
 async def delete_planning(planning_id: str, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """Delete planning item - Admin/Master Admin only"""
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     result = await db.planning.delete_one({"id": planning_id, "company_id": company_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Planning item niet gevonden")
@@ -8822,7 +8886,7 @@ async def delete_planning(planning_id: str, current_user: Dict = Depends(require
 @api_router.post("/planning/{planning_id}/bevestig")
 async def bevestig_planning(planning_id: str, werknemer_id: str, werknemer_naam: Optional[str] = Query(None), current_user: Dict = Depends(get_current_user)):
     """Worker confirms/acknowledges a planning item"""
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     item = await db.planning.find_one({"id": planning_id, "company_id": company_id})
     if not item:
         raise HTTPException(status_code=404, detail="Planning item niet gevonden")
@@ -8880,7 +8944,7 @@ async def bevestig_planning(planning_id: str, werknemer_id: str, werknemer_naam:
 @api_router.get("/berichten")
 async def get_berichten(user_id: str, current_user: Dict = Depends(get_current_user)):
     """Get messages for a user (broadcasts + direct messages). Excludes messages hidden by this user."""
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     _sub_b, plan_b, _co_b = await _resolve_company_plan(company_id)
     _require_feature(plan_b, "berichten", "Berichten")
     base = {
@@ -8895,7 +8959,7 @@ async def get_berichten(user_id: str, current_user: Dict = Depends(get_current_u
 @api_router.get("/berichten/ongelezen")
 async def get_ongelezen_berichten(user_id: str, current_user: Dict = Depends(get_current_user)):
     """Get unread message count for a user (tenant-scoped)"""
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     count = await db.berichten.count_documents({
         "company_id": company_id,
         "$or": [{"naar_id": user_id}, {"is_broadcast": True}],
@@ -8906,7 +8970,7 @@ async def get_ongelezen_berichten(user_id: str, current_user: Dict = Depends(get
 @api_router.post("/berichten")
 async def create_bericht(data: BerichtCreate, current_user: Dict = Depends(get_current_user)):
     """Create bericht - uses authenticated user's identity from JWT"""
-    company_id_b = current_user.get("company_id") or "default_company"
+    company_id_b = _require_tenant(current_user)
     _sub_b2, plan_b2, _co_b2 = await _resolve_company_plan(company_id_b)
     _require_feature(plan_b2, "berichten", "Berichten")
     # Use authenticated user's identity from JWT (NOT from request parameters)
@@ -8938,7 +9002,7 @@ async def create_bericht(data: BerichtCreate, current_user: Dict = Depends(get_c
     
     bericht_dict = {
         "id": str(uuid.uuid4()),
-        "company_id": current_user.get("company_id") or "default_company",
+        "company_id": company_id_b,
         "van_id": van_id,
         "van_naam": van_naam,
         "naar_id": data.naar_id,
@@ -9012,7 +9076,7 @@ async def create_bericht(data: BerichtCreate, current_user: Dict = Depends(get_c
 @api_router.post("/berichten/{bericht_id}/gelezen")
 async def markeer_gelezen(bericht_id: str, user_id: str, current_user: Dict = Depends(get_current_user)):
     """Mark a message as read (tenant-scoped)"""
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     await db.berichten.update_one(
         {"id": bericht_id, "company_id": company_id},
         {"$addToSet": {"gelezen_door": user_id}}
@@ -9031,7 +9095,7 @@ async def hide_bericht_for_user(bericht_id: str, current_user: Dict = Depends(ge
 
 @api_router.delete("/berichten/{bericht_id}")
 async def delete_bericht(bericht_id: str, current_user: Dict = Depends(get_current_user)):
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     result = await db.berichten.delete_one({"id": bericht_id, "company_id": company_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Bericht niet gevonden")
@@ -9040,7 +9104,7 @@ async def delete_bericht(bericht_id: str, current_user: Dict = Depends(get_curre
 @api_router.patch("/berichten/{bericht_id}")
 async def update_bericht(bericht_id: str, data: dict, current_user: Dict = Depends(get_current_user)):
     """Update a bericht (archive, pin, etc.) - tenant-scoped"""
-    company_id = current_user.get("company_id") or "default_company"
+    company_id = _require_tenant(current_user)
     update_fields = {}
     if "gearchiveerd" in data:
         update_fields["gearchiveerd"] = data["gearchiveerd"]
@@ -9059,18 +9123,21 @@ async def update_bericht(bericht_id: str, data: dict, current_user: Dict = Depen
     return {"message": "Bericht bijgewerkt", "updated_fields": list(update_fields.keys())}
 
 @api_router.post("/berichten/send-email")
-async def send_bericht_email(data: dict):
-    """Send a bericht also via email"""
+async def send_bericht_email(data: dict, current_user: Dict = Depends(get_current_user)):
+    """Send a bericht also via email. Tenant-scoped: instellingen come from the
+    sender's own tenant, so every mail is branded with the sender's logo and
+    bedrijfsnaam — never a sibling tenant's brand."""
     try:
+        company_id = _require_tenant(current_user)
         to_email = data.get("to_email")
         onderwerp = data.get("onderwerp", "Nieuw bericht")
         inhoud = data.get("inhoud", "")
         van_naam = data.get("van_naam", "Admin")
-        
+
         if not to_email:
             return {"success": False, "error": "Geen e-mailadres"}
-        
-        instellingen = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0}) or {}
+
+        instellingen = await get_instellingen_for_company(company_id)
         bedrijfsnaam = instellingen.get("bedrijfsnaam", "Signybon")
         
         html_content = f"""
@@ -9310,12 +9377,14 @@ async def get_mijn_documenten(current_user: Dict = Depends(get_current_user)):
 # ==================== THEME / APP SETTINGS ROUTE ====================
 
 async def _build_app_settings_response(settings: dict) -> dict:
-    """Shared logic for /app-settings — lightweight, no logo_base64."""
+    """Shared logic for /app-settings — lightweight, no logo_base64. Fallback
+    colors are the Signybon brand palette so a tenant who hasn't picked colors
+    yet never inherits another tenant's look."""
     return {
         "bedrijfsnaam": settings.get("bedrijfsnaam", "Signybon"),
-        "primary_color": settings.get("primary_color", "#1a1a2e"),
-        "secondary_color": settings.get("secondary_color", "#F5A623"),
-        "accent_color": settings.get("accent_color", "#16213e"),
+        "primary_color": settings.get("primary_color", "#1B4332"),
+        "secondary_color": settings.get("secondary_color", "#D4A017"),
+        "accent_color": settings.get("accent_color", "#1B4332"),
         "pdf_voettekst": settings.get("pdf_voettekst"),
         "uren_confirmation_text": settings.get("uren_confirmation_text"),
         "oplevering_confirmation_text": settings.get("oplevering_confirmation_text"),
@@ -9325,8 +9394,8 @@ async def _build_app_settings_response(settings: dict) -> dict:
 SIGNYBON_DEFAULT_SETTINGS = {
     "bedrijfsnaam": "Signybon",
     "primary_color": "#1B4332",
-    "secondary_color": "#F5A623",
-    "accent_color": "#D4A017",
+    "secondary_color": "#D4A017",
+    "accent_color": "#1B4332",
     "pdf_voettekst": None,
     "uren_confirmation_text": None,
     "oplevering_confirmation_text": None,
@@ -9386,13 +9455,16 @@ async def get_app_settings_logo(authorization: Optional[str] = Header(None)):
 
 @api_router.get("/public/branding")
 async def get_public_branding():
-    """Public endpoint — returns logo + bedrijfsnaam for login page (no auth required)."""
-    settings = await db.instellingen.find_one({"id": "company_settings"}, {"_id": 0}) or {}
-    branding = settings.get("branding") or {}
-    logo_b64 = branding.get("logo_base64") or settings.get("logo_base64")
-    result = await _build_app_settings_response(settings)
-    result["logo_base64"] = logo_b64
-    return result
+    """Public endpoint — returns the Signybon platform branding for unauth pages
+    (login, register). We DELIBERATELY do not look up any tenant's settings
+    here: an unauth caller cannot identify their tenant, so returning the first
+    tenant document MongoDB happens to find would leak that tenant's logo &
+    colors to every other visitor. Tenant-specific branding is served from
+    /api/app-settings only after login (where the JWT identifies the tenant)."""
+    return {
+        **SIGNYBON_DEFAULT_SETTINGS,
+        "logo_base64": SIGNYBON_DEFAULT_LOGO.get("logo_base64"),
+    }
 
 # ==================== DASHBOARD STATS ====================
 

@@ -28,7 +28,7 @@ export function ArchivedRecentWerkbonnenSection({ items }: { items: ArchivedRece
       case 'ondertekend':
         return '#28a745';
       case 'verzonden':
-        return '#F5A623';
+        return '#D4A017';
       default:
         return '#6c757d';
     }
@@ -86,12 +86,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1A1A2E',
+    color: '#1B4332',
     marginBottom: 16,
   },
   viewAllLink: {
     fontSize: 14,
-    color: '#F5A623',
+    color: '#D4A017',
     fontWeight: '500',
   },
   recentList: {
@@ -119,19 +119,19 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 10,
-    backgroundColor: '#F5A62315',
+    backgroundColor: '#D4A01715',
     alignItems: 'center',
     justifyContent: 'center',
   },
   weekBadgeText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#F5A623',
+    color: '#D4A017',
   },
   recentKlant: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#1A1A2E',
+    color: '#1B4332',
   },
   recentWerf: {
     fontSize: 13,

@@ -30,8 +30,8 @@ interface AppTheme {
 
 const defaultTheme: AppTheme = {
   primaryColor: '#1B4332',
-  secondaryColor: '#F5A623',
-  accentColor: '#D4A017',
+  secondaryColor: '#D4A017',
+  accentColor: '#1B4332',
   bedrijfsnaam: 'Signybon',
 };
 

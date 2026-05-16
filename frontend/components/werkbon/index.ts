@@ -35,7 +35,7 @@ export const werkbonStyles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1B4332',
     marginBottom: 12,
   },
   
@@ -43,7 +43,7 @@ export const werkbonStyles = StyleSheet.create({
   fieldLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1A1A2E',
+    color: '#1B4332',
     marginBottom: 8,
   },
   
@@ -54,7 +54,7 @@ export const werkbonStyles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: '#1A1A2E',
+    color: '#1B4332',
     borderWidth: 1,
     borderColor: '#E8E9ED',
     minHeight: 52,
@@ -83,7 +83,7 @@ export const werkbonStyles = StyleSheet.create({
   },
   chipText: {
     fontSize: 14,
-    color: '#1A1A2E',
+    color: '#1B4332',
   },
   
   // Picker/Dropdown
@@ -100,7 +100,7 @@ export const werkbonStyles = StyleSheet.create({
   },
   pickerButtonText: {
     fontSize: 16,
-    color: '#1A1A2E',
+    color: '#1B4332',
   },
   pickerPlaceholder: {
     color: '#8C9199',
@@ -129,7 +129,7 @@ export const werkbonStyles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1B4332',
     marginBottom: 16,
     textAlign: 'center',
   },
@@ -140,7 +140,7 @@ export const werkbonStyles = StyleSheet.create({
   },
   modalOptionText: {
     fontSize: 16,
-    color: '#1A1A2E',
+    color: '#1B4332',
   },
   modalCancel: {
     marginTop: 12,

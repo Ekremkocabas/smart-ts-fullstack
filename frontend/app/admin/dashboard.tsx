@@ -141,7 +141,7 @@ export default function AdminDashboard() {
     { icon: 'person-add', label: 'Nieuwe werknemer', route: '/admin/werknemers', color: '#3498db' },
     { icon: 'add-circle', label: 'Nieuwe klant', route: '/admin/klanten', color: '#1abc9c' },
     { icon: 'business', label: 'Nieuwe werf', route: '/admin/werven', color: '#e67e22' },
-    { icon: 'document-text', label: 'Bekijk werkbonnen', route: '/admin/werkbonnen', color: theme.primaryColor || '#F5A623' },
+    { icon: 'document-text', label: 'Bekijk werkbonnen', route: '/admin/werkbonnen', color: theme.primaryColor || '#D4A017' },
     { icon: 'bar-chart', label: 'Rapporten', route: '/admin/rapporten', color: '#9b59b6' },
     { icon: 'archive', label: 'Download werkbonnen', route: '/admin/werkbonnen/volledig', color: '#0056b3' },
   ];
@@ -182,7 +182,7 @@ export default function AdminDashboard() {
         >
           <Ionicons name="warning-outline" size={24} color="#e67e22" />
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 15, fontWeight: '600', color: '#1A1A2E' }}>Fout bij laden</Text>
+            <Text style={{ fontSize: 15, fontWeight: '600', color: '#1B4332' }}>Fout bij laden</Text>
             <Text style={{ fontSize: 13, color: '#6c757d', marginTop: 4 }}>{error}</Text>
           </View>
           <TouchableOpacity
@@ -274,7 +274,7 @@ export default function AdminDashboard() {
               style={[styles.statCard, styles.statCardLarge]}
               onPress={() => router.push('/admin/werven')}
             >
-              <View style={[styles.statIcon, { backgroundColor: (theme.primaryColor || '#F5A623') + '20' }]}>
+              <View style={[styles.statIcon, { backgroundColor: (theme.primaryColor || '#D4A017') + '20' }]}>
                 <Ionicons name="business" size={28} color={theme.primaryColor} />
               </View>
               <Text style={styles.statValue}>{stats?.totaalWerven || 0}</Text>
@@ -298,7 +298,7 @@ export default function AdminDashboard() {
 
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionTitle}>Werkbonnen overzicht</Text>
-            <TouchableOpacity onPress={() => router.push('/admin/werkbonnen' as any)} style={[styles.bekijkAlleBtn, { borderColor: (theme.primaryColor || '#F5A623') + '40' }]}>
+            <TouchableOpacity onPress={() => router.push('/admin/werkbonnen' as any)} style={[styles.bekijkAlleBtn, { borderColor: (theme.primaryColor || '#D4A017') + '40' }]}>
               <Text style={[styles.bekijkAlleText, { color: theme.primaryColor }]}>Bekijk alle werkbonnen</Text>
               <Ionicons name="arrow-forward" size={16} color={theme.primaryColor} />
             </TouchableOpacity>
@@ -388,7 +388,7 @@ const styles = StyleSheet.create({
   pageTitle: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1B4332',
   },
   dateText: {
     fontSize: 14,
@@ -423,7 +423,7 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 36,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1B4332',
   },
   statLabel: {
     fontSize: 14,
@@ -447,7 +447,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1A1A2E',
+    color: '#1B4332',
     marginBottom: 0,
   },
   bekijkAlleBtn: {
@@ -459,11 +459,11 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#F5A62340',
+    borderColor: '#D4A01740',
   },
   bekijkAlleText: {
     fontSize: 14,
-    color: '#F5A623',
+    color: '#D4A017',
     fontWeight: '600',
   },
   werkbonStats: {
@@ -485,7 +485,7 @@ const styles = StyleSheet.create({
   werkbonStatValue: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1B4332',
   },
   werkbonStatLabel: {
     fontSize: 13,
@@ -523,7 +523,7 @@ const styles = StyleSheet.create({
   },
   quickActionLabel: {
     fontSize: 13,
-    color: '#1A1A2E',
+    color: '#1B4332',
     fontWeight: '500',
     textAlign: 'center',
   },
@@ -536,7 +536,7 @@ const styles = StyleSheet.create({
   noAccessText: {
     fontSize: 24,
     fontWeight: '600',
-    color: '#1A1A2E',
+    color: '#1B4332',
     marginTop: 16,
   },
   noAccessSub: {

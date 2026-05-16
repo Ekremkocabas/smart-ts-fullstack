@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
   },
   errorText: { color: '#dc3545', fontSize: 14, flex: 1 },
   form: { gap: 8 },
-  label: { fontSize: 14, fontWeight: '500', color: '#1A1A2E', marginBottom: 6, marginTop: 8 },
+  label: { fontSize: 14, fontWeight: '500', color: '#1B4332', marginBottom: 6, marginTop: 8 },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
     height: 56,
   },
   inputIcon: { marginRight: 12 },
-  input: { flex: 1, color: '#1A1A2E', fontSize: 16 },
+  input: { flex: 1, color: '#1B4332', fontSize: 16 },
   eyeIcon: { padding: 4 },
   loginButton: {
     flexDirection: 'row',

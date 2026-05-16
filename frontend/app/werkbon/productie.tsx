@@ -96,7 +96,7 @@ export default function ProductieWerkbonScreen() {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   
-  const primary = theme.primaryColor || '#F5A623';
+  const primary = theme.primaryColor || '#D4A017';
 
   // Page state
   const [page, setPage] = useState<1 | 2>(1);
@@ -368,7 +368,7 @@ export default function ProductieWerkbonScreen() {
           style={styles.backButton} 
           onPress={page === 2 ? () => setPage(1) : () => router.back()}
         >
-          <Ionicons name="arrow-back" size={24} color="#1A1A2E" />
+          <Ionicons name="arrow-back" size={24} color="#1B4332" />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Prestatie Werkbon</Text>
@@ -795,7 +795,7 @@ export default function ProductieWerkbonScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Selecteer Klant</Text>
               <TouchableOpacity onPress={() => setShowKlantPicker(false)}>
-                <Ionicons name="close" size={24} color="#1A1A2E" />
+                <Ionicons name="close" size={24} color="#1B4332" />
               </TouchableOpacity>
             </View>
             <ScrollView style={{ maxHeight: 400 }}>
@@ -823,7 +823,7 @@ export default function ProductieWerkbonScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Selecteer Werf</Text>
               <TouchableOpacity onPress={() => setShowWerfPicker(false)}>
-                <Ionicons name="close" size={24} color="#1A1A2E" />
+                <Ionicons name="close" size={24} color="#1B4332" />
               </TouchableOpacity>
             </View>
             <ScrollView style={{ maxHeight: 400 }}>
@@ -852,7 +852,7 @@ export default function ProductieWerkbonScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Selecteer Product</Text>
               <TouchableOpacity onPress={() => setShowProductPicker(null)}>
-                <Ionicons name="close" size={24} color="#1A1A2E" />
+                <Ionicons name="close" size={24} color="#1B4332" />
               </TouchableOpacity>
             </View>
             <ScrollView style={{ maxHeight: 400 }}>
@@ -882,7 +882,7 @@ export default function ProductieWerkbonScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Selecteer Verdieping</Text>
               <TouchableOpacity onPress={() => setShowFloorPicker(null)}>
-                <Ionicons name="close" size={24} color="#1A1A2E" />
+                <Ionicons name="close" size={24} color="#1B4332" />
               </TouchableOpacity>
             </View>
             <ScrollView style={{ maxHeight: 400 }}>
@@ -912,7 +912,7 @@ export default function ProductieWerkbonScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Selecteer Extra Werk</Text>
               <TouchableOpacity onPress={() => setShowExtraWorkPicker(null)}>
-                <Ionicons name="close" size={24} color="#1A1A2E" />
+                <Ionicons name="close" size={24} color="#1B4332" />
               </TouchableOpacity>
             </View>
             <ScrollView style={{ maxHeight: 400 }}>
@@ -961,7 +961,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center' 
   },
   headerCenter: { flex: 1, marginLeft: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#1A1A2E' },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#1B4332' },
   headerSubtitle: { fontSize: 12, color: '#8C9199', marginTop: 2 },
   pageIndicators: { flexDirection: 'row', gap: 6 },
   pageIndicator: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#E8E9ED' },
@@ -975,7 +975,7 @@ const styles = StyleSheet.create({
     borderColor: '#E8E9ED' 
   },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
-  sectionTitle: { fontSize: 16, fontWeight: '600', color: '#1A1A2E', flex: 1 },
+  sectionTitle: { fontSize: 16, fontWeight: '600', color: '#1B4332', flex: 1 },
   addButton: { padding: 4 },
   
   fieldLabel: { fontSize: 14, fontWeight: '500', color: '#4D5560', marginBottom: 8 },
@@ -984,7 +984,7 @@ const styles = StyleSheet.create({
     borderRadius: 12, 
     padding: 14, 
     fontSize: 15, 
-    color: '#1A1A2E', 
+    color: '#1B4332', 
     borderWidth: 1, 
     borderColor: '#E8E9ED' 
   },
@@ -1000,7 +1000,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, 
     borderColor: '#E8E9ED' 
   },
-  pickerText: { fontSize: 15, color: '#1A1A2E' },
+  pickerText: { fontSize: 15, color: '#1B4332' },
   placeholder: { color: '#8C9199' },
   
   productCard: { 
@@ -1017,7 +1017,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', 
     marginBottom: 12 
   },
-  productNumber: { fontSize: 14, fontWeight: '600', color: '#F5A623' },
+  productNumber: { fontSize: 14, fontWeight: '600', color: '#D4A017' },
   
   subSection: { marginTop: 16 },
   subSectionHeader: { 
@@ -1056,13 +1056,13 @@ const styles = StyleSheet.create({
     borderWidth: 1, 
     borderColor: '#E8E9ED' 
   },
-  pickerTextSmall: { fontSize: 13, color: '#1A1A2E' },
+  pickerTextSmall: { fontSize: 13, color: '#1B4332' },
   inputSmall: { 
     backgroundColor: '#fff', 
     borderRadius: 8, 
     padding: 10, 
     fontSize: 14, 
-    color: '#1A1A2E', 
+    color: '#1B4332', 
     borderWidth: 1, 
     borderColor: '#E8E9ED',
     textAlign: 'center'
@@ -1075,13 +1075,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row', 
     justifyContent: 'space-between', 
     alignItems: 'center', 
-    backgroundColor: '#F5A62310', 
+    backgroundColor: '#D4A01710', 
     borderRadius: 10, 
     padding: 12, 
     marginTop: 12 
   },
-  totalLabel: { fontSize: 14, fontWeight: '600', color: '#1A1A2E' },
-  totalValue: { fontSize: 18, fontWeight: '700', color: '#F5A623' },
+  totalLabel: { fontSize: 14, fontWeight: '600', color: '#1B4332' },
+  totalValue: { fontSize: 18, fontWeight: '700', color: '#D4A017' },
   
   summaryRow: { 
     flexDirection: 'row', 
@@ -1091,7 +1091,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#F5F6FA' 
   },
   summaryLabel: { fontSize: 14, color: '#8C9199' },
-  summaryValue: { fontSize: 14, fontWeight: '500', color: '#1A1A2E' },
+  summaryValue: { fontSize: 14, fontWeight: '500', color: '#1B4332' },
   
   productSummary: { 
     backgroundColor: '#F5F6FA', 
@@ -1099,7 +1099,7 @@ const styles = StyleSheet.create({
     padding: 10, 
     marginTop: 12 
   },
-  productSummaryTitle: { fontSize: 14, fontWeight: '600', color: '#1A1A2E', marginBottom: 4 },
+  productSummaryTitle: { fontSize: 14, fontWeight: '600', color: '#1B4332', marginBottom: 4 },
   productSummaryItem: { fontSize: 13, color: '#4D5560', marginLeft: 8 },
   
   signatureButton: { 
@@ -1163,7 +1163,7 @@ const styles = StyleSheet.create({
     padding: 16, 
     borderRadius: 12, 
     borderWidth: 2, 
-    borderColor: '#F5A623', 
+    borderColor: '#D4A017', 
     flex: 1 
   },
   secondaryButtonText: { fontSize: 16, fontWeight: '600' },
@@ -1189,12 +1189,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, 
     borderBottomColor: '#E8E9ED' 
   },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: '#1A1A2E' },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: '#1B4332' },
   modalOption: { 
     paddingVertical: 14, 
     borderBottomWidth: 1, 
     borderBottomColor: '#F5F6FA' 
   },
-  modalOptionText: { fontSize: 16, color: '#1A1A2E' },
+  modalOptionText: { fontSize: 16, color: '#1B4332' },
   modalOptionSubtext: { fontSize: 13, color: '#8C9199', marginTop: 2 },
 });

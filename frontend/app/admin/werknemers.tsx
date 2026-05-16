@@ -304,7 +304,7 @@ export default function WerknemersAdmin() {
   if (loading && !werknemers.length) {
     return (
       <View style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}>
-        <ActivityIndicator size="large" color="#F5A623" />
+        <ActivityIndicator size="large" color="#D4A017" />
         <Text style={{ marginTop: 16, color: '#6c757d' }}>Laden...</Text>
       </View>
     );
@@ -321,7 +321,7 @@ export default function WerknemersAdmin() {
     );
   }
 
-  const activeChipStyle = { backgroundColor: theme.primaryColor || '#F5A623', borderColor: theme.primaryColor || '#F5A623' };
+  const activeChipStyle = { backgroundColor: theme.primaryColor || '#D4A017', borderColor: theme.primaryColor || '#D4A017' };
 
   let filtered = werknemers;
   if (search) {
@@ -343,7 +343,7 @@ export default function WerknemersAdmin() {
 
   const getRolColor = (rol: string) => {
     switch (rol) {
-      case 'admin': case 'master_admin': return theme.primaryColor || '#F5A623';
+      case 'admin': case 'master_admin': return theme.primaryColor || '#D4A017';
       case 'manager': return '#9b59b6';
       case 'planner': return '#3498db';
       case 'worker': return '#27ae60';
@@ -370,10 +370,10 @@ export default function WerknemersAdmin() {
       const werknemerCount = data.filter(w => w.rol !== 'onderaannemer').length;
       const onderaannemerCount = data.filter(w => w.rol === 'onderaannemer').length;
       let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-        body{font-family:Arial,sans-serif;margin:20px;color:#1A1A2E}
-        h1{color:#F5A623;font-size:22px;border-bottom:2px solid #F5A623;padding-bottom:8px}
+        body{font-family:Arial,sans-serif;margin:20px;color:#1B4332}
+        h1{color:#D4A017;font-size:22px;border-bottom:2px solid #D4A017;padding-bottom:8px}
         table{width:100%;border-collapse:collapse;font-size:12px;margin-top:12px}
-        th{background:#1A1A2E;color:#fff;padding:8px 10px;text-align:left}
+        th{background:#1B4332;color:#fff;padding:8px 10px;text-align:left}
         td{padding:6px 10px;border-bottom:1px solid #E8E9ED}
         tr:nth-child(even){background:#F5F6FA}
         .meta{color:#6c757d;font-size:12px}
@@ -409,13 +409,13 @@ export default function WerknemersAdmin() {
             <Ionicons name="document-outline" size={16} color="#fff" />
             <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>CSV</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#1A1A2E', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8 }}
+          <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#1B4332', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8 }}
             onPress={() => exportWerknemers('pdf')}>
             <Ionicons name="print-outline" size={16} color="#fff" />
             <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>PDF</Text>
           </TouchableOpacity>
           <TouchableOpacity 
-            style={[styles.addBtn, { backgroundColor: theme.primaryColor || '#F5A623' }]}
+            style={[styles.addBtn, { backgroundColor: theme.primaryColor || '#D4A017' }]}
             onPress={openAddModal}
             testID="add-werknemer-button"
             accessibilityRole="button"
@@ -518,10 +518,10 @@ export default function WerknemersAdmin() {
                         {visiblePasswords[w.id] || '...'}
                       </Text>
                       <TouchableOpacity 
-                        style={{ backgroundColor: '#F5A62320', padding: 4, borderRadius: 4 }}
+                        style={{ backgroundColor: '#D4A01720', padding: 4, borderRadius: 4 }}
                         onPress={(e: any) => { e.stopPropagation(); openPasswordModal(w); }}
                       >
-                        <Ionicons name="key" size={14} color="#F5A623" />
+                        <Ionicons name="key" size={14} color="#D4A017" />
                       </TouchableOpacity>
                     </>
                   )}
@@ -573,7 +573,7 @@ export default function WerknemersAdmin() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{editingWerknemer ? 'Werknemer bewerken' : 'Nieuwe werknemer'}</Text>
               <TouchableOpacity onPress={() => setShowModal(false)}>
-                <Ionicons name="close" size={24} color="#1A1A2E" />
+                <Ionicons name="close" size={24} color="#1B4332" />
               </TouchableOpacity>
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
@@ -597,7 +597,7 @@ export default function WerknemersAdmin() {
                 <>
                   <Text style={styles.label}>Huidig wachtwoord</Text>
                   <View style={styles.passwordDisplay}>
-                    <Ionicons name="key-outline" size={18} color="#F5A623" />
+                    <Ionicons name="key-outline" size={18} color="#D4A017" />
                     <Text style={styles.passwordText}>{editingWerknemer.wachtwoord_plain || '••••••••'}</Text>
                   </View>
                   <Text style={styles.label}>Nieuw wachtwoord instellen (optioneel)</Text>
@@ -725,17 +725,17 @@ export default function WerknemersAdmin() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F6FA', padding: 24 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
-  title: { fontSize: 28, fontWeight: '700', color: '#1A1A2E' },
+  title: { fontSize: 28, fontWeight: '700', color: '#1B4332' },
   subtitle: { fontSize: 14, color: '#6c757d', marginTop: 4 },
-  addBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#F5A623', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 10 },
+  addBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#D4A017', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 10 },
   addBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
   filterBar: { marginBottom: 16 },
   searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 10, paddingHorizontal: 16, borderWidth: 1, borderColor: '#E8E9ED' },
-  searchInput: { flex: 1, paddingVertical: 14, paddingLeft: 10, fontSize: 15, color: '#1A1A2E' },
+  searchInput: { flex: 1, paddingVertical: 14, paddingLeft: 10, fontSize: 15, color: '#1B4332' },
   filtersScroll: { marginBottom: 16 },
   filters: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   filterChip: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FFFFFF', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: '#E8E9ED' },
-  filterChipActive: { backgroundColor: '#F5A623', borderColor: '#F5A623' },
+  filterChipActive: { backgroundColor: '#D4A017', borderColor: '#D4A017' },
   filterText: { fontSize: 13, color: '#6c757d' },
   filterTextActive: { color: '#fff' },
   filterDivider: { width: 1, height: 24, backgroundColor: '#E8E9ED', marginHorizontal: 4 },
@@ -746,9 +746,9 @@ const styles = StyleSheet.create({
   tableRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#E8E9ED' },
   tableRowAlt: { backgroundColor: '#FAFAFA' },
   tableCell: { flex: 1 },
-  avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F5A62320', alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 14, fontWeight: '600', color: '#F5A623' },
-  cellName: { fontSize: 14, fontWeight: '500', color: '#1A1A2E' },
+  avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#D4A01720', alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontSize: 14, fontWeight: '600', color: '#D4A017' },
+  cellName: { fontSize: 14, fontWeight: '500', color: '#1B4332' },
   cellPhone: { fontSize: 11, color: '#6c757d', marginTop: 2 },
   rolBadge: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
   rolText: { fontSize: 12, fontWeight: '500' },
@@ -759,14 +759,14 @@ const styles = StyleSheet.create({
   emptyState: { alignItems: 'center', padding: 40 },
   emptyText: { fontSize: 14, color: '#6c757d', marginTop: 12 },
   noAccess: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  noAccessText: { fontSize: 20, color: '#1A1A2E', marginTop: 16 },
+  noAccessText: { fontSize: 20, color: '#1B4332', marginTop: 16 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   modalContent: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 24, width: '100%', maxWidth: 540, maxHeight: '90%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  modalTitle: { fontSize: 20, fontWeight: '600', color: '#1A1A2E' },
+  modalTitle: { fontSize: 20, fontWeight: '600', color: '#1B4332' },
   label: { fontSize: 14, color: '#6c757d', marginBottom: 6, marginTop: 16, fontWeight: '500' },
   sublabel: { fontSize: 12, color: '#999', marginBottom: 10 },
-  input: { backgroundColor: '#F5F6FA', borderRadius: 10, padding: 14, fontSize: 16, color: '#1A1A2E', borderWidth: 1, borderColor: '#E8E9ED' },
+  input: { backgroundColor: '#F5F6FA', borderRadius: 10, padding: 14, fontSize: 16, color: '#1B4332', borderWidth: 1, borderColor: '#E8E9ED' },
   rolSelector: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   rolOption: { paddingHorizontal: 16, paddingVertical: 12, borderRadius: 8, backgroundColor: '#F5F6FA', alignItems: 'center', borderWidth: 1.5, borderColor: '#E8E9ED' },
   rolOptionText: { fontSize: 13, color: '#6c757d', fontWeight: '500' },
@@ -780,14 +780,14 @@ const styles = StyleSheet.create({
   customToggleThumbActive: { alignSelf: 'flex-end' },
   emailNotice: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#27ae6010', padding: 14, borderRadius: 10, marginTop: 20, borderWidth: 1, borderColor: '#27ae6030' },
   emailNoticeText: { flex: 1, fontSize: 13, color: '#27ae60' },
-  saveBtn: { backgroundColor: '#F5A623', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 20 },
+  saveBtn: { backgroundColor: '#D4A017', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 20 },
   saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  passwordDisplay: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#FFF8E7', padding: 14, borderRadius: 10, borderWidth: 1, borderColor: '#F5A62330' },
-  passwordText: { fontSize: 16, fontWeight: '600', color: '#1A1A2E', fontFamily: 'monospace' },
+  passwordDisplay: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#FFF8E7', padding: 14, borderRadius: 10, borderWidth: 1, borderColor: '#D4A01730' },
+  passwordText: { fontSize: 16, fontWeight: '600', color: '#1B4332', fontFamily: 'monospace' },
   toggleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F5F6FA', padding: 14, borderRadius: 10, borderWidth: 1, borderColor: '#E8E9ED', marginTop: 16 },
   toggleLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
-  toggleLabel: { fontSize: 14, color: '#1A1A2E' },
+  toggleLabel: { fontSize: 14, color: '#1B4332' },
   passwordHidden: { fontSize: 14, color: '#999', letterSpacing: 2 },
-  passwordModalUser: { fontSize: 18, fontWeight: '600', color: '#1A1A2E', marginTop: 10 },
+  passwordModalUser: { fontSize: 18, fontWeight: '600', color: '#1B4332', marginTop: 10 },
   passwordModalEmail: { fontSize: 14, color: '#6c757d', marginTop: 4 },
 });

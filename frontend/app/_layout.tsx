@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import { AuthProvider } from '../context/AuthContext';
 import { ThemeProvider } from '../context/ThemeContext';
@@ -31,7 +31,7 @@ export default function RootLayout() {
   if (!fontsLoaded || !appReady) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F6FA' }}>
-        <ActivityIndicator size="large" color="#F5A623" />
+        <ActivityIndicator size="large" color="#D4A017" />
       </View>
     );
   }

@@ -23,7 +23,7 @@ interface GPSLocationProps {
 
 export const GPSLocation: React.FC<GPSLocationProps> = ({
   onLocationChange,
-  primaryColor = '#F5A623',
+  primaryColor = '#D4A017',
   initialCoords = '',
   initialAddress = '',
 }) => {
@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1A1A2E',
+    color: '#1B4332',
     marginBottom: 8,
   },
   button: {

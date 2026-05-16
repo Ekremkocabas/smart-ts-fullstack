@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Werkbon Index - Type Selection (Step 1)
  * User selects which werkbon type to create
  */
@@ -76,7 +76,7 @@ export default function WerkbonTypeSelect() {
   const [showDraftModal, setShowDraftModal] = useState(false);
   const [selectedType, setSelectedType] = useState<WerkbonType | null>(null);
 
-  const primary = theme?.primaryColor || '#F5A623';
+  const primary = theme?.primaryColor || '#D4A017';
 
   // User's allowed werkbon types (per-user permission)
   const userWerkbonTypes = user?.werkbon_types || ['uren'];
@@ -148,7 +148,7 @@ export default function WerkbonTypeSelect() {
           style={styles.backButton} 
           onPress={() => router.back()}
         >
-          <Ionicons name="arrow-back" size={24} color="#1A1A2E" />
+          <Ionicons name="arrow-back" size={24} color="#1B4332" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Werkbon Aanmaken</Text>
         <View style={{ width: 44 }} />
@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1B4332',
   },
   content: {
     flex: 1,
@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1B4332',
     marginBottom: 8,
   },
   subtitle: {
@@ -334,7 +334,7 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#1A1A2E',
+    color: '#1B4332',
     marginBottom: 4,
   },
   cardDescription: {
@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
   noPermissionsText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1A1A2E',
+    color: '#1B4332',
     marginTop: 16,
     textAlign: 'center',
   },
@@ -387,7 +387,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1B4332',
     marginBottom: 8,
   },
   modalMessage: {
@@ -421,6 +421,6 @@ const styles = StyleSheet.create({
   modalButtonPrimaryText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#1A1A2E',
+    color: '#1B4332',
   },
 });

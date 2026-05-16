@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#1A1A2E',
+    color: '#1B4332',
     marginTop: 16,
   },
   subtitle: {
@@ -266,11 +266,11 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    color: '#1A1A2E',
+    color: '#1B4332',
     fontSize: 16,
   },
   button: {
-    backgroundColor: '#F5A623',
+    backgroundColor: '#D4A017',
     height: 56,
     borderRadius: 12,
     alignItems: 'center',

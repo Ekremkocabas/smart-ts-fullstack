@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { WerkbonnenPeriodList } from './WerkbonnenPeriodList';
@@ -13,11 +13,11 @@ export default function WerkbonnenYearScreen() {
   const extraHeader = (
     <View style={styles.nav}>
       <TouchableOpacity onPress={() => setJaar((y) => y - 1)} style={styles.navBtn} accessibilityLabel="Vorig jaar">
-        <Ionicons name="chevron-back" size={22} color={theme.secondaryColor || '#1A1A2E'} />
+        <Ionicons name="chevron-back" size={22} color={theme.secondaryColor || '#1B4332'} />
       </TouchableOpacity>
-      <Text style={[styles.navLabel, { color: theme.secondaryColor || '#1A1A2E' }]}>Kalenderjaar {jaar}</Text>
+      <Text style={[styles.navLabel, { color: theme.secondaryColor || '#1B4332' }]}>Kalenderjaar {jaar}</Text>
       <TouchableOpacity onPress={() => setJaar((y) => y + 1)} style={styles.navBtn} accessibilityLabel="Volgend jaar">
-        <Ionicons name="chevron-forward" size={22} color={theme.secondaryColor || '#1A1A2E'} />
+        <Ionicons name="chevron-forward" size={22} color={theme.secondaryColor || '#1B4332'} />
       </TouchableOpacity>
     </View>
   );
@@ -49,5 +49,5 @@ const styles = StyleSheet.create({
     borderColor: '#E8E9ED',
   },
   navBtn: { padding: 8 },
-  navLabel: { fontSize: 16, fontWeight: '700', color: '#1A1A2E' },
+  navLabel: { fontSize: 16, fontWeight: '700', color: '#1B4332' },
 });

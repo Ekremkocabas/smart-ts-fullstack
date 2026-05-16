@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -85,7 +85,7 @@ export default function RegisterScreen() {
           </TouchableOpacity>
 
           <View style={styles.header}>
-            <Ionicons name="person-add" size={60} color="#F5A623" />
+            <Ionicons name="person-add" size={60} color="#D4A017" />
             <Text style={styles.title}>Registreren</Text>
             <Text style={styles.subtitle}>Maak een nieuw account aan</Text>
           </View>
@@ -206,7 +206,7 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#1B4332',
   },
   keyboardView: {
     flex: 1,
@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   button: {
-    backgroundColor: '#F5A623',
+    backgroundColor: '#D4A017',
     height: 56,
     borderRadius: 12,
     alignItems: 'center',
@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   linkTextBold: {
-    color: '#F5A623',
+    color: '#D4A017',
     fontWeight: '600',
   },
 });

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+﻿import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -32,9 +32,9 @@ const getScreenSize = () => {
 
 // Color presets for picker
 const COLOR_PRESETS = [
-  '#F5A623', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4',
+  '#D4A017', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4',
   '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE',
-  '#1A1A2E', '#16213E', '#0F3460', '#E94560', '#533483',
+  '#1B4332', '#16213E', '#0F3460', '#E94560', '#533483',
   '#2C3E50', '#34495E', '#27AE60', '#2980B9', '#8E44AD',
 ];
 
@@ -115,8 +115,8 @@ const defaultInstellingen: Instellingen = {
   telefoon: '',
   website: '',
   branding: {
-    primary_color: '#F5A623',
-    secondary_color: '#1A1A2E',
+    primary_color: '#D4A017',
+    secondary_color: '#1B4332',
     accent_color: '#16213E',
   },
   pdf_texts: {
@@ -128,8 +128,8 @@ const defaultInstellingen: Instellingen = {
   },
   werkbon_pdf_colors: {
     primary: '#E8A020',
-    secondary: '#1a1a2e',
-    accent: '#F5A623',
+    secondary: '#1B4332',
+    accent: '#D4A017',
   },
 };
 
@@ -144,7 +144,7 @@ export default function InstellingenAdmin() {
   const [colorPickerVisible, setColorPickerVisible] = useState(false);
   const [activeColorField, setActiveColorField] = useState<'primary' | 'secondary' | 'accent'>('primary');
   const [colorPickerContext, setColorPickerContext] = useState<'branding' | 'pdf'>('branding');
-  const [tempColor, setTempColor] = useState('#F5A623');
+  const [tempColor, setTempColor] = useState('#D4A017');
   const abonnementRef = useRef<any>(null);
   const scrollRef = useRef<ScrollView | null>(null);
   const [abonnementY, setAbonnementY] = useState<number | null>(null);
@@ -189,8 +189,8 @@ export default function InstellingenAdmin() {
             ...(data.branding || {}),
             // Legacy fallback
             logo_base64: data.branding?.logo_base64 || data.logo_base64,
-            primary_color: data.branding?.primary_color || data.primary_color || '#F5A623',
-            secondary_color: data.branding?.secondary_color || data.secondary_color || '#1A1A2E',
+            primary_color: data.branding?.primary_color || data.primary_color || '#D4A017',
+            secondary_color: data.branding?.secondary_color || data.secondary_color || '#1B4332',
             accent_color: data.branding?.accent_color || data.accent_color || '#16213E',
           },
           pdf_texts: {
@@ -204,8 +204,8 @@ export default function InstellingenAdmin() {
           },
           werkbon_pdf_colors: {
             primary:   data.werkbon_primary_color   || data.werkbon_pdf_colors?.primary   || '#E8A020',
-            secondary: data.werkbon_secondary_color || data.werkbon_pdf_colors?.secondary || '#1a1a2e',
-            accent:    data.werkbon_accent_color    || data.werkbon_pdf_colors?.accent    || '#F5A623',
+            secondary: data.werkbon_secondary_color || data.werkbon_pdf_colors?.secondary || '#1B4332',
+            accent:    data.werkbon_accent_color    || data.werkbon_pdf_colors?.accent    || '#D4A017',
           },
         };
         setInstellingen(merged);
@@ -335,7 +335,7 @@ export default function InstellingenAdmin() {
   if (loading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color={theme.primaryColor || '#F5A623'} style={{ marginTop: 40 }} />
+        <ActivityIndicator size="large" color={theme.primaryColor || '#D4A017'} style={{ marginTop: 40 }} />
       </View>
     );
   }
@@ -347,7 +347,7 @@ export default function InstellingenAdmin() {
     <View style={styles.container}>
       <View style={[styles.header, isCompact && styles.headerCompact]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color={theme.secondaryColor || '#1A1A2E'} />
+          <Ionicons name="arrow-back" size={24} color={theme.secondaryColor || '#1B4332'} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={[styles.title, isCompact && styles.titleCompact]}>Bedrijfsinstellingen</Text>
@@ -589,7 +589,7 @@ export default function InstellingenAdmin() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Kies een kleur</Text>
               <TouchableOpacity onPress={() => setColorPickerVisible(false)}>
-                <Ionicons name="close" size={24} color={theme.secondaryColor || '#1A1A2E'} />
+                <Ionicons name="close" size={24} color={theme.secondaryColor || '#1B4332'} />
               </TouchableOpacity>
             </View>
             
@@ -600,7 +600,7 @@ export default function InstellingenAdmin() {
                 style={styles.hexInput} 
                 value={tempColor} 
                 onChangeText={setTempColor} 
-                placeholder="#F5A623"
+                placeholder="#D4A017"
                 placeholderTextColor="#6c757d"
                 maxLength={7}
               />
@@ -633,7 +633,7 @@ const styles = StyleSheet.create({
   headerCompact: { padding: 12 },
   backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   headerCenter: { flex: 1, marginLeft: 8 },
-  title: { fontSize: 24, fontWeight: 'bold', color: '#1A1A2E' },
+  title: { fontSize: 24, fontWeight: 'bold', color: '#1B4332' },
   titleCompact: { fontSize: 18 },
   subtitle: { fontSize: 13, color: '#6c757d' },
   saveHeaderBtn: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#28a745', alignItems: 'center', justifyContent: 'center' },
@@ -642,10 +642,10 @@ const styles = StyleSheet.create({
   contentCompact: { padding: 12 },
   section: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: '#E8E9ED' },
   sectionCompact: { padding: 16 },
-  sectionTitle: { fontSize: 18, fontWeight: '600', color: '#1A1A2E', marginBottom: 4 },
+  sectionTitle: { fontSize: 18, fontWeight: '600', color: '#1B4332', marginBottom: 4 },
   sectionSubtitle: { fontSize: 13, color: '#6c757d', marginBottom: 16 },
   label: { fontSize: 14, color: '#6c757d', marginBottom: 6, marginTop: 12 },
-  input: { backgroundColor: '#F5F6FA', borderRadius: 10, padding: 14, fontSize: 16, color: '#1A1A2E', borderWidth: 1, borderColor: '#E8E9ED' },
+  input: { backgroundColor: '#F5F6FA', borderRadius: 10, padding: 14, fontSize: 16, color: '#1B4332', borderWidth: 1, borderColor: '#E8E9ED' },
   textArea: { minHeight: 80, textAlignVertical: 'top' },
   
   // Row fields for address
@@ -669,7 +669,7 @@ const styles = StyleSheet.create({
   colorGridCompact: { flexDirection: 'column', gap: 12 },
   colorCard: { flex: 1, backgroundColor: '#F5F6FA', borderRadius: 12, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: '#E8E9ED' },
   colorSwatch: { width: 60, height: 60, borderRadius: 30, marginBottom: 8, borderWidth: 2, borderColor: '#E8E9ED' },
-  colorLabel: { fontSize: 14, fontWeight: '600', color: '#1A1A2E' },
+  colorLabel: { fontSize: 14, fontWeight: '600', color: '#1B4332' },
   colorValue: { fontSize: 12, color: '#6c757d', marginTop: 4 },
   
   // Preview
@@ -695,20 +695,20 @@ const styles = StyleSheet.create({
   
   // No access
   noAccess: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  noAccessText: { fontSize: 20, color: '#1A1A2E', marginTop: 16 },
+  noAccessText: { fontSize: 20, color: '#1B4332', marginTop: 16 },
   
   // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '90%', maxWidth: 400 },
   modalContentCompact: { width: '95%', padding: 16 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  modalTitle: { fontSize: 20, fontWeight: '600', color: '#1A1A2E' },
+  modalTitle: { fontSize: 20, fontWeight: '600', color: '#1B4332' },
   currentColorRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 },
   currentColorPreview: { width: 60, height: 60, borderRadius: 12, borderWidth: 2, borderColor: '#E8E9ED' },
-  hexInput: { flex: 1, backgroundColor: '#F5F6FA', borderRadius: 10, padding: 14, fontSize: 16, color: '#1A1A2E', borderWidth: 1, borderColor: '#E8E9ED' },
+  hexInput: { flex: 1, backgroundColor: '#F5F6FA', borderRadius: 10, padding: 14, fontSize: 16, color: '#1B4332', borderWidth: 1, borderColor: '#E8E9ED' },
   presetsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 },
   presetColor: { width: 40, height: 40, borderRadius: 8, borderWidth: 2, borderColor: 'transparent' },
-  presetColorActive: { borderColor: '#1A1A2E' },
+  presetColorActive: { borderColor: '#1B4332' },
   applyColorBtn: { backgroundColor: '#28a745', padding: 16, borderRadius: 12, alignItems: 'center' },
   applyColorBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });

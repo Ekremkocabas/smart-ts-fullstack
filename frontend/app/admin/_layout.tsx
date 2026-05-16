@@ -1,20 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { Stack, usePathname, router } from 'expo-router';
 import { Platform, View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-function SignybonLogoSvg() {
-  const ref = React.useRef<any>(null);
-  React.useEffect(() => {
-    if (ref.current) {
-      ref.current.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="32" height="32"><rect x="15" y="15" width="70" height="70" rx="12" ry="12" fill="#D4A017" transform="rotate(45 50 50)"/><rect x="23" y="23" width="54" height="54" rx="9" ry="9" fill="#1B4332" transform="rotate(45 50 50)"/><rect x="36" y="36" width="28" height="28" rx="5" ry="5" fill="#D4A017" transform="rotate(45 50 50)"/></svg>';
-    }
-  }, []);
-  return <View ref={ref} style={{width: 32, height: 32}} />;
-}
 
 type MenuItem = { icon: string; label: string; route: string; feature?: 'berichten' };
 
@@ -59,6 +49,15 @@ function Sidebar() {
     router.replace('/admin/login');
   };
 
+  // Logo fallback rule (multi-tenant brand isolation):
+  // If the tenant has NOT uploaded a logo we MUST NOT render the Signybon
+  // platform logo — that would imply this tenant is Signybon. Instead, show
+  // the tenant's bedrijfsnaam initials in a colored badge so the panel feels
+  // branded without leaking another identity onto the user.
+  const tenantInitials = (theme.bedrijfsnaam || 'Signybon')
+    .split(/\s+/).filter(Boolean).slice(0, 2)
+    .map(w => w[0]).join('').toUpperCase() || 'S';
+
   return (
     <View style={[styles.sidebar, collapsed && styles.sidebarCollapsed]}>
       {/* Header */}
@@ -72,14 +71,18 @@ function Sidebar() {
                   style={styles.sidebarLogoImage}
                   resizeMode="contain"
                 />
-              ) : Platform.OS === 'web' ? (
-                <SignybonLogoSvg />
               ) : (
-                <Ionicons name="diamond-outline" size={24} color="#D4A017" />
+                <View style={{
+                  width: 32, height: 32, borderRadius: 8,
+                  backgroundColor: theme.primaryColor || '#1B4332',
+                  alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13 }}>{tenantInitials}</Text>
+                </View>
               )}
             </View>
             <View>
-              <Text style={[styles.logoText, { color: theme.secondaryColor || '#1B4332' }]}>{theme.bedrijfsnaam || 'Signybon'}</Text>
+              <Text style={[styles.logoText, { color: theme.secondaryColor || '#1B4332' }]}>{(theme.bedrijfsnaam || 'Signybon').toUpperCase()}</Text>
               <Text style={styles.logoSubtext}>Beheerportaal</Text>
             </View>
           </View>
@@ -113,7 +116,7 @@ function Sidebar() {
                 color={isActive ? theme.primaryColor || '#1B4332' : '#6c757d'}
               />
               {!collapsed && (
-                <Text style={[styles.menuLabel, isActive && { color: theme.secondaryColor || '#1A1A2E' }]}>
+                <Text style={[styles.menuLabel, isActive && { color: theme.secondaryColor || '#1B4332' }]}>
                   {item.label}
                 </Text>
               )}
@@ -170,7 +173,7 @@ function CompactTopNav() {
   return (
     <View style={styles.compactShell}>
       <View style={styles.compactHeader}>
-        <Text style={[styles.compactTitle, { color: theme.secondaryColor || '#1A1A2E' }]}>{theme.bedrijfsnaam || 'Signybon'} Admin</Text>
+        <Text style={[styles.compactTitle, { color: theme.secondaryColor || '#1B4332' }]}>{(theme.bedrijfsnaam || 'Signybon').toUpperCase()} ADMIN</Text>
         <TouchableOpacity onPress={handleLogout} style={styles.compactLogoutBtn}>
           <Ionicons name="log-out-outline" size={18} color="#dc3545" />
           <Text style={styles.compactLogoutText}>Uitloggen</Text>
@@ -186,7 +189,7 @@ function CompactTopNav() {
               onPress={() => router.push(item.route as any)}
             >
               <Ionicons name={item.icon as any} size={16} color={isActive ? theme.primaryColor || '#1B4332' : '#6c757d'} />
-              <Text style={[styles.compactMenuLabel, isActive && { color: theme.secondaryColor || '#1A1A2E' }]}>{item.label}</Text>
+              <Text style={[styles.compactMenuLabel, isActive && { color: theme.secondaryColor || '#1B4332' }]}>{item.label}</Text>
             </TouchableOpacity>
           );
         })}
@@ -543,7 +546,7 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1B4332',
   },
   logoSubtext: {
     fontSize: 12,
@@ -582,7 +585,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   menuLabelActive: {
-    color: '#1A1A2E',
+    color: '#1B4332',
     fontWeight: '600',
   },
   activeIndicator: {
@@ -625,7 +628,7 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1A1A2E',
+    color: '#1B4332',
   },
   userRole: {
     fontSize: 12,

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+﻿import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -77,7 +77,7 @@ export default function DocumentenTab() {
           <Text style={styles.title}>Mijn Documenten</Text>
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#F5A623" />
+          <ActivityIndicator size="large" color="#D4A017" />
         </View>
       </SafeAreaView>
     );
@@ -97,7 +97,7 @@ export default function DocumentenTab() {
       {documenten.length === 0 ? (
         <ScrollView
           contentContainerStyle={styles.emptyContainer}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#F5A623']} tintColor="#F5A623" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#D4A017']} tintColor="#D4A017" />}
         >
           <Ionicons name="folder-open-outline" size={64} color="#E8E9ED" />
           <Text style={styles.emptyTitle}>Geen documenten</Text>
@@ -106,7 +106,7 @@ export default function DocumentenTab() {
       ) : (
         <ScrollView
           style={styles.list}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#F5A623']} tintColor="#F5A623" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#D4A017']} tintColor="#D4A017" />}
         >
           {documenten.map(doc => (
             <TouchableOpacity key={doc.id} style={styles.docCard} onPress={() => openDocument(doc)}>
@@ -114,7 +114,7 @@ export default function DocumentenTab() {
                 <Ionicons
                   name={doc.type?.includes('pdf') ? 'document-text' : doc.type?.includes('image') ? 'image' : 'document'}
                   size={28}
-                  color="#F5A623"
+                  color="#D4A017"
                 />
               </View>
               <View style={styles.docInfo}>
@@ -148,11 +148,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E8E9ED',
   },
-  title: { fontSize: 22, fontWeight: '700', color: '#1A1A2E' },
+  title: { fontSize: 22, fontWeight: '700', color: '#1B4332' },
   subtitle: { fontSize: 13, color: '#6c757d', marginTop: 2 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
-  emptyTitle: { fontSize: 18, fontWeight: '600', color: '#1A1A2E', marginTop: 16 },
+  emptyTitle: { fontSize: 18, fontWeight: '600', color: '#1B4332', marginTop: 16 },
   emptySubtitle: { fontSize: 14, color: '#6c757d', marginTop: 8, textAlign: 'center' },
   list: { flex: 1 },
   docCard: {
@@ -175,7 +175,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF8E7', justifyContent: 'center', alignItems: 'center',
   },
   docInfo: { flex: 1 },
-  docName: { fontSize: 15, fontWeight: '600', color: '#1A1A2E' },
+  docName: { fontSize: 15, fontWeight: '600', color: '#1B4332' },
   docDesc: { fontSize: 13, color: '#6c757d', marginTop: 2 },
   docMeta: { fontSize: 12, color: '#adb5bd', marginTop: 4 },
 });

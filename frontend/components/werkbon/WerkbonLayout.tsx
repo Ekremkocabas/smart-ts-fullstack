@@ -98,7 +98,7 @@ export const WerkbonLayout: React.FC<WerkbonLayoutProps> = ({
   onSignatureDateChange,
   signatureName,
   onSignatureNameChange,
-  primaryColor = '#F5A623',
+  primaryColor = '#D4A017',
   secondaryColor = '#FFFFFF',
   children,
 }) => {
@@ -112,7 +112,7 @@ export const WerkbonLayout: React.FC<WerkbonLayoutProps> = ({
           style={styles.backButton} 
           onPress={page === 2 ? onPreviousPage : onBack}
         >
-          <Ionicons name="arrow-back" size={24} color="#1A1A2E" />
+          <Ionicons name="arrow-back" size={24} color="#1B4332" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{title}</Text>
         <View style={styles.headerRight}>
@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 18,
     fontWeight: '700',
-    color: '#1A1A2E',
+    color: '#1B4332',
     textAlign: 'center',
   },
   headerRight: {
@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E8E9ED',
   },
   pageIndicatorActive: {
-    backgroundColor: '#F5A623',
+    backgroundColor: '#D4A017',
   },
   scrollContent: {
     padding: 16,
@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1A1A2E',
+    color: '#1B4332',
     marginBottom: 8,
   },
   input: {
@@ -321,7 +321,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: '#1A1A2E',
+    color: '#1B4332',
     borderWidth: 1,
     borderColor: '#E8E9ED',
   },

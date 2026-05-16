@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -147,7 +147,7 @@ export default function WerfDetail() {
   if (loading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color={theme.primaryColor || '#F5A623'} style={{ marginTop: 40 }} />
+        <ActivityIndicator size="large" color={theme.primaryColor || '#D4A017'} style={{ marginTop: 40 }} />
       </View>
     );
   }
@@ -157,9 +157,9 @@ export default function WerfDetail() {
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color={theme.secondaryColor || '#1A1A2E'} />
+            <Ionicons name="arrow-back" size={24} color={theme.secondaryColor || '#1B4332'} />
           </TouchableOpacity>
-          <Text style={[styles.title, { color: theme.secondaryColor || '#1A1A2E' }]}>Werf niet gevonden</Text>
+          <Text style={[styles.title, { color: theme.secondaryColor || '#1B4332' }]}>Werf niet gevonden</Text>
         </View>
       </View>
     );
@@ -172,10 +172,10 @@ export default function WerfDetail() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color={theme.secondaryColor || '#1A1A2E'} />
+          <Ionicons name="arrow-back" size={24} color={theme.secondaryColor || '#1B4332'} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={[styles.title, { color: theme.secondaryColor || '#1A1A2E' }]}>Werf details</Text>
+          <Text style={[styles.title, { color: theme.secondaryColor || '#1B4332' }]}>Werf details</Text>
           <Text style={styles.subtitle}>{werf.naam}</Text>
         </View>
         <TouchableOpacity style={styles.editBtn} onPress={() => setShowEditModal(true)}>
@@ -246,11 +246,11 @@ export default function WerfDetail() {
             {werkbonnen.slice(0, 5).map((wb) => (
               <TouchableOpacity key={wb.id} style={styles.werkbonCard} onPress={() => router.push(`/admin/werkbon-detail?id=${wb.id}` as any)}>
                 <View style={styles.werkbonLeft}>
-                  <Text style={[styles.werkbonWeek, { color: theme.primaryColor || '#F5A623' }]}>Week {wb.week_nummer}</Text>
+                  <Text style={[styles.werkbonWeek, { color: theme.primaryColor || '#D4A017' }]}>Week {wb.week_nummer}</Text>
                   <Text style={styles.werkbonKlant}>{wb.klant_naam}</Text>
                   <Text style={styles.werkbonMeta}>{wb.created_by_naam}</Text>
                 </View>
-                <View style={[styles.wbStatusBadge, { backgroundColor: wb.status === 'verzonden' ? (theme.primaryColor || '#F5A623') : wb.status === 'ondertekend' ? '#28a745' : '#ffc107' }]}>
+                <View style={[styles.wbStatusBadge, { backgroundColor: wb.status === 'verzonden' ? (theme.primaryColor || '#D4A017') : wb.status === 'ondertekend' ? '#28a745' : '#ffc107' }]}>
                   <Text style={styles.wbStatusText}>{wb.status}</Text>
                 </View>
               </TouchableOpacity>
@@ -266,7 +266,7 @@ export default function WerfDetail() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Werf bewerken</Text>
               <TouchableOpacity onPress={() => setShowEditModal(false)}>
-                <Ionicons name="close" size={24} color={theme.secondaryColor || '#1A1A2E'} />
+                <Ionicons name="close" size={24} color={theme.secondaryColor || '#1B4332'} />
               </TouchableOpacity>
             </View>
             <ScrollView>
@@ -308,39 +308,39 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
   backBtn: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#E8E9ED' },
   headerCenter: { flex: 1, marginLeft: 16 },
-  title: { fontSize: 24, fontWeight: '700', color: '#1A1A2E' },
+  title: { fontSize: 24, fontWeight: '700', color: '#1B4332' },
   subtitle: { fontSize: 14, color: '#6c757d' },
   editBtn: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#e67e22', alignItems: 'center', justifyContent: 'center' },
   werfCard: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 32, alignItems: 'center', marginBottom: 24, borderWidth: 1, borderColor: '#E8E9ED' },
   werfIcon: { width: 80, height: 80, borderRadius: 20, backgroundColor: '#e67e2220', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
-  werfName: { fontSize: 28, fontWeight: '700', color: '#1A1A2E' },
+  werfName: { fontSize: 28, fontWeight: '700', color: '#1B4332' },
   statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, marginTop: 12 },
   statusDot: { width: 8, height: 8, borderRadius: 4 },
   statusText: { fontSize: 13, fontWeight: '600' },
   section: { marginBottom: 24 },
-  sectionTitle: { fontSize: 18, fontWeight: '600', color: '#1A1A2E', marginBottom: 12 },
+  sectionTitle: { fontSize: 18, fontWeight: '600', color: '#1B4332', marginBottom: 12 },
   detailsCard: { backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#E8E9ED' },
   detailRow: { flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#E8E9ED', gap: 12 },
   detailLabel: { flex: 1, fontSize: 14, color: '#6c757d' },
-  detailValue: { fontSize: 14, fontWeight: '500', color: '#1A1A2E' },
+  detailValue: { fontSize: 14, fontWeight: '500', color: '#1B4332' },
   werkbonnenList: { gap: 8 },
   werkbonCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#E8E9ED' },
   werkbonLeft: { flex: 1 },
-  werkbonWeek: { fontSize: 13, fontWeight: '600', color: '#F5A623' },
-  werkbonKlant: { fontSize: 15, fontWeight: '500', color: '#1A1A2E', marginTop: 2 },
+  werkbonWeek: { fontSize: 13, fontWeight: '600', color: '#D4A017' },
+  werkbonKlant: { fontSize: 15, fontWeight: '500', color: '#1B4332', marginTop: 2 },
   werkbonMeta: { fontSize: 13, color: '#6c757d', marginTop: 2 },
   wbStatusBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 },
   wbStatusText: { fontSize: 12, fontWeight: '600', color: '#fff' },
   emptyState: { alignItems: 'center', padding: 40, backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#E8E9ED' },
   emptyText: { fontSize: 14, color: '#6c757d', marginTop: 12 },
   noAccess: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  noAccessText: { fontSize: 20, color: '#1A1A2E', marginTop: 16 },
+  noAccessText: { fontSize: 20, color: '#1B4332', marginTop: 16 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   modalContent: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 24, width: '100%', maxWidth: 500, maxHeight: '90%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  modalTitle: { fontSize: 20, fontWeight: '600', color: '#1A1A2E' },
+  modalTitle: { fontSize: 20, fontWeight: '600', color: '#1B4332' },
   label: { fontSize: 14, color: '#6c757d', marginBottom: 6, marginTop: 16 },
-  input: { backgroundColor: '#F5F6FA', borderRadius: 10, padding: 14, fontSize: 16, color: '#1A1A2E', borderWidth: 1, borderColor: '#E8E9ED' },
+  input: { backgroundColor: '#F5F6FA', borderRadius: 10, padding: 14, fontSize: 16, color: '#1B4332', borderWidth: 1, borderColor: '#E8E9ED' },
   klantSelector: { marginTop: 8 },
   klantOption: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8, backgroundColor: '#F5F6FA', marginRight: 8, borderWidth: 1, borderColor: '#E8E9ED' },
   klantOptionActive: { backgroundColor: '#1abc9c', borderColor: '#1abc9c' },

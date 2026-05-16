@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -57,7 +57,7 @@ export default function ProfielScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme?.primaryColor || '#F5A623'} />
+          <ActivityIndicator size="large" color={theme?.primaryColor || '#D4A017'} />
           <Text style={styles.loadingText}>Profiel laden...</Text>
         </View>
       </SafeAreaView>
@@ -148,7 +148,7 @@ export default function ProfielScreen() {
         <View style={styles.content}>
           <View style={[styles.avatarContainer, screenInfo.isSmallScreen && styles.avatarContainerCompact]}>
             <View style={[styles.avatar, screenInfo.isSmallScreen && styles.avatarCompact]}>
-              <Ionicons name="person" size={screenInfo.isSmallScreen ? 36 : 48} color="#F5A623" />
+              <Ionicons name="person" size={screenInfo.isSmallScreen ? 36 : 48} color="#D4A017" />
             </View>
             <Text style={[styles.userName, screenInfo.isSmallScreen && styles.userNameCompact]}>{user?.naam}</Text>
             <Text style={styles.userEmail}>{user?.email}</Text>
@@ -156,7 +156,7 @@ export default function ProfielScreen() {
 
           <View style={styles.infoSection}>
             <View style={styles.infoItem}>
-              <Ionicons name="shield-checkmark" size={24} color={theme.primaryColor || "#F5A623"} />
+              <Ionicons name="shield-checkmark" size={24} color={theme.primaryColor || "#D4A017"} />
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>Rol</Text>
                 <Text style={styles.infoValue}>{roleLabel}</Text>
@@ -195,7 +195,7 @@ export default function ProfielScreen() {
             style={styles.actionButton} 
             onPress={() => setPasswordModalVisible(true)}
           >
-            <Ionicons name="key-outline" size={24} color="#F5A623" />
+            <Ionicons name="key-outline" size={24} color="#D4A017" />
             <Text style={styles.actionButtonText}>Wachtwoord wijzigen</Text>
             <Ionicons name="chevron-forward" size={20} color="#6c757d" />
           </TouchableOpacity>
@@ -222,7 +222,7 @@ export default function ProfielScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Wachtwoord Wijzigen</Text>
               <TouchableOpacity onPress={() => setPasswordModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#1A1A2E" />
+                <Ionicons name="close" size={24} color="#1B4332" />
               </TouchableOpacity>
             </View>
 
@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#1A1A2E',
+    color: '#1B4332',
   },
   content: {
     flex: 1,
@@ -363,7 +363,7 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 22,
     fontWeight: '600',
-    color: '#1A1A2E',
+    color: '#1B4332',
     marginBottom: 4,
   },
   userNameCompact: {
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
   },
   infoValue: {
     fontSize: 15,
-    color: '#1A1A2E',
+    color: '#1B4332',
     fontWeight: '500',
   },
   actionButton: {
@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     flex: 1,
-    color: '#1A1A2E',
+    color: '#1B4332',
     fontSize: 15,
     marginLeft: 12,
   },
@@ -466,7 +466,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#1A1A2E',
+    color: '#1B4332',
   },
   formGroup: {
     marginBottom: 16,
@@ -487,12 +487,12 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    color: '#1A1A2E',
+    color: '#1B4332',
     fontSize: 16,
     paddingVertical: 16,
   },
   saveButton: {
-    backgroundColor: '#F5A623',
+    backgroundColor: '#D4A017',
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',

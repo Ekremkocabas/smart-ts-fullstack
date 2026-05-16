@@ -32,7 +32,7 @@ async function setupAndroidChannels() {
     name: 'Signybon Notificaties',
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 250, 250, 250],
-    lightColor: '#F5A623',
+    lightColor: '#D4A017',
     sound: 'default',
   });
 

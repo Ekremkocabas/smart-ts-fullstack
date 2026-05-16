@@ -3,7 +3,7 @@
 
 export const colors = {
   // Primary colors
-  primary: '#F5A623',
+  primary: '#D4A017',
   primaryDark: '#D4891C',
   primaryLight: '#FFD166',
   
@@ -14,12 +14,12 @@ export const colors = {
   backgroundModal: 'rgba(0,0,0,0.5)',
   
   // Legacy dark theme (for gradual migration)
-  legacyDark: '#1a1a2e',
+  legacyDark: '#1B4332',
   legacyDarkCard: '#16213e',
   legacyDarkBorder: '#2d3a5f',
   
   // Text colors
-  textPrimary: '#1A1A2E',
+  textPrimary: '#1B4332',
   textSecondary: '#6C757D',
   textMuted: '#A0A0A0',
   textOnPrimary: '#FFFFFF',
