@@ -56,6 +56,9 @@ interface PlanningItem {
   bevestigd_door: string[];
   bevestigingen?: { worker_id: string; worker_naam: string; timestamp: string }[];
   notities: string;
+  // When set, this planning slot is part of a multi-week maand-werkbon. The
+  // worker sees a "Maand werkbon tekenen" shortcut that signs the whole bundle.
+  groep_id?: string;
 }
 
 function getISOWeek(date: Date): number {
@@ -573,6 +576,26 @@ export default function PlanningTab() {
                   <Text style={styles.maakWerkbonBtnText}>Maak werkbon</Text>
                 </TouchableOpacity>
               </View>
+
+              {/* Maand werkbon — only when this planning slot is part of a
+                  multi-week bundle (groep_id is set by the maand-bulk endpoint). */}
+              {selectedItem.groep_id ? (
+                <View style={{ paddingHorizontal: 16, paddingTop: 10 }}>
+                  <TouchableOpacity
+                    style={[styles.maakWerkbonBtn, { backgroundColor: '#1B4332' }]}
+                    onPress={() => {
+                      setDetailVisible(false);
+                      router.push(`/werkbon-groep/${selectedItem.groep_id}/sign` as any);
+                    }}
+                  >
+                    <Ionicons name="calendar-outline" size={20} color="#fff" />
+                    <Text style={styles.maakWerkbonBtnText}>Maand werkbon tekenen</Text>
+                  </TouchableOpacity>
+                  <Text style={{ fontSize: 12, color: '#6c757d', textAlign: 'center', marginTop: 6 }}>
+                    Eén handtekening voor de volledige periode
+                  </Text>
+                </View>
+              ) : null}
 
               {/* Confirm button */}
               <View style={styles.detailConfirmSection}>

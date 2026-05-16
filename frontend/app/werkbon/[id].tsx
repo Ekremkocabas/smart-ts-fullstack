@@ -418,10 +418,14 @@ export default function WerkbonDetailScreen() {
 
     setIsSending(true);
     try {
-      const emailToSend = verstuurNaarKlant && klantEmail.trim() ? klantEmail.trim() : undefined;
-      const result = await verzendWerkbon(currentWerkbon.id, emailToSend);
+      // Send the toggle and (optional) email separately. When the toggle is
+      // on but no custom address is typed, the backend resolves the klant
+      // record's own email — the previous "only send when both set" rule
+      // silently dropped the toggle and never copied the klant.
+      const emailToSend = klantEmail.trim() ? klantEmail.trim() : undefined;
+      const result = await verzendWerkbon(currentWerkbon.id, emailToSend, verstuurNaarKlant);
       const successMsg = result.email_sent
-        ? `Werkbon verstuurd! ${emailToSend ? `(ook naar: ${emailToSend})` : ''}`
+        ? `Werkbon verstuurd!${result.recipients?.length > 1 ? ` (ook naar: ${result.recipients.filter((r: string) => r !== result.recipients[0]).join(', ')})` : ''}`
         : (result.email_error || 'PDF gemaakt maar e-mail kon niet worden verstuurd.');
       if (Platform.OS === 'web') {
         window.alert(`Verstuurd!\n\n${successMsg}`);

@@ -165,7 +165,7 @@ interface AppState {
   createWerkbon: (data: any, userId: string, userName: string) => Promise<Werkbon>;
   updateWerkbon: (id: string, data: any) => Promise<Werkbon>;
   deleteWerkbon: (id: string) => Promise<void>;
-  verzendWerkbon: (id: string, klantEmail?: string) => Promise<any>;
+  verzendWerkbon: (id: string, klantEmail?: string, verstuurNaarKlant?: boolean) => Promise<any>;
   duplicateWerkbon: (id: string, userId: string, userName: string) => Promise<Werkbon>;
 
   fetchWeekDates: (year: number, week: number) => Promise<WeekDates>;
@@ -404,9 +404,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  verzendWerkbon: async (id: string, klantEmail?: string) => {
+  verzendWerkbon: async (id: string, klantEmail?: string, verstuurNaarKlant?: boolean) => {
     try {
       const params: any = {};
+      // Always pass the toggle when explicitly true so the backend can resolve
+      // the klant address from the klant record even when the user didn't type
+      // a custom email. Without this flag, an enabled "ook verzenden naar klant"
+      // toggle was silently dropped when the input was empty.
+      if (verstuurNaarKlant === true) params.verstuur_naar_klant = true;
       if (klantEmail && klantEmail.trim()) params.klant_email = klantEmail.trim();
       // Route to correct endpoint based on werkbon type
       const state = get();

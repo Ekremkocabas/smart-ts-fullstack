@@ -1199,6 +1199,10 @@ class Werkbon(BaseModel):
     toegewezen_aan: List[str] = []  # User IDs of assigned team members
     planning_id: Optional[str] = None
     groep_id: Optional[str] = None  # Optional link to WerkbonGroep (monthly bundle)
+    # "Ook verzenden naar klant" toggle. When True the verzenden endpoint
+    # resolves the klant's email and adds it to recipients automatically.
+    verstuur_naar_klant: bool = False
+    klant_email_override: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -1275,6 +1279,8 @@ class WerkbonUpdate(BaseModel):
     handtekening_naam: Optional[str] = None
     selfie_data: Optional[str] = None
     status: Optional[str] = None
+    verstuur_naar_klant: Optional[bool] = None
+    klant_email_override: Optional[str] = None
 
 # Bedrijfsinstellingen (Company Settings)
 class BedrijfsInstellingen(BaseModel):
@@ -1750,6 +1756,10 @@ class PlanningItem(BaseModel):
     bevestigingen: List[dict] = Field(default_factory=list)  # [{worker_id, worker_naam, timestamp}]
     
     notities: str = ""  # Additional notes
+    # Link back to the WerkbonGroep when this planning item is part of a
+    # multi-week maand-werkbon. Lets the worker app surface a "Maand werkbon
+    # tekenen" shortcut so the klant signs the whole bundle in one go.
+    groep_id: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -2582,25 +2592,47 @@ def klant_km_tarief_eur_per_km(klant: dict) -> float:
     return safe_float(klant.get("km_vergoeding_tarief", 0))
 
 
-def _dagvergoeding_bedrag_for_dag(uren: float, dag_prijs: float, halve_dag_prijs: float, kwart_prijs: float, uurtarief: float) -> float:
-    """Return the day's billable amount under the 'dagvergoeding' price model.
+def _dagvergoeding_bedrag_for_dag(
+    uren: float,
+    dag_prijs: float,
+    halve_dag_prijs: float,
+    kwart_prijs: float,
+    uurtarief: float,
+) -> Tuple[float, str, float]:
+    """Return (bedrag, tier_label, tier_unit_price) for one werknemer×dag under
+    the 'dagvergoeding' price model.
 
-    Rule (set by the customer): full-day = 8h → dag_prijs, half-day = 4h →
-    halve_dag_prijs (or dag_prijs/2 if not set), quarter-day = 2h → kwart_prijs
-    (or dag_prijs/4 if not set). Any in-between value (1h, 3h, 5h, 6h, 7h)
-    falls back to plain uurtarief × uren so partial workdays still bill.
+    Rules set by the customer:
+      • full-day  = 8h → dag_prijs
+      • half-day  = 4h → halve_dag_prijs (or dag_prijs/2 if not set)
+      • quarter   = 2h → kwart_prijs (or dag_prijs/4 if not set)
+      • anything else → fall back to plain uurtarief × uren (still billable)
+
+    Returning the tier label + unit price lets the PDF/mail summary show ONLY
+    the rate that was actually applied — instead of listing every possible
+    rate on every werkbon regardless of which one was used.
     """
     if uren <= 0:
-        return 0.0
-    # Round to nearest 0.25h to absorb minor input drift before bucket matching.
+        return (0.0, "", 0.0)
+    # Round to the nearest 0.25h to absorb minor input drift before matching.
     rounded = round(uren * 4) / 4.0
     if rounded == 8.0:
-        return dag_prijs if dag_prijs > 0 else (uurtarief * uren)
+        if dag_prijs > 0:
+            return (dag_prijs, "volle_dag", dag_prijs)
+        return (uurtarief * uren, "uurtarief", uurtarief)
     if rounded == 4.0:
-        return halve_dag_prijs if halve_dag_prijs > 0 else (dag_prijs / 2.0 if dag_prijs > 0 else uurtarief * uren)
+        if halve_dag_prijs > 0:
+            return (halve_dag_prijs, "halve_dag", halve_dag_prijs)
+        if dag_prijs > 0:
+            return (dag_prijs / 2.0, "halve_dag", dag_prijs / 2.0)
+        return (uurtarief * uren, "uurtarief", uurtarief)
     if rounded == 2.0:
-        return kwart_prijs if kwart_prijs > 0 else (dag_prijs / 4.0 if dag_prijs > 0 else uurtarief * uren)
-    return uurtarief * uren
+        if kwart_prijs > 0:
+            return (kwart_prijs, "kwart_dag", kwart_prijs)
+        if dag_prijs > 0:
+            return (dag_prijs / 4.0, "kwart_dag", dag_prijs / 4.0)
+        return (uurtarief * uren, "uurtarief", uurtarief)
+    return (uurtarief * uren, "uurtarief", uurtarief)
 
 
 def compute_werkbon_financials(werkbon: dict, klant: dict) -> dict:
@@ -2644,8 +2676,23 @@ def compute_werkbon_financials(werkbon: dict, klant: dict) -> dict:
         prijsmodel = "uurtarief"  # default, yields 0 bedrag — caller can warn
 
     uren_bedrag = 0.0
+    # Per-tier breakdown for dagvergoeding mode. We aggregate counts so the
+    # PDF/mail summary can render ONLY the line(s) that were actually billed
+    # (e.g. "5 × halve dag (4u) × €Y = €Z") and skip every tier that didn't
+    # contribute to this werkbon.
+    tier_breakdown: Dict[str, Dict[str, Any]] = {
+        "volle_dag":  {"label": "Volle dag (8u)",  "count": 0, "uren": 0.0, "unit_prijs": 0.0, "bedrag": 0.0},
+        "halve_dag":  {"label": "Halve dag (4u)",  "count": 0, "uren": 0.0, "unit_prijs": 0.0, "bedrag": 0.0},
+        "kwart_dag":  {"label": "Kwart dag (2u)",  "count": 0, "uren": 0.0, "unit_prijs": 0.0, "bedrag": 0.0},
+        "uurtarief":  {"label": "Uurtarief",       "count": 0, "uren": 0.0, "unit_prijs": uurtarief, "bedrag": 0.0},
+    }
+
     if prijsmodel == "uurtarief":
         uren_bedrag = total_uren * uurtarief
+        if total_uren > 0:
+            tier_breakdown["uurtarief"]["count"] = 1
+            tier_breakdown["uurtarief"]["uren"] = total_uren
+            tier_breakdown["uurtarief"]["bedrag"] = uren_bedrag
     elif prijsmodel == "vaste_prijs":
         uren_bedrag = vaste_prijs
     elif prijsmodel == "dagvergoeding":
@@ -2653,10 +2700,25 @@ def compute_werkbon_financials(werkbon: dict, klant: dict) -> dict:
         for regel in werkbon.get("uren", []):
             for dag, _, _, _ in DAY_COLUMNS:
                 uren_dag = safe_float(regel.get(dag, 0))
-                if uren_dag > 0:
-                    uren_bedrag += _dagvergoeding_bedrag_for_dag(
-                        uren_dag, dag_prijs, halve_dag_prijs, kwart_prijs, uurtarief
-                    )
+                if uren_dag <= 0:
+                    continue
+                bedrag, tier, unit_prijs = _dagvergoeding_bedrag_for_dag(
+                    uren_dag, dag_prijs, halve_dag_prijs, kwart_prijs, uurtarief
+                )
+                uren_bedrag += bedrag
+                bucket = tier_breakdown.get(tier)
+                if bucket is not None:
+                    bucket["count"] += 1
+                    bucket["uren"] += uren_dag
+                    bucket["bedrag"] += bedrag
+                    # All bucketed entries share a unit price by definition of
+                    # the tier (only the uurtarief bucket may aggregate mixed
+                    # hours; its unit price is the uurtarief itself).
+                    if bucket["unit_prijs"] == 0:
+                        bucket["unit_prijs"] = unit_prijs
+
+    # Keep only the tiers that contributed — empty tiers are noise.
+    tier_breakdown_active = {k: v for k, v in tier_breakdown.items() if v["count"] > 0}
 
     km_bedrag = km_tot * km_tarief if km_tarief > 0 else 0.0
     totaal_bedrag = uren_bedrag + km_bedrag
@@ -2673,6 +2735,7 @@ def compute_werkbon_financials(werkbon: dict, klant: dict) -> dict:
         "uren_bedrag": uren_bedrag,
         "km_bedrag": km_bedrag,
         "totaal_bedrag": totaal_bedrag,
+        "tier_breakdown": tier_breakdown_active,
     }
 
 
@@ -3186,24 +3249,34 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     uren_bedrag = fin["uren_bedrag"]
     totaal_bedrag_incl_km = fin["totaal_bedrag"]
 
-    # Summary rows reflect the klant's prijsmodel so the customer sees how the
-    # invoice was actually calculated — not a generic uurtarief line that
-    # contradicts a vaste-prijs or dagvergoeding agreement.
+    # Summary rows show ONLY the calculation that was actually used — never
+    # every possible tier. So a werkbon billed at half-day rate prints just
+    # "5 × Halve dag (4u) × € 200,00 = € 1.000,00", not every rate the klant
+    # has on file.
     summary_rows = [["Totaal uren", format_number(total_uren)]]
     if prijsmodel == "uurtarief":
         summary_rows.append(["Uurtarief", f"€ {uurtarief_pdf:.2f}"])
     elif prijsmodel == "vaste_prijs":
         summary_rows.append(["Vaste prijs", f"€ {fin.get('vaste_prijs', 0):.2f}"])
     elif prijsmodel == "dagvergoeding":
-        dag_p = fin.get("dag_prijs", 0)
-        halve_p = fin.get("halve_dag_prijs", 0)
-        kwart_p = fin.get("kwart_prijs", 0)
-        if dag_p > 0:
-            summary_rows.append(["Dagprijs (8u)", f"€ {dag_p:.2f}"])
-        if halve_p > 0:
-            summary_rows.append(["Halve dag (4u)", f"€ {halve_p:.2f}"])
-        if kwart_p > 0:
-            summary_rows.append(["Kwartdag (2u)", f"€ {kwart_p:.2f}"])
+        for tier in fin.get("tier_breakdown", {}).values():
+            if tier["count"] <= 0:
+                continue
+            count = tier["count"]
+            label = tier["label"]
+            unit = tier["unit_prijs"]
+            bedrag = tier["bedrag"]
+            if label == "Uurtarief":
+                # Hours billed at uurtarief — count the uren, not the days.
+                summary_rows.append([
+                    f"{format_number(tier['uren'])} u × Uurtarief",
+                    f"{format_number(tier['uren'])} × € {unit:.2f} = € {bedrag:.2f}",
+                ])
+            else:
+                summary_rows.append([
+                    f"{count} × {label}",
+                    f"{count} × € {unit:.2f} = € {bedrag:.2f}",
+                ])
         summary_rows.append(["Urenbedrag", f"€ {uren_bedrag:.2f}"])
     if km_totaal_voor_vergoeding > 0:
         summary_rows.append(["Totaal KM", f"{format_number(km_totaal_voor_vergoeding)} km"])
@@ -3744,15 +3817,23 @@ def _build_werkbon_section(
     elif prijsmodel == "vaste_prijs":
         summary_rows.append(["Vaste prijs", f"€ {fin.get('vaste_prijs', 0):.2f}"])
     elif prijsmodel == "dagvergoeding":
-        dag_p = fin.get("dag_prijs", 0)
-        halve_p = fin.get("halve_dag_prijs", 0)
-        kwart_p = fin.get("kwart_prijs", 0)
-        if dag_p > 0:
-            summary_rows.append(["Dagprijs (8u)", f"€ {dag_p:.2f}"])
-        if halve_p > 0:
-            summary_rows.append(["Halve dag (4u)", f"€ {halve_p:.2f}"])
-        if kwart_p > 0:
-            summary_rows.append(["Kwartdag (2u)", f"€ {kwart_p:.2f}"])
+        for tier in fin.get("tier_breakdown", {}).values():
+            if tier["count"] <= 0:
+                continue
+            count = tier["count"]
+            label = tier["label"]
+            unit = tier["unit_prijs"]
+            bedrag = tier["bedrag"]
+            if label == "Uurtarief":
+                summary_rows.append([
+                    f"{format_number(tier['uren'])} u × Uurtarief",
+                    f"{format_number(tier['uren'])} × € {unit:.2f} = € {bedrag:.2f}",
+                ])
+            else:
+                summary_rows.append([
+                    f"{count} × {label}",
+                    f"{count} × € {unit:.2f} = € {bedrag:.2f}",
+                ])
         summary_rows.append(["Urenbedrag", f"€ {uren_bedrag:.2f}"])
     if km_totaal > 0:
         summary_rows.append(["Totaal KM", f"{format_number(km_totaal)} km"])
@@ -4405,45 +4486,39 @@ async def send_productie_werkbon_email(werkbon: dict, instellingen: dict, pdf_by
         return {"success": False, "error": "Geen ontvangers geconfigureerd", "recipients": []}
     
     try:
-        subject = f"Productie Werkbon PDF - {werkbon.get('werf_naam', 'Werf')} - {werkbon.get('datum', '')}"
-        _C = get_pdf_colors(instellingen)
-        _primary = _C["primary"]
-        _secondary = _C["secondary"]
-        html_body = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <style>
-                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 640px; margin: 0 auto; }}
-                .header {{ background: {_primary}; color: white; padding: 24px; text-align: center; border-bottom: 4px solid {_secondary}; }}
-                .header h1 {{ color: {_secondary}; margin: 0; }}
-                .content {{ padding: 24px; }}
-                .info {{ background: #f8f9fa; border-left: 4px solid {_secondary}; padding: 16px; margin: 18px 0; }}
-                .footer {{ background: #f4f4f4; padding: 16px; font-size: 12px; color: #666; text-align: center; }}
-            </style>
-        </head>
-        <body>
-            <div class="header">
-                <h1>{bedrijfsnaam}</h1>
-                <p>Productie Werkbon</p>
+        subject = f"Productie Werkbon PDF - {werkbon.get('werf_naam') or 'Werf'} - {werkbon.get('datum', '')}"
+        _skin = _build_mail_skin(instellingen)
+        html_body = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>{_mail_base_styles(_skin)}</style>
+</head>
+<body>
+    <div class="wrap">
+        <div class="header">
+            <h1>{bedrijfsnaam}</h1>
+            <p>Productie werkbon</p>
+        </div>
+        <div class="content">
+            <p>Beste {werkbon.get('klant_naam') or 'klant'},</p>
+            <p>In bijlage vindt u de productie werkbon als PDF.</p>
+            <div class="info-card">
+                <div><strong>Monteur:</strong> {werkbon.get('werknemer_naam') or werkbon.get('ingevuld_door_naam') or '-'}</div>
+                <div><strong>Klant:</strong> {werkbon.get('klant_naam') or '-'}</div>
+                <div><strong>Werf:</strong> {werkbon.get('werf_naam') or '-'}</div>
+                <div><strong>Datum:</strong> {werkbon.get('datum') or '-'}</div>
+                <div><strong>Totaal m²:</strong> {werkbon.get('totaal_m2', 0)} m²</div>
             </div>
-            <div class="content">
-                <p>In bijlage vindt u de productie werkbon als PDF.</p>
-                <div class="info">
-                    <strong>Monteur:</strong> {werkbon.get('werknemer_naam') or werkbon.get('ingevuld_door_naam', '-')}<br/>
-                    <strong>Klant:</strong> {werkbon.get('klant_naam', '-')}<br/>
-                    <strong>Werf:</strong> {werkbon.get('werf_naam', '-')}<br/>
-                    <strong>Datum:</strong> {werkbon.get('datum', '-')}<br/>
-                    <strong>Totaal M²:</strong> {werkbon.get('totaal_m2', 0)} m²
-                </div>
-                <p>De volledige details vindt u in de bijgevoegde PDF.</p>
-                <p>Met vriendelijke groeten,<br/><strong>{bedrijfsnaam}</strong></p>
-            </div>
-            <div class="footer">Dit is een automatisch gegenereerde e-mail van {bedrijfsnaam}.</div>
-        </body>
-        </html>
-        """
+            <p>De volledige details vindt u in de bijgevoegde PDF.</p>
+            <p class="closing">Met vriendelijke groeten,<br/><strong>{bedrijfsnaam}</strong></p>
+        </div>
+        <div class="footer">
+            <p>Dit is een automatisch bericht van {bedrijfsnaam}.</p>
+        </div>
+    </div>
+</body>
+</html>"""
         params = {
             "from": get_sender_email(instellingen),
             **({"reply_to": [get_reply_to(instellingen, user_email=user_email)]} if get_reply_to(instellingen, user_email=user_email) else {}),
@@ -4713,23 +4788,37 @@ async def send_project_werkbon_email(werkbon: dict, instellingen: dict, pdf_byte
     if not recipients:
         return {"success": False, "error": "Geen ontvangers geconfigureerd", "recipients": []}
 
-    subject = f"Project Werkbon PDF - {werkbon.get('werf_naam', 'Werf')}"
-    _C = get_pdf_colors(instellingen)
-    _primary = _C["primary"]
-    _secondary = _C["secondary"]
-    html = f"""
-    <div style='font-family:Arial,sans-serif;max-width:640px;margin:0 auto;'>
-      <div style='background:{_primary};color:#fff;padding:24px;border-bottom:4px solid {_secondary};'>
-        <h1 style='margin:0;color:{_secondary};'>{instellingen.get('bedrijfsnaam') or 'Signybon'}</h1>
-        <p style='margin:8px 0 0;'>Ondertekende project werkbon in bijlage</p>
-      </div>
-      <div style='padding:24px;'>
-        <p>Klant: <strong>{werkbon.get('klant_naam') or '-'}</strong></p>
-        <p>Werf: <strong>{werkbon.get('werf_naam') or '-'}</strong></p>
-        <p>Totaal uren: <strong>{werkbon.get('totaal_uren', 0)} uur</strong></p>
-      </div>
+    subject = f"Project Werkbon PDF - {werkbon.get('werf_naam') or 'Werf'}"
+    _skin = _build_mail_skin(instellingen)
+    bedrijfsnaam = instellingen.get('bedrijfsnaam') or 'Signybon'
+    html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>{_mail_base_styles(_skin)}</style>
+</head>
+<body>
+    <div class="wrap">
+        <div class="header">
+            <h1>{bedrijfsnaam}</h1>
+            <p>Ondertekende project werkbon</p>
+        </div>
+        <div class="content">
+            <p>Beste {werkbon.get('klant_naam') or 'klant'},</p>
+            <p>In bijlage vindt u de project werkbon als PDF.</p>
+            <div class="info-card">
+                <div><strong>Klant:</strong> {werkbon.get('klant_naam') or '-'}</div>
+                <div><strong>Werf:</strong> {werkbon.get('werf_naam') or '-'}</div>
+                <div><strong>Totaal uren:</strong> {werkbon.get('totaal_uren', 0)} uur</div>
+            </div>
+            <p class="closing">Met vriendelijke groeten,<br/><strong>{bedrijfsnaam}</strong></p>
+        </div>
+        <div class="footer">
+            <p>Dit is een automatisch bericht van {bedrijfsnaam}.</p>
+        </div>
     </div>
-    """
+</body>
+</html>"""
     try:
         params = {
             "from": get_sender_email(instellingen),
@@ -6425,17 +6514,28 @@ async def update_werkbon(werkbon_id: str, update_data: WerkbonUpdate, current_us
     update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
     update_dict["updated_at"] = datetime.now(timezone.utc)
 
-    # Resolve klant name if klant_id was provided (tenant-scoped)
-    if update_data.klant_id and not update_data.klant_naam:
+    # Drop empty-string overrides for the resolved-name fields. A frontend
+    # that POSTs `klant_naam=""` would otherwise blank out the existing
+    # value — the result was a werkbon showing "-" for klant/werf on the
+    # PDF and in the email, even though the klant_id was unchanged.
+    if update_dict.get("klant_naam") == "":
+        update_dict.pop("klant_naam", None)
+    if update_dict.get("werf_naam") == "":
+        update_dict.pop("werf_naam", None)
+
+    # Resolve klant name from the master record whenever klant_id is in the
+    # payload. Always overwrite — a stale klant_naam from the frontend would
+    # otherwise persist after a klant rename.
+    if update_data.klant_id:
         klant = await db.klanten.find_one({"id": update_data.klant_id, "company_id": company_id})
         if klant:
-            update_dict["klant_naam"] = klant["naam"]
+            update_dict["klant_naam"] = klant.get("naam") or klant.get("bedrijfsnaam") or update_dict.get("klant_naam", "")
 
-    # Resolve werf name if werf_id was provided (tenant-scoped)
-    if update_data.werf_id and not update_data.werf_naam:
+    # Resolve werf name similarly. Empty werf_naam shouldn't end up in Mongo.
+    if update_data.werf_id:
         werf = await db.werven.find_one({"id": update_data.werf_id, "company_id": company_id})
         if werf:
-            update_dict["werf_naam"] = werf["naam"]
+            update_dict["werf_naam"] = werf.get("naam") or update_dict.get("werf_naam", "")
 
     # Recalculate week dates if week/year changed (tenant-scoped lookup)
     existing = await db.werkbonnen.find_one({"id": werkbon_id, "company_id": company_id})
@@ -6935,9 +7035,82 @@ async def verstuur_werkbon_naar_billit(werkbon_id: str, current_user: Dict = Dep
 
 # ==================== EMAIL SERVICE ====================
 
+def _hex_to_rgba(hex_color: str, alpha: float) -> str:
+    """Convert a #RRGGBB hex into rgba(r,g,b,a) for CSS — used for the very
+    light secondary-tinted zebra row in transactional emails."""
+    h = (hex_color or "").lstrip("#")
+    if len(h) != 6:
+        return f"rgba(212, 160, 23, {alpha})"  # safe Signybon gold fallback
+    try:
+        r = int(h[0:2], 16)
+        g = int(h[2:4], 16)
+        b = int(h[4:6], 16)
+        return f"rgba({r}, {g}, {b}, {alpha})"
+    except ValueError:
+        return f"rgba(212, 160, 23, {alpha})"
+
+
+def _build_mail_skin(instellingen: dict) -> dict:
+    """Single source of truth for transactional-email styling. Every werkbon-
+    family email function uses this skin so they look consistent and so the
+    "dark-on-dark unreadable" problem can't sneak back in.
+
+    Design rules baked into the skin:
+      • Header band      = tenant primary, text WHITE for contrast
+      • Table header     = tenant primary, text WHITE
+      • Zebra rows       = transparent + very faint secondary tint (~10%)
+      • Total row        = tenant accent (or primary if accent == primary),
+                           text WHITE — visually distinct from body rows
+      • Body text        = dark grey (#333) on white — never black on dark
+      • Footer           = neutral light grey (#F2F2F2) with #666 text
+    """
+    _C = get_pdf_colors(instellingen)
+    primary = _C["primary"]
+    secondary = _C["secondary"]
+    accent = _C["accent"]
+    # Accent === primary visually is fine for headers, but the total row needs
+    # to stand apart. Fall back to secondary if accent collides with primary.
+    total_bg = accent if accent.lower() != primary.lower() else secondary
+    return {
+        "primary": primary,
+        "secondary": secondary,
+        "accent": accent,
+        "total_bg": total_bg,
+        "zebra_tint": _hex_to_rgba(secondary, 0.10),
+    }
+
+
+def _mail_base_styles(skin: dict) -> str:
+    """Shared <style> block for all werkbon emails — keeps the CSS in one
+    place so tweaks don't have to be duplicated across five functions."""
+    return f"""
+        body {{ margin: 0; padding: 0; background: #F4F4F4; font-family: Arial, Helvetica, sans-serif; color: #333333; }}
+        .wrap {{ max-width: 640px; margin: 0 auto; background: #FFFFFF; }}
+        .header {{ background: {skin['primary']}; color: #FFFFFF; padding: 28px 32px; }}
+        .header h1 {{ color: #FFFFFF; margin: 0 0 4px 0; font-size: 22px; font-weight: 700; letter-spacing: 0.3px; }}
+        .header p {{ color: #FFFFFF; opacity: 0.9; margin: 0; font-size: 13px; }}
+        .content {{ padding: 28px 32px; color: #333333; line-height: 1.6; font-size: 14px; }}
+        .content p {{ margin: 0 0 14px; color: #333333; }}
+        .info-card {{ background: #FAFAFA; border: 1px solid #ECECEC; border-left: 3px solid {skin['secondary']}; border-radius: 6px; padding: 16px 18px; margin: 18px 0; }}
+        .info-card div {{ margin: 4px 0; color: #333333; }}
+        .info-card strong {{ color: {skin['primary']}; }}
+        .table {{ width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 14px; }}
+        .table th {{ background: {skin['primary']}; color: #FFFFFF; text-align: left; padding: 12px 14px; font-weight: 600; }}
+        .table td {{ padding: 11px 14px; color: #333333; border-bottom: 1px solid #EEEEEE; }}
+        .table tr:nth-child(odd) td {{ background: {skin['zebra_tint']}; }}
+        .table tr.total td {{ background: {skin['total_bg']}; color: #FFFFFF; font-weight: 700; border-bottom: none; }}
+        .closing {{ margin: 22px 0 0; color: #333333; }}
+        .closing strong {{ color: {skin['primary']}; }}
+        .footer {{ background: #F2F2F2; padding: 16px 32px; font-size: 12px; color: #666666; text-align: center; }}
+        .footer p {{ margin: 4px 0; color: #666666; }}
+        a {{ color: {skin['primary']}; }}
+    """
+
+
 def _render_prijsmodel_rows_html(fin: dict) -> str:
     """Render the price-model rows in werkbon emails. Mirrors the PDF summary
-    so the email matches what the customer sees in the attached PDF."""
+    so the customer sees the same calculation in the mail body and the PDF —
+    showing only the tier that was actually billed, not every tier on file."""
     prijsmodel = fin.get("prijsmodel", "uurtarief")
     uurtarief = fin.get("uurtarief", 0.0)
     if prijsmodel == "uurtarief":
@@ -6946,12 +7119,23 @@ def _render_prijsmodel_rows_html(fin: dict) -> str:
         return f'<tr><td>Vaste prijs</td><td>€{fin.get("vaste_prijs", 0):.2f}</td></tr>'
     if prijsmodel == "dagvergoeding":
         parts = []
-        if fin.get("dag_prijs", 0) > 0:
-            parts.append(f'<tr><td>Dagprijs (8u)</td><td>€{fin["dag_prijs"]:.2f}</td></tr>')
-        if fin.get("halve_dag_prijs", 0) > 0:
-            parts.append(f'<tr><td>Halve dag (4u)</td><td>€{fin["halve_dag_prijs"]:.2f}</td></tr>')
-        if fin.get("kwart_prijs", 0) > 0:
-            parts.append(f'<tr><td>Kwartdag (2u)</td><td>€{fin["kwart_prijs"]:.2f}</td></tr>')
+        for tier in fin.get("tier_breakdown", {}).values():
+            if tier["count"] <= 0:
+                continue
+            count = tier["count"]
+            label = tier["label"]
+            unit = tier["unit_prijs"]
+            bedrag = tier["bedrag"]
+            if label == "Uurtarief":
+                parts.append(
+                    f'<tr><td>{tier["uren"]:.1f} u × Uurtarief</td>'
+                    f'<td>{tier["uren"]:.1f} × €{unit:.2f} = €{bedrag:.2f}</td></tr>'
+                )
+            else:
+                parts.append(
+                    f'<tr><td>{count} × {label}</td>'
+                    f'<td>{count} × €{unit:.2f} = €{bedrag:.2f}</td></tr>'
+                )
         parts.append(f'<tr><td>Urenbedrag</td><td>€{fin.get("uren_bedrag", 0):.2f}</td></tr>')
         return "".join(parts)
     return ""
@@ -6984,11 +7168,9 @@ async def send_werkbon_email(
     bedrijfsnaam = get_email_brand_name(instellingen)
     company_recipient = get_company_recipient(instellingen, user_email=user_email)
 
-    # Pull the tenant's werkbon brand palette so the email skin matches the PDF
-    # — and never leaks another tenant's colors via hardcoded hex values.
-    _C = get_pdf_colors(instellingen)
-    _primary = _C["primary"]      # used as dark/header accent
-    _secondary = _C["secondary"]  # used as gold/highlight accent
+    # Shared skin — one CSS source for all werkbon emails so we don't drift
+    # back into the dark-on-dark unreadable mess.
+    _skin = _build_mail_skin(instellingen)
 
     # Default: only company email. Add client email only when explicitly provided.
     if klant_email and klant_email.strip():
@@ -7029,84 +7211,52 @@ async def send_werkbon_email(
                 </tr>
             """
     
-    # Build HTML email. All brand colors flow from the tenant's werkbon palette;
-    # never use a hardcoded hex value here or another tenant's identity bleeds
-    # into this customer's invoices.
-    html_content = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <style>
-            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 650px; margin: 0 auto; }}
-            .header {{ background: {_primary}; color: white; padding: 28px; text-align: center; border-bottom: 4px solid {_secondary}; }}
-            .header h1 {{ color: {_secondary}; margin: 0 0 6px 0; font-size: 22px; }}
-            .header p {{ color: #ddd; margin: 0; font-size: 14px; }}
-            .content {{ padding: 28px; }}
-            .info-box {{ background: #f8f9fa; border-left: 4px solid {_secondary}; padding: 16px; margin: 20px 0; border-radius: 4px; }}
-            .info-box strong {{ color: {_primary}; }}
-            .highlight {{ color: {_secondary}; font-weight: bold; }}
-            table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
-            th, td {{ border: 1px solid #ddd; padding: 10px 14px; text-align: left; font-size: 14px; }}
-            th {{ background: {_primary}; color: {_secondary}; font-weight: 600; }}
-            .total-row {{ background: #fff3cd; font-weight: bold; }}
-            .disclaimer {{ background: #eef6ff; border-left: 4px solid #1a73e8; padding: 14px 18px; margin: 24px 0; border-radius: 4px; font-size: 13px; color: #333; }}
-            .footer {{ background: #f0f0f0; padding: 16px 20px; font-size: 12px; color: #777; margin-top: 24px; border-top: 1px solid #ddd; text-align: center; }}
-        </style>
-    </head>
-    <body>
+    extra_info_rows = ""
+    if klant.get("prijsafspraak"):
+        extra_info_rows += f"<div><strong>Prijsafspraak:</strong> {klant.get('prijsafspraak')}</div>"
+    if klant_btw:
+        extra_info_rows += f"<div><strong>BTW nr.:</strong> {klant_btw}</div>"
+
+    html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>{_mail_base_styles(_skin)}</style>
+</head>
+<body>
+    <div class="wrap">
         <div class="header">
             <h1>{bedrijfsnaam}</h1>
             <p>Werkbon — Week {week} / {year}</p>
         </div>
-        
         <div class="content">
             <p>Beste {klant_naam},</p>
-            
-            <p>Hierbij vindt u de ondertekende werkbon van <span class="highlight">week {week}</span> voor werf <span class="highlight">{werf_naam}</span>. De werkbon is als PDF bijgevoegd.</p>
-            
-            <div class="info-box">
-                <strong>Klant:</strong> {klant_naam}<br/>
-                <strong>Werf:</strong> {werf_naam}<br/>
-                <strong>Periode:</strong> Week {week}, {year}<br/>
-                <strong>Ondertekend door:</strong> {ondertekend_door}<br/>
-                {f"<strong>Prijsafspraak:</strong> {klant.get('prijsafspraak')}<br/>" if klant.get('prijsafspraak') else ''}
-                {f"<strong>BTW Nr.:</strong> {klant_btw}<br/>" if klant_btw else ''}
+            <p>Hierbij vindt u de ondertekende werkbon van week {week} voor werf <strong>{werf_naam}</strong>. De werkbon is als PDF bijgevoegd.</p>
+            <div class="info-card">
+                <div><strong>Klant:</strong> {klant_naam}</div>
+                <div><strong>Werf:</strong> {werf_naam}</div>
+                <div><strong>Periode:</strong> Week {week}, {year}</div>
+                <div><strong>Ondertekend door:</strong> {ondertekend_door}</div>
+                {extra_info_rows}
             </div>
-            
-            <table>
-                <tr>
-                    <th>Omschrijving</th>
-                    <th>Waarde</th>
-                </tr>
-                <tr>
-                    <td>Totaal gewerkte uren</td>
-                    <td><strong>{totaal_uren_mail} uur</strong></td>
-                </tr>
+            <table class="table">
+                <tr><th>Omschrijving</th><th>Waarde</th></tr>
+                <tr><td>Totaal gewerkte uren</td><td><strong>{totaal_uren_mail} uur</strong></td></tr>
                 {_render_prijsmodel_rows_html(fin)}
                 {km_rows_html}
                 {klant_btw_row}
-                <tr class="total-row">
-                    <td>Totaal bedrag</td>
-                    <td>€{totaal_bedrag_mail:.2f}</td>
-                </tr>
+                <tr class="total"><td>Totaalbedrag</td><td>€ {totaal_bedrag_mail:.2f}</td></tr>
             </table>
-
-            <div class="disclaimer">
-                <strong>Belangrijk:</strong> Gelieve uw opmerkingen binnen 5 werkdagen door te sturen naar <a href="mailto:{company_recipient}">{company_recipient}</a>.<br/>
-                Zonder tegenbericht wordt deze werkbon als goedgekeurd beschouwd.
-            </div>
-            
-            <p>Met vriendelijke groeten,<br/><strong>{bedrijfsnaam}</strong></p>
+            <p class="closing">Heeft u opmerkingen? Stuur ze binnen 5 werkdagen naar <a href="mailto:{company_recipient}">{company_recipient}</a>. Zonder tegenbericht wordt deze werkbon als goedgekeurd beschouwd.</p>
+            <p class="closing">Met vriendelijke groeten,<br/><strong>{bedrijfsnaam}</strong></p>
         </div>
-        
         <div class="footer">
             <p>{instellingen.get('pdf_voettekst', 'Factuur wordt als goedgekeurd beschouwd indien geen klacht wordt ingediend binnen 1 week.')}</p>
-            <p style="margin-top:8px;">Dit is een automatisch gegenereerd bericht van {bedrijfsnaam}.</p>
+            <p>Dit is een automatisch bericht van {bedrijfsnaam}.</p>
         </div>
-    </body>
-    </html>
-    """
+    </div>
+</body>
+</html>"""
     
     try:
         params = {
@@ -7157,45 +7307,39 @@ async def send_oplevering_email(
     if not recipients:
         return {"success": False, "error": "Geen ontvangers geconfigureerd", "recipients": []}
 
-    subject = f"Oplevering PDF - {werkbon.get('werf_naam', 'Werf')} - {werkbon.get('datum', '')}"
-    # Tenant brand palette so the email skin matches the PDF.
-    _C = get_pdf_colors(instellingen)
-    _primary = _C["primary"]
-    _secondary = _C["secondary"]
-    html_content = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset=\"utf-8\" />
-        <style>
-            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 640px; margin: 0 auto; }}
-            .header {{ background: {_primary}; color: white; padding: 24px; text-align: center; border-bottom: 4px solid {_secondary}; }}
-            .header h1 {{ color: {_secondary}; margin: 0; }}
-            .content {{ padding: 24px; }}
-            .info {{ background: #f8f9fa; border-left: 4px solid {_secondary}; padding: 16px; margin: 18px 0; }}
-            .footer {{ background: #f4f4f4; padding: 16px; font-size: 12px; color: #666; text-align: center; }}
-        </style>
-    </head>
-    <body>
-        <div class=\"header\">
+    subject = f"Oplevering PDF - {werkbon.get('werf_naam') or 'Werf'} - {werkbon.get('datum', '')}"
+    _skin = _build_mail_skin(instellingen)
+    schade_label = "Schade aanwezig" if werkbon.get("schade_status") == "schade_aanwezig" else "Geen schade"
+    html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>{_mail_base_styles(_skin)}</style>
+</head>
+<body>
+    <div class="wrap">
+        <div class="header">
             <h1>{bedrijfsnaam}</h1>
             <p>Ondertekende oplevering werkbon</p>
         </div>
-        <div class=\"content\">
+        <div class="content">
+            <p>Beste {werkbon.get('klant_naam') or 'klant'},</p>
             <p>In bijlage vindt u de oplevering werkbon als PDF.</p>
-            <div class=\"info\">
-                <strong>Klant:</strong> {werkbon.get('klant_naam') or '-'}<br/>
-                <strong>Werf:</strong> {werkbon.get('werf_naam') or '-'}<br/>
-                <strong>Datum:</strong> {werkbon.get('datum') or '-'}<br/>
-                <strong>Ondertekend door:</strong> {werkbon.get('handtekening_klant_naam') or '-'}
+            <div class="info-card">
+                <div><strong>Klant:</strong> {werkbon.get('klant_naam') or '-'}</div>
+                <div><strong>Werf:</strong> {werkbon.get('werf_naam') or '-'}</div>
+                <div><strong>Datum:</strong> {werkbon.get('datum') or '-'}</div>
+                <div><strong>Ondertekend door:</strong> {werkbon.get('handtekening_klant_naam') or '-'}</div>
+                <div><strong>Schade status:</strong> {schade_label}</div>
             </div>
-            <p>Schade status: <strong>{'Schade aanwezig' if werkbon.get('schade_status') == 'schade_aanwezig' else 'Geen schade'}</strong></p>
-            <p>Met vriendelijke groeten,<br/><strong>{bedrijfsnaam}</strong></p>
+            <p class="closing">Met vriendelijke groeten,<br/><strong>{bedrijfsnaam}</strong></p>
         </div>
-        <div class=\"footer\">Dit is een automatisch gegenereerde e-mail van {bedrijfsnaam}.</div>
-    </body>
-    </html>
-    """
+        <div class="footer">
+            <p>Dit is een automatisch bericht van {bedrijfsnaam}.</p>
+        </div>
+    </div>
+</body>
+</html>"""
 
     try:
         params = {
@@ -7224,10 +7368,14 @@ async def send_oplevering_email(
 async def verzend_werkbon(
     werkbon_id: str,
     klant_email: Optional[str] = Query(None),
+    verstuur_naar_klant: Optional[bool] = Query(None),
     force: bool = Query(False),
     current_user: Dict = Depends(get_current_user),
 ):
-    """Generate signed werkbon PDF and email it. By default only to company. Provide klant_email to also send to client. Use force=true to bypass status check."""
+    """Generate signed werkbon PDF and email it. By default only to company.
+    Provide klant_email to also send to client. Or set verstuur_naar_klant=true
+    to auto-resolve the address from the klant record. Use force=true to bypass
+    the status check (e.g. to resend after a delivery failure)."""
     company_id = _require_tenant(current_user)
     werkbon = await db.werkbonnen.find_one({"id": werkbon_id, "company_id": company_id}, {"_id": 0})
     if not werkbon:
@@ -7242,6 +7390,15 @@ async def verzend_werkbon(
 
     # Get company settings (tenant-scoped — fall back to {} so caller can still try user_email)
     instellingen = await get_instellingen_for_company(company_id)
+
+    # Defensive: if the stored werkbon has lost its denormalized klant/werf
+    # names (older docs, manual edits, frontend wiping the field) fill them
+    # from the master records before rendering so the PDF and email never
+    # show "-" for fields the user definitely set.
+    if not werkbon.get("klant_naam") and (klant or {}).get("naam"):
+        werkbon["klant_naam"] = klant.get("naam") or klant.get("bedrijfsnaam") or ""
+    if not werkbon.get("werf_naam") and (werf or {}).get("naam"):
+        werkbon["werf_naam"] = werf.get("naam") or ""
 
     try:
         import gc
@@ -7261,15 +7418,19 @@ async def verzend_werkbon(
         logging.exception("PDF generation failed for werkbon %s", werkbon_id)
         raise HTTPException(status_code=500, detail=f"PDF genereren mislukt: {str(exc)}")
 
-    # Klant copy: explicit query param > "ook verzenden naar klant" toggle on
-    # the werkbon > company-wide "automatisch_naar_klant" setting. Address
-    # resolution chain: klant_email param > werkbon.klant_email_override >
-    # klant.algemeen_email > klant.email. Never invent a hardcoded address.
+    # Klant copy: trigger comes from one of three places (in this order of
+    # precedence): explicit query param `klant_email`, the per-werkbon toggle
+    # `verstuur_naar_klant`, or the company-wide `automatisch_naar_klant`
+    # setting. Frontend now passes verstuur_naar_klant as a query flag so the
+    # toggle works even when the user didn't type a custom address.
+    # Address resolution chain: klant_email > werkbon.klant_email_override
+    # > klant.algemeen_email > klant.email. Never invent a hardcoded address.
     # If no address resolves, the klant copy is silently skipped — the company
     # copy still goes out.
     klant_target: Optional[str] = None
     wants_klant_copy = (
         bool(klant_email)
+        or (verstuur_naar_klant is True)
         or bool(werkbon.get("verstuur_naar_klant"))
         or bool(instellingen.get("automatisch_naar_klant"))
     )
@@ -7281,6 +7442,18 @@ async def verzend_werkbon(
             or ((klant or {}).get("email") or "").strip()
             or None
         )
+    logger.info(
+        "[verzend_werkbon] id=%s wants_klant=%s resolved=%s sources: param=%s wb_toggle=%s inst_auto=%s wb_override=%s klant_algemeen=%s klant_legacy=%s",
+        werkbon_id,
+        wants_klant_copy,
+        klant_target,
+        bool(klant_email),
+        bool(werkbon.get("verstuur_naar_klant")),
+        bool(instellingen.get("automatisch_naar_klant")),
+        bool(werkbon.get("klant_email_override")),
+        bool((klant or {}).get("algemeen_email")),
+        bool((klant or {}).get("email")),
+    )
 
     try:
         email_result = await send_werkbon_email(
@@ -7428,10 +7601,9 @@ async def send_werkbon_groep_email(
     if not recipients:
         return {"success": False, "error": "Geen ontvangers geconfigureerd", "recipients": []}
 
-    # Tenant brand palette so the bundled-month email matches the bundled PDF.
-    _C = get_pdf_colors(instellingen)
-    _primary = _C["primary"]
-    _secondary = _C["secondary"]
+    # Shared transactional-email skin so the bundled-month email looks
+    # identical to the single-week werkbon email.
+    _skin = _build_mail_skin(instellingen)
 
     periode_van = groep.get("periode_van", "?")
     periode_tot = groep.get("periode_tot", "?")
@@ -7446,62 +7618,44 @@ async def send_werkbon_groep_email(
 
     subject = f"Werkbon — Periode {periode_van} t/m {periode_tot} — {werf_naam}"
 
-    html_content = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <style>
-            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 650px; margin: 0 auto; }}
-            .header {{ background: {_primary}; color: white; padding: 28px; text-align: center; border-bottom: 4px solid {_secondary}; }}
-            .header h1 {{ color: {_secondary}; margin: 0 0 6px 0; font-size: 22px; }}
-            .header p {{ color: #ddd; margin: 0; font-size: 14px; }}
-            .content {{ padding: 28px; }}
-            .info-box {{ background: #f8f9fa; border-left: 4px solid {_secondary}; padding: 16px; margin: 20px 0; border-radius: 4px; }}
-            .info-box strong {{ color: {_primary}; }}
-            .highlight {{ color: {_secondary}; font-weight: bold; }}
-            table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
-            th, td {{ border: 1px solid #ddd; padding: 10px 14px; text-align: left; font-size: 14px; }}
-            th {{ background: {_primary}; color: {_secondary}; font-weight: 600; }}
-            .total-row {{ background: #fff3cd; font-weight: bold; }}
-            .disclaimer {{ background: #eef6ff; border-left: 4px solid #1a73e8; padding: 14px 18px; margin: 24px 0; border-radius: 4px; font-size: 13px; color: #333; }}
-            .footer {{ background: #f0f0f0; padding: 16px 20px; font-size: 12px; color: #777; margin-top: 24px; border-top: 1px solid #ddd; text-align: center; }}
-        </style>
-    </head>
-    <body>
+    html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>{_mail_base_styles(_skin)}</style>
+</head>
+<body>
+    <div class="wrap">
         <div class="header">
             <h1>{bedrijfsnaam}</h1>
             <p>Werkbon — Periode {periode_van} t/m {periode_tot}</p>
         </div>
         <div class="content">
             <p>Beste {klant_naam},</p>
-            <p>Hierbij vindt u de ondertekende werkbon voor de periode <span class="highlight">{periode_van} t/m {periode_tot}</span> voor werf <span class="highlight">{werf_naam}</span>. Het document bundelt {len(werkbonnen)} weken in één PDF.</p>
-            <div class="info-box">
-                <strong>Klant:</strong> {klant_naam}<br/>
-                <strong>Werf:</strong> {werf_naam}<br/>
-                <strong>Periode:</strong> {periode_van} t/m {periode_tot}<br/>
-                <strong>Weken:</strong> {week_list}<br/>
-                <strong>Ondertekend door:</strong> {ondertekend_door}<br/>
+            <p>Hierbij vindt u de ondertekende werkbon voor de periode <strong>{periode_van} t/m {periode_tot}</strong> voor werf <strong>{werf_naam}</strong>. Het document bundelt {len(werkbonnen)} weken in één PDF.</p>
+            <div class="info-card">
+                <div><strong>Klant:</strong> {klant_naam}</div>
+                <div><strong>Werf:</strong> {werf_naam}</div>
+                <div><strong>Periode:</strong> {periode_van} t/m {periode_tot}</div>
+                <div><strong>Weken:</strong> {week_list}</div>
+                <div><strong>Ondertekend door:</strong> {ondertekend_door}</div>
             </div>
-            <table>
+            <table class="table">
                 <tr><th>Omschrijving</th><th>Waarde</th></tr>
                 <tr><td>Totaal uren</td><td><strong>{format_number(total_uren)}</strong></td></tr>
                 {f'<tr><td>Totaal KM</td><td>{format_number(total_km)} km</td></tr>' if total_km > 0 else ''}
-                <tr class="total-row"><td>Totaalbedrag</td><td>€ {total_bedrag:.2f}</td></tr>
+                <tr class="total"><td>Totaalbedrag</td><td>€ {total_bedrag:.2f}</td></tr>
             </table>
-            <div class="disclaimer">
-                <strong>Belangrijk:</strong> Gelieve uw opmerkingen binnen 5 werkdagen door te sturen naar <a href="mailto:{company_recipient}">{company_recipient}</a>.<br/>
-                Zonder tegenbericht wordt deze werkbon als goedgekeurd beschouwd.
-            </div>
-            <p>Met vriendelijke groeten,<br/><strong>{bedrijfsnaam}</strong></p>
+            <p class="closing">Heeft u opmerkingen? Stuur ze binnen 5 werkdagen naar <a href="mailto:{company_recipient}">{company_recipient}</a>. Zonder tegenbericht wordt deze werkbon als goedgekeurd beschouwd.</p>
+            <p class="closing">Met vriendelijke groeten,<br/><strong>{bedrijfsnaam}</strong></p>
         </div>
         <div class="footer">
             <p>{instellingen.get('pdf_voettekst', 'Factuur wordt als goedgekeurd beschouwd indien geen klacht wordt ingediend binnen 1 week.')}</p>
-            <p style="margin-top:8px;">Dit is een automatisch gegenereerd bericht van {bedrijfsnaam}.</p>
+            <p>Dit is een automatisch bericht van {bedrijfsnaam}.</p>
         </div>
-    </body>
-    </html>
-    """
+    </div>
+</body>
+</html>"""
 
     try:
         import base64 as _b64
@@ -8875,6 +9029,7 @@ async def _create_planning_maand_bulk_impl(data: PlanningMaandBulkCreate, curren
                 prioriteit=data.prioriteit,
                 belangrijk=data.belangrijk,
                 notities=data.notities,
+                groep_id=groep.id,
             )
             d = item.dict()
             d["company_id"] = company_id
