@@ -6942,7 +6942,14 @@ async def send_werkbon_to_billit(werkbon: dict, klant: dict, instellingen: dict)
     import base64
     pdf_attachment = None
     try:
-        werf = await db.werven.find_one({"id": werkbon.get("werf_id")}, {"_id": 0}) or {}
+        # Tenant-scoped werf lookup — billit PDF helper is internal but
+        # double-scoping keeps cross-tenant data from sneaking into an invoice.
+        _wb_company = werkbon.get("company_id")
+        werf = await db.werven.find_one(
+            {"id": werkbon.get("werf_id"), "company_id": _wb_company} if _wb_company
+            else {"id": werkbon.get("werf_id")},
+            {"_id": 0},
+        ) or {}
         werkbon_prepared = await prepare_werkbon_for_pdf(werkbon)
         fin_pdf = compute_werkbon_financials(werkbon_prepared, klant)
         pdf_bytes, pdf_filename = generate_werkbon_pdf(
@@ -7488,7 +7495,9 @@ async def verzend_werkbon(
     billit_result = None
     if instellingen.get("billit_actief") and instellingen.get("billit_auto_versturen"):
         try:
-            werkbon_for_billit = await db.werkbonnen.find_one({"id": werkbon_id}, {"_id": 0}) or werkbon
+            werkbon_for_billit = await db.werkbonnen.find_one(
+                {"id": werkbon_id, "company_id": company_id}, {"_id": 0}
+            ) or werkbon
             billit_result = await send_werkbon_to_billit(werkbon_for_billit, klant or {}, instellingen)
             billit_update: dict = {"updated_at": datetime.now(timezone.utc)}
             if billit_result.get("success"):
@@ -7852,20 +7861,30 @@ async def get_werkbon_pdf(werkbon_id: str, current_user: Dict = Depends(get_curr
 # ==================== RAPPORT ROUTES ====================
 
 @api_router.get("/rapporten/uren")
-async def get_uren_rapport(jaar: int, week: Optional[int] = None, maand: Optional[int] = None):
-    """Get hours report per worker for a given period (week or month)."""
+async def get_uren_rapport(
+    jaar: int,
+    week: Optional[int] = None,
+    maand: Optional[int] = None,
+    current_user: Dict = Depends(get_current_user),
+):
+    """Get hours report per worker for a given period — STRICTLY scoped to the
+    current tenant. The previous version was completely unauthenticated and
+    queried werkbonnen across every tenant, which meant the report mixed
+    workers from different Signybon customers."""
     import calendar
-    query: Dict = {"jaar": jaar}
+    company_id = _require_tenant(current_user)
+    base: Dict = {"jaar": jaar}
     if week is not None:
-        query["week_nummer"] = week
+        base["week_nummer"] = week
     elif maand is not None:
         weeks: set = set()
         _, num_days = calendar.monthrange(jaar, maand)
         for day in range(1, num_days + 1):
             d = datetime(jaar, maand, day)
             weeks.add(d.isocalendar()[1])
-        query["week_nummer"] = {"$in": list(weeks)}
+        base["week_nummer"] = {"$in": list(weeks)}
 
+    query = _company_scope_query(company_id, base)
     werkbonnen = await db.werkbonnen.find(query, {"_id": 0}).to_list(1000)
     rapport: Dict[str, dict] = {}
 
@@ -7915,31 +7934,41 @@ async def get_uren_rapport(jaar: int, week: Optional[int] = None, maand: Optiona
 
 
 @api_router.get("/rapporten/csv-export")
-async def get_csv_export(jaar: int, week: Optional[int] = None, maand: Optional[int] = None):
+async def get_csv_export(
+    jaar: int,
+    week: Optional[int] = None,
+    maand: Optional[int] = None,
+    current_user: Dict = Depends(get_current_user),
+):
     """
-    Export werkbonnen data as clean CSV format.
-    Columns: Datum, Werknemer, Team, Klant, Werf, Werkbon Type, Uren, Status, Handtekening, Opmerkingen
+    Export werkbonnen data as clean CSV format — STRICTLY scoped to the
+    current tenant. Previous version was unauthenticated and exported every
+    tenant's werkbonnen + teams in one CSV; now both lookups are gated.
+    Columns: Datum, Werknemer, Team, Klant, Werf, Werkbon Type, Uren, Status,
+    Handtekening, Opmerkingen.
     """
     import calendar
     from fastapi.responses import Response
     import csv
     from io import StringIO
-    
-    query: Dict = {"jaar": jaar}
+
+    company_id = _require_tenant(current_user)
+    base: Dict = {"jaar": jaar}
     if week is not None:
-        query["week_nummer"] = week
+        base["week_nummer"] = week
     elif maand is not None:
         weeks: set = set()
         _, num_days = calendar.monthrange(jaar, maand)
         for day in range(1, num_days + 1):
             d = datetime(jaar, maand, day)
             weeks.add(d.isocalendar()[1])
-        query["week_nummer"] = {"$in": list(weeks)}
-    
+        base["week_nummer"] = {"$in": list(weeks)}
+
+    query = _company_scope_query(company_id, base)
     werkbonnen = await db.werkbonnen.find(query, {"_id": 0}).to_list(1000)
-    
-    # Get team information for workers
-    teams = await db.teams.find({}, {"_id": 0}).to_list(100)
+
+    # Team lookup — same tenant only, never spans tenants.
+    teams = await db.teams.find(_company_scope_query(company_id), {"_id": 0}).to_list(100)
     team_lookup = {}
     for team in teams:
         for lid in team.get("leden", []):
@@ -9961,29 +9990,35 @@ async def get_uren_deze_week(
     jaar: int,
     current_user: Dict = Depends(get_current_user),
 ):
-    """Total uren for all werkbonnen in the given ISO week (jaar aligns with stats + dashboard week boundaries)."""
+    """Total uren for all werkbonnen in the given ISO week — STRICTLY scoped
+    to the current tenant. Previous version omitted the company_id filter and
+    summed hours across every tenant, so Smart-Tech's dashboard surfaced
+    werkbonnen and uren that belonged to other Signybon customers."""
+    company_id = _require_tenant(current_user)
     now = datetime.now(timezone.utc)
     iso_y = now.isocalendar()[0]
     cal_y = now.year
     jaar_opts = list({jaar, iso_y, cal_y})
-    werkbonnen = await db.werkbonnen.find(
-        {"week_nummer": week_nummer, "jaar": {"$in": jaar_opts}},
-        {"_id": 0, "uren": 1},
-    ).to_list(2000)
+    query = _company_scope_query(company_id, {"week_nummer": week_nummer, "jaar": {"$in": jaar_opts}})
+    werkbonnen = await db.werkbonnen.find(query, {"_id": 0, "uren": 1}).to_list(2000)
     totaal = _sum_uren_from_werkbonnen_docs(werkbonnen)
     return {"totaal_uren": round(totaal, 1), "week_nummer": week_nummer, "jaar": jaar}
 
 
 @api_router.get("/dashboard/uren-maand")
 async def get_uren_deze_maand(jaar: int, maand: int, current_user: Dict = Depends(get_current_user)):
-    """Get total uren and werkbon count for a given month across all werkbonnen."""
+    """Total uren + werkbon count for a given month — STRICTLY scoped to the
+    current tenant. Same leak as uren-week before this fix: the query had no
+    company_id filter, so the "Werkbonnen deze maand" and "Uren deze maand"
+    dashboard tiles showed counts from every tenant in the platform."""
     import calendar
+    company_id = _require_tenant(current_user)
     weeks_set = set()
     _, num_days = calendar.monthrange(jaar, maand)
     for day in range(1, num_days + 1):
         d = datetime(jaar, maand, day)
         weeks_set.add(d.isocalendar()[1])
-    query = {"jaar": jaar, "week_nummer": {"$in": list(weeks_set)}}
+    query = _company_scope_query(company_id, {"jaar": jaar, "week_nummer": {"$in": list(weeks_set)}})
     werkbonnen_aantal = await db.werkbonnen.count_documents(query)
     werkbonnen = await db.werkbonnen.find(query, {"_id": 0, "uren": 1}).to_list(5000)
     totaal = _sum_uren_from_werkbonnen_docs(werkbonnen)
