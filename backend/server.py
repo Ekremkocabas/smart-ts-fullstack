@@ -1308,15 +1308,17 @@ class BedrijfsInstellingen(BaseModel):
     sms_verificatie_activeren: bool = False
     automatisch_naar_klant: bool = False  # Auto-include client email in werkbon email
     
-    # Theme settings for remote control
-    primary_color: str = "#1a1a2e"
-    secondary_color: str = "#F5A623"
-    accent_color: str = "#16213e"
+    # Theme settings for remote control. Defaults are the Signybon brand
+    # palette so a brand-new tenant never inherits Smart-Tech (or any other
+    # tenant's) colors before they pick their own.
+    primary_color: str = "#1B4332"
+    secondary_color: str = "#D4A017"
+    accent_color: str = "#1B4332"
 
-    # Werkbon PDF colors — separate from web branding
-    werkbon_primary_color: str = "#E8A020"
-    werkbon_secondary_color: str = "#1a1a2e"
-    werkbon_accent_color: str = "#F5A623"
+    # Werkbon PDF colors — separate from web branding, same Signybon defaults.
+    werkbon_primary_color: str = "#1B4332"
+    werkbon_secondary_color: str = "#D4A017"
+    werkbon_accent_color: str = "#1B4332"
 
     ondernemingsnummer: Optional[str] = None  # Belgian enterprise number
 
@@ -1983,15 +1985,21 @@ async def is_admin(email: str) -> bool:
 
 async def send_welcome_email(user_email: str, user_naam: str, temp_password: str, instellingen: dict):
     """Send welcome email directly to the new worker."""
-    
+
     if not resend.api_key:
         logging.warning("RESEND_API_KEY not configured, skipping welcome email")
         return {"success": False, "error": "Email not configured"}
-    
+
     bedrijfsnaam = get_email_brand_name(instellingen)
-    
-    sender_email = os.environ.get("SENDER_EMAIL") or instellingen.get("email") or COMPANY_EMAIL
+
+    sender_email = os.environ.get("SENDER_EMAIL") or instellingen.get("email") or ""
     sender = sender_email if "<" in sender_email else f"{bedrijfsnaam} <{sender_email}>"
+
+    # Tenant brand palette — the welcome email is the new worker's first
+    # impression, so it must wear the tenant's own colors, not Smart-Tech's.
+    _C = get_pdf_colors(instellingen)
+    _primary = _C["primary"]
+    _secondary = _C["secondary"]
 
     html_content = f"""
     <!DOCTYPE html>
@@ -2000,11 +2008,11 @@ async def send_welcome_email(user_email: str, user_naam: str, temp_password: str
         <meta charset="utf-8">
         <style>
             body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; }}
-            .header {{ background: #1a1a2e; color: white; padding: 30px; text-align: center; }}
-            .header h1 {{ color: #F5A623; margin: 0; }}
+            .header {{ background: {_primary}; color: white; padding: 30px; text-align: center; }}
+            .header h1 {{ color: {_secondary}; margin: 0; }}
             .content {{ padding: 30px; }}
-            .credentials {{ background: #f8f9fa; border-left: 4px solid #F5A623; padding: 20px; margin: 20px 0; }}
-            .credentials strong {{ color: #F5A623; }}
+            .credentials {{ background: #f8f9fa; border-left: 4px solid {_secondary}; padding: 20px; margin: 20px 0; }}
+            .credentials strong {{ color: {_secondary}; }}
             .steps {{ background: #fff3cd; padding: 20px; border-radius: 8px; margin: 20px 0; }}
             .steps h3 {{ color: #856404; margin-top: 0; }}
             .step {{ margin: 12px 0; padding-left: 20px; }}
@@ -2028,11 +2036,11 @@ async def send_welcome_email(user_email: str, user_naam: str, temp_password: str
                 <p><strong>Tijdelijk wachtwoord:</strong> {temp_password}</p>
             </div>
             
-            <div style="background: #1a1a2e; border-radius: 8px; padding: 20px; margin: 20px 0; text-align: center;">
-                <p style="color: #F5A623; font-weight: bold; margin: 0 0 10px 0;">📱 Smart-TS App</p>
-                <p style="color: #aaa; margin: 0 0 15px 0;">Open de link hieronder op je telefoon en voeg toe aan het beginscherm</p>
-                <a href="{APP_URL}" style="background: #F5A623; color: #1a1a2e; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; display: inline-block;">
-                    🔗 Open Smart-TS App
+            <div style="background: {_primary}; border-radius: 8px; padding: 20px; margin: 20px 0; text-align: center;">
+                <p style="color: {_secondary}; font-weight: bold; margin: 0 0 10px 0;">📱 {bedrijfsnaam} App</p>
+                <p style="color: #ddd; margin: 0 0 15px 0;">Open de link hieronder op je telefoon en voeg toe aan het beginscherm</p>
+                <a href="{APP_URL}" style="background: {_secondary}; color: {_primary}; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; display: inline-block;">
+                    🔗 Open {bedrijfsnaam} App
                 </a>
                 <p style="color: #666; font-size: 11px; margin: 10px 0 0 0;">Tip: In je browser → "Toevoegen aan beginscherm" voor een app-pictogram</p>
             </div>
@@ -2083,12 +2091,15 @@ async def send_klant_welcome_email(klant_email: str, klant_naam: str, instelling
     
     bedrijfsnaam = get_email_brand_name(instellingen)
     logo_base64 = instellingen.get("logo_base64", "")
-    primary_color = instellingen.get("primary_color", "#1a1a2e")
-    secondary_color = instellingen.get("secondary_color", "#F5A623")
+    # Resolve colors via get_pdf_colors so we get the Signybon-default fallback
+    # chain (not Smart-Tech orange/navy) when the tenant has no colors picked.
+    _C = get_pdf_colors(instellingen)
+    primary_color = _C["primary"]
+    secondary_color = _C["secondary"]
     telefoon = instellingen.get("telefoon", "")
     email_bedrijf = instellingen.get("email", "")
-    
-    sender_email = os.environ.get("SENDER_EMAIL") or email_bedrijf or COMPANY_EMAIL
+
+    sender_email = os.environ.get("SENDER_EMAIL") or email_bedrijf or ""
     sender = sender_email if "<" in sender_email else f"{bedrijfsnaam} <{sender_email}>"
     
     logo_html = ""
@@ -2571,20 +2582,92 @@ def klant_km_tarief_eur_per_km(klant: dict) -> float:
     return safe_float(klant.get("km_vergoeding_tarief", 0))
 
 
+def _dagvergoeding_bedrag_for_dag(uren: float, dag_prijs: float, halve_dag_prijs: float, kwart_prijs: float, uurtarief: float) -> float:
+    """Return the day's billable amount under the 'dagvergoeding' price model.
+
+    Rule (set by the customer): full-day = 8h → dag_prijs, half-day = 4h →
+    halve_dag_prijs (or dag_prijs/2 if not set), quarter-day = 2h → kwart_prijs
+    (or dag_prijs/4 if not set). Any in-between value (1h, 3h, 5h, 6h, 7h)
+    falls back to plain uurtarief × uren so partial workdays still bill.
+    """
+    if uren <= 0:
+        return 0.0
+    # Round to nearest 0.25h to absorb minor input drift before bucket matching.
+    rounded = round(uren * 4) / 4.0
+    if rounded == 8.0:
+        return dag_prijs if dag_prijs > 0 else (uurtarief * uren)
+    if rounded == 4.0:
+        return halve_dag_prijs if halve_dag_prijs > 0 else (dag_prijs / 2.0 if dag_prijs > 0 else uurtarief * uren)
+    if rounded == 2.0:
+        return kwart_prijs if kwart_prijs > 0 else (dag_prijs / 4.0 if dag_prijs > 0 else uurtarief * uren)
+    return uurtarief * uren
+
+
 def compute_werkbon_financials(werkbon: dict, klant: dict) -> dict:
     """
-    Urenbedrag = total_uren × klant uurtarief; KM-bedrag = totaal km × klant km-tarief (niet werkbon-snapshot).
+    Compute the werkbon billable amount honoring the klant's prijsmodel.
+
+    Priority chain (matches the customer-facing rules in the admin UI):
+      1. klant.prijsmodel == "uurtarief"     →  total_uren × uurtarief
+      2. klant.prijsmodel == "vaste_prijs"   →  flat vaste_prijs (uren shown but
+                                                not multiplied)
+      3. klant.prijsmodel == "dagvergoeding" →  per werknemer × dag:
+           8h → dag_prijs, 4h → halve_dag_prijs (or dag_prijs/2),
+           2h → kwart_prijs (or dag_prijs/4), other → uurtarief × uren
+
+    If no prijsmodel is set we fall back to whichever financial field has a
+    non-zero value, in the order uurtarief → vaste_prijs → dagvergoeding.
+    KM-bedrag is always uren-independent: totaal km × klant km-tarief.
     """
     total_uren = calculate_total_uren(werkbon)
     uurtarief = klant_standaard_uurtarief_eur(klant)
+    vaste_prijs = safe_float(klant.get("standaard_vaste_prijs", 0))
+    dag_prijs = safe_float(klant.get("dag_prijs", 0))
+    halve_dag_prijs = safe_float(klant.get("halve_dag_prijs", 0))
+    kwart_prijs = safe_float(klant.get("kwart_prijs", 0))
     km_tot = werkbon_km_tot_km(werkbon)
     km_tarief = klant_km_tarief_eur_per_km(klant)
-    uren_bedrag = total_uren * uurtarief
+
+    # Determine which model wins. Explicit prijsmodel field beats heuristics —
+    # only fall back to "first non-zero field" when the klant record was created
+    # before prijsmodel existed.
+    raw_model = (klant.get("prijsmodel") or "").strip().lower()
+    if raw_model in ("uurtarief", "vaste_prijs", "dagvergoeding"):
+        prijsmodel = raw_model
+    elif uurtarief > 0:
+        prijsmodel = "uurtarief"
+    elif vaste_prijs > 0:
+        prijsmodel = "vaste_prijs"
+    elif dag_prijs > 0 or halve_dag_prijs > 0 or kwart_prijs > 0:
+        prijsmodel = "dagvergoeding"
+    else:
+        prijsmodel = "uurtarief"  # default, yields 0 bedrag — caller can warn
+
+    uren_bedrag = 0.0
+    if prijsmodel == "uurtarief":
+        uren_bedrag = total_uren * uurtarief
+    elif prijsmodel == "vaste_prijs":
+        uren_bedrag = vaste_prijs
+    elif prijsmodel == "dagvergoeding":
+        # Sum per werknemer × dag — the buckets are per-day, not per-week.
+        for regel in werkbon.get("uren", []):
+            for dag, _, _, _ in DAY_COLUMNS:
+                uren_dag = safe_float(regel.get(dag, 0))
+                if uren_dag > 0:
+                    uren_bedrag += _dagvergoeding_bedrag_for_dag(
+                        uren_dag, dag_prijs, halve_dag_prijs, kwart_prijs, uurtarief
+                    )
+
     km_bedrag = km_tot * km_tarief if km_tarief > 0 else 0.0
     totaal_bedrag = uren_bedrag + km_bedrag
     return {
         "total_uren": total_uren,
         "uurtarief": uurtarief,
+        "prijsmodel": prijsmodel,
+        "vaste_prijs": vaste_prijs,
+        "dag_prijs": dag_prijs,
+        "halve_dag_prijs": halve_dag_prijs,
+        "kwart_prijs": kwart_prijs,
         "km_tot": km_tot,
         "km_tarief": km_tarief,
         "uren_bedrag": uren_bedrag,
@@ -2738,7 +2821,7 @@ def make_safe_reportlab_image(image_bytes: Optional[bytes], width: float, height
 _DAGEN_KM = ["maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag"]
 _DAGEN_KM_KORT = ["Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo"]
 
-def build_km_pdf_block(werkbon: dict, styles: Any, secondary_color: str = "#1a1a2e", accent_color: str = "#F5A623") -> list:
+def build_km_pdf_block(werkbon: dict, styles: Any, secondary_color: str = "#1B4332", accent_color: str = "#D4A017") -> list:
     """Return a list of story elements for the KM section, or empty list if no KM."""
     km = werkbon.get("km_afstand") or {}
     km_total = sum(safe_float(km.get(d, 0)) for d in _DAGEN_KM)
@@ -3096,14 +3179,32 @@ def generate_werkbon_pdf(werkbon: dict, klant: dict, werf: dict, instellingen: d
     story.append(Spacer(1, 1))
     fin = compute_werkbon_financials(werkbon, klant)
     uurtarief_pdf = fin["uurtarief"]
+    prijsmodel = fin.get("prijsmodel", "uurtarief")
     km_totaal_voor_vergoeding = fin["km_tot"]
     km_tarief = fin["km_tarief"]
     km_bedrag = fin["km_bedrag"]
+    uren_bedrag = fin["uren_bedrag"]
     totaal_bedrag_incl_km = fin["totaal_bedrag"]
-    summary_rows = [
-        ["Totaal uren", format_number(total_uren)],
-        ["Uurtarief", f"€ {uurtarief_pdf:.2f}"],
-    ]
+
+    # Summary rows reflect the klant's prijsmodel so the customer sees how the
+    # invoice was actually calculated — not a generic uurtarief line that
+    # contradicts a vaste-prijs or dagvergoeding agreement.
+    summary_rows = [["Totaal uren", format_number(total_uren)]]
+    if prijsmodel == "uurtarief":
+        summary_rows.append(["Uurtarief", f"€ {uurtarief_pdf:.2f}"])
+    elif prijsmodel == "vaste_prijs":
+        summary_rows.append(["Vaste prijs", f"€ {fin.get('vaste_prijs', 0):.2f}"])
+    elif prijsmodel == "dagvergoeding":
+        dag_p = fin.get("dag_prijs", 0)
+        halve_p = fin.get("halve_dag_prijs", 0)
+        kwart_p = fin.get("kwart_prijs", 0)
+        if dag_p > 0:
+            summary_rows.append(["Dagprijs (8u)", f"€ {dag_p:.2f}"])
+        if halve_p > 0:
+            summary_rows.append(["Halve dag (4u)", f"€ {halve_p:.2f}"])
+        if kwart_p > 0:
+            summary_rows.append(["Kwartdag (2u)", f"€ {kwart_p:.2f}"])
+        summary_rows.append(["Urenbedrag", f"€ {uren_bedrag:.2f}"])
     if km_totaal_voor_vergoeding > 0:
         summary_rows.append(["Totaal KM", f"{format_number(km_totaal_voor_vergoeding)} km"])
     if klant.get("prijsafspraak"):
@@ -3630,14 +3731,29 @@ def _build_werkbon_section(
     story.append(Spacer(1, 1))
     fin = compute_werkbon_financials(werkbon, klant)
     uurtarief_pdf = fin["uurtarief"]
+    prijsmodel = fin.get("prijsmodel", "uurtarief")
     km_totaal = fin["km_tot"]
     km_tarief = fin["km_tarief"]
     km_bedrag = fin["km_bedrag"]
+    uren_bedrag = fin["uren_bedrag"]
     totaal_bedrag_incl_km = fin["totaal_bedrag"]
-    summary_rows = [
-        ["Totaal uren", format_number(total_uren)],
-        ["Uurtarief", f"€ {uurtarief_pdf:.2f}"],
-    ]
+
+    summary_rows = [["Totaal uren", format_number(total_uren)]]
+    if prijsmodel == "uurtarief":
+        summary_rows.append(["Uurtarief", f"€ {uurtarief_pdf:.2f}"])
+    elif prijsmodel == "vaste_prijs":
+        summary_rows.append(["Vaste prijs", f"€ {fin.get('vaste_prijs', 0):.2f}"])
+    elif prijsmodel == "dagvergoeding":
+        dag_p = fin.get("dag_prijs", 0)
+        halve_p = fin.get("halve_dag_prijs", 0)
+        kwart_p = fin.get("kwart_prijs", 0)
+        if dag_p > 0:
+            summary_rows.append(["Dagprijs (8u)", f"€ {dag_p:.2f}"])
+        if halve_p > 0:
+            summary_rows.append(["Halve dag (4u)", f"€ {halve_p:.2f}"])
+        if kwart_p > 0:
+            summary_rows.append(["Kwartdag (2u)", f"€ {kwart_p:.2f}"])
+        summary_rows.append(["Urenbedrag", f"€ {uren_bedrag:.2f}"])
     if km_totaal > 0:
         summary_rows.append(["Totaal KM", f"{format_number(km_totaal)} km"])
     if klant.get("prijsafspraak"):
@@ -4290,6 +4406,9 @@ async def send_productie_werkbon_email(werkbon: dict, instellingen: dict, pdf_by
     
     try:
         subject = f"Productie Werkbon PDF - {werkbon.get('werf_naam', 'Werf')} - {werkbon.get('datum', '')}"
+        _C = get_pdf_colors(instellingen)
+        _primary = _C["primary"]
+        _secondary = _C["secondary"]
         html_body = f"""
         <!DOCTYPE html>
         <html>
@@ -4297,10 +4416,10 @@ async def send_productie_werkbon_email(werkbon: dict, instellingen: dict, pdf_by
             <meta charset="utf-8">
             <style>
                 body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 640px; margin: 0 auto; }}
-                .header {{ background: #1a1a2e; color: white; padding: 24px; text-align: center; border-bottom: 4px solid #F5A623; }}
-                .header h1 {{ color: #F5A623; margin: 0; }}
+                .header {{ background: {_primary}; color: white; padding: 24px; text-align: center; border-bottom: 4px solid {_secondary}; }}
+                .header h1 {{ color: {_secondary}; margin: 0; }}
                 .content {{ padding: 24px; }}
-                .info {{ background: #f8f9fa; border-left: 4px solid #F5A623; padding: 16px; margin: 18px 0; }}
+                .info {{ background: #f8f9fa; border-left: 4px solid {_secondary}; padding: 16px; margin: 18px 0; }}
                 .footer {{ background: #f4f4f4; padding: 16px; font-size: 12px; color: #666; text-align: center; }}
             </style>
         </head>
@@ -4595,10 +4714,13 @@ async def send_project_werkbon_email(werkbon: dict, instellingen: dict, pdf_byte
         return {"success": False, "error": "Geen ontvangers geconfigureerd", "recipients": []}
 
     subject = f"Project Werkbon PDF - {werkbon.get('werf_naam', 'Werf')}"
+    _C = get_pdf_colors(instellingen)
+    _primary = _C["primary"]
+    _secondary = _C["secondary"]
     html = f"""
     <div style='font-family:Arial,sans-serif;max-width:640px;margin:0 auto;'>
-      <div style='background:#1a1a2e;color:#fff;padding:24px;border-bottom:4px solid #F5A623;'>
-        <h1 style='margin:0;color:#F5A623;'>{instellingen.get('bedrijfsnaam') or 'Signybon'}</h1>
+      <div style='background:{_primary};color:#fff;padding:24px;border-bottom:4px solid {_secondary};'>
+        <h1 style='margin:0;color:{_secondary};'>{instellingen.get('bedrijfsnaam') or 'Signybon'}</h1>
         <p style='margin:8px 0 0;'>Ondertekende project werkbon in bijlage</p>
       </div>
       <div style='padding:24px;'>
@@ -6813,6 +6935,28 @@ async def verstuur_werkbon_naar_billit(werkbon_id: str, current_user: Dict = Dep
 
 # ==================== EMAIL SERVICE ====================
 
+def _render_prijsmodel_rows_html(fin: dict) -> str:
+    """Render the price-model rows in werkbon emails. Mirrors the PDF summary
+    so the email matches what the customer sees in the attached PDF."""
+    prijsmodel = fin.get("prijsmodel", "uurtarief")
+    uurtarief = fin.get("uurtarief", 0.0)
+    if prijsmodel == "uurtarief":
+        return f'<tr><td>Uurtarief</td><td>€{uurtarief:.2f}</td></tr>'
+    if prijsmodel == "vaste_prijs":
+        return f'<tr><td>Vaste prijs</td><td>€{fin.get("vaste_prijs", 0):.2f}</td></tr>'
+    if prijsmodel == "dagvergoeding":
+        parts = []
+        if fin.get("dag_prijs", 0) > 0:
+            parts.append(f'<tr><td>Dagprijs (8u)</td><td>€{fin["dag_prijs"]:.2f}</td></tr>')
+        if fin.get("halve_dag_prijs", 0) > 0:
+            parts.append(f'<tr><td>Halve dag (4u)</td><td>€{fin["halve_dag_prijs"]:.2f}</td></tr>')
+        if fin.get("kwart_prijs", 0) > 0:
+            parts.append(f'<tr><td>Kwartdag (2u)</td><td>€{fin["kwart_prijs"]:.2f}</td></tr>')
+        parts.append(f'<tr><td>Urenbedrag</td><td>€{fin.get("uren_bedrag", 0):.2f}</td></tr>')
+        return "".join(parts)
+    return ""
+
+
 async def send_werkbon_email(
     werkbon: dict,
     klant: dict,
@@ -6839,6 +6983,12 @@ async def send_werkbon_email(
     ondertekend_door = werkbon.get("handtekening_naam", "Onbekend")
     bedrijfsnaam = get_email_brand_name(instellingen)
     company_recipient = get_company_recipient(instellingen, user_email=user_email)
+
+    # Pull the tenant's werkbon brand palette so the email skin matches the PDF
+    # — and never leaks another tenant's colors via hardcoded hex values.
+    _C = get_pdf_colors(instellingen)
+    _primary = _C["primary"]      # used as dark/header accent
+    _secondary = _C["secondary"]  # used as gold/highlight accent
 
     # Default: only company email. Add client email only when explicitly provided.
     if klant_email and klant_email.strip():
@@ -6879,7 +7029,9 @@ async def send_werkbon_email(
                 </tr>
             """
     
-    # Build HTML email
+    # Build HTML email. All brand colors flow from the tenant's werkbon palette;
+    # never use a hardcoded hex value here or another tenant's identity bleeds
+    # into this customer's invoices.
     html_content = f"""
     <!DOCTYPE html>
     <html>
@@ -6887,16 +7039,16 @@ async def send_werkbon_email(
         <meta charset="utf-8">
         <style>
             body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 650px; margin: 0 auto; }}
-            .header {{ background: #1a1a2e; color: white; padding: 28px; text-align: center; border-bottom: 4px solid #F5A623; }}
-            .header h1 {{ color: #F5A623; margin: 0 0 6px 0; font-size: 22px; }}
-            .header p {{ color: #aaa; margin: 0; font-size: 14px; }}
+            .header {{ background: {_primary}; color: white; padding: 28px; text-align: center; border-bottom: 4px solid {_secondary}; }}
+            .header h1 {{ color: {_secondary}; margin: 0 0 6px 0; font-size: 22px; }}
+            .header p {{ color: #ddd; margin: 0; font-size: 14px; }}
             .content {{ padding: 28px; }}
-            .info-box {{ background: #f8f9fa; border-left: 4px solid #F5A623; padding: 16px; margin: 20px 0; border-radius: 4px; }}
-            .info-box strong {{ color: #1a1a2e; }}
-            .highlight {{ color: #F5A623; font-weight: bold; }}
+            .info-box {{ background: #f8f9fa; border-left: 4px solid {_secondary}; padding: 16px; margin: 20px 0; border-radius: 4px; }}
+            .info-box strong {{ color: {_primary}; }}
+            .highlight {{ color: {_secondary}; font-weight: bold; }}
             table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
             th, td {{ border: 1px solid #ddd; padding: 10px 14px; text-align: left; font-size: 14px; }}
-            th {{ background: #1a1a2e; color: #F5A623; font-weight: 600; }}
+            th {{ background: {_primary}; color: {_secondary}; font-weight: 600; }}
             .total-row {{ background: #fff3cd; font-weight: bold; }}
             .disclaimer {{ background: #eef6ff; border-left: 4px solid #1a73e8; padding: 14px 18px; margin: 24px 0; border-radius: 4px; font-size: 13px; color: #333; }}
             .footer {{ background: #f0f0f0; padding: 16px 20px; font-size: 12px; color: #777; margin-top: 24px; border-top: 1px solid #ddd; text-align: center; }}
@@ -6931,10 +7083,7 @@ async def send_werkbon_email(
                     <td>Totaal gewerkte uren</td>
                     <td><strong>{totaal_uren_mail} uur</strong></td>
                 </tr>
-                <tr>
-                    <td>Uurtarief</td>
-                    <td>€{uurtarief_mail:.2f}</td>
-                </tr>
+                {_render_prijsmodel_rows_html(fin)}
                 {km_rows_html}
                 {klant_btw_row}
                 <tr class="total-row">
@@ -7009,6 +7158,10 @@ async def send_oplevering_email(
         return {"success": False, "error": "Geen ontvangers geconfigureerd", "recipients": []}
 
     subject = f"Oplevering PDF - {werkbon.get('werf_naam', 'Werf')} - {werkbon.get('datum', '')}"
+    # Tenant brand palette so the email skin matches the PDF.
+    _C = get_pdf_colors(instellingen)
+    _primary = _C["primary"]
+    _secondary = _C["secondary"]
     html_content = f"""
     <!DOCTYPE html>
     <html>
@@ -7016,10 +7169,10 @@ async def send_oplevering_email(
         <meta charset=\"utf-8\" />
         <style>
             body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 640px; margin: 0 auto; }}
-            .header {{ background: #1a1a2e; color: white; padding: 24px; text-align: center; border-bottom: 4px solid #F5A623; }}
-            .header h1 {{ color: #F5A623; margin: 0; }}
+            .header {{ background: {_primary}; color: white; padding: 24px; text-align: center; border-bottom: 4px solid {_secondary}; }}
+            .header h1 {{ color: {_secondary}; margin: 0; }}
             .content {{ padding: 24px; }}
-            .info {{ background: #f8f9fa; border-left: 4px solid #F5A623; padding: 16px; margin: 18px 0; }}
+            .info {{ background: #f8f9fa; border-left: 4px solid {_secondary}; padding: 16px; margin: 18px 0; }}
             .footer {{ background: #f4f4f4; padding: 16px; font-size: 12px; color: #666; text-align: center; }}
         </style>
     </head>
@@ -7108,7 +7261,27 @@ async def verzend_werkbon(
         logging.exception("PDF generation failed for werkbon %s", werkbon_id)
         raise HTTPException(status_code=500, detail=f"PDF genereren mislukt: {str(exc)}")
 
-    # Send email - klant_email is optional (only if user explicitly provided it)
+    # Klant copy: explicit query param > "ook verzenden naar klant" toggle on
+    # the werkbon > company-wide "automatisch_naar_klant" setting. Address
+    # resolution chain: klant_email param > werkbon.klant_email_override >
+    # klant.algemeen_email > klant.email. Never invent a hardcoded address.
+    # If no address resolves, the klant copy is silently skipped — the company
+    # copy still goes out.
+    klant_target: Optional[str] = None
+    wants_klant_copy = (
+        bool(klant_email)
+        or bool(werkbon.get("verstuur_naar_klant"))
+        or bool(instellingen.get("automatisch_naar_klant"))
+    )
+    if wants_klant_copy:
+        klant_target = (
+            (klant_email or "").strip()
+            or (werkbon.get("klant_email_override") or "").strip()
+            or ((klant or {}).get("algemeen_email") or "").strip()
+            or ((klant or {}).get("email") or "").strip()
+            or None
+        )
+
     try:
         email_result = await send_werkbon_email(
             werkbon,
@@ -7118,7 +7291,7 @@ async def verzend_werkbon(
             totaal_bedrag,
             pdf_bytes,
             pdf_filename,
-            klant_email=klant_email,
+            klant_email=klant_target,
             user_email=current_user.get("email"),
         )
     except Exception as mail_err:
@@ -7255,6 +7428,11 @@ async def send_werkbon_groep_email(
     if not recipients:
         return {"success": False, "error": "Geen ontvangers geconfigureerd", "recipients": []}
 
+    # Tenant brand palette so the bundled-month email matches the bundled PDF.
+    _C = get_pdf_colors(instellingen)
+    _primary = _C["primary"]
+    _secondary = _C["secondary"]
+
     periode_van = groep.get("periode_van", "?")
     periode_tot = groep.get("periode_tot", "?")
     klant_naam = groep.get("klant_naam") or klant.get("naam") or "Onbekend"
@@ -7275,16 +7453,16 @@ async def send_werkbon_groep_email(
         <meta charset="utf-8">
         <style>
             body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 650px; margin: 0 auto; }}
-            .header {{ background: #1a1a2e; color: white; padding: 28px; text-align: center; border-bottom: 4px solid #F5A623; }}
-            .header h1 {{ color: #F5A623; margin: 0 0 6px 0; font-size: 22px; }}
-            .header p {{ color: #aaa; margin: 0; font-size: 14px; }}
+            .header {{ background: {_primary}; color: white; padding: 28px; text-align: center; border-bottom: 4px solid {_secondary}; }}
+            .header h1 {{ color: {_secondary}; margin: 0 0 6px 0; font-size: 22px; }}
+            .header p {{ color: #ddd; margin: 0; font-size: 14px; }}
             .content {{ padding: 28px; }}
-            .info-box {{ background: #f8f9fa; border-left: 4px solid #F5A623; padding: 16px; margin: 20px 0; border-radius: 4px; }}
-            .info-box strong {{ color: #1a1a2e; }}
-            .highlight {{ color: #F5A623; font-weight: bold; }}
+            .info-box {{ background: #f8f9fa; border-left: 4px solid {_secondary}; padding: 16px; margin: 20px 0; border-radius: 4px; }}
+            .info-box strong {{ color: {_primary}; }}
+            .highlight {{ color: {_secondary}; font-weight: bold; }}
             table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
             th, td {{ border: 1px solid #ddd; padding: 10px 14px; text-align: left; font-size: 14px; }}
-            th {{ background: #1a1a2e; color: #F5A623; font-weight: 600; }}
+            th {{ background: {_primary}; color: {_secondary}; font-weight: 600; }}
             .total-row {{ background: #fff3cd; font-weight: bold; }}
             .disclaimer {{ background: #eef6ff; border-left: 4px solid #1a73e8; padding: 14px 18px; margin: 24px 0; border-radius: 4px; font-size: 13px; color: #333; }}
             .footer {{ background: #f0f0f0; padding: 16px 20px; font-size: 12px; color: #777; margin-top: 24px; border-top: 1px solid #ddd; text-align: center; }}
@@ -7398,9 +7576,15 @@ async def verzend_werkbon_groep(
         logging.exception("Combined PDF generation failed for groep %s", groep_id)
         raise HTTPException(status_code=500, detail=f"PDF genereren mislukt: {str(exc)}")
 
-    # Klant copy: only if explicit param OR klant record has email on file.
+    # Klant copy: only if explicit param OR klant record has email on file
+    # (algemeen_email is the new structured field, email is the legacy fallback).
     # Never invent a default address.
-    klant_target = (klant_email or "").strip() or (klant.get("email") or "").strip() or None
+    klant_target = (
+        (klant_email or "").strip()
+        or (klant.get("algemeen_email") or "").strip()
+        or (klant.get("email") or "").strip()
+        or None
+    )
 
     try:
         email_result = await send_werkbon_groep_email(
@@ -7888,13 +8072,23 @@ async def verzend_oplevering_werkbon(
         logging.exception("Oplevering PDF generation failed for %s", werkbon_id)
         raise HTTPException(status_code=500, detail=f"PDF genereren mislukt: {str(exc)}")
 
-    override_email = (klant_email or werkbon.get("klant_email_override") or werkbon.get("klant_email") or "").strip()
+    # Klant copy address resolution: explicit param > werkbon override >
+    # werkbon snapshot > klant master record. Always honours verstuur_naar_klant
+    # so the company copy still goes out even when the klant has no address.
+    klant_doc = await db.klanten.find_one({"id": werkbon.get("klant_id"), "company_id": company_id}, {"_id": 0}) or {}
+    override_email = (
+        (klant_email or "").strip()
+        or (werkbon.get("klant_email_override") or "").strip()
+        or (werkbon.get("klant_email") or "").strip()
+        or (klant_doc.get("algemeen_email") or "").strip()
+        or (klant_doc.get("email") or "").strip()
+    )
     email_result = await send_oplevering_email(
         werkbon,
         instellingen,
         pdf_bytes,
         pdf_filename,
-        klant_email=override_email,
+        klant_email=override_email or None,
         user_email=current_user.get("email"),
     )
     nieuwe_status = "verzonden" if email_result.get("success") else werkbon.get("status", "ondertekend")
@@ -8092,13 +8286,19 @@ async def verzend_project_werkbon(
     pdf_bytes, pdf_filename = generate_project_werkbon_pdf(werkbon_prepared, instellingen)
     gc.collect()  # Free memory after PDF generation
 
-    override_email = (klant_email or werkbon.get("klant_email_override") or "").strip()
+    klant_doc = await db.klanten.find_one({"id": werkbon.get("klant_id"), "company_id": company_id}, {"_id": 0}) or {}
+    override_email = (
+        (klant_email or "").strip()
+        or (werkbon.get("klant_email_override") or "").strip()
+        or (klant_doc.get("algemeen_email") or "").strip()
+        or (klant_doc.get("email") or "").strip()
+    )
     email_result = await send_project_werkbon_email(
         werkbon,
         instellingen,
         pdf_bytes,
         pdf_filename,
-        klant_email=override_email,
+        klant_email=override_email or None,
         user_email=current_user.get("email"),
     )
 
@@ -8302,13 +8502,19 @@ async def verzend_productie_werkbon(
         logging.exception("Productie PDF generation failed for %s", werkbon_id)
         raise HTTPException(status_code=500, detail=f"PDF genereren mislukt: {str(exc)}")
 
-    override_email = (klant_email or werkbon.get("klant_email_override") or "").strip()
+    klant_doc = await db.klanten.find_one({"id": werkbon.get("klant_id"), "company_id": company_id}, {"_id": 0}) or {}
+    override_email = (
+        (klant_email or "").strip()
+        or (werkbon.get("klant_email_override") or "").strip()
+        or (klant_doc.get("algemeen_email") or "").strip()
+        or (klant_doc.get("email") or "").strip()
+    )
     email_result = await send_productie_werkbon_email(
         werkbon,
         instellingen,
         pdf_bytes,
         pdf_filename,
-        klant_email=override_email,
+        klant_email=override_email or None,
         user_email=current_user.get("email"),
     )
     await db.productie_werkbonnen.update_one(
@@ -8568,6 +8774,10 @@ async def create_planning_maand_bulk(
 
 
 async def _create_planning_maand_bulk_impl(data: PlanningMaandBulkCreate, current_user: Dict):
+    """Multi-week planning insert. Uses bulk Mongo ops everywhere we can:
+    historical N×find_one/N×insert_one loops took >10s on Railway and tripped
+    the frontend's axios timeout, causing the user to see a spurious "geen
+    verbinding met server" error even though the inserts eventually succeeded."""
     from datetime import date as _date
     company_id = _require_tenant(current_user)
 
@@ -8586,25 +8796,35 @@ async def _create_planning_maand_bulk_impl(data: PlanningMaandBulkCreate, curren
     if not weeks:
         raise HTTPException(status_code=400, detail="Geen werkdagen in de geselecteerde periode")
 
-    klant = await db.klanten.find_one({"id": data.klant_id, "company_id": company_id})
-    werf = await db.werven.find_one({"id": data.werf_id, "company_id": company_id})
+    # Parallel: klant + werf + users + team lookups — saves 2-3 round trips.
+    klant_task = db.klanten.find_one({"id": data.klant_id, "company_id": company_id})
+    werf_task = db.werven.find_one({"id": data.werf_id, "company_id": company_id})
+    users_task = (
+        db.users.find(
+            {"id": {"$in": list(data.werknemer_ids)}, "company_id": company_id},
+            {"_id": 0, "id": 1, "naam": 1},
+        ).to_list(None)
+        if data.werknemer_ids
+        else asyncio.sleep(0, result=[])
+    )
+    team_task = (
+        db.teams.find_one({"id": data.team_id, "company_id": company_id})
+        if data.team_id
+        else asyncio.sleep(0, result=None)
+    )
+    klant, werf, users_list, team = await asyncio.gather(
+        klant_task, werf_task, users_task, team_task
+    )
     if not klant:
         raise HTTPException(status_code=404, detail="Klant niet gevonden")
     if not werf:
         raise HTTPException(status_code=404, detail="Werf niet gevonden")
 
-    werknemer_namen = list(data.werknemer_namen)
-    if data.werknemer_ids and not werknemer_namen:
-        for wid in data.werknemer_ids:
-            user = await db.users.find_one({"id": wid, "company_id": company_id})
-            if user:
-                werknemer_namen.append(user["naam"])
-
-    team_naam = None
-    if data.team_id:
-        team = await db.teams.find_one({"id": data.team_id, "company_id": company_id})
-        if team:
-            team_naam = team["naam"]
+    user_naam_by_id: Dict[str, str] = {u["id"]: u.get("naam") or u["id"] for u in users_list}
+    werknemer_namen = list(data.werknemer_namen) or [
+        user_naam_by_id.get(wid, wid) for wid in data.werknemer_ids
+    ]
+    team_naam = team.get("naam") if team else None
 
     # 1) Create the WerkbonGroep first so child werkbon stubs can carry its id.
     groep = WerkbonGroep(
@@ -8619,33 +8839,17 @@ async def _create_planning_maand_bulk_impl(data: PlanningMaandBulkCreate, curren
         ingevuld_door_naam=current_user.get("naam") or "",
     )
     groep_doc = groep.dict()
-    await db.werkbon_groepen.insert_one(groep_doc)
 
-    created_items: List[dict] = []
+    # 2) Build EVERY planning + werkbon doc in memory before touching Mongo.
+    #    Then collapse the writes to insert_many calls (one per collection).
+    planning_docs: List[dict] = []
+    werkbon_docs: List[dict] = []
     werkbon_ids: List[str] = []
-    waarschuwingen: List[str] = []
 
-    # 2) For each ISO week, create per-day planning items AND a Werkbon stub
-    #    that will later be filled with hours/signature. Werkbon carries
-    #    groep_id so the verzenden endpoint can find all siblings.
     for wk in weeks:
         week_nummer = wk["week_nummer"]
         jaar = wk["jaar"]
-
         for dag in wk["dagen"]:
-            for wid in data.werknemer_ids:
-                existing = await db.planning.find_one({
-                    "company_id": company_id,
-                    "werknemer_ids": wid,
-                    "week_nummer": week_nummer,
-                    "jaar": jaar,
-                    "dag": dag,
-                })
-                if existing:
-                    user = await db.users.find_one({"id": wid, "company_id": company_id})
-                    naam = user["naam"] if user else wid
-                    waarschuwingen.append(f"{naam} is al ingepland op {dag} (wk {week_nummer})")
-
             item = PlanningItem(
                 week_nummer=week_nummer,
                 jaar=jaar,
@@ -8672,13 +8876,10 @@ async def _create_planning_maand_bulk_impl(data: PlanningMaandBulkCreate, curren
                 belangrijk=data.belangrijk,
                 notities=data.notities,
             )
-            item_doc = item.dict()
-            item_doc["company_id"] = company_id
-            await db.planning.insert_one(item_doc)
-            created_items.append(serialize_mongo_doc(item_doc))
+            d = item.dict()
+            d["company_id"] = company_id
+            planning_docs.append(d)
 
-        # Create the Werkbon stub for this ISO week. ingevuld_door_* comes from
-        # the admin who is planning — the worker will edit/sign later.
         week_dates = get_week_dates(jaar, week_nummer)
         werkbon = Werkbon(
             company_id=company_id,
@@ -8698,16 +8899,51 @@ async def _create_planning_maand_bulk_impl(data: PlanningMaandBulkCreate, curren
             groep_id=groep.id,
             **week_dates,
         )
-        wb_doc = werkbon.dict()
-        wb_doc["company_id"] = company_id
-        await db.werkbonnen.insert_one(wb_doc)
+        wbd = werkbon.dict()
+        wbd["company_id"] = company_id
+        werkbon_docs.append(wbd)
         werkbon_ids.append(werkbon.id)
+
+    # 3) Single bulk duplicate-check covering every (week,jaar,dag) tuple we are
+    #    about to insert. The result set is small so post-filtering in Python is
+    #    cheap and saves N round-trips.
+    waarschuwingen: List[str] = []
+    if data.werknemer_ids:
+        weeks_set = list({(w["jaar"], w["week_nummer"]) for w in weeks})
+        dagen_set = list({d for w in weeks for d in w["dagen"]})
+        existing_cursor = db.planning.find(
+            {
+                "company_id": company_id,
+                "werknemer_ids": {"$in": list(data.werknemer_ids)},
+                "jaar": {"$in": [y for y, _ in weeks_set]},
+                "week_nummer": {"$in": [w for _, w in weeks_set]},
+                "dag": {"$in": dagen_set},
+            },
+            {"_id": 0, "week_nummer": 1, "jaar": 1, "dag": 1, "werknemer_ids": 1},
+        )
+        async for existing in existing_cursor:
+            for wid in existing.get("werknemer_ids") or []:
+                if wid in data.werknemer_ids:
+                    naam = user_naam_by_id.get(wid, wid)
+                    waarschuwingen.append(
+                        f"{naam} is al ingepland op {existing.get('dag')} (wk {existing.get('week_nummer')})"
+                    )
+
+    # 4) Write everything: groep, planning items, werkbon stubs — in parallel.
+    write_tasks = [db.werkbon_groepen.insert_one(groep_doc)]
+    if planning_docs:
+        write_tasks.append(db.planning.insert_many(planning_docs, ordered=False))
+    if werkbon_docs:
+        write_tasks.append(db.werkbonnen.insert_many(werkbon_docs, ordered=False))
+    await asyncio.gather(*write_tasks)
 
     # Persist the resolved werkbon list back on the groep.
     await db.werkbon_groepen.update_one(
         {"id": groep.id},
         {"$set": {"werkbon_ids": werkbon_ids, "updated_at": datetime.now(timezone.utc)}}
     )
+
+    created_items: List[dict] = [serialize_mongo_doc(d) for d in planning_docs]
 
     # Single push covering the entire range — workers don't need a notification
     # per ISO week.
@@ -9139,15 +9375,18 @@ async def send_bericht_email(data: dict, current_user: Dict = Depends(get_curren
 
         instellingen = await get_instellingen_for_company(company_id)
         bedrijfsnaam = instellingen.get("bedrijfsnaam", "Signybon")
-        
+        _C = get_pdf_colors(instellingen)
+        _primary = _C["primary"]
+        _secondary = _C["secondary"]
+
         html_content = f"""
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="background-color: #1a1a2e; padding: 20px; border-radius: 10px 10px 0 0; text-align: center;">
-                <h1 style="color: #F5A623; margin: 0; font-size: 22px;">{bedrijfsnaam}</h1>
+            <div style="background-color: {_primary}; padding: 20px; border-radius: 10px 10px 0 0; text-align: center;">
+                <h1 style="color: {_secondary}; margin: 0; font-size: 22px;">{bedrijfsnaam}</h1>
             </div>
             <div style="background-color: #ffffff; padding: 24px; border: 1px solid #e8e9ed;">
                 <p style="color: #6c757d; font-size: 13px; margin: 0 0 8px 0;">Bericht van {van_naam}</p>
-                <h2 style="color: #1a1a2e; margin: 0 0 16px 0; font-size: 18px;">{onderwerp}</h2>
+                <h2 style="color: {_primary}; margin: 0 0 16px 0; font-size: 18px;">{onderwerp}</h2>
                 <div style="color: #333; font-size: 15px; line-height: 1.6; white-space: pre-wrap;">{inhoud}</div>
             </div>
             <div style="background-color: #f5f6fa; padding: 16px; border-radius: 0 0 10px 10px; text-align: center; border: 1px solid #e8e9ed; border-top: 0;">

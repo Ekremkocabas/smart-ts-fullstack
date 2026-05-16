@@ -411,12 +411,20 @@ export default function PlanningAdmin() {
         // Multi-week: backend slices the range into ISO weeks AND creates a
         // WerkbonGroep so the eventual werkbon is one combined PDF + one
         // signature + one email.
-        const res = await apiClient.post('/api/planning/maand-bulk', {
-          ...baseBody,
-          van_datum: vanDatum,
-          tot_datum: totDatum,
-          skip_weekend: false,
-        });
+        // Override the apiClient's default 10s timeout: a 12-month range with
+        // multiple werknemers can spend a few seconds in MongoDB even with
+        // bulk inserts, and we'd rather wait than show a fake "no connection"
+        // error to the user.
+        const res = await apiClient.post(
+          '/api/planning/maand-bulk',
+          {
+            ...baseBody,
+            van_datum: vanDatum,
+            tot_datum: totDatum,
+            skip_weekend: false,
+          },
+          { timeout: 60000 },
+        );
         const result = res.data;
         if (result.waarschuwingen?.length > 0) setWaarschuwingen(result.waarschuwingen);
       } else {
