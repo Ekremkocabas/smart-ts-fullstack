@@ -5167,10 +5167,29 @@ async def login_user(request: Request, login_data: UserLogin):
     
     if not authenticated:
         raise HTTPException(status_code=401, detail="Ongeldige inloggegevens")
-    
+
     if not user.get("actief", True):
         raise HTTPException(status_code=401, detail="Account is gedeactiveerd")
-    
+
+    # Stamp last_login_at on both the user and the company. Powers the master
+    # panel "Aktif müşteriler bu ay" KPI and the 14+ day inactive list. Stored
+    # as ISO so it sorts/compares naturally against trial_end_date etc.
+    _login_at_iso = datetime.now(timezone.utc).isoformat()
+    try:
+        await db.users.update_one(
+            {"id": user["id"]},
+            {"$set": {"last_login_at": _login_at_iso}},
+        )
+        _login_company = user.get("company_id")
+        if _login_company:
+            await db.companies.update_one(
+                {"id": _login_company},
+                {"$set": {"last_login_at": _login_at_iso}},
+            )
+    except Exception as _login_stamp_err:
+        # Stamp failure must never break the login itself.
+        logger.warning("[LOGIN] last_login_at stamp failed: %s", _login_stamp_err)
+
     # Normalize role using new role system
     normalized_role = normalize_role(user.get("rol", "worker"))
 
@@ -10221,12 +10240,23 @@ async def master_dashboard_stats(current_user: Dict = Depends(_master_guard)):
     revenue_basic = 0
     revenue_pro = 0
     new_this_month = 0
+    churn_this_month = 0
+    trial_started_this_month = 0
+    trial_converted_this_month = 0
+    active_this_month = 0
 
     now = datetime.now(timezone.utc)
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    inactive_threshold = now - timedelta(days=14)
 
+    bedrijfsnaam_by_id: Dict[str, str] = {}
+    inactive_clients_14d: List[dict] = []
     expiring: List[dict] = []
+
     for c in companies:
+        cid = c.get("id")
+        bedrijfsnaam_by_id[cid] = c.get("bedrijfsnaam") or ""
+
         counts["total"] += 1
         status = _company_status(c)
         if status in counts:
@@ -10238,19 +10268,80 @@ async def master_dashboard_stats(current_user: Dict = Depends(_master_guard)):
             revenue_pro += 1
 
         created = c.get("created_at")
+        created_dt = None
         if created:
             try:
                 created_dt = datetime.fromisoformat(created.replace("Z", "+00:00"))
                 if created_dt >= month_start:
                     new_this_month += 1
             except Exception:
+                created_dt = None
+
+        # Churn: blocked or expired-this-month
+        if status in ("blocked", "expired"):
+            # Best signal we have without status-history: blocked status flipped
+            # OR trial ended within this month.
+            trial_end = c.get("trial_end_date")
+            if trial_end:
+                try:
+                    end_dt = datetime.fromisoformat(trial_end.replace("Z", "+00:00"))
+                    if end_dt >= month_start and end_dt <= now:
+                        churn_this_month += 1
+                        continue
+                except Exception:
+                    pass
+            # blocked accounts: count those whose updated_at falls in this month
+            updated = c.get("updated_at")
+            if updated:
+                try:
+                    if isinstance(updated, str):
+                        upd_dt = datetime.fromisoformat(updated.replace("Z", "+00:00"))
+                    else:
+                        upd_dt = updated
+                    if upd_dt >= month_start:
+                        churn_this_month += 1
+                except Exception:
+                    pass
+
+        # Trial → paid conversion (this month). Companies created this month
+        # that ALSO have a paid plan now are treated as converted; sole "trial
+        # started" cohort is companies created this month overall (sub_status
+        # == 'trial' at registration). It's the best approximation without a
+        # status-history collection.
+        if created_dt and created_dt >= month_start:
+            sub_status = (c.get("subscription_status") or "").lower()
+            if sub_status == "trial" or plan in ("", "trial"):
+                trial_started_this_month += 1
+            elif plan in ("basic", "pro"):
+                trial_converted_this_month += 1
+                trial_started_this_month += 1
+
+        # Active this month (logged in)
+        last_login_raw = c.get("last_login_at")
+        last_login_dt = None
+        if last_login_raw:
+            try:
+                last_login_dt = datetime.fromisoformat(last_login_raw.replace("Z", "+00:00"))
+                if last_login_dt >= month_start:
+                    active_this_month += 1
+            except Exception:
                 pass
+
+        # Inactive 14+ days (only for non-blocked, otherwise everyone's listed)
+        if status != "blocked":
+            if last_login_dt is None or last_login_dt < inactive_threshold:
+                inactive_clients_14d.append({
+                    "company_id": cid,
+                    "bedrijfsnaam": c.get("bedrijfsnaam") or "",
+                    "last_login": last_login_raw,
+                    "status": status,
+                })
 
         if status == "trial":
             days = _days_remaining(c.get("trial_end_date"))
             if days is not None and 0 <= days <= 10:
                 expiring.append({
-                    "company_id": c.get("id"),
+                    "company_id": cid,
                     "bedrijfsnaam": c.get("bedrijfsnaam") or "",
                     "email": c.get("email") or c.get("contact_email") or "",
                     "trial_end_date": c.get("trial_end_date"),
@@ -10259,13 +10350,144 @@ async def master_dashboard_stats(current_user: Dict = Depends(_master_guard)):
 
     expiring.sort(key=lambda x: x["days_remaining"])
 
-    # Smart-Tech (default_company) legacy docs may have no company_id field at
-    # all, so we count anything that is NOT explicitly the platform tenant.
+    # Sort: never-logged-in first (most stale), then oldest login first
+    def _inactive_sort_key(x: dict):
+        ll = x.get("last_login")
+        if not ll:
+            return ""  # sorts before any ISO string
+        return ll
+    inactive_clients_14d.sort(key=_inactive_sort_key)
+    inactive_clients_14d = inactive_clients_14d[:10]
+
     _exclude_filter = {"company_id": {"$nin": list(_LIST_EXCLUDED_COMPANY_IDS)}}
     total_werkbonnen = await db.werkbonnen.count_documents(_exclude_filter)
     total_users = await db.users.count_documents(_exclude_filter)
+    # Werkbonnen this month — created_at can be stored as datetime or ISO str.
+    werkbonnen_this_month = await db.werkbonnen.count_documents({
+        **_exclude_filter,
+        "created_at": {"$gte": month_start},
+    })
+
+    open_tickets_total = await db.support_tickets.count_documents({"status": "open"})
 
     revenue = revenue_basic * PLAN_PRICING["basic"] + revenue_pro * PLAN_PRICING["pro"]
+
+    # MRR previous month: we don't keep plan history, so we approximate as the
+    # set of companies that existed before month_start, projected onto today's
+    # plan. Good enough for a "vs vorige maand" arrow.
+    prev_month_revenue = 0
+    for c in companies:
+        created = c.get("created_at")
+        if not created:
+            continue
+        try:
+            cd = datetime.fromisoformat(created.replace("Z", "+00:00"))
+            if cd >= month_start:
+                continue
+        except Exception:
+            continue
+        p = (c.get("selected_plan") or c.get("pakket") or "").lower()
+        if p in PLAN_PRICING:
+            prev_month_revenue += PLAN_PRICING[p]
+
+    # Top 5 most active clients (most werkbonnen)
+    try:
+        top_pipeline = [
+            {"$match": _exclude_filter},
+            {"$group": {"_id": "$company_id", "c": {"$sum": 1}}},
+            {"$sort": {"c": -1}},
+            {"$limit": 5},
+        ]
+        top_raw = await db.werkbonnen.aggregate(top_pipeline).to_list(5)
+        top_clients = [
+            {
+                "company_id": row.get("_id"),
+                "bedrijfsnaam": bedrijfsnaam_by_id.get(row.get("_id"), "—"),
+                "werkbon_count": row.get("c", 0),
+            }
+            for row in top_raw if row.get("_id")
+        ]
+    except Exception as exc:
+        logger.warning("[master/dashboard-stats] top clients aggregate failed: %s", exc)
+        top_clients = []
+
+    # Recent 5 open tickets
+    try:
+        recent_tickets_raw = await db.support_tickets.find(
+            {"status": "open"},
+            {"_id": 0, "id": 1, "naam": 1, "vraag": 1, "created_at": 1, "email": 1, "company_id": 1, "status": 1},
+        ).sort("created_at", -1).limit(5).to_list(5)
+        recent_tickets = [
+            {
+                "ticket_id": t.get("id"),
+                "naam": t.get("naam") or "",
+                "bedrijfsnaam": bedrijfsnaam_by_id.get(t.get("company_id"), ""),
+                "vraag": (t.get("vraag") or "")[:140],
+                "created_at": t.get("created_at"),
+                "status": t.get("status"),
+            }
+            for t in recent_tickets_raw
+        ]
+    except Exception as exc:
+        logger.warning("[master/dashboard-stats] recent tickets failed: %s", exc)
+        recent_tickets = []
+
+    # 6-month trend: new companies + werkbonnen per month
+    monthly_trend: List[dict] = []
+    for i in range(5, -1, -1):
+        # Walk back i months from current month_start
+        year = month_start.year
+        month = month_start.month - i
+        while month <= 0:
+            month += 12
+            year -= 1
+        m_start = datetime(year, month, 1, tzinfo=timezone.utc)
+        # next month start
+        next_month = month + 1
+        next_year = year
+        if next_month > 12:
+            next_month = 1
+            next_year += 1
+        m_end = datetime(next_year, next_month, 1, tzinfo=timezone.utc)
+
+        # New companies count: iterate the cached list, datetime-parsed.
+        new_companies_count = 0
+        for c in companies:
+            cr = c.get("created_at")
+            if not cr:
+                continue
+            try:
+                cd = datetime.fromisoformat(cr.replace("Z", "+00:00"))
+            except Exception:
+                continue
+            if m_start <= cd < m_end:
+                new_companies_count += 1
+
+        # Werkbonnen count for the month
+        try:
+            wb_count = await db.werkbonnen.count_documents({
+                **_exclude_filter,
+                "created_at": {"$gte": m_start, "$lt": m_end},
+            })
+        except Exception:
+            wb_count = 0
+
+        monthly_trend.append({
+            "month": m_start.strftime("%Y-%m"),
+            "label": m_start.strftime("%b %Y"),
+            "new_companies": new_companies_count,
+            "werkbonnen": wb_count,
+        })
+
+    trial_conversion_pct = 0.0
+    if trial_started_this_month > 0:
+        trial_conversion_pct = round(100.0 * trial_converted_this_month / trial_started_this_month, 1)
+
+    mrr_delta_pct = 0.0
+    if prev_month_revenue > 0:
+        mrr_delta_pct = round(100.0 * (revenue - prev_month_revenue) / prev_month_revenue, 1)
+    elif revenue > 0:
+        mrr_delta_pct = 100.0
 
     return {
         "companies": counts,
@@ -10273,7 +10495,20 @@ async def master_dashboard_stats(current_user: Dict = Depends(_master_guard)):
         "total_werkbonnen": total_werkbonnen,
         "total_users": total_users,
         "revenue_monthly": revenue,
+        "revenue_prev_month": prev_month_revenue,
+        "mrr_delta_pct": mrr_delta_pct,
         "revenue_breakdown": {"basic": revenue_basic, "pro": revenue_pro},
+        "active_this_month": active_this_month,
+        "churn_this_month": churn_this_month,
+        "trial_conversion_pct": trial_conversion_pct,
+        "trial_started_this_month": trial_started_this_month,
+        "trial_converted_this_month": trial_converted_this_month,
+        "werkbonnen_this_month": werkbonnen_this_month,
+        "open_tickets_total": open_tickets_total,
+        "top_clients": top_clients,
+        "inactive_clients_14d": inactive_clients_14d,
+        "recent_tickets": recent_tickets,
+        "monthly_trend": monthly_trend,
         "expiring_trials": expiring,
     }
 
@@ -10297,24 +10532,81 @@ async def master_list_klanten(
         ]
     companies = await db.companies.find(query, {"_id": 0}).to_list(2000)
 
-    result = []
+    # Status filter first — keeps subsequent aggregations small.
+    filtered_companies = []
     for c in companies:
-        cid = c.get("id")
-        effective_status = _company_status(c)
-        if status and effective_status != status:
+        eff = _company_status(c)
+        if status and eff != status:
             continue
+        c["_eff_status"] = eff
+        filtered_companies.append(c)
 
-        instellingen = await db.instellingen.find_one(
-            {"id": "company_settings", "company_id": cid},
-            {"_id": 0, "voornaam": 1, "achternaam": 1},
-        ) or {}
+    if not filtered_companies:
+        return []
+
+    company_ids = [c.get("id") for c in filtered_companies if c.get("id")]
+
+    workforce_roles = ["werknemer", "worker", "onderaannemer", "planner"]
+
+    now = datetime.now(timezone.utc)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    # Batch lookups — one round-trip per collection instead of 3×N.
+    instellingen_docs = await db.instellingen.find(
+        {"id": "company_settings", "company_id": {"$in": company_ids}},
+        {"_id": 0, "company_id": 1, "voornaam": 1, "achternaam": 1, "prijsmodel": 1, "standaard_uurtarief": 1, "standaard_dagtarief": 1, "adres_gestructureerd": 1},
+    ).to_list(len(company_ids) * 2)
+    instellingen_by_company = {i.get("company_id"): i for i in instellingen_docs}
+
+    try:
+        werkbon_total_rows = await db.werkbonnen.aggregate([
+            {"$match": {"company_id": {"$in": company_ids}}},
+            {"$group": {"_id": "$company_id", "c": {"$sum": 1}}},
+        ]).to_list(len(company_ids))
+        werkbon_total_by_company = {r.get("_id"): r.get("c", 0) for r in werkbon_total_rows}
+    except Exception:
+        werkbon_total_by_company = {}
+
+    try:
+        werkbon_month_rows = await db.werkbonnen.aggregate([
+            {"$match": {"company_id": {"$in": company_ids}, "created_at": {"$gte": month_start}}},
+            {"$group": {"_id": "$company_id", "c": {"$sum": 1}}},
+        ]).to_list(len(company_ids))
+        werkbon_month_by_company = {r.get("_id"): r.get("c", 0) for r in werkbon_month_rows}
+    except Exception:
+        werkbon_month_by_company = {}
+
+    try:
+        all_user_rows = await db.users.aggregate([
+            {"$match": {"company_id": {"$in": company_ids}}},
+            {"$group": {"_id": "$company_id", "c": {"$sum": 1}}},
+        ]).to_list(len(company_ids))
+        total_users_by_company = {r.get("_id"): r.get("c", 0) for r in all_user_rows}
+    except Exception:
+        total_users_by_company = {}
+
+    try:
+        active_werk_rows = await db.users.aggregate([
+            {"$match": {"company_id": {"$in": company_ids}, "actief": True, "rol": {"$in": workforce_roles}}},
+            {"$group": {"_id": "$company_id", "c": {"$sum": 1}}},
+        ]).to_list(len(company_ids))
+        active_werknemers_by_company = {r.get("_id"): r.get("c", 0) for r in active_werk_rows}
+    except Exception:
+        active_werknemers_by_company = {}
+
+    result = []
+    for c in filtered_companies:
+        cid = c.get("id")
+        inst = instellingen_by_company.get(cid) or {}
         contact = (
-            (instellingen.get("voornaam") or "") + " " + (instellingen.get("achternaam") or "")
+            (inst.get("voornaam") or "") + " " + (inst.get("achternaam") or "")
         ).strip()
 
-        scope = _legacy_scope_query(cid)
-        werkbon_count = await db.werkbonnen.count_documents(scope)
-        user_count = await db.users.count_documents(scope)
+        adres = inst.get("adres_gestructureerd") or {}
+        adres_str = " ".join([s for s in [
+            adres.get("straat"), adres.get("huisnummer"),
+            adres.get("postcode"), adres.get("stad"),
+        ] if s]).strip()
 
         result.append({
             "company_id": cid,
@@ -10324,12 +10616,19 @@ async def master_list_klanten(
             "telefoon": c.get("telefoon") or "",
             "btw_nummer": c.get("btw_nummer") or "",
             "plan": c.get("selected_plan") or c.get("pakket") or "",
-            "status": effective_status,
+            "status": c.get("_eff_status"),
             "created_at": c.get("created_at"),
             "trial_end_date": c.get("trial_end_date"),
             "days_remaining": _days_remaining(c.get("trial_end_date")),
-            "werkbonnen": werkbon_count,
-            "gebruikers": user_count,
+            "last_login_at": c.get("last_login_at"),
+            "werkbonnen": werkbon_total_by_company.get(cid, 0),
+            "werkbonnen_this_month": werkbon_month_by_company.get(cid, 0),
+            "gebruikers": total_users_by_company.get(cid, 0),
+            "active_werknemers": active_werknemers_by_company.get(cid, 0),
+            "prijsmodel": inst.get("prijsmodel"),
+            "uurtarief": inst.get("standaard_uurtarief"),
+            "dagtarief": inst.get("standaard_dagtarief"),
+            "adres": adres_str,
         })
 
     result.sort(key=lambda x: x.get("created_at") or "", reverse=True)
@@ -10352,7 +10651,7 @@ async def master_klant_detail(company_id: str, current_user: Dict = Depends(_mas
     # (legacy Smart-Tech data from before multi-tenant migration)
     werknemers = await db.users.find(
         _legacy_scope_query(company_id),
-        {"_id": 0, "id": 1, "naam": 1, "email": 1, "rol": 1, "actief": 1},
+        {"_id": 0, "id": 1, "naam": 1, "email": 1, "rol": 1, "actief": 1, "last_login_at": 1},
     ).to_list(500)
 
     klanten = await db.klanten.find(
@@ -10373,6 +10672,13 @@ async def master_klant_detail(company_id: str, current_user: Dict = Depends(_mas
     ]
 
     werkbon_total = await db.werkbonnen.count_documents(_legacy_scope_query(company_id))
+
+    now = datetime.now(timezone.utc)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    werkbon_this_month = await db.werkbonnen.count_documents(
+        _legacy_scope_query(company_id, {"created_at": {"$gte": month_start}})
+    )
+
     werkbonnen_recent_raw = await db.werkbonnen.find(
         _legacy_scope_query(company_id),
         {"_id": 0, "id": 1, "datum": 1, "created_at": 1, "type": 1, "status": 1, "klant_id": 1, "werf_id": 1},
@@ -10390,12 +10696,24 @@ async def master_klant_detail(company_id: str, current_user: Dict = Depends(_mas
         for w in werkbonnen_recent_raw
     ]
 
+    # Only count workforce-style roles as actieve werknemers; admin/master_admin
+    # are platform users, not field workers.
+    workforce_roles = {"werknemer", "worker", "onderaannemer", "planner"}
+    active_werknemers = sum(
+        1 for w in werknemers
+        if w.get("actief") and (w.get("rol") or "").lower() in workforce_roles
+    )
+
     subscription = {
         "status": _company_status(company),
         "plan": company.get("selected_plan") or company.get("pakket") or "",
         "trial_start_date": company.get("trial_start_date"),
         "trial_end_date": company.get("trial_end_date"),
         "days_remaining": _days_remaining(company.get("trial_end_date")),
+        "prijsmodel": instellingen.get("prijsmodel"),
+        "uurtarief": instellingen.get("standaard_uurtarief"),
+        "dagtarief": instellingen.get("standaard_dagtarief"),
+        "km_vergoeding": instellingen.get("km_vergoeding_tarief"),
     }
 
     contactpersoon = ((instellingen.get("voornaam") or "") + " " + (instellingen.get("achternaam") or "")).strip()
@@ -10410,9 +10728,11 @@ async def master_klant_detail(company_id: str, current_user: Dict = Depends(_mas
             "contactpersoon": contactpersoon,
             "adres": instellingen.get("adres_gestructureerd") or {},
             "created_at": company.get("created_at"),
+            "last_login_at": company.get("last_login_at"),
         },
         "subscription": subscription,
         "werknemers": werknemers,
+        "active_werknemers": active_werknemers,
         "klanten": [
             {
                 "id": k.get("id"),
@@ -10422,7 +10742,11 @@ async def master_klant_detail(company_id: str, current_user: Dict = Depends(_mas
             for k in klanten
         ],
         "werven": werven,
-        "werkbonnen": {"total": werkbon_total, "recent": werkbonnen_recent},
+        "werkbonnen": {
+            "total": werkbon_total,
+            "this_month": werkbon_this_month,
+            "recent": werkbonnen_recent,
+        },
     }
 
 

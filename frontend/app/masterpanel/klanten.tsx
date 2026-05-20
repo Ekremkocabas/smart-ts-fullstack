@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -21,18 +21,29 @@ interface KlantRow {
   bedrijfsnaam: string;
   contactpersoon: string;
   email: string;
+  telefoon: string;
+  btw_nummer: string;
   plan: string;
   status: string;
   created_at: string | null;
   trial_end_date: string | null;
   days_remaining: number | null;
+  last_login_at: string | null;
   werkbonnen: number;
+  werkbonnen_this_month: number;
   gebruikers: number;
+  active_werknemers: number;
+  prijsmodel: string | null;
+  uurtarief: number | null;
+  dagtarief: number | null;
+  adres: string;
 }
 
 const STATUS_COLORS: Record<string, { bg: string; fg: string; label: string }> = {
   trial: { bg: '#fff3cd', fg: '#856404', label: 'Trial' },
   active: { bg: '#d4edda', fg: '#155724', label: 'Actief' },
+  active_basic: { bg: '#d1ecf1', fg: '#0c5460', label: 'Basic' },
+  active_pro: { bg: '#fff3cd', fg: '#856404', label: 'Pro' },
   expired: { bg: '#f8d7da', fg: '#721c24', label: 'Verlopen' },
   blocked: { bg: '#e2e3e5', fg: '#383d41', label: 'Geblokkeerd' },
 };
@@ -40,6 +51,7 @@ const STATUS_COLORS: Record<string, { bg: string; fg: string; label: string }> =
 const PLAN_COLORS: Record<string, { bg: string; fg: string }> = {
   basic: { bg: '#d1ecf1', fg: '#0c5460' },
   pro: { bg: '#fff3cd', fg: '#856404' },
+  free: { bg: '#e9ecef', fg: '#495057' },
 };
 
 function formatDate(iso: string | null) {
@@ -49,6 +61,13 @@ function formatDate(iso: string | null) {
   } catch {
     return iso;
   }
+}
+
+function formatTarief(pm: string | null, uur: number | null, dag: number | null): string {
+  if (pm === 'uurtarief' && uur) return `€${uur.toFixed(0)}/u`;
+  if (pm === 'dagvergoeding' && dag) return `€${dag.toFixed(0)}/dag`;
+  if (pm === 'vaste_prijs') return 'Vast';
+  return '—';
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -73,6 +92,26 @@ const badgeStyles = StyleSheet.create({
   badge: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
   text: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
 });
+
+// Column widths chosen so a 14-column table comfortably fits at 1800px wide.
+const COLUMNS: Array<{ key: string; label: string; width: number; align?: 'left' | 'right' }> = [
+  { key: 'bedrijf', label: 'Bedrijf', width: 200 },
+  { key: 'contact', label: 'Contactpersoon', width: 140 },
+  { key: 'telefoon', label: 'Telefoon', width: 130 },
+  { key: 'email', label: 'E-mail', width: 200 },
+  { key: 'btw', label: 'BTW', width: 130 },
+  { key: 'plan', label: 'Plan', width: 80 },
+  { key: 'status', label: 'Status', width: 100 },
+  { key: 'tarief', label: 'Tarief', width: 90 },
+  { key: 'reg', label: 'Geregistreerd', width: 120 },
+  { key: 'login', label: 'Laatste login', width: 120 },
+  { key: 'trial', label: 'Trial einde', width: 110 },
+  { key: 'bonnen', label: 'Werkbonnen (maand/totaal)', width: 140, align: 'right' },
+  { key: 'werkn', label: 'Werknemers', width: 90, align: 'right' },
+  { key: 'actie', label: '', width: 100 },
+];
+
+const TABLE_MIN_WIDTH = COLUMNS.reduce((sum, c) => sum + c.width, 0) + 36;
 
 export default function MasterKlanten() {
   const [klanten, setKlanten] = useState<KlantRow[]>([]);
@@ -152,7 +191,7 @@ export default function MasterKlanten() {
         <View style={styles.filterGroup}>
           <Text style={styles.filterLabel}>Plan</Text>
           <View style={styles.chips}>
-            {(['all', 'basic', 'pro'] as const).map((p) => (
+            {(['all', 'basic', 'pro', 'free'] as const).map((p) => (
               <TouchableOpacity
                 key={p}
                 style={[styles.chip, planFilter === p && styles.chipActive]}
@@ -183,31 +222,45 @@ export default function MasterKlanten() {
         </View>
       ) : (
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View style={styles.tableShell}>
+          <View style={[styles.tableShell, { minWidth: TABLE_MIN_WIDTH }]}>
             <View style={styles.tableHeader}>
-              <Text style={[styles.th, { width: 220 }]}>Bedrijf</Text>
-              <Text style={[styles.th, { width: 160 }]}>Contactpersoon</Text>
-              <Text style={[styles.th, { width: 220 }]}>E-mail</Text>
-              <Text style={[styles.th, { width: 90 }]}>Plan</Text>
-              <Text style={[styles.th, { width: 110 }]}>Status</Text>
-              <Text style={[styles.th, { width: 130 }]}>Geregistreerd</Text>
-              <Text style={[styles.th, { width: 130 }]}>Trial einde</Text>
-              <Text style={[styles.th, { width: 90, textAlign: 'right' }]}>Werkbonnen</Text>
-              <Text style={[styles.th, { width: 80, textAlign: 'right' }]}>Users</Text>
-              <Text style={[styles.th, { width: 110 }]}></Text>
+              {COLUMNS.map(c => (
+                <Text
+                  key={c.key}
+                  style={[
+                    styles.th,
+                    { width: c.width, textAlign: c.align || 'left' },
+                  ]}
+                  numberOfLines={2}
+                >
+                  {c.label}
+                </Text>
+              ))}
             </View>
             {klanten.map((row) => (
               <View key={row.company_id} style={styles.tableRow}>
-                <Text style={[styles.td, { width: 220, fontWeight: '700', color: SIGNYBON_GREEN }]} numberOfLines={1}>{row.bedrijfsnaam || '—'}</Text>
-                <Text style={[styles.td, { width: 160 }]} numberOfLines={1}>{row.contactpersoon || '—'}</Text>
-                <Text style={[styles.td, { width: 220 }]} numberOfLines={1}>{row.email || '—'}</Text>
-                <View style={{ width: 90 }}><PlanBadge plan={row.plan} /></View>
-                <View style={{ width: 110 }}><StatusBadge status={row.status} /></View>
-                <Text style={[styles.td, { width: 130 }]}>{formatDate(row.created_at)}</Text>
-                <Text style={[styles.td, { width: 130 }]}>{formatDate(row.trial_end_date)}</Text>
-                <Text style={[styles.td, { width: 90, textAlign: 'right', fontWeight: '600' }]}>{row.werkbonnen}</Text>
-                <Text style={[styles.td, { width: 80, textAlign: 'right', fontWeight: '600' }]}>{row.gebruikers}</Text>
-                <View style={{ width: 110 }}>
+                <Text style={[styles.td, { width: 200, fontWeight: '700', color: SIGNYBON_GREEN, paddingRight: 8 }]} numberOfLines={1}>
+                  {row.bedrijfsnaam || '—'}
+                </Text>
+                <Text style={[styles.td, { width: 140, paddingRight: 8 }]} numberOfLines={1}>{row.contactpersoon || '—'}</Text>
+                <Text style={[styles.td, { width: 130, paddingRight: 8 }]} numberOfLines={1}>{row.telefoon || '—'}</Text>
+                <Text style={[styles.td, { width: 200, paddingRight: 8 }]} numberOfLines={1}>{row.email || '—'}</Text>
+                <Text style={[styles.td, { width: 130, paddingRight: 8 }]} numberOfLines={1}>{row.btw_nummer || '—'}</Text>
+                <View style={{ width: 80, paddingRight: 8 }}><PlanBadge plan={row.plan} /></View>
+                <View style={{ width: 100, paddingRight: 8 }}><StatusBadge status={row.status} /></View>
+                <Text style={[styles.td, { width: 90, paddingRight: 8 }]} numberOfLines={1}>{formatTarief(row.prijsmodel, row.uurtarief, row.dagtarief)}</Text>
+                <Text style={[styles.td, { width: 120, paddingRight: 8 }]}>{formatDate(row.created_at)}</Text>
+                <Text style={[styles.td, { width: 120, paddingRight: 8 }]}>{formatDate(row.last_login_at)}</Text>
+                <Text style={[styles.td, { width: 110, paddingRight: 8 }]}>{formatDate(row.trial_end_date)}</Text>
+                <Text style={[styles.td, { width: 140, paddingRight: 8, textAlign: 'right', fontWeight: '600' }]}>
+                  <Text style={{ color: SIGNYBON_GOLD, fontWeight: '700' }}>{row.werkbonnen_this_month}</Text>
+                  <Text style={{ color: '#6c757d' }}> / {row.werkbonnen}</Text>
+                </Text>
+                <Text style={[styles.td, { width: 90, paddingRight: 8, textAlign: 'right', fontWeight: '600' }]}>
+                  <Text style={{ color: '#28a745' }}>{row.active_werknemers}</Text>
+                  <Text style={{ color: '#6c757d' }}>/{row.gebruikers}</Text>
+                </Text>
+                <View style={{ width: 100 }}>
                   <TouchableOpacity
                     style={styles.viewBtn}
                     onPress={() => router.push(`/masterpanel/klant-detail?company_id=${row.company_id}` as any)}
@@ -227,15 +280,15 @@ export default function MasterKlanten() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F6FA' },
-  content: { padding: 28 },
-  header: { marginBottom: 20 },
+  content: { padding: 24 },
+  header: { marginBottom: 18 },
   title: { fontSize: 26, fontWeight: '800', color: SIGNYBON_GREEN },
   subtitle: { fontSize: 14, color: '#6c757d', marginTop: 4 },
   toolbar: {
     backgroundColor: '#fff',
     borderRadius: 12,
-    padding: 18,
-    marginBottom: 18,
+    padding: 16,
+    marginBottom: 16,
     gap: 14,
   },
   searchWrap: {
@@ -266,7 +319,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 12,
     overflow: 'hidden',
-    minWidth: 1340,
   },
   tableHeader: {
     flexDirection: 'row',
@@ -276,11 +328,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e9ecef',
   },
-  th: { fontSize: 11, fontWeight: '700', color: '#495057', textTransform: 'uppercase' },
+  th: { fontSize: 11, fontWeight: '700', color: '#495057', textTransform: 'uppercase', paddingRight: 8 },
   tableRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
+    paddingVertical: 12,
     paddingHorizontal: 18,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f3f5',

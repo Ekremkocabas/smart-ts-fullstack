@@ -100,6 +100,15 @@ export default function PlanningTab() {
   const [bevestigingLoading, setBevestigingLoading] = useState<string | null>(null);
 
   const maakWerkbonVanPlanning = (item: PlanningItem) => {
+    // Maand-werkbon (multi-week bundle): per-week single-form route would force
+    // the worker to repeat data entry 4-5x and leave the empty maand-bulk stubs
+    // dangling. Skip straight to the bundle-fill screen.
+    if (item.groep_id) {
+      setDetailVisible(false);
+      router.push(`/werkbon-groep/${item.groep_id}/invullen` as any);
+      return;
+    }
+
     const dagUren = parseHoursFromPlanning(item.start_uur, item.eind_uur, item.voorziene_uur);
 
     // Ma-Vr get the planned hours; Za-Zo stay 0
