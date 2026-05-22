@@ -220,12 +220,24 @@ export default function BerichtenTab() {
       )}
 
       {/* Detail Modal */}
-      <Modal visible={!!selectedBericht} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
+      <Modal
+        visible={!!selectedBericht}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedBericht(null)}
+      >
+        <SafeAreaView style={styles.modalOverlay} edges={['top', 'bottom']}>
           <View style={styles.modalContent}>
             {selectedBericht && (
               <>
                 <View style={styles.modalHeader}>
+                  <TouchableOpacity
+                    onPress={() => setSelectedBericht(null)}
+                    style={styles.modalBackBtn}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Ionicons name="arrow-back" size={24} color="#0F172A" />
+                  </TouchableOpacity>
                   <Text style={styles.modalTitle} numberOfLines={1}>Bericht</Text>
                 </View>
                 <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
@@ -292,7 +304,7 @@ export default function BerichtenTab() {
               </>
             )}
           </View>
-        </View>
+        </SafeAreaView>
       </Modal>
     </SafeAreaView>
   );
@@ -345,13 +357,15 @@ const styles = StyleSheet.create({
   },
   broadcastText: { fontSize: 11, color: '#3498db', fontWeight: '500' },
 
-  modalOverlay: { flex: 1, backgroundColor: '#F5F6FA' },
+  modalOverlay: { flex: 1, backgroundColor: '#fff' },
   modalContent: { flex: 1, backgroundColor: '#fff' },
   modalHeader: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: 16, paddingVertical: 14,
     borderBottomWidth: 1, borderBottomColor: '#E8E9ED',
+    backgroundColor: '#fff',
   },
+  modalBackBtn: { padding: 4, marginLeft: -4 },
   modalCloseBtn: { padding: 4 },
   modalTitle: { fontSize: 18, fontWeight: '600', color: '#0F172A', flex: 1 },
   deleteBtn: { padding: 6 },
