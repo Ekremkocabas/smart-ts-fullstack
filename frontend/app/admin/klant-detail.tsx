@@ -127,7 +127,7 @@ export default function KlantDetail() {
   if (loading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color={theme.primaryColor || '#D4A017'} style={{ marginTop: 40 }} />
+        <ActivityIndicator size="large" color={theme.primaryColor || '#22C55E'} style={{ marginTop: 40 }} />
       </View>
     );
   }
@@ -137,9 +137,9 @@ export default function KlantDetail() {
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color={theme.secondaryColor || '#1B4332'} />
+            <Ionicons name="arrow-back" size={24} color={theme.secondaryColor || '#0F172A'} />
           </TouchableOpacity>
-          <Text style={[styles.title, { color: theme.secondaryColor || '#1B4332' }]}>Klant niet gevonden</Text>
+          <Text style={[styles.title, { color: theme.secondaryColor || '#0F172A' }]}>Klant niet gevonden</Text>
         </View>
       </View>
     );
@@ -150,10 +150,10 @@ export default function KlantDetail() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color={theme.secondaryColor || '#1B4332'} />
+          <Ionicons name="arrow-back" size={24} color={theme.secondaryColor || '#0F172A'} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={[styles.title, { color: theme.secondaryColor || '#1B4332' }]}>Klant details</Text>
+          <Text style={[styles.title, { color: theme.secondaryColor || '#0F172A' }]}>Klant details</Text>
           <Text style={styles.subtitle}>{klant.naam}</Text>
         </View>
         <TouchableOpacity style={styles.editBtn} onPress={() => setShowEditModal(true)}>
@@ -230,7 +230,7 @@ export default function KlantDetail() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Klant bewerken</Text>
               <TouchableOpacity onPress={() => setShowEditModal(false)}>
-                <Ionicons name="close" size={24} color={theme.secondaryColor || '#1B4332'} />
+                <Ionicons name="close" size={24} color={theme.secondaryColor || '#0F172A'} />
               </TouchableOpacity>
             </View>
             <ScrollView>
@@ -250,7 +250,7 @@ export default function KlantDetail() {
                   <TouchableOpacity
                     key={opt.key}
                     onPress={() => setFormData({ ...formData, btw_percentage: opt.key })}
-                    style={{ flex: 1, padding: 10, borderRadius: 8, borderWidth: 1, borderColor: formData.btw_percentage === opt.key ? (theme.primaryColor || '#D4A017') : '#E8E9ED', backgroundColor: formData.btw_percentage === opt.key ? (theme.primaryColor || '#D4A017') : '#F5F6FA', alignItems: 'center' }}
+                    style={{ flex: 1, padding: 10, borderRadius: 8, borderWidth: 1, borderColor: formData.btw_percentage === opt.key ? (theme.primaryColor || '#22C55E') : '#E8E9ED', backgroundColor: formData.btw_percentage === opt.key ? (theme.primaryColor || '#22C55E') : '#F5F6FA', alignItems: 'center' }}
                   >
                     <Text style={{ fontSize: 13, fontWeight: '600', color: formData.btw_percentage === opt.key ? '#fff' : '#6c757d' }}>{opt.label}</Text>
                   </TouchableOpacity>
@@ -272,35 +272,35 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
   backBtn: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#E8E9ED' },
   headerCenter: { flex: 1, marginLeft: 16 },
-  title: { fontSize: 24, fontWeight: '700', color: '#1B4332' },
+  title: { fontSize: 24, fontWeight: '700', color: '#0F172A' },
   subtitle: { fontSize: 14, color: '#6c757d' },
   editBtn: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#1abc9c', alignItems: 'center', justifyContent: 'center' },
   klantCard: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 32, alignItems: 'center', marginBottom: 24, borderWidth: 1, borderColor: '#E8E9ED' },
   klantIcon: { width: 80, height: 80, borderRadius: 20, backgroundColor: '#1abc9c20', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
-  klantName: { fontSize: 28, fontWeight: '700', color: '#1B4332' },
+  klantName: { fontSize: 28, fontWeight: '700', color: '#0F172A' },
   klantContact: { fontSize: 15, color: '#6c757d', marginTop: 4 },
   section: { marginBottom: 24 },
-  sectionTitle: { fontSize: 18, fontWeight: '600', color: '#1B4332', marginBottom: 12 },
+  sectionTitle: { fontSize: 18, fontWeight: '600', color: '#0F172A', marginBottom: 12 },
   detailsCard: { backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#E8E9ED' },
   detailRow: { flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#E8E9ED', gap: 12 },
   detailLabel: { flex: 1, fontSize: 14, color: '#6c757d' },
-  detailValue: { fontSize: 14, fontWeight: '500', color: '#1B4332' },
+  detailValue: { fontSize: 14, fontWeight: '500', color: '#0F172A' },
   wervenList: { gap: 8 },
   werfCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#E8E9ED' },
   werfIcon: { width: 44, height: 44, borderRadius: 10, backgroundColor: '#e67e2220', alignItems: 'center', justifyContent: 'center' },
   werfInfo: { flex: 1, marginLeft: 12 },
-  werfName: { fontSize: 15, fontWeight: '500', color: '#1B4332' },
+  werfName: { fontSize: 15, fontWeight: '500', color: '#0F172A' },
   werfAdres: { fontSize: 13, color: '#6c757d', marginTop: 2 },
   emptyState: { alignItems: 'center', padding: 40, backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#E8E9ED' },
   emptyText: { fontSize: 14, color: '#6c757d', marginTop: 12 },
   noAccess: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  noAccessText: { fontSize: 20, color: '#1B4332', marginTop: 16 },
+  noAccessText: { fontSize: 20, color: '#0F172A', marginTop: 16 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   modalContent: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 24, width: '100%', maxWidth: 500, maxHeight: '90%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  modalTitle: { fontSize: 20, fontWeight: '600', color: '#1B4332' },
+  modalTitle: { fontSize: 20, fontWeight: '600', color: '#0F172A' },
   label: { fontSize: 14, color: '#6c757d', marginBottom: 6, marginTop: 16 },
-  input: { backgroundColor: '#F5F6FA', borderRadius: 10, padding: 14, fontSize: 16, color: '#1B4332', borderWidth: 1, borderColor: '#E8E9ED' },
+  input: { backgroundColor: '#F5F6FA', borderRadius: 10, padding: 14, fontSize: 16, color: '#0F172A', borderWidth: 1, borderColor: '#E8E9ED' },
   saveBtn: { backgroundColor: '#1abc9c', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 20 },
   saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });

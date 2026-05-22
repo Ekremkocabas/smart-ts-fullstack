@@ -110,10 +110,10 @@ export default function FacturatieKoppelingScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.push('/admin/instellingen' as any)}>
-          <Ionicons name="arrow-back" size={22} color={theme.primaryColor || '#D4A017'} />
+          <Ionicons name="arrow-back" size={22} color={theme.primaryColor || '#22C55E'} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={[styles.title, { color: theme.secondaryColor || '#1B4332' }]}>Facturatie Koppeling</Text>
+          <Text style={[styles.title, { color: theme.secondaryColor || '#0F172A' }]}>Facturatie Koppeling</Text>
           <Text style={styles.subtitle}>Koppel uw facturatieprogramma aan het systeem</Text>
         </View>
       </View>
@@ -236,7 +236,7 @@ function HowToStep({ number, title, description }: { number: string; title: stri
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F6FA' },
   noAccess: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  noAccessText: { fontSize: 20, color: '#1B4332', marginTop: 16 },
+  noAccessText: { fontSize: 20, color: '#0F172A', marginTop: 16 },
 
   // Header
   header: {
@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
   },
   backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   headerCenter: { flex: 1, marginLeft: 8 },
-  title: { fontSize: 22, fontWeight: 'bold', color: '#1B4332' },
+  title: { fontSize: 22, fontWeight: 'bold', color: '#0F172A' },
   subtitle: { fontSize: 13, color: '#6c757d' },
 
   // Content
@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E8E9ED',
   },
-  sectionTitle: { fontSize: 18, fontWeight: '600', color: '#1B4332', marginBottom: 4 },
+  sectionTitle: { fontSize: 18, fontWeight: '600', color: '#0F172A', marginBottom: 4 },
   sectionSubtitle: { fontSize: 13, color: '#6c757d', marginBottom: 20 },
 
   // Card grid
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   cardLetter: { fontSize: 26, fontWeight: '800' },
-  cardName: { fontSize: 15, fontWeight: '700', color: '#1B4332', marginBottom: 4 },
+  cardName: { fontSize: 15, fontWeight: '700', color: '#0F172A', marginBottom: 4 },
   cardDesc: { fontSize: 12, color: '#6c757d', lineHeight: 16 },
   cardArrow: { marginTop: 12, alignSelf: 'flex-end' },
 
@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 20,
   },
-  howToTitle: { fontSize: 18, fontWeight: '600', color: '#1B4332' },
+  howToTitle: { fontSize: 18, fontWeight: '600', color: '#0F172A' },
 
   // Steps
   howToSteps: { gap: 16, marginBottom: 20 },
@@ -367,7 +367,7 @@ const styles = StyleSheet.create({
   },
   stepNumberText: { fontSize: 14, fontWeight: '700', color: '#fff' },
   stepContent: { flex: 1 },
-  stepTitle: { fontSize: 15, fontWeight: '600', color: '#1B4332', marginBottom: 4 },
+  stepTitle: { fontSize: 15, fontWeight: '600', color: '#0F172A', marginBottom: 4 },
   stepDesc: { fontSize: 13, color: '#6c757d', lineHeight: 20 },
 
   // Info box

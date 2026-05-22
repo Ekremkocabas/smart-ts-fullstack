@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -13,8 +13,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { apiClient } from '../../context/AuthContext';
 
-const SIGNYBON_GREEN = '#1B4332';
-const SIGNYBON_GOLD = '#D4A017';
+const SIGNYBON_GREEN = '#0F172A';
+const SIGNYBON_GOLD = '#22C55E';
 
 interface KlantRow {
   company_id: string;
@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: Platform.OS === 'web' ? 10 : 6,
   },
-  searchInput: { flex: 1, fontSize: 14, color: '#1B4332', outlineWidth: 0 as any },
+  searchInput: { flex: 1, fontSize: 14, color: '#0F172A', outlineWidth: 0 as any },
   filterGroup: { gap: 6 },
   filterLabel: { fontSize: 12, fontWeight: '700', color: '#6c757d', textTransform: 'uppercase' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

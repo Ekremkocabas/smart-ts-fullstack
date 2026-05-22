@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+﻿import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -24,10 +24,10 @@ const DAG_KORT: Record<string, string> = {
   vrijdag: 'Vr', zaterdag: 'Za', zondag: 'Zo',
 };
 const PRIORITEIT_KLEUREN: Record<string, string> = {
-  laag: '#28a745', normaal: '#3498db', hoog: '#D4A017', urgent: '#dc3545',
+  laag: '#28a745', normaal: '#3498db', hoog: '#22C55E', urgent: '#dc3545',
 };
 const STATUS_KLEUREN: Record<string, string> = {
-  gepland: '#6c757d', onderweg: '#3498db', bezig: '#D4A017', afgerond: '#28a745',
+  gepland: '#6c757d', onderweg: '#3498db', bezig: '#22C55E', afgerond: '#28a745',
 };
 
 interface PlanningItem {
@@ -237,26 +237,26 @@ export default function PlanningTab() {
       {/* Week Navigation */}
       <View style={styles.weekNav}>
         <TouchableOpacity style={styles.weekBtn} onPress={() => changeWeek(-1)}>
-          <Ionicons name="chevron-back" size={20} color="#1B4332" />
+          <Ionicons name="chevron-back" size={20} color="#0F172A" />
         </TouchableOpacity>
         <TouchableOpacity style={styles.weekCenter} onPress={() => { setWeekNummer(getISOWeek(new Date())); setJaar(new Date().getFullYear()); }}>
           <Text style={styles.weekTitle}>Week {weekNummer}</Text>
           <Text style={styles.weekYear}>{jaar} • Tik om terug naar vandaag</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.weekBtn} onPress={() => changeWeek(1)}>
-          <Ionicons name="chevron-forward" size={20} color="#1B4332" />
+          <Ionicons name="chevron-forward" size={20} color="#0F172A" />
         </TouchableOpacity>
       </View>
 
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#D4A017" />
+          <ActivityIndicator size="large" color="#22C55E" />
           <Text style={styles.loadingText}>Planning laden...</Text>
         </View>
       ) : planning.length === 0 ? (
         <ScrollView
           contentContainerStyle={styles.emptyContainer}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#D4A017" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#22C55E" />}
         >
           <Ionicons name="calendar-outline" size={64} color="#E8E9ED" />
           <Text style={styles.emptyTitle}>Geen taken deze week</Text>
@@ -266,7 +266,7 @@ export default function PlanningTab() {
         <ScrollView
           style={styles.scrollView}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#D4A017" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#22C55E" />}
         >
           {DAGEN.map(dag => {
             const items = planningByDay[dag];
@@ -361,7 +361,7 @@ export default function PlanningTab() {
                         {item.omschrijving ? (
                           <View style={styles.werkOmschrijvingBox}>
                             <View style={styles.werkOmschrijvingHeader}>
-                              <Ionicons name="clipboard-outline" size={14} color="#1B4332" />
+                              <Ionicons name="clipboard-outline" size={14} color="#0F172A" />
                               <Text style={styles.werkOmschrijvingTitle}>Uit te voeren werk</Text>
                             </View>
                             <Text style={styles.werkOmschrijvingText}>{item.omschrijving}</Text>
@@ -432,7 +432,7 @@ export default function PlanningTab() {
             {/* Modal header */}
             <View style={styles.detailHeader}>
               <TouchableOpacity style={styles.detailCloseBtn} onPress={() => setDetailVisible(false)}>
-                <Ionicons name="arrow-back" size={22} color="#1B4332" />
+                <Ionicons name="arrow-back" size={22} color="#0F172A" />
               </TouchableOpacity>
               <View style={{ flex: 1 }}>
                 <Text style={styles.detailTitle} numberOfLines={1}>{selectedItem.klant_naam}</Text>
@@ -591,7 +591,7 @@ export default function PlanningTab() {
               {selectedItem.groep_id ? (
                 <View style={{ paddingHorizontal: 16, paddingTop: 10 }}>
                   <TouchableOpacity
-                    style={[styles.maakWerkbonBtn, { backgroundColor: '#1B4332' }]}
+                    style={[styles.maakWerkbonBtn, { backgroundColor: '#0F172A' }]}
                     onPress={() => {
                       setDetailVisible(false);
                       router.push(`/werkbon-groep/${selectedItem.groep_id}/sign` as any);
@@ -644,7 +644,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, paddingVertical: 14,
     backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E8E9ED',
   },
-  title: { fontSize: 26, fontWeight: '700', color: '#1B4332' },
+  title: { fontSize: 26, fontWeight: '700', color: '#0F172A' },
   subtitle: { fontSize: 12, color: '#6c757d', marginTop: 2 },
 
   weekNav: {
@@ -657,13 +657,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F6FA', alignItems: 'center', justifyContent: 'center',
   },
   weekCenter: { flex: 1, alignItems: 'center' },
-  weekTitle: { fontSize: 18, fontWeight: '700', color: '#1B4332' },
+  weekTitle: { fontSize: 18, fontWeight: '700', color: '#0F172A' },
   weekYear: { fontSize: 11, color: '#6c757d', marginTop: 2 },
 
   loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   loadingText: { fontSize: 14, color: '#6c757d' },
   emptyContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, minHeight: 400 },
-  emptyTitle: { fontSize: 18, fontWeight: '600', color: '#1B4332', marginTop: 16 },
+  emptyTitle: { fontSize: 18, fontWeight: '600', color: '#0F172A', marginTop: 16 },
   emptySubtext: { fontSize: 14, color: '#6c757d', marginTop: 8, textAlign: 'center' },
 
   scrollView: { flex: 1 },
@@ -679,16 +679,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F6FA', alignItems: 'center', justifyContent: 'center',
     borderWidth: 1, borderColor: '#E8E9ED',
   },
-  dagIconBadgeToday: { backgroundColor: '#D4A017', borderColor: '#D4A017' },
+  dagIconBadgeToday: { backgroundColor: '#22C55E', borderColor: '#22C55E' },
   dagIconText: { fontSize: 13, fontWeight: '700', color: '#6c757d' },
-  dagNaam: { fontSize: 15, fontWeight: '700', color: '#1B4332' },
-  dagNaamToday: { color: '#D4A017' },
-  todayLabel: { fontSize: 10, color: '#D4A017', fontWeight: '600', marginTop: 2 },
+  dagNaam: { fontSize: 15, fontWeight: '700', color: '#0F172A' },
+  dagNaamToday: { color: '#22C55E' },
+  todayLabel: { fontSize: 10, color: '#22C55E', fontWeight: '600', marginTop: 2 },
   dagCountBadge: {
-    backgroundColor: '#D4A01720', width: 24, height: 24, borderRadius: 12,
+    backgroundColor: '#22C55E20', width: 24, height: 24, borderRadius: 12,
     alignItems: 'center', justifyContent: 'center',
   },
-  dagCount: { fontSize: 12, fontWeight: '700', color: '#D4A017' },
+  dagCount: { fontSize: 12, fontWeight: '700', color: '#22C55E' },
 
   // Task Card
   taskCard: {
@@ -707,7 +707,7 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 11, fontWeight: '600' },
   timeBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#3498db10', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
   timeText: { fontSize: 11, fontWeight: '600', color: '#3498db' },
-  taskKlant: { fontSize: 17, fontWeight: '700', color: '#1B4332' },
+  taskKlant: { fontSize: 17, fontWeight: '700', color: '#0F172A' },
   taskRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   taskWerf: { fontSize: 14, color: '#6c757d', flex: 1 },
   taskWorkers: { fontSize: 13, color: '#3498db', flex: 1 },
@@ -724,13 +724,13 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3, borderLeftColor: '#3498db',
   },
   werkOmschrijvingHeader: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 4 },
-  werkOmschrijvingTitle: { fontSize: 12, fontWeight: '700', color: '#1B4332' },
-  werkOmschrijvingText: { fontSize: 13, color: '#1B4332', lineHeight: 18 },
+  werkOmschrijvingTitle: { fontSize: 12, fontWeight: '700', color: '#0F172A' },
+  werkOmschrijvingText: { fontSize: 13, color: '#0F172A', lineHeight: 18 },
 
   // Aandachtspunt on card
   aandachtBox: {
     backgroundColor: '#FFF9ED', borderRadius: 10, padding: 10,
-    borderLeftWidth: 3, borderLeftColor: '#D4A017',
+    borderLeftWidth: 3, borderLeftColor: '#22C55E',
   },
   aandachtHeader: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 4 },
   aandachtTitle: { fontSize: 12, fontWeight: '700', color: '#856404' },
@@ -753,7 +753,7 @@ const styles = StyleSheet.create({
   confirmedText: { fontSize: 13, color: '#28a745', fontWeight: '600' },
   confirmBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#D4A017', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10,
+    backgroundColor: '#22C55E', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10,
   },
   confirmBtnText: { fontSize: 13, color: '#fff', fontWeight: '600' },
   detailBtn: { flexDirection: 'row', alignItems: 'center', gap: 3 },
@@ -770,7 +770,7 @@ const styles = StyleSheet.create({
     width: 40, height: 40, borderRadius: 20,
     backgroundColor: '#F5F6FA', alignItems: 'center', justifyContent: 'center',
   },
-  detailTitle: { fontSize: 18, fontWeight: '700', color: '#1B4332' },
+  detailTitle: { fontSize: 18, fontWeight: '700', color: '#0F172A' },
   detailSubtitle: { fontSize: 12, color: '#6c757d', marginTop: 2 },
   detailBelangrijkBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
@@ -794,7 +794,7 @@ const styles = StyleSheet.create({
   },
   detailSectionTitle: { fontSize: 14, fontWeight: '700', color: '#6c757d', marginBottom: 4 },
   detailRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  detailLabel: { fontSize: 15, fontWeight: '600', color: '#1B4332' },
+  detailLabel: { fontSize: 15, fontWeight: '600', color: '#0F172A' },
   detailSubValue: { fontSize: 12, color: '#6c757d', marginTop: 2 },
 
   navigateBtnLarge: {
@@ -807,27 +807,27 @@ const styles = StyleSheet.create({
   workerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   workerAvatar: {
     width: 34, height: 34, borderRadius: 17,
-    backgroundColor: '#D4A01720', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#22C55E20', alignItems: 'center', justifyContent: 'center',
   },
-  workerAvatarText: { fontSize: 14, fontWeight: '700', color: '#D4A017' },
-  workerName: { fontSize: 15, fontWeight: '500', color: '#1B4332', flex: 1 },
-  jijBadge: { backgroundColor: '#D4A017', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  workerAvatarText: { fontSize: 14, fontWeight: '700', color: '#22C55E' },
+  workerName: { fontSize: 15, fontWeight: '500', color: '#0F172A', flex: 1 },
+  jijBadge: { backgroundColor: '#22C55E', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
   jijBadgeText: { fontSize: 10, fontWeight: '700', color: '#fff' },
 
   werkBox: { backgroundColor: '#F0F7FF', borderRadius: 10, padding: 14, borderLeftWidth: 3, borderLeftColor: '#3498db' },
-  werkBoxText: { fontSize: 15, color: '#1B4332', lineHeight: 22 },
+  werkBoxText: { fontSize: 15, color: '#0F172A', lineHeight: 22 },
 
   materiaalBox: { gap: 6 },
   materiaalItem: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  materiaalDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#D4A017' },
-  materiaalText: { fontSize: 14, color: '#1B4332', flex: 1 },
+  materiaalDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#22C55E' },
+  materiaalText: { fontSize: 14, color: '#0F172A', flex: 1 },
 
-  aandachtBoxLarge: { backgroundColor: '#FFF9ED', borderRadius: 10, padding: 14, borderLeftWidth: 3, borderLeftColor: '#D4A017' },
+  aandachtBoxLarge: { backgroundColor: '#FFF9ED', borderRadius: 10, padding: 14, borderLeftWidth: 3, borderLeftColor: '#22C55E' },
   aandachtBoxText: { fontSize: 15, color: '#856404', lineHeight: 22 },
 
   maakWerkbonBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-    backgroundColor: '#1B4332', padding: 16, borderRadius: 14, marginBottom: 8,
+    backgroundColor: '#0F172A', padding: 16, borderRadius: 14, marginBottom: 8,
   },
   maakWerkbonBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
 
@@ -836,7 +836,7 @@ const styles = StyleSheet.create({
   detailConfirmedText: { fontSize: 15, fontWeight: '600', color: '#28a745' },
   detailConfirmBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-    backgroundColor: '#D4A017', padding: 18, borderRadius: 14,
+    backgroundColor: '#22C55E', padding: 18, borderRadius: 14,
   },
   detailConfirmBtnText: { fontSize: 17, fontWeight: '700', color: '#fff' },
 });

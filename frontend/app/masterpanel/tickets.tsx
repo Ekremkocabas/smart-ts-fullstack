@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -13,8 +13,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { apiClient } from '../../context/AuthContext';
 
-const SIGNYBON_GREEN = '#1B4332';
-const SIGNYBON_GOLD = '#D4A017';
+const SIGNYBON_GREEN = '#0F172A';
+const SIGNYBON_GOLD = '#22C55E';
 
 interface Reply {
   message: string;
@@ -324,13 +324,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   replyMeta: { fontSize: 11, color: '#6c757d', marginBottom: 6 },
-  replyText: { fontSize: 13, color: '#1B4332', whiteSpace: 'pre-wrap' as any, lineHeight: 20 },
+  replyText: { fontSize: 13, color: '#0F172A', whiteSpace: 'pre-wrap' as any, lineHeight: 20 },
   textarea: {
     backgroundColor: '#f8f9fa',
     borderRadius: 8,
     padding: 14,
     fontSize: 14,
-    color: '#1B4332',
+    color: '#0F172A',
     minHeight: 120,
     textAlignVertical: 'top',
     outlineWidth: 0 as any,

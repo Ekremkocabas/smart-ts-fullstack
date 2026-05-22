@@ -4,167 +4,180 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Registreren — Signybon</title>
-<link rel="icon" type="image/png" href="/favicon.png?v=2">
+<link rel="icon" type="image/png" href="/favicon.png?v=3">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
-:root{--green:#1B4332;--green-light:#2D6A4F;--gold:#D4A017;--white:#FFFFFF;--gray-50:#F8F9FA;--gray-100:#F1F3F5;--gray-200:#E9ECEF;--gray-400:#ADB5BD;--gray-500:#6C757D;--gray-700:#343A40;--gray-800:#212529;--shadow-lg:0 12px 40px rgba(0,0,0,.12)}
-html{font-size:16px}
-body{font-family:'Inter',system-ui,sans-serif;background:var(--gray-50);color:var(--gray-800);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
-.card{background:var(--white);border-radius:20px;box-shadow:var(--shadow-lg);width:100%;max-width:640px;padding:48px 40px;position:relative;overflow:hidden}
-.card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--green),var(--gold))}
-.logo{text-align:center;margin-bottom:8px;font-size:1.5rem;font-weight:800;color:var(--green);display:flex;align-items:center;justify-content:center;gap:10px}
-.logo svg{flex-shrink:0}
-.subtitle{text-align:center;color:var(--gray-500);font-size:.9rem;margin-bottom:32px}
-.section-title{font-size:.85rem;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.05em;margin:18px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--gray-200)}
+:root{
+  --navy:#0F172A;--navy-light:#1E293B;
+  --green:#22C55E;--green-dark:#16A34A;
+  --white:#FFFFFF;--gray-light:#E2E8F0;
+  --text-dark:#0F172A;--text-muted:#94A3B8;
+  --border:#CBD5E1;
+}
+body{font-family:'Poppins',system-ui,sans-serif;background:var(--gray-light);color:var(--text-dark);min-height:100vh;display:flex;flex-direction:column}
+.header{background:var(--navy);padding:20px 40px;display:flex;align-items:center;gap:15px}
+.header img{height:40px;width:auto;display:block}
+.header .brand{color:var(--white);font-size:22px;font-weight:700;letter-spacing:.5px}
+.register-container{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:32px 20px}
+.register-card{background:var(--white);padding:40px;border-radius:12px;box-shadow:0 10px 25px rgba(0,0,0,.05);width:100%;max-width:640px}
+.register-card h2{margin:0 0 8px;color:var(--navy);font-size:24px;text-align:center;font-weight:700}
+.register-card .subtitle{text-align:center;color:var(--text-muted);font-size:14px;margin-bottom:24px}
+.section-title{font-size:13px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.05em;margin:18px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--gray-light)}
 .form-group{margin-bottom:14px}
-.form-group label{display:block;font-size:.78rem;font-weight:600;color:var(--gray-700);margin-bottom:5px}
-.form-group input,.form-group select{width:100%;padding:11px 14px;border:1.5px solid var(--gray-200);border-radius:10px;font-size:.92rem;font-family:inherit;transition:all .2s;background:var(--white);color:var(--gray-800)}
-.form-group input:focus,.form-group select:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(27,67,50,.1)}
+.form-group label{display:block;font-size:13px;font-weight:500;color:var(--text-dark);margin-bottom:6px}
+.form-group input,.form-group select{width:100%;padding:11px 14px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;background:var(--white);color:var(--text-dark)}
+.form-group input:focus,.form-group select:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(34,197,94,.2)}
 .form-group input.error{border-color:#dc3545}
-.error-msg{color:#dc3545;font-size:.75rem;margin-top:3px;display:none}
+.error-msg{color:#dc3545;font-size:12px;margin-top:3px;display:none}
 .error-msg.show{display:block}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .row-3{display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px}
 .pakket-cards{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px}
-.pakket-card{border:2px solid var(--gray-200);border-radius:12px;padding:18px;cursor:pointer;transition:all .2s;text-align:center;position:relative}
-.pakket-card:hover{border-color:var(--green-light)}
-.pakket-card.selected{border-color:var(--green);background:rgba(27,67,50,.04)}
-.pakket-card.featured::before{content:'Meest gekozen';position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--gold);color:var(--white);font-size:.65rem;font-weight:700;padding:3px 12px;border-radius:10px;white-space:nowrap}
-.pakket-card h4{font-size:1.05rem;font-weight:700;color:var(--gray-800);margin-bottom:4px}
-.pakket-card .price{font-size:1.5rem;font-weight:800;color:var(--green)}
-.pakket-card .price small{font-size:.75rem;font-weight:500;color:var(--gray-500)}
-.btn{width:100%;padding:16px;border:none;border-radius:12px;font-size:1.05rem;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s;letter-spacing:.02em}
-.btn-primary{background:var(--green);color:var(--white);margin-top:18px}
-.btn-primary:hover{background:var(--green-light);transform:translateY(-1px);box-shadow:0 6px 20px rgba(27,67,50,.3)}
-.btn-primary:disabled{opacity:.6;cursor:not-allowed;transform:none;box-shadow:none}
-.login-link{text-align:center;margin-top:18px;font-size:.875rem;color:var(--gray-500)}
-.login-link a{color:var(--green);font-weight:600;text-decoration:none}
+.pakket-card{border:2px solid var(--border);border-radius:10px;padding:18px;cursor:pointer;transition:all .2s;text-align:center;position:relative;background:var(--white)}
+.pakket-card:hover{border-color:var(--green)}
+.pakket-card.selected{border-color:var(--green);background:rgba(34,197,94,.06)}
+.pakket-card.featured::before{content:'Meest gekozen';position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--green);color:var(--white);font-size:11px;font-weight:700;padding:3px 12px;border-radius:10px;white-space:nowrap}
+.pakket-card h4{font-size:16px;font-weight:700;color:var(--navy);margin-bottom:4px}
+.pakket-card .price{font-size:22px;font-weight:800;color:var(--navy)}
+.pakket-card .price small{font-size:12px;font-weight:500;color:var(--text-muted)}
+.btn-register{width:100%;background:var(--green);color:var(--white);border:none;padding:14px;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:18px;transition:background-color .2s}
+.btn-register:hover{background:var(--green-dark)}
+.btn-register:disabled{opacity:.6;cursor:not-allowed}
+.login-link{text-align:center;margin-top:18px;font-size:14px;color:var(--text-muted)}
+.login-link a{color:var(--navy);font-weight:500;text-decoration:none}
+.login-link a:hover{text-decoration:underline}
 .success-screen{display:none;text-align:center;padding:40px 0}
 .success-screen .icon{font-size:4rem;margin-bottom:16px}
-.success-screen h2{font-size:1.5rem;font-weight:800;color:var(--green);margin-bottom:12px}
-.success-screen p{color:var(--gray-500);line-height:1.6}
+.success-screen h2{font-size:22px;font-weight:700;color:var(--navy);margin-bottom:12px}
+.success-screen p{color:var(--text-muted);line-height:1.6}
 .spinner{display:inline-block;width:18px;height:18px;border:3px solid rgba(255,255,255,.3);border-top-color:var(--white);border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:8px}
 @keyframes spin{to{transform:rotate(360deg)}}
-.alert{padding:12px 16px;border-radius:8px;font-size:.85rem;margin-bottom:16px;display:none}
-.alert-error{background:#f8d7da;color:#842029;border:1px solid #f5c2c7}
+.alert{padding:12px 16px;border-radius:8px;font-size:14px;margin-bottom:16px;display:none}
+.alert-error{background:#fee2e2;color:#991b1b;border:1px solid #fecaca}
 .alert.show{display:block}
-.btw-status{font-size:.72rem;color:var(--gray-500);margin-top:4px;display:none}
+.btw-status{font-size:12px;color:var(--text-muted);margin-top:4px;display:none}
 .btw-status.show{display:block}
 .btw-status.success{color:#0a7c3a}
-@media(max-width:580px){.card{padding:32px 24px}.row,.row-3,.pakket-cards{grid-template-columns:1fr}}
+@media(max-width:580px){.header{padding:16px 20px}.register-card{padding:28px 22px}.row,.row-3,.pakket-cards{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
-<div class="card">
-  <div id="formScreen">
-    <div class="logo"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="40" height="40"><rect x="15" y="15" width="70" height="70" rx="12" ry="12" fill="#D4A017" transform="rotate(45 50 50)"/><rect x="23" y="23" width="54" height="54" rx="9" ry="9" fill="#1B4332" transform="rotate(45 50 50)"/><rect x="36" y="36" width="28" height="28" rx="5" ry="5" fill="#D4A017" transform="rotate(45 50 50)"/></svg> Signybon</div>
-    <div class="subtitle">Maak uw bedrijfsaccount aan — 30 dagen gratis</div>
-    <div class="alert alert-error" id="alertError"></div>
-    <form id="registerForm" novalidate>
+<div class="header">
+  <img src="/favicon.png?v=3" alt="Signybon">
+  <div class="brand">SIGNYBON</div>
+</div>
+<div class="register-container">
+  <div class="register-card">
+    <div id="formScreen">
+      <h2>Registreren</h2>
+      <div class="subtitle">Maak uw bedrijfsaccount aan — 30 dagen gratis</div>
+      <div class="alert alert-error" id="alertError"></div>
+      <form id="registerForm" novalidate>
 
-      <div class="section-title">Bedrijfsgegevens</div>
-      <div class="form-group">
-        <label for="bedrijfsnaam">Bedrijfsnaam *</label>
-        <input type="text" id="bedrijfsnaam" placeholder="Uw bedrijfsnaam" required>
-      </div>
-      <div class="form-group">
-        <label for="btw_nummer">BTW Nummer *</label>
-        <input type="text" id="btw_nummer" placeholder="BE0123456789" required>
-        <div class="error-msg" id="btwError">Vul een geldig Belgisch BTW-nummer in (bijv. BE0123456789)</div>
-        <div class="btw-status" id="btwStatus"></div>
-      </div>
+        <div class="section-title">Bedrijfsgegevens</div>
+        <div class="form-group">
+          <label for="bedrijfsnaam">Bedrijfsnaam *</label>
+          <input type="text" id="bedrijfsnaam" placeholder="Uw bedrijfsnaam" required>
+        </div>
+        <div class="form-group">
+          <label for="btw_nummer">BTW Nummer *</label>
+          <input type="text" id="btw_nummer" placeholder="BE0123456789" required>
+          <div class="error-msg" id="btwError">Vul een geldig Belgisch BTW-nummer in (bijv. BE0123456789)</div>
+          <div class="btw-status" id="btwStatus"></div>
+        </div>
 
-      <div class="section-title">Contactpersoon</div>
-      <div class="row">
-        <div class="form-group">
-          <label for="voornaam">Voornaam *</label>
-          <input type="text" id="voornaam" placeholder="Voornaam" required>
+        <div class="section-title">Contactpersoon</div>
+        <div class="row">
+          <div class="form-group">
+            <label for="voornaam">Voornaam *</label>
+            <input type="text" id="voornaam" placeholder="Voornaam" required>
+          </div>
+          <div class="form-group">
+            <label for="achternaam">Achternaam *</label>
+            <input type="text" id="achternaam" placeholder="Achternaam" required>
+          </div>
         </div>
-        <div class="form-group">
-          <label for="achternaam">Achternaam *</label>
-          <input type="text" id="achternaam" placeholder="Achternaam" required>
+        <div class="row">
+          <div class="form-group">
+            <label for="email">E-mailadres *</label>
+            <input type="email" id="email" placeholder="naam@bedrijf.be" required>
+          </div>
+          <div class="form-group">
+            <label for="telefoon">Telefoonnummer</label>
+            <input type="tel" id="telefoon" placeholder="+32 ...">
+          </div>
         </div>
-      </div>
-      <div class="row">
-        <div class="form-group">
-          <label for="email">E-mailadres *</label>
-          <input type="email" id="email" placeholder="naam@bedrijf.be" required>
-        </div>
-        <div class="form-group">
-          <label for="telefoon">Telefoonnummer</label>
-          <input type="tel" id="telefoon" placeholder="+32 ...">
-        </div>
-      </div>
 
-      <div class="section-title">Adres</div>
-      <div class="row-3">
-        <div class="form-group">
-          <label for="straat">Straat</label>
-          <input type="text" id="straat" placeholder="Straatnaam">
+        <div class="section-title">Adres</div>
+        <div class="row-3">
+          <div class="form-group">
+            <label for="straat">Straat</label>
+            <input type="text" id="straat" placeholder="Straatnaam">
+          </div>
+          <div class="form-group">
+            <label for="huisnr">Nr</label>
+            <input type="text" id="huisnr" placeholder="Nr">
+          </div>
+          <div class="form-group">
+            <label for="postcode">Postcode</label>
+            <input type="text" id="postcode" placeholder="1000">
+          </div>
         </div>
-        <div class="form-group">
-          <label for="huisnr">Nr</label>
-          <input type="text" id="huisnr" placeholder="Nr">
+        <div class="row">
+          <div class="form-group">
+            <label for="stad">Stad</label>
+            <input type="text" id="stad" placeholder="Stad">
+          </div>
+          <div class="form-group">
+            <label for="land">Land</label>
+            <select id="land">
+              <option value="BE">België</option>
+              <option value="NL">Nederland</option>
+            </select>
+          </div>
         </div>
-        <div class="form-group">
-          <label for="postcode">Postcode</label>
-          <input type="text" id="postcode" placeholder="1000">
-        </div>
-      </div>
-      <div class="row">
-        <div class="form-group">
-          <label for="stad">Stad</label>
-          <input type="text" id="stad" placeholder="Stad">
-        </div>
-        <div class="form-group">
-          <label for="land">Land</label>
-          <select id="land">
-            <option value="BE">België</option>
-            <option value="NL">Nederland</option>
-          </select>
-        </div>
-      </div>
 
-      <div class="section-title">Wachtwoord</div>
-      <div class="row">
-        <div class="form-group">
-          <label for="wachtwoord">Wachtwoord *</label>
-          <input type="password" id="wachtwoord" placeholder="Min. 8 tekens" required minlength="8">
+        <div class="section-title">Wachtwoord</div>
+        <div class="row">
+          <div class="form-group">
+            <label for="wachtwoord">Wachtwoord *</label>
+            <input type="password" id="wachtwoord" placeholder="Min. 8 tekens" required minlength="8">
+          </div>
+          <div class="form-group">
+            <label for="wachtwoord2">Bevestig wachtwoord *</label>
+            <input type="password" id="wachtwoord2" placeholder="Herhaal wachtwoord" required>
+          </div>
         </div>
-        <div class="form-group">
-          <label for="wachtwoord2">Bevestig wachtwoord *</label>
-          <input type="password" id="wachtwoord2" placeholder="Herhaal wachtwoord" required>
-        </div>
-      </div>
 
-      <div class="section-title">Kies uw pakket</div>
-      <div class="pakket-cards">
-        <div class="pakket-card" onclick="selectPakket('basic',this)">
-          <h4>Basic</h4>
-          <div class="price">&euro;29<small>/maand</small></div>
+        <div class="section-title">Kies uw pakket</div>
+        <div class="pakket-cards">
+          <div class="pakket-card" onclick="selectPakket('basic',this)">
+            <h4>Basic</h4>
+            <div class="price">&euro;29<small>/maand</small></div>
+          </div>
+          <div class="pakket-card featured selected" onclick="selectPakket('pro',this)">
+            <h4>Pro</h4>
+            <div class="price">&euro;49<small>/maand</small></div>
+          </div>
         </div>
-        <div class="pakket-card featured selected" onclick="selectPakket('pro',this)">
-          <h4>Pro</h4>
-          <div class="price">&euro;49<small>/maand</small></div>
-        </div>
-      </div>
-      <input type="hidden" id="pakket" value="pro">
+        <input type="hidden" id="pakket" value="pro">
 
-      <button type="submit" class="btn btn-primary" id="submitBtn">PROBEER NU 30 DAGEN GRATIS</button>
-      <div style="text-align:center;font-size:.75rem;color:var(--gray-500);margin-top:8px">Geen creditcard vereist · Annuleer wanneer u wilt</div>
-    </form>
-    <div class="login-link">Heeft u al een account? <a href="/login">Inloggen</a></div>
-  </div>
+        <button type="submit" class="btn-register" id="submitBtn">PROBEER NU 30 DAGEN GRATIS</button>
+        <div style="text-align:center;font-size:12px;color:var(--text-muted);margin-top:8px">Geen creditcard vereist · Annuleer wanneer u wilt</div>
+      </form>
+      <div class="login-link">Heeft u al een account? <a href="/login">Inloggen</a></div>
+    </div>
 
-  <div class="success-screen" id="successScreen">
-    <div class="icon">&#9993;</div>
-    <h2>Controleer uw e-mail</h2>
-    <p>We hebben een bevestigingslink gestuurd naar<br><strong id="successEmail"></strong></p>
-    <p style="margin-top:16px;font-size:.85rem">Klik op de link in de e-mail om uw account te activeren. Controleer ook uw spam map.</p>
-    <a href="/login" class="btn btn-primary" style="margin-top:24px;display:inline-block;width:auto;padding:12px 32px;text-decoration:none">Naar Inloggen</a>
+    <div class="success-screen" id="successScreen">
+      <div class="icon">&#9993;</div>
+      <h2>Controleer uw e-mail</h2>
+      <p>We hebben een bevestigingslink gestuurd naar<br><strong id="successEmail"></strong></p>
+      <p style="margin-top:16px;font-size:14px">Klik op de link in de e-mail om uw account te activeren. Controleer ook uw spam map.</p>
+      <a href="/login" class="btn-register" style="margin-top:24px;display:inline-block;width:auto;padding:12px 32px;text-decoration:none">Naar Inloggen</a>
+    </div>
   </div>
 </div>
 
@@ -205,13 +218,8 @@ btwInput.addEventListener('input', function() {
 });
 
 async function doKboLookup(btw) {
-  // BTW format: BE + 10 digits → KBO uses 10 digits
-  const kboNumber = btw.substring(2); // remove BE prefix
+  const kboNumber = btw.substring(2);
   try {
-    // Try official KBO Open Data API
-    const url = `https://kbopub.economie.fgov.be/kbopub/zoeknummerform.html?nummer=${kboNumber}&actionLu=Zoek`;
-    // The above is HTML — instead use the unofficial JSON proxy via opencorporates or controlee
-    // Use companyweb.be / kbo open data direct JSON if available
     const apiUrl = `https://api.companyinfo.dev/v1/companies/be/${kboNumber}`;
     const res = await fetch(apiUrl);
     if (res.ok) {
@@ -224,7 +232,7 @@ async function doKboLookup(btw) {
           if (data.address.postal_code) document.getElementById('postcode').value = data.address.postal_code;
           if (data.address.city) document.getElementById('stad').value = data.address.city;
         }
-        btwStatus.textContent = '\u2713 Bedrijfsgegevens automatisch ingevuld';
+        btwStatus.textContent = '✓ Bedrijfsgegevens automatisch ingevuld';
         btwStatus.classList.add('success');
         return;
       }

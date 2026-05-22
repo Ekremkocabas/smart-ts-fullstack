@@ -86,7 +86,19 @@
       "Bash(git *)",
       "Bash(node -e \"const fs = require\\('fs'\\); const m = require.resolve\\('@react-native-async-storage/async-storage/lib/module/AsyncStorage.web.js', { paths: ['C:/Users/ekrem/OneDrive/Desktop/smart-ts-fullstack/frontend'] }\\); console.log\\(m\\);\")",
       "Bash(rm -rf C:/Users/ekrem/OneDrive/Desktop/smart-ts-fullstack/backend/dist/*)",
-      "Bash(cp -r C:/Users/ekrem/OneDrive/Desktop/smart-ts-fullstack/frontend/dist/. C:/Users/ekrem/OneDrive/Desktop/smart-ts-fullstack/backend/dist/)"
+      "Bash(cp -r C:/Users/ekrem/OneDrive/Desktop/smart-ts-fullstack/frontend/dist/. C:/Users/ekrem/OneDrive/Desktop/smart-ts-fullstack/backend/dist/)",
+      "Bash(eas build:list --platform android --status finished --limit 3 --json --non-interactive)",
+      "Bash(eas build:list --platform android --status finished --limit 1 --json --non-interactive)",
+      "Bash(eas build:view cf3d72fb-a0a7-4fca-a0a5-f57d51950068 --json --non-interactive)",
+      "Bash(eas build:view cf3d72fb-a0a7-4fca-a0a5-f57d51950068 --non-interactive)",
+      "Bash(eas build:view cf3d72fb-a0a7-4fca-a0a5-f57d51950068)",
+      "Bash(eas build:view 3097e796-9ea6-45bc-b464-0676a346afdc)",
+      "Bash(eas build:cancel dc149186-8603-495e-ba9a-5ee242c4dc05 --non-interactive)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\ekrem\\\\OneDrive\\\\Desktop\\\\smart-ts-fullstack\" -Directory)",
+      "Bash(Select-Object Name)",
+      "PowerShell(Remove-Item *)",
+      "Bash(npx eas-cli *)",
+      "PowerShell(Join-Path *)"
     ]
   }
 }

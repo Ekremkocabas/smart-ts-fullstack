@@ -185,11 +185,11 @@ export default function RapportScreen() {
         </View>
         <View style={styles.navRow}>
           <TouchableOpacity style={styles.navBtn} onPress={() => navigate(-1)}>
-            <Ionicons name="chevron-back" size={20} color="#D4A017" />
+            <Ionicons name="chevron-back" size={20} color="#22C55E" />
           </TouchableOpacity>
           <Text style={styles.periodLabel}>{periodeLabel}</Text>
           <TouchableOpacity style={styles.navBtn} onPress={() => navigate(1)}>
-            <Ionicons name="chevron-forward" size={20} color="#D4A017" />
+            <Ionicons name="chevron-forward" size={20} color="#22C55E" />
           </TouchableOpacity>
         </View>
       </View>
@@ -201,8 +201,8 @@ export default function RapportScreen() {
             <Text style={styles.statValue}>{rapport.length}</Text>
             <Text style={styles.statLabel}>Werknemers</Text>
           </View>
-          <View style={[styles.statCard, { borderLeftColor: '#D4A017' }]}>
-            <Text style={[styles.statValue, { color: '#D4A017' }]}>{totalUren}</Text>
+          <View style={[styles.statCard, { borderLeftColor: '#22C55E' }]}>
+            <Text style={[styles.statValue, { color: '#22C55E' }]}>{totalUren}</Text>
             <Text style={styles.statLabel}>Totaal uren</Text>
           </View>
         </View>
@@ -210,7 +210,7 @@ export default function RapportScreen() {
 
       {isLoading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#D4A017" />
+          <ActivityIndicator size="large" color="#22C55E" />
         </View>
       ) : rapport.length === 0 ? (
         <View style={styles.center}>
@@ -221,7 +221,7 @@ export default function RapportScreen() {
         <ScrollView
           style={styles.list}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#D4A017" />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#22C55E" />
           }
         >
           {rapport.map((werknemer, idx) => (
@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E8E9ED',
   },
-  title: { fontSize: 26, fontWeight: 'bold', color: '#1B4332' },
+  title: { fontSize: 26, fontWeight: 'bold', color: '#0F172A' },
   subtitle: { fontSize: 12, color: '#6c757d', marginTop: 2 },
   exportBtn: {
     flexDirection: 'row',
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     alignItems: 'center',
   },
-  typeBtnActive: { backgroundColor: '#D4A017' },
+  typeBtnActive: { backgroundColor: '#22C55E' },
   typeBtnText: { color: '#6c757d', fontSize: 14, fontWeight: '600' },
   typeBtnTextActive: { color: '#fff' },
   navRow: {
@@ -321,7 +321,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E8E9ED',
   },
-  periodLabel: { fontSize: 16, fontWeight: '700', color: '#1B4332', minWidth: 160, textAlign: 'center' },
+  periodLabel: { fontSize: 16, fontWeight: '700', color: '#0F172A', minWidth: 160, textAlign: 'center' },
   statsRow: {
     flexDirection: 'row',
     paddingHorizontal: 16,
@@ -375,9 +375,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E8E9ED',
   },
-  avatarText: { color: '#D4A017', fontSize: 18, fontWeight: 'bold' },
+  avatarText: { color: '#22C55E', fontSize: 18, fontWeight: 'bold' },
   werknemerInfo: { flex: 1 },
-  werknemerNaam: { color: '#1B4332', fontSize: 16, fontWeight: '600' },
+  werknemerNaam: { color: '#0F172A', fontSize: 16, fontWeight: '600' },
   werknemerSub: { color: '#6c757d', fontSize: 12, marginTop: 2 },
   totalBadge: {
     alignItems: 'center',
@@ -389,7 +389,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E8E9ED',
   },
-  totalBadgeValue: { color: '#D4A017', fontSize: 18, fontWeight: 'bold' },
+  totalBadgeValue: { color: '#22C55E', fontSize: 18, fontWeight: 'bold' },
   totalBadgeLabel: { color: '#6c757d', fontSize: 10 },
   werfRow: {
     flexDirection: 'row',
@@ -403,9 +403,9 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#D4A017',
+    backgroundColor: '#22C55E',
     marginLeft: 4,
   },
   werfNaam: { flex: 1, color: '#6c757d', fontSize: 13 },
-  werfUren: { color: '#1B4332', fontSize: 13, fontWeight: '600' },
+  werfUren: { color: '#0F172A', fontSize: 13, fontWeight: '600' },
 });

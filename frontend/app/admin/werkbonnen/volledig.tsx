@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -274,7 +274,7 @@ export default function WerkbonnenAdmin() {
     switch (status) {
       case 'concept': return '#ffc107';
       case 'ondertekend': return '#28a745';
-      case 'verzonden': return '#D4A017';
+      case 'verzonden': return '#22C55E';
       default: return '#6c757d';
     }
   };
@@ -293,7 +293,7 @@ export default function WerkbonnenAdmin() {
   if (authLoading) {
     return (
       <View style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}>
-        <ActivityIndicator size="large" color={theme.primaryColor || '#D4A017'} />
+        <ActivityIndicator size="large" color={theme.primaryColor || '#22C55E'} />
         <Text style={{ marginTop: 16, color: '#6c757d' }}>Laden...</Text>
       </View>
     );
@@ -375,10 +375,10 @@ export default function WerkbonnenAdmin() {
       document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
     } else {
       let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-        body{font-family:Arial,sans-serif;margin:20px;color:#1B4332}
-        h1{color:#D4A017;font-size:22px;border-bottom:2px solid #D4A017;padding-bottom:8px}
+        body{font-family:Arial,sans-serif;margin:20px;color:#0F172A}
+        h1{color:#22C55E;font-size:22px;border-bottom:2px solid #22C55E;padding-bottom:8px}
         table{width:100%;border-collapse:collapse;font-size:12px;margin-top:12px}
-        th{background:#1B4332;color:#fff;padding:8px 10px;text-align:left}
+        th{background:#0F172A;color:#fff;padding:8px 10px;text-align:left}
         td{padding:6px 10px;border-bottom:1px solid #E8E9ED}
         tr:nth-child(even){background:#F5F6FA}
         .meta{color:#6c757d;font-size:12px}
@@ -413,10 +413,10 @@ export default function WerkbonnenAdmin() {
       document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
     } else {
       let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-        body{font-family:Arial,sans-serif;margin:20px;color:#1B4332}
-        h1{color:#D4A017;font-size:22px;border-bottom:2px solid #D4A017;padding-bottom:8px}
+        body{font-family:Arial,sans-serif;margin:20px;color:#0F172A}
+        h1{color:#22C55E;font-size:22px;border-bottom:2px solid #22C55E;padding-bottom:8px}
         table{width:100%;border-collapse:collapse;font-size:12px;margin-top:12px}
-        th{background:#1B4332;color:#fff;padding:8px 10px;text-align:left}
+        th{background:#0F172A;color:#fff;padding:8px 10px;text-align:left}
         td{padding:6px 10px;border-bottom:1px solid #E8E9ED}
         tr:nth-child(even){background:#F5F6FA}
       </style></head><body>
@@ -450,8 +450,8 @@ export default function WerkbonnenAdmin() {
       {error && !loading && (
         <View style={{ backgroundColor: '#fff3cd', borderRadius: 12, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#ffc107', flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <Ionicons name="warning-outline" size={22} color="#e67e22" />
-          <Text style={{ flex: 1, fontSize: 14, color: theme.secondaryColor || '#1B4332' }}>{error}</Text>
-          <TouchableOpacity onPress={fetchData} style={{ backgroundColor: theme.primaryColor || '#D4A017', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }}>
+          <Text style={{ flex: 1, fontSize: 14, color: theme.secondaryColor || '#0F172A' }}>{error}</Text>
+          <TouchableOpacity onPress={fetchData} style={{ backgroundColor: theme.primaryColor || '#22C55E', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }}>
             <Text style={{ color: '#fff', fontWeight: '600', fontSize: 13 }}>Opnieuw</Text>
           </TouchableOpacity>
         </View>
@@ -460,10 +460,10 @@ export default function WerkbonnenAdmin() {
       <View style={styles.header}>
         <View>
           <TouchableOpacity onPress={() => router.push('/admin/werkbonnen' as any)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-            <Ionicons name="arrow-back" size={22} color={theme.primaryColor || '#D4A017'} />
-            <Text style={{ fontSize: 15, fontWeight: '600', color: theme.primaryColor || '#D4A017' }}>Terug naar werkbonnen</Text>
+            <Ionicons name="arrow-back" size={22} color={theme.primaryColor || '#22C55E'} />
+            <Text style={{ fontSize: 15, fontWeight: '600', color: theme.primaryColor || '#22C55E' }}>Terug naar werkbonnen</Text>
           </TouchableOpacity>
-          <Text style={[styles.title, { color: theme.secondaryColor || '#1B4332' }]}>Volledig overzicht</Text>
+          <Text style={[styles.title, { color: theme.secondaryColor || '#0F172A' }]}>Volledig overzicht</Text>
           <Text style={styles.subtitle}>
             {activeTab === 'werkbonnen'
               ? `${werkbonnen.length}${werkbonTotal > werkbonnen.length ? ` van ${werkbonTotal}` : ''} geladen, ${filtered.length} gefilterd`
@@ -479,7 +479,7 @@ export default function WerkbonnenAdmin() {
             <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>CSV</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: theme.secondaryColor || '#1B4332', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8 }}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: theme.secondaryColor || '#0F172A', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8 }}
             onPress={() => activeTab === 'werkbonnen' ? exportWerkbonnen('pdf') : exportProductie('pdf')}>
             <Ionicons name="print-outline" size={16} color="#fff" />
             <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>PDF</Text>
@@ -490,7 +490,7 @@ export default function WerkbonnenAdmin() {
       {/* ZIP Download Sectie */}
       <View style={{ backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: '#E8E9ED', flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <Ionicons name="archive-outline" size={20} color="#6c757d" />
-        <Text style={{ fontSize: 14, fontWeight: '600', color: theme.secondaryColor || '#1B4332', marginRight: 4 }}>Download werkbonnen als ZIP</Text>
+        <Text style={{ fontSize: 14, fontWeight: '600', color: theme.secondaryColor || '#0F172A', marginRight: 4 }}>Download werkbonnen als ZIP</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <Text style={{ fontSize: 13, color: '#6c757d' }}>Van:</Text>
           {Platform.OS === 'web' ? (
@@ -529,7 +529,7 @@ export default function WerkbonnenAdmin() {
       {/* Tab Switcher */}
       <View style={styles.tabContainer}>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'werkbonnen' && styles.tabActive, activeTab === 'werkbonnen' && { backgroundColor: theme.secondaryColor || '#1B4332' }]}
+          style={[styles.tab, activeTab === 'werkbonnen' && styles.tabActive, activeTab === 'werkbonnen' && { backgroundColor: theme.secondaryColor || '#0F172A' }]}
           onPress={() => setActiveTab('werkbonnen')}
         >
           <Ionicons name="time-outline" size={16} color={activeTab === 'werkbonnen' ? '#fff' : '#6c757d'} />
@@ -538,7 +538,7 @@ export default function WerkbonnenAdmin() {
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'productie' && styles.tabActive, activeTab === 'productie' && { backgroundColor: theme.secondaryColor || '#1B4332' }]}
+          style={[styles.tab, activeTab === 'productie' && styles.tabActive, activeTab === 'productie' && { backgroundColor: theme.secondaryColor || '#0F172A' }]}
           onPress={() => setActiveTab('productie')}
         >
           <Ionicons name="construct-outline" size={16} color={activeTab === 'productie' ? '#fff' : '#6c757d'} />
@@ -547,7 +547,7 @@ export default function WerkbonnenAdmin() {
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'oplevering' && styles.tabActive, activeTab === 'oplevering' && { backgroundColor: theme.secondaryColor || '#1B4332' }]}
+          style={[styles.tab, activeTab === 'oplevering' && styles.tabActive, activeTab === 'oplevering' && { backgroundColor: theme.secondaryColor || '#0F172A' }]}
           onPress={() => setActiveTab('oplevering')}
         >
           <Ionicons name="checkmark-done-outline" size={16} color={activeTab === 'oplevering' ? '#fff' : '#6c757d'} />
@@ -556,7 +556,7 @@ export default function WerkbonnenAdmin() {
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'project' && styles.tabActive, activeTab === 'project' && { backgroundColor: theme.secondaryColor || '#1B4332' }]}
+          style={[styles.tab, activeTab === 'project' && styles.tabActive, activeTab === 'project' && { backgroundColor: theme.secondaryColor || '#0F172A' }]}
           onPress={() => setActiveTab('project')}
         >
           <Ionicons name="briefcase-outline" size={16} color={activeTab === 'project' ? '#fff' : '#6c757d'} />
@@ -578,7 +578,7 @@ export default function WerkbonnenAdmin() {
             onChangeText={setSearch}
           />
         </View>
-        <TouchableOpacity style={[styles.filterToggle, showFilters && styles.filterToggleActive, showFilters && { backgroundColor: theme.primaryColor || '#D4A017', borderColor: theme.primaryColor || '#D4A017' }]} onPress={() => setShowFilters(!showFilters)}>
+        <TouchableOpacity style={[styles.filterToggle, showFilters && styles.filterToggleActive, showFilters && { backgroundColor: theme.primaryColor || '#22C55E', borderColor: theme.primaryColor || '#22C55E' }]} onPress={() => setShowFilters(!showFilters)}>
           <Ionicons name="options-outline" size={20} color={showFilters ? '#fff' : '#6c757d'} />
           {activeFiltersCount > 0 && (
             <View style={styles.filterBadge}>
@@ -595,11 +595,11 @@ export default function WerkbonnenAdmin() {
             <Text style={styles.filterLabel}>Status</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={styles.filterRow}>
-                <TouchableOpacity style={[styles.filterChip, !filterStatus && styles.filterChipActive, !filterStatus && { backgroundColor: theme.primaryColor || '#D4A017', borderColor: theme.primaryColor || '#D4A017' }]} onPress={() => setFilterStatus(null)}>
+                <TouchableOpacity style={[styles.filterChip, !filterStatus && styles.filterChipActive, !filterStatus && { backgroundColor: theme.primaryColor || '#22C55E', borderColor: theme.primaryColor || '#22C55E' }]} onPress={() => setFilterStatus(null)}>
                   <Text style={[styles.filterChipText, !filterStatus && styles.filterChipTextActive]}>Alle</Text>
                 </TouchableOpacity>
                 {statusOptions.map((s) => (
-                  <TouchableOpacity key={s} style={[styles.filterChip, filterStatus === s && styles.filterChipActive, filterStatus === s && { backgroundColor: theme.primaryColor || '#D4A017', borderColor: theme.primaryColor || '#D4A017' }]} onPress={() => setFilterStatus(filterStatus === s ? null : s)}>
+                  <TouchableOpacity key={s} style={[styles.filterChip, filterStatus === s && styles.filterChipActive, filterStatus === s && { backgroundColor: theme.primaryColor || '#22C55E', borderColor: theme.primaryColor || '#22C55E' }]} onPress={() => setFilterStatus(filterStatus === s ? null : s)}>
                     <View style={[styles.statusDot, { backgroundColor: getStatusColor(s) }]} />
                     <Text style={[styles.filterChipText, filterStatus === s && styles.filterChipTextActive]}>{s}</Text>
                   </TouchableOpacity>
@@ -614,11 +614,11 @@ export default function WerkbonnenAdmin() {
                 <Text style={styles.filterLabel}>Week</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   <View style={styles.filterRow}>
-                    <TouchableOpacity style={[styles.filterChip, !filterWeek && styles.filterChipActive, !filterWeek && { backgroundColor: theme.primaryColor || '#D4A017', borderColor: theme.primaryColor || '#D4A017' }]} onPress={() => setFilterWeek(null)}>
+                    <TouchableOpacity style={[styles.filterChip, !filterWeek && styles.filterChipActive, !filterWeek && { backgroundColor: theme.primaryColor || '#22C55E', borderColor: theme.primaryColor || '#22C55E' }]} onPress={() => setFilterWeek(null)}>
                       <Text style={[styles.filterChipText, !filterWeek && styles.filterChipTextActive]}>Alle</Text>
                     </TouchableOpacity>
                     {weekOptions.map((w) => (
-                      <TouchableOpacity key={w} style={[styles.filterChip, filterWeek === w && styles.filterChipActive, filterWeek === w && { backgroundColor: theme.primaryColor || '#D4A017', borderColor: theme.primaryColor || '#D4A017' }]} onPress={() => setFilterWeek(filterWeek === w ? null : w)}>
+                      <TouchableOpacity key={w} style={[styles.filterChip, filterWeek === w && styles.filterChipActive, filterWeek === w && { backgroundColor: theme.primaryColor || '#22C55E', borderColor: theme.primaryColor || '#22C55E' }]} onPress={() => setFilterWeek(filterWeek === w ? null : w)}>
                         <Text style={[styles.filterChipText, filterWeek === w && styles.filterChipTextActive]}>Week {w}</Text>
                       </TouchableOpacity>
                     ))}
@@ -630,11 +630,11 @@ export default function WerkbonnenAdmin() {
                 <Text style={styles.filterLabel}>Werknemer</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   <View style={styles.filterRow}>
-                    <TouchableOpacity style={[styles.filterChip, !filterWerknemer && styles.filterChipActive, !filterWerknemer && { backgroundColor: theme.primaryColor || '#D4A017', borderColor: theme.primaryColor || '#D4A017' }]} onPress={() => setFilterWerknemer(null)}>
+                    <TouchableOpacity style={[styles.filterChip, !filterWerknemer && styles.filterChipActive, !filterWerknemer && { backgroundColor: theme.primaryColor || '#22C55E', borderColor: theme.primaryColor || '#22C55E' }]} onPress={() => setFilterWerknemer(null)}>
                       <Text style={[styles.filterChipText, !filterWerknemer && styles.filterChipTextActive]}>Alle</Text>
                     </TouchableOpacity>
                     {werknemerOptions.map((w) => (
-                      <TouchableOpacity key={w} style={[styles.filterChip, filterWerknemer === w && styles.filterChipActive, filterWerknemer === w && { backgroundColor: theme.primaryColor || '#D4A017', borderColor: theme.primaryColor || '#D4A017' }]} onPress={() => setFilterWerknemer(filterWerknemer === w ? null : w)}>
+                      <TouchableOpacity key={w} style={[styles.filterChip, filterWerknemer === w && styles.filterChipActive, filterWerknemer === w && { backgroundColor: theme.primaryColor || '#22C55E', borderColor: theme.primaryColor || '#22C55E' }]} onPress={() => setFilterWerknemer(filterWerknemer === w ? null : w)}>
                         <Text style={[styles.filterChipText, filterWerknemer === w && styles.filterChipTextActive]}>{w}</Text>
                       </TouchableOpacity>
                     ))}
@@ -648,11 +648,11 @@ export default function WerkbonnenAdmin() {
             <Text style={styles.filterLabel}>Klant</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={styles.filterRow}>
-                <TouchableOpacity style={[styles.filterChip, !filterKlant && styles.filterChipActive, !filterKlant && { backgroundColor: theme.primaryColor || '#D4A017', borderColor: theme.primaryColor || '#D4A017' }]} onPress={() => setFilterKlant(null)}>
+                <TouchableOpacity style={[styles.filterChip, !filterKlant && styles.filterChipActive, !filterKlant && { backgroundColor: theme.primaryColor || '#22C55E', borderColor: theme.primaryColor || '#22C55E' }]} onPress={() => setFilterKlant(null)}>
                   <Text style={[styles.filterChipText, !filterKlant && styles.filterChipTextActive]}>Alle</Text>
                 </TouchableOpacity>
                 {klantOptions.map((k) => (
-                  <TouchableOpacity key={k} style={[styles.filterChip, filterKlant === k && styles.filterChipActive, filterKlant === k && { backgroundColor: theme.primaryColor || '#D4A017', borderColor: theme.primaryColor || '#D4A017' }]} onPress={() => setFilterKlant(filterKlant === k ? null : k)}>
+                  <TouchableOpacity key={k} style={[styles.filterChip, filterKlant === k && styles.filterChipActive, filterKlant === k && { backgroundColor: theme.primaryColor || '#22C55E', borderColor: theme.primaryColor || '#22C55E' }]} onPress={() => setFilterKlant(filterKlant === k ? null : k)}>
                     <Text style={[styles.filterChipText, filterKlant === k && styles.filterChipTextActive]}>{k}</Text>
                   </TouchableOpacity>
                 ))}
@@ -664,11 +664,11 @@ export default function WerkbonnenAdmin() {
             <Text style={styles.filterLabel}>Werf</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={styles.filterRow}>
-                <TouchableOpacity style={[styles.filterChip, !filterWerf && styles.filterChipActive, !filterWerf && { backgroundColor: theme.primaryColor || '#D4A017', borderColor: theme.primaryColor || '#D4A017' }]} onPress={() => setFilterWerf(null)}>
+                <TouchableOpacity style={[styles.filterChip, !filterWerf && styles.filterChipActive, !filterWerf && { backgroundColor: theme.primaryColor || '#22C55E', borderColor: theme.primaryColor || '#22C55E' }]} onPress={() => setFilterWerf(null)}>
                   <Text style={[styles.filterChipText, !filterWerf && styles.filterChipTextActive]}>Alle</Text>
                 </TouchableOpacity>
                 {werfOptions.map((w) => (
-                  <TouchableOpacity key={w} style={[styles.filterChip, filterWerf === w && styles.filterChipActive, filterWerf === w && { backgroundColor: theme.primaryColor || '#D4A017', borderColor: theme.primaryColor || '#D4A017' }]} onPress={() => setFilterWerf(filterWerf === w ? null : w)}>
+                  <TouchableOpacity key={w} style={[styles.filterChip, filterWerf === w && styles.filterChipActive, filterWerf === w && { backgroundColor: theme.primaryColor || '#22C55E', borderColor: theme.primaryColor || '#22C55E' }]} onPress={() => setFilterWerf(filterWerf === w ? null : w)}>
                     <Text style={[styles.filterChipText, filterWerf === w && styles.filterChipTextActive]}>{w}</Text>
                   </TouchableOpacity>
                 ))}
@@ -684,7 +684,7 @@ export default function WerkbonnenAdmin() {
       )}
 
       {loading ? (
-        <ActivityIndicator size="large" color={theme.primaryColor || '#D4A017'} style={{ marginTop: 40 }} />
+        <ActivityIndicator size="large" color={theme.primaryColor || '#22C55E'} style={{ marginTop: 40 }} />
       ) : activeTab === 'werkbonnen' ? (
         <View style={styles.tableContainer}>
           {/* Table Header */}
@@ -713,17 +713,17 @@ export default function WerkbonnenAdmin() {
               >
                 <View style={styles.seqCell}><Text style={styles.seqText}>{index + 1}</Text></View>
                 <View style={styles.tableCell}>
-                  <View style={[styles.weekBadge, { backgroundColor: `${theme.primaryColor || '#D4A017'}15` }]}>
-                    <Text style={[styles.weekText, { color: theme.primaryColor || '#D4A017' }]}>W{wb.week_nummer}</Text>
+                  <View style={[styles.weekBadge, { backgroundColor: `${theme.primaryColor || '#22C55E'}15` }]}>
+                    <Text style={[styles.weekText, { color: theme.primaryColor || '#22C55E' }]}>W{wb.week_nummer}</Text>
                   </View>
                 </View>
                 <View style={[styles.tableCell, { flex: 1.5 }]}>
-                  <Text style={[styles.klantText, { color: theme.secondaryColor || '#1B4332' }]}>{wb.klant_naam}</Text>
+                  <Text style={[styles.klantText, { color: theme.secondaryColor || '#0F172A' }]}>{wb.klant_naam}</Text>
                   <Text style={styles.werfText}>{wb.werf_naam}</Text>
                 </View>
                 <Text style={styles.tableCell}>{wb.created_by_naam || '-'}</Text>
                 <View style={styles.tableCell}>
-                  <Text style={[styles.urenText, { color: theme.secondaryColor || '#1B4332' }]}>{calcTotalUren(wb)} u</Text>
+                  <Text style={[styles.urenText, { color: theme.secondaryColor || '#0F172A' }]}>{calcTotalUren(wb)} u</Text>
                 </View>
                 <View style={styles.tableCell}>
                   <View style={[styles.statusBadge, { backgroundColor: getStatusColor(wb.status) }]}>
@@ -738,7 +738,7 @@ export default function WerkbonnenAdmin() {
                     <Ionicons name="download-outline" size={18} color="#3498db" />
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.actionIcon} onPress={(e) => { e.stopPropagation(); resendEmail(wb.id); }}>
-                    <Ionicons name="mail-outline" size={18} color={theme.primaryColor || '#D4A017'} />
+                    <Ionicons name="mail-outline" size={18} color={theme.primaryColor || '#22C55E'} />
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.actionIcon} onPress={(e) => { e.stopPropagation(); deleteWerkbon(wb.id); }}>
                     <Ionicons name="trash-outline" size={18} color="#dc3545" />
@@ -754,9 +754,9 @@ export default function WerkbonnenAdmin() {
               disabled={werkbonLoadingMore}
             >
               {werkbonLoadingMore ? (
-                <ActivityIndicator color={theme.primaryColor || '#D4A017'} />
+                <ActivityIndicator color={theme.primaryColor || '#22C55E'} />
               ) : (
-                <Text style={{ fontSize: 14, fontWeight: '600', color: theme.primaryColor || '#D4A017' }}>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: theme.primaryColor || '#22C55E' }}>
                   Meer laden ({werkbonnen.length} / {werkbonTotal})
                 </Text>
               )}
@@ -795,12 +795,12 @@ export default function WerkbonnenAdmin() {
                   </View>
                 </View>
                 <View style={[styles.tableCell, { flex: 1.5 }]}>
-                  <Text style={[styles.klantText, { color: theme.secondaryColor || '#1B4332' }]}>{wb.klant_naam}</Text>
+                  <Text style={[styles.klantText, { color: theme.secondaryColor || '#0F172A' }]}>{wb.klant_naam}</Text>
                   <Text style={styles.werfText}>{wb.werf_naam}</Text>
                 </View>
                 <Text style={styles.tableCell}>{wb.werknemer_naam || wb.ingevuld_door_naam || '-'}</Text>
                 <View style={styles.tableCell}>
-                  <Text style={[styles.urenText, { color: theme.secondaryColor || '#1B4332' }]}>{wb.totaal_m2} m²</Text>
+                  <Text style={[styles.urenText, { color: theme.secondaryColor || '#0F172A' }]}>{wb.totaal_m2} m²</Text>
                 </View>
                 <View style={styles.tableCell}>
                   <View style={[styles.statusBadge, { backgroundColor: getStatusColor(wb.status) }]}>
@@ -812,7 +812,7 @@ export default function WerkbonnenAdmin() {
                     <Ionicons name="download-outline" size={18} color="#3498db" />
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.actionIcon} onPress={() => resendProductieEmail(wb.id)}>
-                    <Ionicons name="mail-outline" size={18} color={theme.primaryColor || '#D4A017'} />
+                    <Ionicons name="mail-outline" size={18} color={theme.primaryColor || '#22C55E'} />
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.actionIcon} onPress={() => deleteProductieWerkbon(wb.id)}>
                     <Ionicons name="trash-outline" size={18} color="#dc3545" />
@@ -850,12 +850,12 @@ export default function WerkbonnenAdmin() {
                   </View>
                 </View>
                 <View style={[styles.tableCell, { flex: 1.5 }]}>
-                  <Text style={[styles.klantText, { color: theme.secondaryColor || '#1B4332' }]}>{wb.klant_naam || '-'}</Text>
+                  <Text style={[styles.klantText, { color: theme.secondaryColor || '#0F172A' }]}>{wb.klant_naam || '-'}</Text>
                   <Text style={styles.werfText}>{wb.werf_naam || '-'}</Text>
                 </View>
                 <Text style={styles.tableCell}>{wb.ingevuld_door_naam || wb.werknemer_naam || '-'}</Text>
                 <View style={styles.tableCell}>
-                  <Text style={[styles.urenText, { color: theme.secondaryColor || '#1B4332' }]}>{wb.gemiddelde_score ? `${wb.gemiddelde_score}/5` : '-'}</Text>
+                  <Text style={[styles.urenText, { color: theme.secondaryColor || '#0F172A' }]}>{wb.gemiddelde_score ? `${wb.gemiddelde_score}/5` : '-'}</Text>
                 </View>
                 <View style={styles.tableCell}>
                   <View style={[styles.statusBadge, { backgroundColor: getStatusColor(wb.status || 'concept') }]}>
@@ -899,12 +899,12 @@ export default function WerkbonnenAdmin() {
                   </View>
                 </View>
                 <View style={[styles.tableCell, { flex: 1.5 }]}>
-                  <Text style={[styles.klantText, { color: theme.secondaryColor || '#1B4332' }]}>{wb.klant_naam || '-'}</Text>
+                  <Text style={[styles.klantText, { color: theme.secondaryColor || '#0F172A' }]}>{wb.klant_naam || '-'}</Text>
                   <Text style={styles.werfText}>{wb.werf_naam || '-'}</Text>
                 </View>
                 <Text style={styles.tableCell}>{wb.ingevuld_door_naam || wb.werknemer_naam || '-'}</Text>
                 <View style={styles.tableCell}>
-                  <Text style={[styles.urenText, { color: theme.secondaryColor || '#1B4332' }]}>{wb.totaal_uren ? `${wb.totaal_uren} u` : '-'}</Text>
+                  <Text style={[styles.urenText, { color: theme.secondaryColor || '#0F172A' }]}>{wb.totaal_uren ? `${wb.totaal_uren} u` : '-'}</Text>
                 </View>
                 <View style={styles.tableCell}>
                   <View style={[styles.statusBadge, { backgroundColor: getStatusColor(wb.status || 'concept') }]}>
@@ -928,18 +928,18 @@ export default function WerkbonnenAdmin() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F6FA', padding: 24 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  title: { fontSize: 28, fontWeight: '700', color: '#1B4332' },
+  title: { fontSize: 28, fontWeight: '700', color: '#0F172A' },
   subtitle: { fontSize: 14, color: '#6c757d', marginTop: 4 },
   tabContainer: { flexDirection: 'row', backgroundColor: '#FFFFFF', borderRadius: 12, padding: 4, marginBottom: 16, borderWidth: 1, borderColor: '#E8E9ED', gap: 4 },
   tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10 },
-  tabActive: { backgroundColor: '#1B4332' },
+  tabActive: { backgroundColor: '#0F172A' },
   tabText: { fontSize: 13, fontWeight: '600', color: '#6c757d' },
   tabTextActive: { color: '#fff' },
   filterBar: { flexDirection: 'row', gap: 12, marginBottom: 16 },
   searchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 10, paddingHorizontal: 16, borderWidth: 1, borderColor: '#E8E9ED' },
-  searchInput: { flex: 1, paddingVertical: 14, paddingLeft: 10, fontSize: 15, color: '#1B4332' },
+  searchInput: { flex: 1, paddingVertical: 14, paddingLeft: 10, fontSize: 15, color: '#0F172A' },
   filterToggle: { width: 48, height: 48, borderRadius: 10, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#E8E9ED', position: 'relative' },
-  filterToggleActive: { backgroundColor: '#D4A017', borderColor: '#D4A017' },
+  filterToggleActive: { backgroundColor: '#22C55E', borderColor: '#22C55E' },
   filterBadge: { position: 'absolute', top: -4, right: -4, backgroundColor: '#dc3545', width: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   filterBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
   filtersPanel: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#E8E9ED' },
@@ -947,7 +947,7 @@ const styles = StyleSheet.create({
   filterLabel: { fontSize: 12, fontWeight: '600', color: '#6c757d', marginBottom: 8, textTransform: 'uppercase' },
   filterRow: { flexDirection: 'row', gap: 8 },
   filterChip: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#F5F6FA', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, borderWidth: 1, borderColor: '#E8E9ED' },
-  filterChipActive: { backgroundColor: '#D4A017', borderColor: '#D4A017' },
+  filterChipActive: { backgroundColor: '#22C55E', borderColor: '#22C55E' },
   filterChipText: { fontSize: 13, color: '#6c757d' },
   filterChipTextActive: { color: '#fff' },
   statusDot: { width: 8, height: 8, borderRadius: 4 },
@@ -959,21 +959,21 @@ const styles = StyleSheet.create({
   tableRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#E8E9ED' },
   tableRowAlt: { backgroundColor: '#FAFAFA' },
   tableCell: { flex: 1 },
-  weekBadge: { backgroundColor: '#D4A01715', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, alignSelf: 'flex-start' },
-  weekText: { fontSize: 13, fontWeight: '700', color: '#D4A017' },
+  weekBadge: { backgroundColor: '#22C55E15', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, alignSelf: 'flex-start' },
+  weekText: { fontSize: 13, fontWeight: '700', color: '#22C55E' },
   dateBadge: { backgroundColor: '#3498db15', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, alignSelf: 'flex-start' },
   dateText: { fontSize: 12, fontWeight: '700', color: '#3498db' },
-  klantText: { fontSize: 14, fontWeight: '600', color: '#1B4332' },
+  klantText: { fontSize: 14, fontWeight: '600', color: '#0F172A' },
   werfText: { fontSize: 12, color: '#6c757d', marginTop: 2 },
-  urenText: { fontSize: 14, fontWeight: '600', color: '#1B4332' },
+  urenText: { fontSize: 14, fontWeight: '600', color: '#0F172A' },
   statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, alignSelf: 'flex-start' },
   statusText: { fontSize: 11, fontWeight: '600', color: '#fff', textTransform: 'uppercase' },
   actionIcon: { padding: 6 },
   seqCell: { width: 40, alignItems: 'center', justifyContent: 'center' },
   seqText: { fontSize: 13, color: '#444444', textAlign: 'center', fontWeight: '500' },
   emptyState: { alignItems: 'center', padding: 60 },
-  emptyText: { fontSize: 16, fontWeight: '600', color: '#1B4332', marginTop: 16 },
+  emptyText: { fontSize: 16, fontWeight: '600', color: '#0F172A', marginTop: 16 },
   emptySubText: { fontSize: 13, color: '#6c757d', marginTop: 8, textAlign: 'center' },
   noAccess: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  noAccessText: { fontSize: 20, color: '#1B4332', marginTop: 16 },
+  noAccessText: { fontSize: 20, color: '#0F172A', marginTop: 16 },
 });

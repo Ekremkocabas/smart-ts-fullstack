@@ -27,7 +27,7 @@ const getStatusColor = (status: string) => {
   switch (status) {
     case 'concept': return '#ffc107';
     case 'ondertekend': return '#28a745';
-    case 'verzonden': return '#D4A017';
+    case 'verzonden': return '#22C55E';
     default: return '#6c757d';
   }
 };
@@ -165,26 +165,26 @@ export default function WerkbonDetailScreen() {
         <meta charset="utf-8">
         <style>
           body { font-family: Arial, sans-serif; padding: 20px; font-size: 12px; }
-          .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 2px solid #D4A017; padding-bottom: 15px; }
+          .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 2px solid #22C55E; padding-bottom: 15px; }
           .logo-section { display: flex; align-items: center; gap: 15px; }
           .logo { max-height: 60px; max-width: 150px; }
-          .company-name { font-size: 24px; font-weight: bold; color: #1B4332; }
+          .company-name { font-size: 24px; font-weight: bold; color: #0F172A; }
           .company-info { text-align: right; font-size: 11px; color: #666; line-height: 1.5; }
-          h1 { color: #1B4332; margin: 0 0 5px 0; font-size: 20px; }
+          h1 { color: #0F172A; margin: 0 0 5px 0; font-size: 20px; }
           .subtitle { color: #666; font-size: 14px; }
           .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0; }
           .info-box { background: #f8f9fa; padding: 15px; border-radius: 8px; }
-          .info-box h3 { margin: 0 0 10px 0; color: #1B4332; font-size: 14px; }
+          .info-box h3 { margin: 0 0 10px 0; color: #0F172A; font-size: 14px; }
           .info-row { display: flex; margin-bottom: 5px; }
           .info-label { font-weight: bold; width: 100px; color: #666; }
           .info-value { color: #333; }
           table { width: 100%; border-collapse: collapse; margin-top: 20px; }
           th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
-          th { background-color: #D4A017; color: white; font-size: 11px; }
+          th { background-color: #22C55E; color: white; font-size: 11px; }
           .name-cell { text-align: left; font-weight: 500; }
           .total-cell { font-weight: bold; background-color: #fff3cd; }
-          .grand-total { background-color: #D4A017; color: white; font-weight: bold; }
-          .afkorting { background-color: #D4A017; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: bold; }
+          .grand-total { background-color: #22C55E; color: white; font-weight: bold; }
+          .afkorting { background-color: #22C55E; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: bold; }
           .km-section { margin-top: 20px; }
           .km-table { background: #f8f9fa; }
           .description-section { margin-top: 20px; }
@@ -200,7 +200,7 @@ export default function WerkbonDetailScreen() {
           .status-badge { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 11px; font-weight: bold; }
           .status-concept { background: #ffc107; color: #000; }
           .status-ondertekend { background: #28a745; color: #fff; }
-          .status-verzonden { background: #D4A017; color: #fff; }
+          .status-verzonden { background: #22C55E; color: #fff; }
         </style>
       </head>
       <body>
@@ -269,7 +269,7 @@ export default function WerkbonDetailScreen() {
               <th>Vr<br/><small>${werkbonData.datum_vrijdag || ''}</small></th>
               <th>Za<br/><small>${werkbonData.datum_zaterdag || ''}</small></th>
               <th>Zo<br/><small>${werkbonData.datum_zondag || ''}</small></th>
-              <th style="background: #1B4332;">Totaal</th>
+              <th style="background: #0F172A;">Totaal</th>
             </tr>
           </thead>
           <tbody>
@@ -313,7 +313,7 @@ export default function WerkbonDetailScreen() {
             <h3>KM Afstand</h3>
             <table class="km-table">
               <tr>
-                <th>Ma</th><th>Di</th><th>Wo</th><th>Do</th><th>Vr</th><th>Za</th><th>Zo</th><th style="background: #1B4332;">Totaal</th>
+                <th>Ma</th><th>Di</th><th>Wo</th><th>Do</th><th>Vr</th><th>Za</th><th>Zo</th><th style="background: #0F172A;">Totaal</th>
               </tr>
               <tr>
                 <td>${werkbonData.km_afstand?.maandag || '-'}</td>
@@ -464,7 +464,7 @@ export default function WerkbonDetailScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#D4A017" />
+          <ActivityIndicator size="large" color="#22C55E" />
         </View>
       </SafeAreaView>
     );
@@ -659,7 +659,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#1B4332',
+    color: '#0F172A',
   },
   deleteButton: {
     width: 44,
@@ -699,7 +699,7 @@ const styles = StyleSheet.create({
     borderColor: '#E8E9ED',
   },
   weekText: {
-    color: '#1B4332',
+    color: '#0F172A',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -725,7 +725,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   infoValue: {
-    color: '#1B4332',
+    color: '#0F172A',
     fontSize: 14,
     fontWeight: '500',
   },
@@ -745,7 +745,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1B4332',
+    color: '#0F172A',
     marginBottom: 12,
   },
   tableHeader: {
@@ -781,7 +781,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   nameText: {
-    color: '#1B4332',
+    color: '#0F172A',
     fontSize: 12,
   },
   urenText: {
@@ -789,7 +789,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   totalText: {
-    color: '#D4A017',
+    color: '#22C55E',
     fontSize: 12,
     fontWeight: '600',
   },
@@ -802,12 +802,12 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   grandTotalLabel: {
-    color: '#1B4332',
+    color: '#0F172A',
     fontSize: 14,
     fontWeight: '600',
   },
   grandTotalValue: {
-    color: '#D4A017',
+    color: '#22C55E',
     fontSize: 18,
     fontWeight: 'bold',
   },
@@ -863,7 +863,7 @@ const styles = StyleSheet.create({
   copyBtn: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#D4A017',
+    borderColor: '#22C55E',
   },
   pdfBtn: {
     backgroundColor: '#FFFFFF',
@@ -884,24 +884,24 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 5,
     borderWidth: 2,
-    borderColor: '#D4A017',
+    borderColor: '#22C55E',
     alignItems: 'center',
     justifyContent: 'center',
   },
   checkboxChecked: {
-    backgroundColor: '#D4A017',
+    backgroundColor: '#22C55E',
   },
   klantEmailLabel: {
-    color: '#1B4332',
+    color: '#0F172A',
     fontSize: 14,
   },
   klantEmailInput: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#D4A017',
+    borderColor: '#22C55E',
     borderRadius: 8,
     padding: 10,
-    color: '#1B4332',
+    color: '#0F172A',
     fontSize: 14,
   },
   sendButton: {
@@ -909,7 +909,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#D4A017',
+    backgroundColor: '#22C55E',
     padding: 14,
     borderRadius: 12,
   },

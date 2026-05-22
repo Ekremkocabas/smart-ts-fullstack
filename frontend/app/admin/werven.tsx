@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -180,7 +180,7 @@ export default function WervenAdmin() {
       const a = document.createElement('a'); a.href = url; a.download = `Werven_Export.csv`;
       document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
     } else {
-      let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;margin:20px;color:#1B4332}h1{color:#D4A017;font-size:22px;border-bottom:2px solid #D4A017;padding-bottom:8px}table{width:100%;border-collapse:collapse;font-size:12px;margin-top:12px}th{background:#1B4332;color:#fff;padding:8px 10px;text-align:left}td{padding:6px 10px;border-bottom:1px solid #E8E9ED}tr:nth-child(even){background:#F5F6FA}.meta{color:#6c757d;font-size:12px}.footer{margin-top:20px;text-align:center;color:#999;font-size:10px;border-top:1px solid #E8E9ED;padding-top:8px}</style></head><body>
+      let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;margin:20px;color:#0F172A}h1{color:#22C55E;font-size:22px;border-bottom:2px solid #22C55E;padding-bottom:8px}table{width:100%;border-collapse:collapse;font-size:12px;margin-top:12px}th{background:#0F172A;color:#fff;padding:8px 10px;text-align:left}td{padding:6px 10px;border-bottom:1px solid #E8E9ED}tr:nth-child(even){background:#F5F6FA}.meta{color:#6c757d;font-size:12px}.footer{margin-top:20px;text-align:center;color:#999;font-size:10px;border-top:1px solid #E8E9ED;padding-top:8px}</style></head><body>
       <h1>Signybon - Werven Overzicht</h1><p class="meta">${data.length} werven | ${new Date().toLocaleDateString('nl-BE')}</p>
       <table><tr><th>Naam</th><th>Adres</th><th>Klant</th><th>Werfleider</th><th>E-mail</th><th>Status</th></tr>`;
       data.forEach(w => { html += `<tr><td><strong>${w.naam}</strong></td><td>${w.adres||'-'}</td><td>${w.klant_naam||getKlantNaam(w.klant_id)}</td><td>${w.werfleider||'-'}</td><td>${w.werfleider_email||'-'}</td><td>${w.actief?'Actief':'Inactief'}</td></tr>`; });
@@ -193,7 +193,7 @@ export default function WervenAdmin() {
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
         <View>
-          <Text style={[styles.title, { color: theme.secondaryColor || '#1B4332' }]}>Werven</Text>
+          <Text style={[styles.title, { color: theme.secondaryColor || '#0F172A' }]}>Werven</Text>
           <Text style={styles.subtitle}>{werven.length} werven, {werven.filter(w => w.actief !== false).length} actief</Text>
         </View>
         <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -202,7 +202,7 @@ export default function WervenAdmin() {
             <Ionicons name="document-outline" size={16} color="#fff" />
             <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>CSV</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: theme.secondaryColor || '#1B4332', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8 }}
+          <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: theme.secondaryColor || '#0F172A', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8 }}
             onPress={() => exportWerven('pdf')}>
             <Ionicons name="print-outline" size={16} color="#fff" />
             <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>PDF</Text>
@@ -223,14 +223,14 @@ export default function WervenAdmin() {
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtersScroll}>
         <View style={styles.filters}>
-          <TouchableOpacity style={[styles.filterChip, filterActief === null && styles.filterChipActive, filterActief === null && { backgroundColor: theme.primaryColor || '#D4A017', borderColor: theme.primaryColor || '#D4A017' }]} onPress={() => setFilterActief(null)}>
+          <TouchableOpacity style={[styles.filterChip, filterActief === null && styles.filterChipActive, filterActief === null && { backgroundColor: theme.primaryColor || '#22C55E', borderColor: theme.primaryColor || '#22C55E' }]} onPress={() => setFilterActief(null)}>
             <Text style={[styles.filterText, filterActief === null && styles.filterTextActive]}>Alle statussen</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.filterChip, filterActief === true && styles.filterChipActive, filterActief === true && { backgroundColor: theme.primaryColor || '#D4A017', borderColor: theme.primaryColor || '#D4A017' }]} onPress={() => setFilterActief(filterActief === true ? null : true)}>
+          <TouchableOpacity style={[styles.filterChip, filterActief === true && styles.filterChipActive, filterActief === true && { backgroundColor: theme.primaryColor || '#22C55E', borderColor: theme.primaryColor || '#22C55E' }]} onPress={() => setFilterActief(filterActief === true ? null : true)}>
             <View style={[styles.statusDot, { backgroundColor: '#28a745' }]} />
             <Text style={[styles.filterText, filterActief === true && styles.filterTextActive]}>Actief</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.filterChip, filterActief === false && styles.filterChipActive, filterActief === false && { backgroundColor: theme.primaryColor || '#D4A017', borderColor: theme.primaryColor || '#D4A017' }]} onPress={() => setFilterActief(filterActief === false ? null : false)}>
+          <TouchableOpacity style={[styles.filterChip, filterActief === false && styles.filterChipActive, filterActief === false && { backgroundColor: theme.primaryColor || '#22C55E', borderColor: theme.primaryColor || '#22C55E' }]} onPress={() => setFilterActief(filterActief === false ? null : false)}>
             <View style={[styles.statusDot, { backgroundColor: '#dc3545' }]} />
             <Text style={[styles.filterText, filterActief === false && styles.filterTextActive]}>Inactief</Text>
           </TouchableOpacity>
@@ -238,7 +238,7 @@ export default function WervenAdmin() {
       </ScrollView>
 
       {loading ? (
-        <ActivityIndicator size="large" color={theme.primaryColor || '#D4A017'} style={{ marginTop: 40 }} />
+        <ActivityIndicator size="large" color={theme.primaryColor || '#22C55E'} style={{ marginTop: 40 }} />
       ) : (
         <View style={styles.tableContainer}>
           <View style={styles.tableHeader}>
@@ -311,7 +311,7 @@ export default function WervenAdmin() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{editingWerf ? 'Werf bewerken' : 'Nieuwe werf'}</Text>
               <TouchableOpacity onPress={() => setShowModal(false)}>
-                <Ionicons name="close" size={24} color={theme.secondaryColor || '#1B4332'} />
+                <Ionicons name="close" size={24} color={theme.secondaryColor || '#0F172A'} />
               </TouchableOpacity>
             </View>
             <ScrollView>
@@ -345,17 +345,17 @@ export default function WervenAdmin() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F6FA', padding: 24 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
-  title: { fontSize: 28, fontWeight: '700', color: '#1B4332' },
+  title: { fontSize: 28, fontWeight: '700', color: '#0F172A' },
   subtitle: { fontSize: 14, color: '#6c757d', marginTop: 4 },
   addBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#e67e22', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 10 },
   addBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
   filterBar: { marginBottom: 8 },
   searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 10, paddingHorizontal: 16, borderWidth: 1, borderColor: '#E8E9ED' },
-  searchInput: { flex: 1, paddingVertical: 14, paddingLeft: 10, fontSize: 15, color: '#1B4332' },
+  searchInput: { flex: 1, paddingVertical: 14, paddingLeft: 10, fontSize: 15, color: '#0F172A' },
   filtersScroll: { marginBottom: 16 },
   filters: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   filterChip: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FFFFFF', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: '#E8E9ED' },
-  filterChipActive: { backgroundColor: '#D4A017', borderColor: '#D4A017' },
+  filterChipActive: { backgroundColor: '#22C55E', borderColor: '#22C55E' },
   filterText: { fontSize: 13, color: '#6c757d' },
   filterTextActive: { color: '#fff' },
   statusDot: { width: 8, height: 8, borderRadius: 4 },
@@ -366,24 +366,24 @@ const styles = StyleSheet.create({
   tableRowAlt: { backgroundColor: '#FAFAFA' },
   tableCell: { flex: 1 },
   werfIcon: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#e67e2220', alignItems: 'center', justifyContent: 'center' },
-  werfName: { fontSize: 15, fontWeight: '600', color: '#1B4332' },
+  werfName: { fontSize: 15, fontWeight: '600', color: '#0F172A' },
   werfAdres: { fontSize: 12, color: '#6c757d', marginTop: 2 },
-  werfleiderName: { fontSize: 14, color: '#1B4332' },
+  werfleiderName: { fontSize: 14, color: '#0F172A' },
   werfleiderEmail: { fontSize: 12, color: '#6c757d', marginTop: 2 },
   emptyValue: { color: '#adb5bd', fontSize: 13 },
   statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20 },
   statusText: { fontSize: 12, fontWeight: '600' },
   actionIcon: { padding: 6 },
   emptyState: { alignItems: 'center', padding: 60 },
-  emptyText: { fontSize: 16, fontWeight: '600', color: '#1B4332', marginTop: 16 },
+  emptyText: { fontSize: 16, fontWeight: '600', color: '#0F172A', marginTop: 16 },
   noAccess: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  noAccessText: { fontSize: 20, color: '#1B4332', marginTop: 16 },
+  noAccessText: { fontSize: 20, color: '#0F172A', marginTop: 16 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   modalContent: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 24, width: '100%', maxWidth: 500, maxHeight: '90%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  modalTitle: { fontSize: 20, fontWeight: '600', color: '#1B4332' },
+  modalTitle: { fontSize: 20, fontWeight: '600', color: '#0F172A' },
   label: { fontSize: 14, color: '#6c757d', marginBottom: 6, marginTop: 16 },
-  input: { backgroundColor: '#F5F6FA', borderRadius: 10, padding: 14, fontSize: 16, color: '#1B4332', borderWidth: 1, borderColor: '#E8E9ED' },
+  input: { backgroundColor: '#F5F6FA', borderRadius: 10, padding: 14, fontSize: 16, color: '#0F172A', borderWidth: 1, borderColor: '#E8E9ED' },
   klantScroll: { marginBottom: 8 },
   klantChip: { backgroundColor: '#F5F6FA', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, marginRight: 8, borderWidth: 1, borderColor: '#E8E9ED' },
   klantChipActive: { backgroundColor: '#1abc9c', borderColor: '#1abc9c' },

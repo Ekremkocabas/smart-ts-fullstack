@@ -48,13 +48,13 @@ export default function WerkbonnenMonthScreen() {
   const extraHeader = (
     <View style={styles.nav}>
       <TouchableOpacity onPress={prev} style={styles.navBtn} accessibilityLabel="Vorige maand">
-        <Ionicons name="chevron-back" size={22} color={theme.secondaryColor || '#1B4332'} />
+        <Ionicons name="chevron-back" size={22} color={theme.secondaryColor || '#0F172A'} />
       </TouchableOpacity>
-      <Text style={[styles.navLabel, { color: theme.secondaryColor || '#1B4332' }]}>
+      <Text style={[styles.navLabel, { color: theme.secondaryColor || '#0F172A' }]}>
         {MAANDEN[maand - 1]} {jaar}
       </Text>
       <TouchableOpacity onPress={next} style={styles.navBtn} accessibilityLabel="Volgende maand">
-        <Ionicons name="chevron-forward" size={22} color={theme.secondaryColor || '#1B4332'} />
+        <Ionicons name="chevron-forward" size={22} color={theme.secondaryColor || '#0F172A'} />
       </TouchableOpacity>
     </View>
   );
@@ -87,5 +87,5 @@ const styles = StyleSheet.create({
     borderColor: '#E8E9ED',
   },
   navBtn: { padding: 8 },
-  navLabel: { fontSize: 16, fontWeight: '700', color: '#1B4332' },
+  navLabel: { fontSize: 16, fontWeight: '700', color: '#0F172A' },
 });

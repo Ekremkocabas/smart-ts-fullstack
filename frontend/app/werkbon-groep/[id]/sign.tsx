@@ -33,7 +33,7 @@ const WebSignatureCanvas = ({ onEnd, onClear, signatureRef }: any) => {
     if (!ctx) return;
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.strokeStyle = '#1B4332';
+    ctx.strokeStyle = '#0F172A';
     ctx.lineWidth = 3;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -270,7 +270,7 @@ export default function WerkbonGroepSignScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color="#1B4332" />
+          <ActivityIndicator size="large" color="#0F172A" />
         </View>
       </SafeAreaView>
     );
@@ -281,7 +281,7 @@ export default function WerkbonGroepSignScreen() {
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="close" size={28} color="#1B4332" />
+            <Ionicons name="close" size={28} color="#0F172A" />
           </TouchableOpacity>
           <Text style={styles.title}>Maand werkbon</Text>
           <View style={{ width: 28 }} />
@@ -301,7 +301,7 @@ export default function WerkbonGroepSignScreen() {
       >
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="close" size={28} color="#1B4332" />
+            <Ionicons name="close" size={28} color="#0F172A" />
           </TouchableOpacity>
           <Text style={styles.title}>Maand werkbon tekenen</Text>
           <View style={{ width: 28 }} />
@@ -317,7 +317,7 @@ export default function WerkbonGroepSignScreen() {
             <Text style={styles.weekListHeader}>{groep.werkbonnen.length} weken in deze maand-werkbon:</Text>
             {groep.werkbonnen.map((w) => (
               <View key={w.id} style={styles.weekRow}>
-                <Ionicons name="calendar-outline" size={14} color="#1B4332" />
+                <Ionicons name="calendar-outline" size={14} color="#0F172A" />
                 <Text style={styles.weekText}>
                   W{w.week_nummer}-{w.jaar} ({w.datum_maandag} t/m {w.datum_zondag})
                 </Text>
@@ -325,7 +325,7 @@ export default function WerkbonGroepSignScreen() {
             ))}
           </View>
           <View style={styles.notice}>
-            <Ionicons name="information-circle-outline" size={18} color="#1B4332" />
+            <Ionicons name="information-circle-outline" size={18} color="#0F172A" />
             <Text style={styles.noticeText}>
               Eén handtekening dekt de volledige periode. Hierna wordt één combined PDF gegenereerd en verzonden.
             </Text>
@@ -352,7 +352,7 @@ export default function WerkbonGroepSignScreen() {
               {selfieUri ? (
                 <Image source={{ uri: selfieUri }} style={styles.selfieThumbnail} />
               ) : (
-                <Ionicons name="camera-outline" size={20} color="#D4A017" />
+                <Ionicons name="camera-outline" size={20} color="#22C55E" />
               )}
               <Text style={styles.securityBtnText}>{selfieUri ? 'Selfie ✓' : 'Selfie'}</Text>
             </TouchableOpacity>
@@ -379,7 +379,7 @@ export default function WerkbonGroepSignScreen() {
                 descriptionText=""
                 webStyle={signaturePadStyle}
                 backgroundColor="#FFFFFF"
-                penColor="#1B4332"
+                penColor="#0F172A"
                 autoClear={false}
               />
             )}
@@ -420,9 +420,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E8E9ED',
   },
-  title: { fontSize: 18, fontWeight: '700', color: '#1B4332' },
+  title: { fontSize: 18, fontWeight: '700', color: '#0F172A' },
   summary: { maxHeight: 220, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E8E9ED' },
-  summaryHeader: { fontSize: 16, fontWeight: '700', color: '#1B4332' },
+  summaryHeader: { fontSize: 16, fontWeight: '700', color: '#0F172A' },
   summarySub: { fontSize: 13, color: '#6c757d', marginTop: 2 },
   summaryPeriode: { fontSize: 13, color: '#333', marginTop: 6, fontWeight: '600' },
   weekList: { marginTop: 10, padding: 10, backgroundColor: '#F5F6FA', borderRadius: 8 },
@@ -433,13 +433,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row', gap: 8, padding: 10, marginTop: 8,
     backgroundColor: '#E8F4EA', borderRadius: 8, alignItems: 'flex-start',
   },
-  noticeText: { flex: 1, fontSize: 12, color: '#1B4332', lineHeight: 16 },
+  noticeText: { flex: 1, fontSize: 12, color: '#0F172A', lineHeight: 16 },
   topSection: { padding: 16, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E8E9ED' },
   formGroup: { marginBottom: 12 },
-  label: { fontSize: 14, fontWeight: '600', color: '#1B4332', marginBottom: 6 },
+  label: { fontSize: 14, fontWeight: '600', color: '#0F172A', marginBottom: 6 },
   input: {
     backgroundColor: '#F5F6FA', borderWidth: 1, borderColor: '#E8E9ED',
-    borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: '#1B4332',
+    borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: '#0F172A',
   },
   securityRow: { flexDirection: 'row', gap: 10 },
   securityBtn: {
@@ -447,7 +447,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F6FA', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10,
     borderWidth: 1, borderColor: '#E8E9ED',
   },
-  securityBtnText: { fontSize: 13, color: '#1B4332', fontWeight: '600' },
+  securityBtnText: { fontSize: 13, color: '#0F172A', fontWeight: '600' },
   selfieThumbnail: { width: 24, height: 24, borderRadius: 12 },
   errorText: { color: '#dc3545', fontSize: 13, marginTop: 8 },
   signatureSection: { flex: 1, padding: 16, backgroundColor: '#FFFFFF' },
@@ -460,7 +460,7 @@ const styles = StyleSheet.create({
   footer: { padding: 16, backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: '#E8E9ED' },
   saveButton: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: '#1B4332', borderRadius: 12, paddingVertical: 14,
+    backgroundColor: '#0F172A', borderRadius: 12, paddingVertical: 14,
   },
   saveButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
 });

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Push Notifications Service
  * Handles registration, permissions, and notification listeners
  */
@@ -32,7 +32,7 @@ async function setupAndroidChannels() {
     name: 'Signybon Notificaties',
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 250, 250, 250],
-    lightColor: '#D4A017',
+    lightColor: '#22C55E',
     sound: 'default',
   });
 

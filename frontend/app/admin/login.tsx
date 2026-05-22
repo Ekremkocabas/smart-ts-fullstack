@@ -17,9 +17,9 @@ import { useAuth } from '../../context/AuthContext';
 function SignybonLogo() {
   return (
     <View style={{ width: 60, height: 60, alignItems: 'center', justifyContent: 'center' }}>
-      <View style={{ width: 40, height: 40, backgroundColor: '#D4A017', borderRadius: 8, transform: [{ rotate: '45deg' }], position: 'absolute' }} />
-      <View style={{ width: 30, height: 30, backgroundColor: '#1B4332', borderRadius: 6, transform: [{ rotate: '45deg' }], position: 'absolute' }} />
-      <View style={{ width: 16, height: 16, backgroundColor: '#D4A017', borderRadius: 3, transform: [{ rotate: '45deg' }], position: 'absolute' }} />
+      <View style={{ width: 40, height: 40, backgroundColor: '#22C55E', borderRadius: 8, transform: [{ rotate: '45deg' }], position: 'absolute' }} />
+      <View style={{ width: 30, height: 30, backgroundColor: '#0F172A', borderRadius: 6, transform: [{ rotate: '45deg' }], position: 'absolute' }} />
+      <View style={{ width: 16, height: 16, backgroundColor: '#22C55E', borderRadius: 3, transform: [{ rotate: '45deg' }], position: 'absolute' }} />
     </View>
   );
 }
@@ -56,7 +56,7 @@ export default function AdminLogin() {
   if (isLoading) {
     return (
       <View style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}>
-        <ActivityIndicator color="#1B4332" size="large" />
+        <ActivityIndicator color="#0F172A" size="large" />
       </View>
     );
   }
@@ -162,7 +162,7 @@ export default function AdminLogin() {
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color="#D4A017" />
+                <ActivityIndicator color="#22C55E" />
               ) : (
                 <>
                   <Ionicons name="log-in-outline" size={22} color="#FFFFFF" />
@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 20,
-    backgroundColor: '#1B433215',
+    backgroundColor: '#0F172A15',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
@@ -220,13 +220,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: '900',
-    color: '#1B4332',
+    color: '#0F172A',
     letterSpacing: 2,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 14,
-    color: '#D4A017',
+    color: '#22C55E',
     fontWeight: '600',
   },
   errorContainer: {
@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
   },
   errorText: { color: '#dc3545', fontSize: 14, flex: 1 },
   form: { gap: 8 },
-  label: { fontSize: 14, fontWeight: '500', color: '#1B4332', marginBottom: 6, marginTop: 8 },
+  label: { fontSize: 14, fontWeight: '500', color: '#0F172A', marginBottom: 6, marginTop: 8 },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -252,13 +252,13 @@ const styles = StyleSheet.create({
     height: 56,
   },
   inputIcon: { marginRight: 12 },
-  input: { flex: 1, color: '#1B4332', fontSize: 16 },
+  input: { flex: 1, color: '#0F172A', fontSize: 16 },
   eyeIcon: { padding: 4 },
   loginButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1B4332',
+    backgroundColor: '#0F172A',
     height: 56,
     borderRadius: 12,
     marginTop: 24,
@@ -278,5 +278,5 @@ const styles = StyleSheet.create({
   backLinkText: { color: '#6c757d', fontSize: 14 },
   registerLink: { marginTop: 12 },
   registerLinkText: { color: '#6c757d', fontSize: 14 },
-  registerLinkAccent: { color: '#1B4332', fontWeight: '700' },
+  registerLinkAccent: { color: '#0F172A', fontWeight: '700' },
 });

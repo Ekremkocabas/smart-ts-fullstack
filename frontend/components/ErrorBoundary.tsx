@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 
 interface Props {
@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#1B4332',
+    color: '#0F172A',
     marginBottom: 12,
     textAlign: 'center',
   },

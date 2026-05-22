@@ -1,4 +1,4 @@
-/**
+﻿/**
  * SignatureModal - Dedicated modal for capturing signature
  * Opens a fullscreen modal with a signature canvas
  * Solves alignment/drift issues on APK by having isolated touch handling
@@ -122,7 +122,7 @@ const WebSignatureCanvas = ({ onEnd, onClear, signatureRef }: any) => {
     if (!ctx) return;
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.strokeStyle = '#1B4332';
+    ctx.strokeStyle = '#0F172A';
     ctx.lineWidth = 2.5;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -142,7 +142,7 @@ const WebSignatureCanvas = ({ onEnd, onClear, signatureRef }: any) => {
     if (!ctx) return;
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.strokeStyle = '#1B4332';
+    ctx.strokeStyle = '#0F172A';
     ctx.lineWidth = 2.5;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -207,7 +207,7 @@ export default function SignatureModal({
   visible, 
   onClose, 
   onSave,
-  primaryColor = '#D4A017' 
+  primaryColor = '#22C55E' 
 }: SignatureModalProps) {
   const insets = useSafeAreaInsets();
   const signatureRef = useRef<any>(null);
@@ -343,7 +343,7 @@ export default function SignatureModal({
                 clearText=""
                 confirmText=""
                 backgroundColor="#FFFFFF"
-                penColor="#1B4332"
+                penColor="#0F172A"
                 minWidth={2}
                 maxWidth={4}
                 dotSize={3}
@@ -419,7 +419,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1B4332',
+    color: '#0F172A',
   },
   clearButton: {
     flexDirection: 'row',

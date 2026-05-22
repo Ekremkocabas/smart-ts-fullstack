@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+﻿import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -19,8 +19,8 @@ const API_URL = getApiUrl();
 
 const DAGEN = ['maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag', 'zondag'];
 const DAG_KORT = { maandag: 'Ma', dinsdag: 'Di', woensdag: 'Wo', donderdag: 'Do', vrijdag: 'Vr', zaterdag: 'Za', zondag: 'Zo' };
-const PRIORITEIT_KLEUREN: Record<string, string> = { laag: '#28a745', normaal: '#3498db', hoog: '#D4A017', urgent: '#dc3545' };
-const STATUS_KLEUREN: Record<string, string> = { gepland: '#6c757d', onderweg: '#3498db', bezig: '#D4A017', afgerond: '#28a745' };
+const PRIORITEIT_KLEUREN: Record<string, string> = { laag: '#28a745', normaal: '#3498db', hoog: '#22C55E', urgent: '#dc3545' };
+const STATUS_KLEUREN: Record<string, string> = { gepland: '#6c757d', onderweg: '#3498db', bezig: '#22C55E', afgerond: '#28a745' };
 const STATUS_OPTIES = ['gepland', 'onderweg', 'bezig', 'afgerond'];
 const PRIORITEIT_OPTIES = ['laag', 'normaal', 'hoog', 'urgent'];
 
@@ -576,17 +576,17 @@ export default function PlanningAdmin() {
     const statusSymbols: Record<string, string> = { gepland: '○', onderweg: '◐', bezig: '◑', afgerond: '●' };
     let htmlContent = `<!DOCTYPE html><html><head><meta charset="utf-8">
     <style>
-      body { font-family: Arial, sans-serif; margin: 20px; color: #1B4332; }
-      h1 { color: #D4A017; font-size: 24px; border-bottom: 2px solid #D4A017; padding-bottom: 8px; }
-      h2 { color: #1B4332; font-size: 18px; margin-top: 24px; }
+      body { font-family: Arial, sans-serif; margin: 20px; color: #0F172A; }
+      h1 { color: #22C55E; font-size: 24px; border-bottom: 2px solid #22C55E; padding-bottom: 8px; }
+      h2 { color: #0F172A; font-size: 18px; margin-top: 24px; }
       table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 12px; }
-      th { background: #1B4332; color: #fff; padding: 8px 10px; text-align: left; }
+      th { background: #0F172A; color: #fff; padding: 8px 10px; text-align: left; }
       td { padding: 6px 10px; border-bottom: 1px solid #E8E9ED; }
       tr:nth-child(even) { background: #F5F6FA; }
       .status-gepland { color: #6c757d; } .status-onderweg { color: #3498db; }
-      .status-bezig { color: #D4A017; } .status-afgerond { color: #28a745; }
+      .status-bezig { color: #22C55E; } .status-afgerond { color: #28a745; }
       .header { display: flex; justify-content: space-between; align-items: center; }
-      .logo { font-size: 28px; font-weight: bold; color: #D4A017; }
+      .logo { font-size: 28px; font-weight: bold; color: #22C55E; }
       .meta { color: #6c757d; font-size: 12px; }
       .footer { margin-top: 24px; text-align: center; color: #999; font-size: 10px; border-top: 1px solid #E8E9ED; padding-top: 8px; }
     </style></head><body>
@@ -657,11 +657,11 @@ export default function PlanningAdmin() {
             <Ionicons name={selectMode ? 'close-outline' : 'checkbox-outline'} size={20} color="#fff" />
             <Text style={styles.addBtnText}>{selectMode ? 'Annuleren' : 'Selecteren'}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.addBtn, { backgroundColor: '#1B4332' }]} onPress={() => setShowExportModal(true)}>
+          <TouchableOpacity style={[styles.addBtn, { backgroundColor: '#0F172A' }]} onPress={() => setShowExportModal(true)}>
             <Ionicons name="download-outline" size={20} color="#fff" />
             <Text style={styles.addBtnText}>Exporteren</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.addBtn, { backgroundColor: theme.primaryColor || '#D4A017' }]} onPress={() => openCreateModal()}>
+          <TouchableOpacity style={[styles.addBtn, { backgroundColor: theme.primaryColor || '#22C55E' }]} onPress={() => openCreateModal()}>
             <Ionicons name="add" size={22} color="#fff" />
             <Text style={styles.addBtnText}>Nieuwe taak</Text>
           </TouchableOpacity>
@@ -671,18 +671,18 @@ export default function PlanningAdmin() {
       {/* Week Selector */}
       <View style={styles.weekSelector}>
         <TouchableOpacity style={styles.weekArrow} onPress={() => changeWeek(-1)}>
-          <Ionicons name="chevron-back" size={22} color="#1B4332" />
+          <Ionicons name="chevron-back" size={22} color="#0F172A" />
         </TouchableOpacity>
         <View style={styles.weekInfo}>
           <Text style={styles.weekTitle}>Week {weekNummer}</Text>
           <Text style={styles.weekYear}>{jaar}</Text>
         </View>
         <TouchableOpacity style={styles.weekArrow} onPress={() => changeWeek(1)}>
-          <Ionicons name="chevron-forward" size={22} color="#1B4332" />
+          <Ionicons name="chevron-forward" size={22} color="#0F172A" />
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.todayBtn, { backgroundColor: (theme.primaryColor || '#D4A017') + '10', borderColor: (theme.primaryColor || '#D4A017') + '30' }]} onPress={() => { setWeekNummer(getISOWeek(new Date())); setJaar(new Date().getFullYear()); }}>
-          <Ionicons name="today-outline" size={18} color={theme.primaryColor || '#D4A017'} />
-          <Text style={[styles.todayBtnText, { color: theme.primaryColor || '#D4A017' }]}>Vandaag</Text>
+        <TouchableOpacity style={[styles.todayBtn, { backgroundColor: (theme.primaryColor || '#22C55E') + '10', borderColor: (theme.primaryColor || '#22C55E') + '30' }]} onPress={() => { setWeekNummer(getISOWeek(new Date())); setJaar(new Date().getFullYear()); }}>
+          <Ionicons name="today-outline" size={18} color={theme.primaryColor || '#22C55E'} />
+          <Text style={[styles.todayBtnText, { color: theme.primaryColor || '#22C55E' }]}>Vandaag</Text>
         </TouchableOpacity>
       </View>
 
@@ -691,7 +691,7 @@ export default function PlanningAdmin() {
         {[
           { label: 'Totaal', value: planning.length, color: '#3498db', icon: 'calendar-outline' },
           { label: 'Gepland', value: planning.filter(p => p.status === 'gepland').length, color: '#6c757d', icon: 'time-outline' },
-          { label: 'Bezig', value: planning.filter(p => p.status === 'bezig' || p.status === 'onderweg').length, color: '#D4A017', icon: 'construct-outline' },
+          { label: 'Bezig', value: planning.filter(p => p.status === 'bezig' || p.status === 'onderweg').length, color: '#22C55E', icon: 'construct-outline' },
           { label: 'Afgerond', value: planning.filter(p => p.status === 'afgerond').length, color: '#28a745', icon: 'checkmark-circle-outline' },
         ].map((stat, i) => (
           <View key={i} style={styles.statCard}>
@@ -707,14 +707,14 @@ export default function PlanningAdmin() {
       {error && !loading && (
         <View style={{ backgroundColor: '#fff3cd', borderRadius: 12, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#ffc107', flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <Ionicons name="warning-outline" size={22} color="#e67e22" />
-          <Text style={{ flex: 1, fontSize: 14, color: '#1B4332' }}>{error}</Text>
-          <TouchableOpacity onPress={fetchData} style={{ backgroundColor: theme.primaryColor || '#D4A017', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }}>
+          <Text style={{ flex: 1, fontSize: 14, color: '#0F172A' }}>{error}</Text>
+          <TouchableOpacity onPress={fetchData} style={{ backgroundColor: theme.primaryColor || '#22C55E', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }}>
             <Text style={{ color: '#fff', fontWeight: '600', fontSize: 13 }}>Opnieuw</Text>
           </TouchableOpacity>
         </View>
       )}
       {loading ? (
-        <ActivityIndicator size="large" color={theme.primaryColor || '#D4A017'} style={{ marginTop: 40 }} />
+        <ActivityIndicator size="large" color={theme.primaryColor || '#22C55E'} style={{ marginTop: 40 }} />
       ) : (
         /* Week Grid */
         <View style={styles.weekGrid}>
@@ -729,7 +729,7 @@ export default function PlanningAdmin() {
                   <Text style={styles.dagNaam}>{(DAG_KORT as any)[dag]}</Text>
                   <Text style={styles.dagDatum}>{datum}</Text>
                   <TouchableOpacity style={styles.dagAddBtn} onPress={() => openCreateModal(dag)}>
-                    <Ionicons name="add-circle" size={20} color={theme.primaryColor || '#D4A017'} />
+                    <Ionicons name="add-circle" size={20} color={theme.primaryColor || '#22C55E'} />
                   </TouchableOpacity>
                 </View>
 
@@ -754,7 +754,7 @@ export default function PlanningAdmin() {
                         styles.planCard,
                         item.belangrijk && styles.planCardBelangrijk,
                         allConfirmed && { borderLeftColor: '#28a745', borderLeftWidth: 4 },
-                        someConfirmed && { borderLeftColor: '#D4A017', borderLeftWidth: 4 },
+                        someConfirmed && { borderLeftColor: '#22C55E', borderLeftWidth: 4 },
                         noneConfirmed && { borderLeftColor: '#dc3545', borderLeftWidth: 4 },
                         isSelected && { backgroundColor: '#dc354512', borderColor: '#dc3545', borderWidth: 1 },
                       ]}
@@ -785,9 +785,9 @@ export default function PlanningAdmin() {
                           </View>
                         )}
                         {someConfirmed && (
-                          <View style={[styles.statusBadge, { backgroundColor: (theme.primaryColor || '#D4A017') + '20', marginBottom: 4 }]}>
-                            <Ionicons name="time" size={12} color={theme.primaryColor || '#D4A017'} />
-                            <Text style={{ fontSize: 10, color: theme.primaryColor || '#D4A017', fontWeight: '600', marginLeft: 4 }}>{item.bevestigd_door?.length}/{item.werknemer_ids?.length} BEVESTIGD</Text>
+                          <View style={[styles.statusBadge, { backgroundColor: (theme.primaryColor || '#22C55E') + '20', marginBottom: 4 }]}>
+                            <Ionicons name="time" size={12} color={theme.primaryColor || '#22C55E'} />
+                            <Text style={{ fontSize: 10, color: theme.primaryColor || '#22C55E', fontWeight: '600', marginLeft: 4 }}>{item.bevestigd_door?.length}/{item.werknemer_ids?.length} BEVESTIGD</Text>
                           </View>
                         )}
                         {/* Status */}
@@ -826,14 +826,14 @@ export default function PlanningAdmin() {
       )}
       {waarschuwingen.length > 0 && (
         <View style={styles.warningBanner}>
-          <Ionicons name="warning" size={20} color={theme.primaryColor || '#D4A017'} />
+          <Ionicons name="warning" size={20} color={theme.primaryColor || '#22C55E'} />
           <View style={{ flex: 1 }}>
             {waarschuwingen.map((w, i) => (
               <Text key={i} style={styles.warningText}>{w}</Text>
             ))}
           </View>
           <TouchableOpacity onPress={() => setWaarschuwingen([])}>
-            <Ionicons name="close" size={20} color={theme.primaryColor || '#D4A017'} />
+            <Ionicons name="close" size={20} color={theme.primaryColor || '#22C55E'} />
           </TouchableOpacity>
         </View>
       )}
@@ -844,7 +844,7 @@ export default function PlanningAdmin() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{isEditing ? 'Taak bewerken' : 'Nieuwe taak plannen'}</Text>
-              <TouchableOpacity onPress={() => setShowModal(false)}><Ionicons name="close" size={24} color="#1B4332" /></TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowModal(false)}><Ionicons name="close" size={24} color="#0F172A" /></TouchableOpacity>
             </View>
             <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 620 }}>
 
@@ -857,19 +857,19 @@ export default function PlanningAdmin() {
                   <>
                     <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
                       <TouchableOpacity
-                        style={[styles.chip, dagPickMode === 'individueel' && { backgroundColor: theme.primaryColor || '#D4A017', borderColor: theme.primaryColor || '#D4A017' }]}
+                        style={[styles.chip, dagPickMode === 'individueel' && { backgroundColor: theme.primaryColor || '#22C55E', borderColor: theme.primaryColor || '#22C55E' }]}
                         onPress={() => setDagPickMode('individueel')}
                       >
                         <Text style={[styles.chipText, dagPickMode === 'individueel' && styles.chipTextActive]}>Dagen kiezen</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
-                        style={[styles.chip, dagPickMode === 'range' && { backgroundColor: theme.primaryColor || '#D4A017', borderColor: theme.primaryColor || '#D4A017' }]}
+                        style={[styles.chip, dagPickMode === 'range' && { backgroundColor: theme.primaryColor || '#22C55E', borderColor: theme.primaryColor || '#22C55E' }]}
                         onPress={() => setDagPickMode('range')}
                       >
                         <Text style={[styles.chipText, dagPickMode === 'range' && styles.chipTextActive]}>Van — Tot (1 week)</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
-                        style={[styles.chip, dagPickMode === 'maand' && { backgroundColor: theme.primaryColor || '#D4A017', borderColor: theme.primaryColor || '#D4A017' }]}
+                        style={[styles.chip, dagPickMode === 'maand' && { backgroundColor: theme.primaryColor || '#22C55E', borderColor: theme.primaryColor || '#22C55E' }]}
                         onPress={() => setDagPickMode('maand')}
                       >
                         <Text style={[styles.chipText, dagPickMode === 'maand' && styles.chipTextActive]}>Maand-werkbon</Text>
@@ -886,7 +886,7 @@ export default function PlanningAdmin() {
                               return (
                                 <TouchableOpacity
                                   key={dag}
-                                  style={[styles.chip, isSelected && { backgroundColor: theme.primaryColor || '#D4A017', borderColor: theme.primaryColor || '#D4A017' }]}
+                                  style={[styles.chip, isSelected && { backgroundColor: theme.primaryColor || '#22C55E', borderColor: theme.primaryColor || '#22C55E' }]}
                                   onPress={() => toggleDagSelection(dag)}
                                 >
                                   <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
@@ -929,15 +929,15 @@ export default function PlanningAdmin() {
                             )}
                           </View>
                           <TouchableOpacity
-                            style={[styles.chip, { backgroundColor: theme.primaryColor || '#D4A017', borderColor: theme.primaryColor || '#D4A017', marginTop: 20 }]}
+                            style={[styles.chip, { backgroundColor: theme.primaryColor || '#22C55E', borderColor: theme.primaryColor || '#22C55E', marginTop: 20 }]}
                             onPress={applyDateRange}
                           >
                             <Text style={styles.chipTextActive}>Toepassen</Text>
                           </TouchableOpacity>
                         </View>
                         {selectedDagen.length > 0 && (
-                          <View style={{ backgroundColor: (theme.primaryColor || '#D4A017') + '15', borderRadius: 8, padding: 10, marginTop: 8 }}>
-                            <Text style={{ fontSize: 12, color: theme.primaryColor || '#D4A017', fontWeight: '600' }}>
+                          <View style={{ backgroundColor: (theme.primaryColor || '#22C55E') + '15', borderRadius: 8, padding: 10, marginTop: 8 }}>
+                            <Text style={{ fontSize: 12, color: theme.primaryColor || '#22C55E', fontWeight: '600' }}>
                               Geselecteerd: {selectedDagen.map(d => (DAG_KORT as any)[d]).join(', ')} ({selectedDagen.length} {selectedDagen.length === 1 ? 'dag' : 'dagen'})
                             </Text>
                           </View>
@@ -980,8 +980,8 @@ export default function PlanningAdmin() {
                           if (weeks.length === 0) return null;
                           const totalDagen = weeks.reduce((s, w) => s + w.aantal_dagen, 0);
                           return (
-                            <View style={{ backgroundColor: (theme.primaryColor || '#D4A017') + '15', borderRadius: 8, padding: 12, marginTop: 8 }}>
-                              <Text style={{ fontSize: 13, color: theme.primaryColor || '#D4A017', fontWeight: '700', marginBottom: 4 }}>
+                            <View style={{ backgroundColor: (theme.primaryColor || '#22C55E') + '15', borderRadius: 8, padding: 12, marginTop: 8 }}>
+                              <Text style={{ fontSize: 13, color: theme.primaryColor || '#22C55E', fontWeight: '700', marginBottom: 4 }}>
                                 {weeks.length} weken — {totalDagen} dagen → 1 maand-werkbon (1 PDF, 1 handtekening, 1 e-mail)
                               </Text>
                               <Text style={{ fontSize: 12, color: '#555' }}>
@@ -1002,7 +1002,7 @@ export default function PlanningAdmin() {
                     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                       <View style={styles.chipRowScroll}>
                         {DAGEN.map(dag => (
-                          <TouchableOpacity key={dag} style={[styles.chip, form.dag === dag && { backgroundColor: theme.primaryColor || '#D4A017', borderColor: theme.primaryColor || '#D4A017' }]} onPress={() => setForm({ ...form, dag })}>
+                          <TouchableOpacity key={dag} style={[styles.chip, form.dag === dag && { backgroundColor: theme.primaryColor || '#22C55E', borderColor: theme.primaryColor || '#22C55E' }]} onPress={() => setForm({ ...form, dag })}>
                             <Text style={[styles.chipText, form.dag === dag && styles.chipTextActive]}>{(DAG_KORT as any)[dag]} {weekDates[dag]?.substring(0, 5)}</Text>
                           </TouchableOpacity>
                         ))}
@@ -1042,7 +1042,7 @@ export default function PlanningAdmin() {
                   <View style={{ flex: 1 }}>
                     <Text style={styles.label}>Voorziene uur</Text>
                     <TextInput
-                      style={[styles.input, form.voorziene_uur ? { borderColor: theme.primaryColor || '#D4A017' } : {}]}
+                      style={[styles.input, form.voorziene_uur ? { borderColor: theme.primaryColor || '#22C55E' } : {}]}
                       value={form.voorziene_uur}
                       onChangeText={v => setForm({ ...form, voorziene_uur: v })}
                       placeholder="auto"
@@ -1098,16 +1098,16 @@ export default function PlanningAdmin() {
                       {werknemerGroups.werknemers.map(w => {
                         const isSelected = form.werknemer_ids.includes(w.id);
                         return (
-                          <TouchableOpacity key={w.id} style={[styles.workerChip, isSelected && { borderColor: theme.primaryColor || '#D4A017', backgroundColor: (theme.primaryColor || '#D4A017') + '10' }]}
+                          <TouchableOpacity key={w.id} style={[styles.workerChip, isSelected && { borderColor: theme.primaryColor || '#22C55E', backgroundColor: (theme.primaryColor || '#22C55E') + '10' }]}
                             onPress={() => toggleWorker(w.id)}>
-                            <View style={[styles.workerAvatar, isSelected && { backgroundColor: theme.primaryColor || '#D4A017' }]}>
+                            <View style={[styles.workerAvatar, isSelected && { backgroundColor: theme.primaryColor || '#22C55E' }]}>
                               <Text style={[styles.workerAvatarText, isSelected && { color: '#fff' }]}>{w.naam?.charAt(0)}</Text>
                             </View>
                             <View style={{ flex: 1 }}>
-                              <Text style={[styles.workerName, isSelected && { color: theme.primaryColor || '#D4A017', fontWeight: '600' }]} numberOfLines={1}>{w.naam}</Text>
+                              <Text style={[styles.workerName, isSelected && { color: theme.primaryColor || '#22C55E', fontWeight: '600' }]} numberOfLines={1}>{w.naam}</Text>
                               <Text style={{ fontSize: 10, color: '#999' }}>{w.rol}</Text>
                             </View>
-                            {isSelected && <Ionicons name="checkmark-circle" size={18} color={theme.primaryColor || '#D4A017'} />}
+                            {isSelected && <Ionicons name="checkmark-circle" size={18} color={theme.primaryColor || '#22C55E'} />}
                           </TouchableOpacity>
                         );
                       })}
@@ -1171,7 +1171,7 @@ export default function PlanningAdmin() {
                 {/* Opmerking / aandachtspunt */}
                 <Text style={styles.label}>Opmerking / Aandachtspunt</Text>
                 <TextInput
-                  style={[styles.input, { minHeight: 70, textAlignVertical: 'top', borderColor: form.opmerking_aandachtspunt ? '#D4A017' : '#E8E9ED' }]}
+                  style={[styles.input, { minHeight: 70, textAlignVertical: 'top', borderColor: form.opmerking_aandachtspunt ? '#22C55E' : '#E8E9ED' }]}
                   value={form.opmerking_aandachtspunt}
                   onChangeText={v => setForm({ ...form, opmerking_aandachtspunt: v })}
                   placeholder="Risico's, speciale instructies, klantafspraken..."
@@ -1198,10 +1198,10 @@ export default function PlanningAdmin() {
 
                 {/* Belangrijk toggle */}
                 <TouchableOpacity
-                  style={[styles.belangrijkToggle, { borderColor: theme.primaryColor || '#D4A017' }, form.belangrijk && { backgroundColor: theme.primaryColor || '#D4A017' }]}
+                  style={[styles.belangrijkToggle, { borderColor: theme.primaryColor || '#22C55E' }, form.belangrijk && { backgroundColor: theme.primaryColor || '#22C55E' }]}
                   onPress={() => setForm({ ...form, belangrijk: !form.belangrijk })}
                 >
-                  <Ionicons name={form.belangrijk ? 'warning' : 'warning-outline'} size={22} color={form.belangrijk ? '#fff' : (theme.primaryColor || '#D4A017')} />
+                  <Ionicons name={form.belangrijk ? 'warning' : 'warning-outline'} size={22} color={form.belangrijk ? '#fff' : (theme.primaryColor || '#22C55E')} />
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.belangrijkToggleText, form.belangrijk && { color: '#fff' }]}>Markeer als Belangrijk</Text>
                     <Text style={[{ fontSize: 11, color: form.belangrijk ? '#fff' : '#999', marginTop: 2 }]}>Werknemer ziet dit prominent op zijn app</Text>
@@ -1225,7 +1225,7 @@ export default function PlanningAdmin() {
 
             </ScrollView>
 
-            <TouchableOpacity style={[styles.saveBtn, { backgroundColor: theme.primaryColor || '#D4A017' }]} onPress={savePlanning} disabled={saving}>
+            <TouchableOpacity style={[styles.saveBtn, { backgroundColor: theme.primaryColor || '#22C55E' }]} onPress={savePlanning} disabled={saving}>
               {saving ? <ActivityIndicator color="#fff" /> : (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <Ionicons name={isEditing ? 'save' : 'calendar'} size={20} color="#fff" />
@@ -1253,7 +1253,7 @@ export default function PlanningAdmin() {
                     )}
                     <Text style={styles.modalTitle} numberOfLines={1}>Taak details</Text>
                   </View>
-                  <TouchableOpacity onPress={() => setShowDetailModal(false)}><Ionicons name="close" size={24} color="#1B4332" /></TouchableOpacity>
+                  <TouchableOpacity onPress={() => setShowDetailModal(false)}><Ionicons name="close" size={24} color="#0F172A" /></TouchableOpacity>
                 </View>
 
                 {/* Belangrijk banner */}
@@ -1351,9 +1351,9 @@ export default function PlanningAdmin() {
                           <View key={i} style={styles.workerDetailRow}>
                             <View style={styles.workerAvatarSmall}><Text style={styles.workerAvatarTextSmall}>{naam?.charAt(0)}</Text></View>
                             <Text style={styles.workerDetailName}>{naam}</Text>
-                            <View style={[styles.bevestigBadge, { backgroundColor: bevestigd ? '#28a74520' : (theme.primaryColor || '#D4A017') + '20' }]}>
-                              <Ionicons name={bevestigd ? 'checkmark-circle' : 'time'} size={14} color={bevestigd ? '#28a745' : (theme.primaryColor || '#D4A017')} />
-                              <Text style={{ fontSize: 11, color: bevestigd ? '#28a745' : (theme.primaryColor || '#D4A017'), fontWeight: '600' }}>
+                            <View style={[styles.bevestigBadge, { backgroundColor: bevestigd ? '#28a74520' : (theme.primaryColor || '#22C55E') + '20' }]}>
+                              <Ionicons name={bevestigd ? 'checkmark-circle' : 'time'} size={14} color={bevestigd ? '#28a745' : (theme.primaryColor || '#22C55E')} />
+                              <Text style={{ fontSize: 11, color: bevestigd ? '#28a745' : (theme.primaryColor || '#22C55E'), fontWeight: '600' }}>
                                 {bevestigd ? 'BEVESTIGD' : 'Wacht'}
                               </Text>
                               {bevestigd && tsLabel && (
@@ -1397,7 +1397,7 @@ export default function PlanningAdmin() {
                     ) : null}
 
                     {selectedItem.opmerking_aandachtspunt ? (
-                      <View style={[styles.detailSection, { backgroundColor: '#FFF3CD', borderLeftWidth: 3, borderLeftColor: '#D4A017' }]}>
+                      <View style={[styles.detailSection, { backgroundColor: '#FFF3CD', borderLeftWidth: 3, borderLeftColor: '#22C55E' }]}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                           <Ionicons name="warning-outline" size={14} color="#856404" />
                           <Text style={[styles.detailSectionTitle, { color: '#856404' }]}>Opmerking / Aandachtspunt</Text>
@@ -1428,7 +1428,7 @@ export default function PlanningAdmin() {
                     <Ionicons name="pencil-outline" size={18} color="#3498db" />
                     <Text style={{ color: '#3498db', fontWeight: '600', fontSize: 14 }}>Bewerken</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.detailActionBtn, { backgroundColor: theme.primaryColor || '#D4A017', flex: 1 }]} onPress={() => setShowDetailModal(false)}>
+                  <TouchableOpacity style={[styles.detailActionBtn, { backgroundColor: theme.primaryColor || '#22C55E', flex: 1 }]} onPress={() => setShowDetailModal(false)}>
                     <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Sluiten</Text>
                   </TouchableOpacity>
                 </View>
@@ -1444,7 +1444,7 @@ export default function PlanningAdmin() {
           <View style={[styles.modalContent, { maxWidth: 480 }]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Planning Exporteren</Text>
-              <TouchableOpacity onPress={() => setShowExportModal(false)}><Ionicons name="close" size={24} color="#1B4332" /></TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowExportModal(false)}><Ionicons name="close" size={24} color="#0F172A" /></TouchableOpacity>
             </View>
 
             <Text style={styles.label}>Periode</Text>
@@ -1456,7 +1456,7 @@ export default function PlanningAdmin() {
                 { key: '6maanden', label: '6 Maanden' },
                 { key: 'jaar', label: 'Jaarlijks' },
               ].map(p => (
-                <TouchableOpacity key={p.key} style={[styles.chip, exportPeriode === p.key && { backgroundColor: theme.primaryColor || '#D4A017', borderColor: theme.primaryColor || '#D4A017' }]}
+                <TouchableOpacity key={p.key} style={[styles.chip, exportPeriode === p.key && { backgroundColor: theme.primaryColor || '#22C55E', borderColor: theme.primaryColor || '#22C55E' }]}
                   onPress={() => setExportPeriode(p.key)}>
                   <Text style={[styles.chipText, exportPeriode === p.key && styles.chipTextActive]}>{p.label}</Text>
                 </TouchableOpacity>
@@ -1487,7 +1487,7 @@ export default function PlanningAdmin() {
               </Text>
             </View>
 
-            <TouchableOpacity style={[styles.saveBtn, { backgroundColor: theme.primaryColor || '#D4A017' }]} onPress={exportPlanning}>
+            <TouchableOpacity style={[styles.saveBtn, { backgroundColor: theme.primaryColor || '#22C55E' }]} onPress={exportPlanning}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <Ionicons name="download" size={20} color="#fff" />
                 <Text style={styles.saveBtnText}>Exporteren</Text>
@@ -1505,23 +1505,23 @@ export default function PlanningAdmin() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F6FA', padding: 24 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
-  title: { fontSize: 28, fontWeight: '700', color: '#1B4332' },
+  title: { fontSize: 28, fontWeight: '700', color: '#0F172A' },
   subtitle: { fontSize: 14, color: '#6c757d', marginTop: 4 },
-  addBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#D4A017', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 10 },
+  addBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#22C55E', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 10 },
   addBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
 
   weekSelector: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff', borderRadius: 12, padding: 12, marginBottom: 20, borderWidth: 1, borderColor: '#E8E9ED' },
   weekArrow: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#F5F6FA', alignItems: 'center', justifyContent: 'center' },
   weekInfo: { flex: 1, alignItems: 'center' },
-  weekTitle: { fontSize: 20, fontWeight: '700', color: '#1B4332' },
+  weekTitle: { fontSize: 20, fontWeight: '700', color: '#0F172A' },
   weekYear: { fontSize: 13, color: '#6c757d' },
-  todayBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: '#D4A01710', borderWidth: 1, borderColor: '#D4A01730' },
-  todayBtnText: { fontSize: 13, fontWeight: '600', color: '#D4A017' },
+  todayBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: '#22C55E10', borderWidth: 1, borderColor: '#22C55E30' },
+  todayBtnText: { fontSize: 13, fontWeight: '600', color: '#22C55E' },
 
   statsRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
   statCard: { flex: 1, backgroundColor: '#fff', borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: '#E8E9ED' },
   statIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
-  statValue: { fontSize: 20, fontWeight: '700', color: '#1B4332' },
+  statValue: { fontSize: 20, fontWeight: '700', color: '#0F172A' },
   statLabel: { fontSize: 11, color: '#6c757d', marginTop: 2 },
 
   weekGrid: { flexDirection: 'row', gap: 8, marginBottom: 20 },
@@ -1529,7 +1529,7 @@ const styles = StyleSheet.create({
   dagColumnWeekend: { backgroundColor: '#FAFAFA' },
   dagHeader: { padding: 12, borderBottomWidth: 1, borderBottomColor: '#E8E9ED', flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#F5F6FA' },
   dagHeaderWeekend: { backgroundColor: '#F0F0F2' },
-  dagNaam: { fontSize: 14, fontWeight: '700', color: '#1B4332' },
+  dagNaam: { fontSize: 14, fontWeight: '700', color: '#0F172A' },
   dagDatum: { fontSize: 11, color: '#6c757d', flex: 1 },
   dagAddBtn: { padding: 2 },
   dagContent: { padding: 8, gap: 8, minHeight: 120 },
@@ -1542,7 +1542,7 @@ const styles = StyleSheet.create({
   statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
   statusDot: { width: 6, height: 6, borderRadius: 3 },
   statusText: { fontSize: 10, fontWeight: '600' },
-  planKlant: { fontSize: 13, fontWeight: '600', color: '#1B4332' },
+  planKlant: { fontSize: 13, fontWeight: '600', color: '#0F172A' },
   planWerfRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   planWerf: { fontSize: 11, color: '#6c757d', flex: 1 },
   planWorkersRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
@@ -1550,21 +1550,21 @@ const styles = StyleSheet.create({
   planDuurRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   planDuur: { fontSize: 10, color: '#6c757d' },
 
-  warningBanner: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#FFF3CD', borderRadius: 10, padding: 14, marginTop: 12, borderWidth: 1, borderColor: '#D4A01730' },
+  warningBanner: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#FFF3CD', borderRadius: 10, padding: 14, marginTop: 12, borderWidth: 1, borderColor: '#22C55E30' },
   warningText: { fontSize: 13, color: '#856404' },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '100%', maxWidth: 640, maxHeight: '92%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  modalTitle: { fontSize: 20, fontWeight: '700', color: '#1B4332' },
+  modalTitle: { fontSize: 20, fontWeight: '700', color: '#0F172A' },
   label: { fontSize: 14, color: '#6c757d', marginBottom: 8, marginTop: 16, fontWeight: '500' },
-  input: { backgroundColor: '#F5F6FA', borderRadius: 10, padding: 14, fontSize: 15, color: '#1B4332', borderWidth: 1, borderColor: '#E8E9ED' },
+  input: { backgroundColor: '#F5F6FA', borderRadius: 10, padding: 14, fontSize: 15, color: '#0F172A', borderWidth: 1, borderColor: '#E8E9ED' },
   noItemsText: { fontSize: 13, color: '#999', fontStyle: 'italic', padding: 10 },
 
   chipRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   chipRowScroll: { flexDirection: 'row', gap: 8 },
   chip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, backgroundColor: '#F5F6FA', borderWidth: 1.5, borderColor: '#E8E9ED' },
-  chipActive: { backgroundColor: '#D4A017', borderColor: '#D4A017' },
+  chipActive: { backgroundColor: '#22C55E', borderColor: '#22C55E' },
   chipActiveGreen: { backgroundColor: '#27ae60', borderColor: '#27ae60' },
   chipActiveBlue: { backgroundColor: '#3498db', borderColor: '#3498db' },
   chipText: { fontSize: 13, color: '#6c757d', fontWeight: '500' },
@@ -1573,45 +1573,45 @@ const styles = StyleSheet.create({
 
   workerGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   workerChip: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#F5F6FA', paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, borderWidth: 1.5, borderColor: '#E8E9ED', minWidth: '30%' },
-  workerChipActive: { borderColor: '#D4A017', backgroundColor: '#D4A01710' },
+  workerChipActive: { borderColor: '#22C55E', backgroundColor: '#22C55E10' },
   workerAvatar: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#E8E9ED', alignItems: 'center', justifyContent: 'center' },
   workerAvatarText: { fontSize: 12, fontWeight: '600', color: '#6c757d' },
-  workerName: { flex: 1, fontSize: 13, color: '#1B4332' },
+  workerName: { flex: 1, fontSize: 13, color: '#0F172A' },
 
-  saveBtn: { backgroundColor: '#D4A017', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 16 },
+  saveBtn: { backgroundColor: '#22C55E', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 16 },
   saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 
   detailRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#F5F6FA' },
   detailLabel: { fontSize: 14, color: '#6c757d', width: 100 },
-  detailValue: { fontSize: 14, fontWeight: '500', color: '#1B4332' },
+  detailValue: { fontSize: 14, fontWeight: '500', color: '#0F172A' },
   priorityBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
   priorityBadgeText: { fontSize: 12, fontWeight: '600' },
 
   workerDetailRow: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, backgroundColor: '#F5F6FA', borderRadius: 8 },
-  workerAvatarSmall: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#D4A01720', alignItems: 'center', justifyContent: 'center' },
-  workerAvatarTextSmall: { fontSize: 13, fontWeight: '600', color: '#D4A017' },
-  workerDetailName: { flex: 1, fontSize: 14, fontWeight: '500', color: '#1B4332' },
+  workerAvatarSmall: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#22C55E20', alignItems: 'center', justifyContent: 'center' },
+  workerAvatarTextSmall: { fontSize: 13, fontWeight: '600', color: '#22C55E' },
+  workerDetailName: { flex: 1, fontSize: 14, fontWeight: '500', color: '#0F172A' },
   bevestigBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
 
   detailSection: { marginTop: 16, backgroundColor: '#F5F6FA', borderRadius: 10, padding: 14 },
   detailSectionTitle: { fontSize: 13, fontWeight: '600', color: '#6c757d', marginBottom: 6 },
-  detailSectionText: { fontSize: 14, color: '#1B4332', lineHeight: 20 },
+  detailSectionText: { fontSize: 14, color: '#0F172A', lineHeight: 20 },
   materialRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
-  materialDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#D4A017' },
-  materialText: { fontSize: 13, color: '#1B4332' },
+  materialDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#22C55E' },
+  materialText: { fontSize: 13, color: '#0F172A' },
 
   detailActions: { flexDirection: 'row', gap: 10, marginTop: 16 },
   detailActionBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 10 },
   // New form section styles
   formSection: { backgroundColor: '#F8F9FA', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#E8E9ED' },
-  formSectionTitle: { fontSize: 14, fontWeight: '700', color: '#1B4332', marginBottom: 12 },
+  formSectionTitle: { fontSize: 14, fontWeight: '700', color: '#0F172A', marginBottom: 12 },
   timeRow: { flexDirection: 'row', gap: 10 },
   // Belangrijk toggle
-  belangrijkToggle: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#FFF9ED', borderRadius: 12, padding: 14, marginTop: 12, borderWidth: 1.5, borderColor: '#D4A017' },
-  belangrijkToggleActive: { backgroundColor: '#D4A017' },
-  belangrijkToggleText: { fontSize: 14, fontWeight: '600', color: '#1B4332' },
+  belangrijkToggle: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#FFF9ED', borderRadius: 12, padding: 14, marginTop: 12, borderWidth: 1.5, borderColor: '#22C55E' },
+  belangrijkToggleActive: { backgroundColor: '#22C55E' },
+  belangrijkToggleText: { fontSize: 14, fontWeight: '600', color: '#0F172A' },
   toggleSwitch: { width: 44, height: 24, borderRadius: 12, backgroundColor: '#E8E9ED', justifyContent: 'center', padding: 2 },
-  toggleSwitchOn: { backgroundColor: '#1B4332' },
+  toggleSwitchOn: { backgroundColor: '#0F172A' },
   toggleThumb: { width: 20, height: 20, borderRadius: 10, backgroundColor: '#fff' },
   toggleThumbOn: { alignSelf: 'flex-end' },
   // Belangrijk card badge

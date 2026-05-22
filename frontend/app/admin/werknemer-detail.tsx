@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -276,7 +276,7 @@ export default function WerknemerDetail() {
 
   const getRolColor = (rol: string) => {
     switch (rol) {
-      case 'admin': case 'master_admin': return theme.primaryColor || '#D4A017';
+      case 'admin': case 'master_admin': return theme.primaryColor || '#22C55E';
       case 'manager': return '#9b59b6';
       case 'planner': return '#3498db';
       case 'worker': return '#27ae60';
@@ -286,10 +286,10 @@ export default function WerknemerDetail() {
   };
 
   if (Platform.OS !== 'web') return null;
-  if (loading) return <View style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}><ActivityIndicator size="large" color={theme.primaryColor || '#D4A017'} /></View>;
+  if (loading) return <View style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}><ActivityIndicator size="large" color={theme.primaryColor || '#22C55E'} /></View>;
   if (!werknemer) return (
     <View style={styles.container}>
-      <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}><Ionicons name="arrow-back" size={24} color={theme.secondaryColor || '#1B4332'} /></TouchableOpacity>
+      <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}><Ionicons name="arrow-back" size={24} color={theme.secondaryColor || '#0F172A'} /></TouchableOpacity>
       <Text style={styles.title}>Werknemer niet gevonden</Text>
     </View>
   );
@@ -302,17 +302,17 @@ export default function WerknemerDetail() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color={theme.secondaryColor || '#1B4332'} />
+          <Ionicons name="arrow-back" size={24} color={theme.secondaryColor || '#0F172A'} />
         </TouchableOpacity>
         <View style={{ flex: 1, marginLeft: 16 }}>
-          <Text style={[styles.title, { color: theme.secondaryColor || '#1B4332' }]}>Werknemer details</Text>
+          <Text style={[styles.title, { color: theme.secondaryColor || '#0F172A' }]}>Werknemer details</Text>
         </View>
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <TouchableOpacity style={[styles.headerBtn, { backgroundColor: '#27ae60' }]} onPress={resendEmail} disabled={sendingEmail}>
             {sendingEmail ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="mail-outline" size={20} color="#fff" />}
             <Text style={styles.headerBtnText}>Mail versturen</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.headerBtn, { backgroundColor: theme.primaryColor || '#D4A017' }]} onPress={() => setShowEditModal(true)}>
+          <TouchableOpacity style={[styles.headerBtn, { backgroundColor: theme.primaryColor || '#22C55E' }]} onPress={() => setShowEditModal(true)}>
             <Ionicons name="create-outline" size={20} color="#fff" />
             <Text style={styles.headerBtnText}>Bewerken</Text>
           </TouchableOpacity>
@@ -322,7 +322,7 @@ export default function WerknemerDetail() {
       {/* Profile Card */}
       <View style={styles.card}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <View style={[styles.avatar, { backgroundColor: theme.primaryColor || '#D4A017' }]}><Text style={styles.avatarText}>{werknemer.naam?.charAt(0).toUpperCase()}</Text></View>
+          <View style={[styles.avatar, { backgroundColor: theme.primaryColor || '#22C55E' }]}><Text style={styles.avatarText}>{werknemer.naam?.charAt(0).toUpperCase()}</Text></View>
           <View style={{ flex: 1, marginLeft: 20 }}>
             <Text style={styles.profileName}>{werknemer.naam}</Text>
             <Text style={styles.profileEmail}>{werknemer.email}</Text>
@@ -351,8 +351,8 @@ export default function WerknemerDetail() {
             <Text style={styles.credLabel}>E-mail</Text>
             <Text style={styles.credValue}>{werknemer.email}</Text>
           </View>
-          <TouchableOpacity style={[styles.copyBtn, { backgroundColor: `${theme.primaryColor || '#D4A017'}10` }]} onPress={() => copyToClipboard(werknemer.email, 'E-mail')}>
-            <Ionicons name="copy-outline" size={18} color={theme.primaryColor || '#D4A017'} />
+          <TouchableOpacity style={[styles.copyBtn, { backgroundColor: `${theme.primaryColor || '#22C55E'}10` }]} onPress={() => copyToClipboard(werknemer.email, 'E-mail')}>
+            <Ionicons name="copy-outline" size={18} color={theme.primaryColor || '#22C55E'} />
           </TouchableOpacity>
         </View>
         <View style={styles.credRow}>
@@ -361,12 +361,12 @@ export default function WerknemerDetail() {
             <Text style={[styles.credValue, { fontFamily: 'monospace' }]}>{wachtwoord || '(niet beschikbaar - gebruik Mail versturen)'}</Text>
           </View>
           {wachtwoord ? (
-            <TouchableOpacity style={[styles.copyBtn, { backgroundColor: `${theme.primaryColor || '#D4A017'}10` }]} onPress={() => copyToClipboard(wachtwoord, 'Wachtwoord')}>
-              <Ionicons name="copy-outline" size={18} color={theme.primaryColor || '#D4A017'} />
+            <TouchableOpacity style={[styles.copyBtn, { backgroundColor: `${theme.primaryColor || '#22C55E'}10` }]} onPress={() => copyToClipboard(wachtwoord, 'Wachtwoord')}>
+              <Ionicons name="copy-outline" size={18} color={theme.primaryColor || '#22C55E'} />
             </TouchableOpacity>
           ) : null}
         </View>
-        <TouchableOpacity style={[styles.copyAllBtn, { backgroundColor: theme.primaryColor || '#D4A017' }]} onPress={() => copyToClipboard(`E-mail: ${werknemer.email}\nWachtwoord: ${wachtwoord || '(niet beschikbaar)'}`, 'Inloggegevens')}>
+        <TouchableOpacity style={[styles.copyAllBtn, { backgroundColor: theme.primaryColor || '#22C55E' }]} onPress={() => copyToClipboard(`E-mail: ${werknemer.email}\nWachtwoord: ${wachtwoord || '(niet beschikbaar)'}`, 'Inloggegevens')}>
           <Ionicons name="clipboard-outline" size={18} color="#fff" />
           <Text style={styles.copyAllText}>Kopieer alle inloggegevens</Text>
         </TouchableOpacity>
@@ -431,7 +431,7 @@ export default function WerknemerDetail() {
           <View style={{ gap: 8 }}>
             {documenten.map(doc => (
               <View key={doc.id} style={styles.docRow}>
-                <Ionicons name={getFileIcon(doc.type) as any} size={24} color={theme.primaryColor || '#D4A017'} />
+                <Ionicons name={getFileIcon(doc.type) as any} size={24} color={theme.primaryColor || '#22C55E'} />
                 <View style={{ flex: 1, marginLeft: 12 }}>
                   <Text style={styles.docName} numberOfLines={1}>{doc.naam}</Text>
                   <Text style={styles.docMeta}>
@@ -476,9 +476,9 @@ export default function WerknemerDetail() {
           </View>
         ) : werkbonnen.slice(0, 5).map(wb => (
           <TouchableOpacity key={wb.id} style={styles.werkbonRow} onPress={() => router.push(`/admin/werkbon-detail?id=${wb.id}` as any)}>
-            <Text style={{ fontWeight: '600', color: theme.primaryColor || '#D4A017' }}>Week {wb.week_nummer}</Text>
-            <Text style={{ flex: 1, marginLeft: 12, color: theme.secondaryColor || '#1B4332' }}>{wb.klant_naam} - {wb.werf_naam}</Text>
-            <View style={[styles.statusPill, { backgroundColor: wb.status === 'ondertekend' ? '#28a745' : wb.status === 'verzonden' ? (theme.primaryColor || '#D4A017') : '#ffc107' }]}>
+            <Text style={{ fontWeight: '600', color: theme.primaryColor || '#22C55E' }}>Week {wb.week_nummer}</Text>
+            <Text style={{ flex: 1, marginLeft: 12, color: theme.secondaryColor || '#0F172A' }}>{wb.klant_naam} - {wb.werf_naam}</Text>
+            <View style={[styles.statusPill, { backgroundColor: wb.status === 'ondertekend' ? '#28a745' : wb.status === 'verzonden' ? (theme.primaryColor || '#22C55E') : '#ffc107' }]}>
               <Text style={{ fontSize: 11, color: '#fff', fontWeight: '600' }}>{wb.status}</Text>
             </View>
           </TouchableOpacity>
@@ -491,7 +491,7 @@ export default function WerknemerDetail() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Werknemer bewerken</Text>
-              <TouchableOpacity onPress={() => setShowEditModal(false)}><Ionicons name="close" size={24} color={theme.secondaryColor || '#1B4332'} /></TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowEditModal(false)}><Ionicons name="close" size={24} color={theme.secondaryColor || '#0F172A'} /></TouchableOpacity>
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
               <Text style={styles.label}>Naam</Text>
@@ -505,7 +505,7 @@ export default function WerknemerDetail() {
               
               <Text style={styles.label}>Huidig wachtwoord</Text>
               <View style={styles.pwdDisplay}>
-                <Ionicons name="key-outline" size={18} color={theme.primaryColor || '#D4A017'} />
+                <Ionicons name="key-outline" size={18} color={theme.primaryColor || '#22C55E'} />
                 <Text style={styles.pwdText}>{wachtwoord || '(niet beschikbaar)'}</Text>
               </View>
               
@@ -539,13 +539,13 @@ export default function WerknemerDetail() {
 
               <TouchableOpacity activeOpacity={0.7} style={styles.pwdToggleRow} onPress={() => setFormData({ ...formData, mag_wachtwoord_wijzigen: !formData.mag_wachtwoord_wijzigen })}>
                 <Ionicons name="shield-checkmark-outline" size={20} color={formData.mag_wachtwoord_wijzigen ? '#27ae60' : '#6c757d'} />
-                <Text style={{ flex: 1, fontSize: 14, color: theme.secondaryColor || '#1B4332' }}>Werknemer mag zelf wachtwoord wijzigen</Text>
+                <Text style={{ flex: 1, fontSize: 14, color: theme.secondaryColor || '#0F172A' }}>Werknemer mag zelf wachtwoord wijzigen</Text>
                 <View style={[styles.customToggle, formData.mag_wachtwoord_wijzigen && { backgroundColor: '#27ae60' }]}>
                   <View style={[styles.toggleThumb, formData.mag_wachtwoord_wijzigen && { alignSelf: 'flex-end' }]} />
                 </View>
               </TouchableOpacity>
             </ScrollView>
-            <TouchableOpacity style={[styles.saveBtn, { backgroundColor: theme.primaryColor || '#D4A017' }]} onPress={saveWerknemer} disabled={saving}>
+            <TouchableOpacity style={[styles.saveBtn, { backgroundColor: theme.primaryColor || '#22C55E' }]} onPress={saveWerknemer} disabled={saving}>
               {saving ? <ActivityIndicator color="#fff" /> : (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <Ionicons name="checkmark" size={20} color="#fff" />
@@ -564,39 +564,39 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F6FA', padding: 24 },
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
   backBtn: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#E8E9ED' },
-  title: { fontSize: 24, fontWeight: '700', color: '#1B4332' },
+  title: { fontSize: 24, fontWeight: '700', color: '#0F172A' },
   headerBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 10 },
   headerBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   card: { backgroundColor: '#fff', borderRadius: 14, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: '#E8E9ED' },
-  avatar: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#D4A017', alignItems: 'center', justifyContent: 'center' },
+  avatar: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#22C55E', alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontSize: 28, fontWeight: '700', color: '#fff' },
-  profileName: { fontSize: 22, fontWeight: '700', color: '#1B4332' },
+  profileName: { fontSize: 22, fontWeight: '700', color: '#0F172A' },
   profileEmail: { fontSize: 14, color: '#6c757d', marginTop: 4 },
   profilePhone: { fontSize: 14, color: '#3498db', marginTop: 2 },
   badge: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20 },
   badgeText: { fontSize: 12, fontWeight: '600' },
-  sectionTitle: { fontSize: 16, fontWeight: '600', color: '#1B4332', marginBottom: 14 },
+  sectionTitle: { fontSize: 16, fontWeight: '600', color: '#0F172A', marginBottom: 14 },
   credRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F5F6FA' },
   credLabel: { fontSize: 12, color: '#6c757d' },
-  credValue: { fontSize: 15, fontWeight: '500', color: '#1B4332', marginTop: 2 },
-  copyBtn: { padding: 10, borderRadius: 8, backgroundColor: '#D4A01710' },
-  copyAllBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#D4A017', borderRadius: 10, paddingVertical: 14, marginTop: 14 },
+  credValue: { fontSize: 15, fontWeight: '500', color: '#0F172A', marginTop: 2 },
+  copyBtn: { padding: 10, borderRadius: 8, backgroundColor: '#22C55E10' },
+  copyAllBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#22C55E', borderRadius: 10, paddingVertical: 14, marginTop: 14 },
   copyAllText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   werkbonTypeRow: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#E8E9ED', backgroundColor: '#F5F6FA' },
   werkbonTypeText: { flex: 1, fontSize: 14, color: '#6c757d' },
   statusPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F5F6FA' },
   infoLabel: { fontSize: 14, color: '#6c757d' },
-  infoValue: { fontSize: 14, fontWeight: '500', color: '#1B4332' },
+  infoValue: { fontSize: 14, fontWeight: '500', color: '#0F172A' },
   werkbonRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F5F6FA' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   modalContent: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '100%', maxWidth: 540, maxHeight: '90%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  modalTitle: { fontSize: 20, fontWeight: '600', color: '#1B4332' },
+  modalTitle: { fontSize: 20, fontWeight: '600', color: '#0F172A' },
   label: { fontSize: 14, color: '#6c757d', marginBottom: 6, marginTop: 14, fontWeight: '500' },
-  input: { backgroundColor: '#F5F6FA', borderRadius: 10, padding: 14, fontSize: 16, color: '#1B4332', borderWidth: 1, borderColor: '#E8E9ED' },
-  pwdDisplay: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#FFF8E7', padding: 14, borderRadius: 10, borderWidth: 1, borderColor: '#D4A01730' },
-  pwdText: { fontSize: 16, fontWeight: '600', color: '#1B4332', fontFamily: 'monospace' },
+  input: { backgroundColor: '#F5F6FA', borderRadius: 10, padding: 14, fontSize: 16, color: '#0F172A', borderWidth: 1, borderColor: '#E8E9ED' },
+  pwdDisplay: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#FFF8E7', padding: 14, borderRadius: 10, borderWidth: 1, borderColor: '#22C55E30' },
+  pwdText: { fontSize: 16, fontWeight: '600', color: '#0F172A', fontFamily: 'monospace' },
   rolOption: { paddingHorizontal: 16, paddingVertical: 12, borderRadius: 8, backgroundColor: '#F5F6FA', borderWidth: 1.5, borderColor: '#E8E9ED' },
   rolOptionText: { fontSize: 13, color: '#6c757d', fontWeight: '500' },
   toggleItem: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 10, borderWidth: 1.5, borderColor: '#E8E9ED', backgroundColor: '#F5F6FA' },
@@ -604,14 +604,14 @@ const styles = StyleSheet.create({
   customToggle: { width: 48, height: 26, borderRadius: 13, backgroundColor: '#E8E9ED', padding: 2, justifyContent: 'center' },
   toggleThumb: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff', alignSelf: 'flex-start' },
   pwdToggleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#F5F6FA', padding: 14, borderRadius: 10, borderWidth: 1, borderColor: '#E8E9ED', marginTop: 16 },
-  saveBtn: { backgroundColor: '#D4A017', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 20 },
+  saveBtn: { backgroundColor: '#22C55E', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 20 },
   saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   // Document styles
   uploadBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#27ae60', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8 },
   uploadBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   docHelpText: { fontSize: 13, color: '#6c757d', marginBottom: 16, lineHeight: 20 },
   docRow: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#E8E9ED', backgroundColor: '#F5F6FA' },
-  docName: { fontSize: 14, fontWeight: '500', color: '#1B4332' },
+  docName: { fontSize: 14, fontWeight: '500', color: '#0F172A' },
   docMeta: { fontSize: 12, color: '#6c757d', marginTop: 2 },
   docDownloadBtn: { padding: 8, borderRadius: 6, backgroundColor: '#3498db10', marginRight: 8 },
   docDeleteBtn: { padding: 8, borderRadius: 6, backgroundColor: '#dc354510' },

@@ -74,7 +74,7 @@ function Sidebar() {
               ) : (
                 <View style={{
                   width: 32, height: 32, borderRadius: 8,
-                  backgroundColor: theme.primaryColor || '#1B4332',
+                  backgroundColor: theme.primaryColor || '#0F172A',
                   alignItems: 'center', justifyContent: 'center',
                 }}>
                   <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13 }}>{tenantInitials}</Text>
@@ -82,7 +82,7 @@ function Sidebar() {
               )}
             </View>
             <View>
-              <Text style={[styles.logoText, { color: theme.secondaryColor || '#1B4332' }]}>{(theme.bedrijfsnaam || 'Signybon').toUpperCase()}</Text>
+              <Text style={[styles.logoText, { color: theme.secondaryColor || '#0F172A' }]}>{(theme.bedrijfsnaam || 'Signybon').toUpperCase()}</Text>
               <Text style={styles.logoSubtext}>Beheerportaal</Text>
             </View>
           </View>
@@ -107,28 +107,28 @@ function Sidebar() {
           return (
             <TouchableOpacity
               key={index}
-              style={[styles.menuItem, isActive && { backgroundColor: `${theme.primaryColor || '#1B4332'}15` }, locked && { opacity: 0.55 }]}
+              style={[styles.menuItem, isActive && { backgroundColor: `${theme.primaryColor || '#0F172A'}15` }, locked && { opacity: 0.55 }]}
               onPress={handlePress}
             >
               <Ionicons
                 name={isActive ? item.icon.replace('-outline', '') as any : item.icon as any}
                 size={22}
-                color={isActive ? theme.primaryColor || '#1B4332' : '#6c757d'}
+                color={isActive ? theme.primaryColor || '#0F172A' : '#6c757d'}
               />
               {!collapsed && (
-                <Text style={[styles.menuLabel, isActive && { color: theme.secondaryColor || '#1B4332' }]}>
+                <Text style={[styles.menuLabel, isActive && { color: theme.secondaryColor || '#0F172A' }]}>
                   {item.label}
                 </Text>
               )}
               {locked && !collapsed && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 'auto', gap: 6 }}>
                   <Ionicons name="lock-closed" size={12} color="#6c757d" />
-                  <View style={{ backgroundColor: '#D4A017', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
-                    <Text style={{ color: '#1B4332', fontSize: 10, fontWeight: '700', letterSpacing: 0.5 }}>PRO</Text>
+                  <View style={{ backgroundColor: '#22C55E', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+                    <Text style={{ color: '#0F172A', fontSize: 10, fontWeight: '700', letterSpacing: 0.5 }}>PRO</Text>
                   </View>
                 </View>
               )}
-              {isActive && !collapsed && !locked && <View style={[styles.activeIndicator, { backgroundColor: theme.primaryColor || '#1B4332' }]} />}
+              {isActive && !collapsed && !locked && <View style={[styles.activeIndicator, { backgroundColor: theme.primaryColor || '#0F172A' }]} />}
             </TouchableOpacity>
           );
         })}
@@ -138,7 +138,7 @@ function Sidebar() {
       <View style={styles.sidebarFooter}>
         {!collapsed && (
           <View style={styles.userInfo}>
-            <View style={[styles.userAvatar, { backgroundColor: theme.primaryColor || '#1B4332' }]}>
+            <View style={[styles.userAvatar, { backgroundColor: theme.primaryColor || '#0F172A' }]}>
               <Text style={styles.userAvatarText}>{(theme?.bedrijfsnaam || 'S').charAt(0).toUpperCase()}</Text>
             </View>
             <View style={styles.userDetails}>
@@ -173,7 +173,7 @@ function CompactTopNav() {
   return (
     <View style={styles.compactShell}>
       <View style={styles.compactHeader}>
-        <Text style={[styles.compactTitle, { color: theme.secondaryColor || '#1B4332' }]}>{(theme.bedrijfsnaam || 'Signybon').toUpperCase()} ADMIN</Text>
+        <Text style={[styles.compactTitle, { color: theme.secondaryColor || '#0F172A' }]}>{(theme.bedrijfsnaam || 'Signybon').toUpperCase()} ADMIN</Text>
         <TouchableOpacity onPress={handleLogout} style={styles.compactLogoutBtn}>
           <Ionicons name="log-out-outline" size={18} color="#dc3545" />
           <Text style={styles.compactLogoutText}>Uitloggen</Text>
@@ -185,11 +185,11 @@ function CompactTopNav() {
           return (
             <TouchableOpacity
               key={item.route}
-              style={[styles.compactMenuItem, isActive && { backgroundColor: `${theme.primaryColor || '#1B4332'}18`, borderColor: theme.primaryColor || '#1B4332' }]}
+              style={[styles.compactMenuItem, isActive && { backgroundColor: `${theme.primaryColor || '#0F172A'}18`, borderColor: theme.primaryColor || '#0F172A' }]}
               onPress={() => router.push(item.route as any)}
             >
-              <Ionicons name={item.icon as any} size={16} color={isActive ? theme.primaryColor || '#1B4332' : '#6c757d'} />
-              <Text style={[styles.compactMenuLabel, isActive && { color: theme.secondaryColor || '#1B4332' }]}>{item.label}</Text>
+              <Ionicons name={item.icon as any} size={16} color={isActive ? theme.primaryColor || '#0F172A' : '#6c757d'} />
+              <Text style={[styles.compactMenuLabel, isActive && { color: theme.secondaryColor || '#0F172A' }]}>{item.label}</Text>
             </TouchableOpacity>
           );
         })}
@@ -407,13 +407,13 @@ export default function AdminLayout() {
       <Sidebar />
       <View style={styles.mainContent}>
         {showTrialBanner && (
-          <View style={{ backgroundColor: '#D4A017', paddingVertical: 10, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-            <Ionicons name="time-outline" size={18} color="#1B4332" />
-            <Text style={{ color: '#1B4332', fontSize: 14, fontWeight: '600' }}>
+          <View style={{ backgroundColor: '#22C55E', paddingVertical: 10, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+            <Ionicons name="time-outline" size={18} color="#0F172A" />
+            <Text style={{ color: '#0F172A', fontSize: 14, fontWeight: '600' }}>
               Uw proefperiode loopt af over {trialInfo!.days_remaining} dag{trialInfo!.days_remaining === 1 ? '' : 'en'}.
             </Text>
             <TouchableOpacity onPress={() => router.push('/admin/instellingen?section=abonnement')}>
-              <Text style={{ color: '#1B4332', fontSize: 14, fontWeight: '700', textDecorationLine: 'underline' }}>Activeer abonnement</Text>
+              <Text style={{ color: '#0F172A', fontSize: 14, fontWeight: '700', textDecorationLine: 'underline' }}>Activeer abonnement</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -509,9 +509,9 @@ const styles = StyleSheet.create({
   },
   sidebar: {
     width: 260,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0F172A',
     borderRightWidth: 1,
-    borderRightColor: '#E8E9ED',
+    borderRightColor: '#1E293B',
     flexDirection: 'column',
   },
   sidebarCollapsed: {
@@ -523,7 +523,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E8E9ED',
+    borderBottomColor: '#1E293B',
     minHeight: 72,
   },
   logoContainer: {
@@ -535,7 +535,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 10,
-    backgroundColor: '#1B433215',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -546,17 +546,17 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1B4332',
+    color: '#FFFFFF',
   },
   logoSubtext: {
     fontSize: 12,
-    color: '#6c757d',
+    color: '#94A3B8',
   },
   collapseBtn: {
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: '#F5F6FA',
+    backgroundColor: '#1E293B',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -576,32 +576,32 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   menuItemActive: {
-    backgroundColor: '#1B433210',
+    backgroundColor: '#1E293B',
   },
   menuLabel: {
     flex: 1,
     fontSize: 15,
-    color: '#6c757d',
+    color: '#CBD5E1',
     fontWeight: '500',
   },
   menuLabelActive: {
-    color: '#1B4332',
+    color: '#FFFFFF',
     fontWeight: '600',
   },
   activeIndicator: {
     position: 'absolute',
-    right: 0,
+    left: 0,
     top: '50%',
-    marginTop: -10,
+    marginTop: -12,
     width: 4,
-    height: 20,
-    backgroundColor: '#1B4332',
+    height: 24,
+    backgroundColor: '#22C55E',
     borderRadius: 2,
   },
   sidebarFooter: {
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: '#E8E9ED',
+    borderTopColor: '#1E293B',
   },
   userInfo: {
     flexDirection: 'row',
@@ -613,7 +613,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#1B4332',
+    backgroundColor: '#0F172A',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -628,11 +628,11 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1B4332',
+    color: '#FFFFFF',
   },
   userRole: {
     fontSize: 12,
-    color: '#6c757d',
+    color: '#94A3B8',
   },
   logoutBtn: {
     flexDirection: 'row',
@@ -655,12 +655,12 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 8,
-    backgroundColor: '#F5F6FA',
+    backgroundColor: '#1E293B',
     marginBottom: 8,
   },
   passwordText: {
     fontSize: 14,
-    color: '#6c757d',
+    color: '#CBD5E1',
     fontWeight: '500',
   },
   mainContent: {

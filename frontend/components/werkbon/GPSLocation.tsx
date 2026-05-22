@@ -1,4 +1,4 @@
-/**
+﻿/**
  * GPSLocation - Unified GPS Component
  * Used across all werkbon types
  * 
@@ -23,7 +23,7 @@ interface GPSLocationProps {
 
 export const GPSLocation: React.FC<GPSLocationProps> = ({
   onLocationChange,
-  primaryColor = '#D4A017',
+  primaryColor = '#22C55E',
   initialCoords = '',
   initialAddress = '',
 }) => {
@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1B4332',
+    color: '#0F172A',
     marginBottom: 8,
   },
   button: {

@@ -1,4 +1,4 @@
-{
+﻿{
   "expo": {
     "name": "Signybon",
     "slug": "smart-ts",
@@ -49,8 +49,8 @@
       ["expo-camera", {"cameraPermission": "Selfie nemen bij handtekening"}],
       ["expo-image-picker", {"photosPermission": "Foto selecteren voor selfie verificatie", "cameraPermission": "Selfie nemen bij handtekening verificatie"}],
       ["expo-location", {"locationAlwaysAndWhenInUsePermission": "Locatie ophalen voor werkbon registratie"}],
-      ["expo-notifications", {"icon": "./assets/icon.png", "color": "#D4A017"}],
-      ["expo-splash-screen", {"image": "./assets/splash-icon.png", "imageWidth": 200, "resizeMode": "contain", "backgroundColor": "#FFFFFF"}]
+      ["expo-notifications", {"icon": "./assets/icon.png", "color": "#0F172A"}],
+      ["expo-splash-screen", {"image": "./assets/splash.png", "imageWidth": 300, "resizeMode": "contain", "backgroundColor": "#0F172A"}]
     ],
     "experiments": {"typedRoutes": true},
     "extra": {

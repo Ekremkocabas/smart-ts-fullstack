@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SIGNYBON - Smart Work Order Management</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #0F172A;
+    --green: #22C55E;
+    --navy-light: #1E293B;
+    --gray-light: #F8FAFC;
+    --white: #FFFFFF;
+    --text-dark: #0F172A;
+    --text-muted: #64748B;
+  }
+  body {
+    margin: 0;
+    font-family: 'Inter', sans-serif;
+    color: var(--text-dark);
+    background-color: var(--white);
+    line-height: 1.5;
+  }
+  header {
+    background-color: var(--white);
+    padding: 20px 5%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #E2E8F0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo-area {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .logo-text {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--navy);
+    letter-spacing: 0.5px;
+  }
+  .nav-links {
+    display: flex;
+    gap: 32px;
+  }
+  .nav-links a {
+    text-decoration: none;
+    color: var(--navy-light);
+    font-weight: 500;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover {
+    color: var(--green);
+  }
+  .header-btns {
+    display: flex;
+    gap: 16px;
+  }
+  .btn {
+    padding: 10px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+  .btn-outline {
+    border: 2px solid var(--navy);
+    color: var(--navy);
+  }
+  .btn-outline:hover {
+    background-color: var(--navy);
+    color: var(--white);
+  }
+  .btn-solid {
+    background-color: var(--green);
+    color: var(--white);
+    border: 2px solid var(--green);
+  }
+  .btn-solid:hover {
+    background-color: #16a34a;
+    border-color: #16a34a;
+  }
+  
+  .hero {
+    padding: 100px 5%;
+    background: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 100%);
+    color: var(--white);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 40px;
+  }
+  .hero-content {
+    flex: 1;
+    max-width: 600px;
+  }
+  .hero h1 {
+    font-size: 56px;
+    line-height: 1.1;
+    margin-bottom: 24px;
+    font-weight: 800;
+  }
+  .hero p {
+    font-size: 20px;
+    color: #CBD5E1;
+    margin-bottom: 40px;
+  }
+  .hero-image {
+    flex: 1;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    height: 400px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  }
+  .hero-image-placeholder {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 24px;
+    font-weight: 600;
+  }
+  
+  .features {
+    padding: 100px 5%;
+    background-color: var(--gray-light);
+    text-align: center;
+  }
+  .features h2 {
+    font-size: 36px;
+    color: var(--navy);
+    margin-bottom: 60px;
+  }
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 40px;
+  }
+  .feature-card {
+    background-color: var(--white);
+    padding: 40px;
+    border-radius: 16px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+    text-align: left;
+    transition: transform 0.2s;
+  }
+  .feature-card:hover {
+    transform: translateY(-5px);
+  }
+  .feature-icon {
+    width: 64px;
+    height: 64px;
+    background-color: rgba(34, 197, 94, 0.1);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 24px;
+  }
+  .feature-card h3 {
+    font-size: 20px;
+    color: var(--navy);
+    margin-bottom: 16px;
+  }
+  .feature-card p {
+    color: var(--text-muted);
+  }
+</style>
+</head>
+<body>
+  <header>
+    <div class="logo-area">
+      <img src="../ChatGPT_Image_22_mei_2026__14_40_15.png" alt="SIGNYBON Logo" style="height: 40px; width: auto;">
+    </div>
+    <div class="nav-links">
+      <a href="#">Product</a>
+      <a href="#">Oplossingen</a>
+      <a href="#">Prijzen</a>
+      <a href="#">Over ons</a>
+    </div>
+    <div class="header-btns">
+      <a href="login-new.html" class="btn btn-outline">Inloggen</a>
+      <a href="#" class="btn btn-solid">Probeer Gratis</a>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="hero-content">
+      <h1>Slimmer werken, niet harder.</h1>
+      <p>Beheer uw werkbonnen, klanten en facturatie in één overzichtelijk platform. Speciaal gebouwd voor moderne bedrijven.</p>
+      <a href="#" class="btn btn-solid" style="padding: 16px 32px; font-size: 18px;">Start uw gratis proefperiode</a>
+    </div>
+    <div class="hero-image">
+      <div class="hero-image-placeholder">App Dashboard Screenshot</div>
+    </div>
+  </section>
+
+  <section class="features">
+    <h2>Alles wat u nodig heeft</h2>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+        </div>
+        <h3>Digitale Werkbonnen</h3>
+        <p>Maak, verstuur en beheer werkbonnen digitaal. Geen papierwerk meer, alles overzichtelijk in de cloud.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
+        </div>
+        <h3>Klantenbeheer</h3>
+        <p>Al uw klantgegevens veilig op één plek. Bekijk historie, contactgegevens en openstaande bonnen met één klik.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="1" x2="12" y2="23"></line>
+            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+          </svg>
+        </div>
+        <h3>Snelle Facturatie</h3>
+        <p>Zet voltooide werkbonnen direct om in facturen. Koppel met uw favoriete boekhoudpakket voor maximale efficiëntie.</p>
+      </div>
+    </div>
+  </section>
+</body>
+</html>

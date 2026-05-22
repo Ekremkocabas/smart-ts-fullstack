@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Werkbon Sign - Signature Page (Step 4)
  * Final step: Sign the werkbon and submit
  * 
@@ -120,7 +120,7 @@ const WebSignatureCanvas = ({ onEnd, onClear, signatureRef }: any) => {
     if (!ctx) return;
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.strokeStyle = '#1B4332';
+    ctx.strokeStyle = '#0F172A';
     ctx.lineWidth = 2;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -140,7 +140,7 @@ const WebSignatureCanvas = ({ onEnd, onClear, signatureRef }: any) => {
     if (!ctx) return;
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.strokeStyle = '#1B4332';
+    ctx.strokeStyle = '#0F172A';
     ctx.lineWidth = 2;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -203,7 +203,7 @@ export default function WerkbonSign() {
   const insets = useSafeAreaInsets();
   const signatureRef = useRef<any>(null);
   
-  const primary = theme?.primaryColor || '#D4A017';
+  const primary = theme?.primaryColor || '#22C55E';
   
   // Get all data from Zustand store
   const {
@@ -611,7 +611,7 @@ export default function WerkbonSign() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#1B4332" />
+          <Ionicons name="arrow-back" size={24} color="#0F172A" />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Ondertekenen</Text>
@@ -813,10 +813,10 @@ export default function WerkbonSign() {
           disabled={!hasSignature || !confirmationChecked || isSubmitting}
         >
           {isSubmitting ? (
-            <ActivityIndicator color="#1B4332" />
+            <ActivityIndicator color="#0F172A" />
           ) : (
             <>
-              <Ionicons name="checkmark-done" size={20} color="#1B4332" />
+              <Ionicons name="checkmark-done" size={20} color="#0F172A" />
               <Text style={styles.submitButtonText}>Opslaan & Versturen</Text>
             </>
           )}
@@ -850,7 +850,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerCenter: { flex: 1, alignItems: 'center' },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#1B4332' },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#0F172A' },
   headerStep: { fontSize: 13, color: '#6C7A89', marginTop: 2 },
   
   content: {
@@ -882,7 +882,7 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1B4332',
+    color: '#0F172A',
     marginBottom: 8,
   },
   fieldHint: {
@@ -897,7 +897,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: '#1B4332',
+    color: '#0F172A',
     borderWidth: 1,
     borderColor: '#E8E9ED',
   },
@@ -964,7 +964,7 @@ const styles = StyleSheet.create({
   
   // Coming Soon Badge
   comingSoonBadge: {
-    backgroundColor: '#D4A01720',
+    backgroundColor: '#22C55E20',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
@@ -972,7 +972,7 @@ const styles = StyleSheet.create({
   comingSoonText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#D4A017',
+    color: '#22C55E',
   },
   
   // Disabled Button
@@ -1100,7 +1100,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   toggleContent: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  toggleText: { fontSize: 15, color: '#1B4332', fontWeight: '500' },
+  toggleText: { fontSize: 15, color: '#0F172A', fontWeight: '500' },
   
   // Confirmation
   confirmationCard: {
@@ -1125,7 +1125,7 @@ const styles = StyleSheet.create({
   confirmationText: {
     flex: 1,
     fontSize: 14,
-    color: '#1B4332',
+    color: '#0F172A',
     lineHeight: 20,
   },
   
@@ -1172,6 +1172,6 @@ const styles = StyleSheet.create({
   submitButtonText: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1B4332',
+    color: '#0F172A',
   },
 });

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -15,8 +15,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useGlobalSearchParams } from 'expo-router';
 import { apiClient } from '../../context/AuthContext';
 
-const SIGNYBON_GREEN = '#1B4332';
-const SIGNYBON_GOLD = '#D4A017';
+const SIGNYBON_GREEN = '#0F172A';
+const SIGNYBON_GOLD = '#22C55E';
 
 interface Detail {
   company: {
@@ -355,7 +355,7 @@ export default function MasterKlantDetail() {
             <Text style={styles.cardTitle}>Abonnement</Text>
             <View style={styles.badgeRow}>
               <StatusBadge status={data.subscription.status} />
-              <View style={[badgeStyles.badge, { backgroundColor: '#1B433215' }]}>
+              <View style={[badgeStyles.badge, { backgroundColor: '#0F172A15' }]}>
                 <Text style={[badgeStyles.text, { color: SIGNYBON_GREEN }]}>
                   {data.subscription.plan || 'GEEN PLAN'}
                 </Text>
@@ -380,7 +380,7 @@ export default function MasterKlantDetail() {
         <Section
           title={`Werknemers (${data.werknemers.length})`}
           extra={
-            <View style={[badgeStyles.badge, { backgroundColor: '#1B433215' }]}>
+            <View style={[badgeStyles.badge, { backgroundColor: '#0F172A15' }]}>
               <Text style={[badgeStyles.text, { color: SIGNYBON_GREEN }]}>
                 {data.active_werknemers} actief
               </Text>
@@ -434,7 +434,7 @@ export default function MasterKlantDetail() {
         <Section
           title={`Werkbonnen — totaal ${data.werkbonnen.total} (laatste 10)`}
           extra={
-            <View style={[badgeStyles.badge, { backgroundColor: '#1B433215' }]}>
+            <View style={[badgeStyles.badge, { backgroundColor: '#0F172A15' }]}>
               <Text style={[badgeStyles.text, { color: SIGNYBON_GREEN }]}>
                 {data.werkbonnen.this_month} deze maand
               </Text>
@@ -645,7 +645,7 @@ const styles = StyleSheet.create({
   badgeRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   fieldRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, alignItems: 'flex-start', gap: 12 },
   fieldLabel: { fontSize: 13, color: '#6c757d', flex: 1 },
-  fieldValue: { fontSize: 13, color: '#1B4332', fontWeight: '600', flex: 2, textAlign: 'right', flexShrink: 1 },
+  fieldValue: { fontSize: 13, color: '#0F172A', fontWeight: '600', flex: 2, textAlign: 'right', flexShrink: 1 },
   tableHeader: {
     flexDirection: 'row',
     backgroundColor: '#f8f9fa',
@@ -674,14 +674,14 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     flexWrap: 'wrap',
   },
-  actionLabel: { flex: 1, fontSize: 13, color: '#1B4332', fontWeight: '600', minWidth: 200 },
+  actionLabel: { flex: 1, fontSize: 13, color: '#0F172A', fontWeight: '600', minWidth: 200 },
   input: {
     backgroundColor: '#f8f9fa',
     borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 14,
-    color: '#1B4332',
+    color: '#0F172A',
     marginTop: 6,
     outlineWidth: 0 as any,
   },

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Email Template - SIGNYBON</title>
+<style>
+  :root {
+    --navy: #0F172A;
+    --green: #22C55E;
+    --navy-light: #1E293B;
+    --gray-light: #E2E8F0;
+    --white: #FFFFFF;
+    --text-dark: #0F172A;
+    --text-muted: #94A3B8;
+  }
+  body {
+    margin: 0;
+    padding: 40px 0;
+    font-family: 'Arial', sans-serif; /* Web safe font for email */
+    background-color: #F8FAFC;
+    color: #0F172A;
+  }
+  .email-container {
+    max-width: 600px;
+    margin: 0 auto;
+    background-color: #FFFFFF;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+  }
+  .email-header {
+    background-color: #0F172A;
+    padding: 30px;
+    text-align: center;
+  }
+  .email-body {
+    padding: 40px 30px;
+  }
+  .email-body h1 {
+    font-size: 24px;
+    color: #0F172A;
+    margin-top: 0;
+    margin-bottom: 20px;
+  }
+  .email-body p {
+    font-size: 16px;
+    line-height: 1.6;
+    color: #475569;
+    margin-bottom: 24px;
+  }
+  .details-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 30px;
+  }
+  .details-table th {
+    background-color: #22C55E;
+    color: #FFFFFF;
+    text-align: left;
+    padding: 12px 16px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .details-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #E2E8F0;
+    font-size: 14px;
+    color: #0F172A;
+  }
+  .btn-primary {
+    display: inline-block;
+    background-color: #22C55E;
+    color: #FFFFFF;
+    text-decoration: none;
+    padding: 14px 28px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 16px;
+    text-align: center;
+  }
+  .email-footer {
+    background-color: #F1F5F9;
+    padding: 20px;
+    text-align: center;
+    font-size: 12px;
+    color: #94A3B8;
+  }
+</style>
+</head>
+<body>
+  <div class="email-container">
+    <div class="email-header">
+      <img src="../ChatGPT_Image_22_mei_2026__14_40_15.png" alt="SIGNYBON Logo" style="height: 48px; width: auto; display: block; margin: 0 auto;">
+    </div>
+    <div class="email-body">
+      <h1>Nieuwe Werkbon Aangemaakt</h1>
+      <p>Beste klant, er is een nieuwe werkbon voor u klaargezet. U kunt de details hieronder bekijken of inloggen op het portaal voor meer informatie.</p>
+      
+      <table class="details-table">
+        <thead>
+          <tr>
+            <th colspan="2">Werkbon Details</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="font-weight: bold; width: 40%;">Werkbonnummer</td>
+            <td>WB-2026-0892</td>
+          </tr>
+          <tr>
+            <td style="font-weight: bold;">Datum</td>
+            <td>22 Mei 2026</td>
+          </tr>
+          <tr>
+            <td style="font-weight: bold;">Omschrijving</td>
+            <td>Onderhoud CV Installatie</td>
+          </tr>
+        </tbody>
+      </table>
+      
+      <div style="text-align: center;">
+        <a href="#" class="btn-primary">Bekijk Werkbon</a>
+      </div>
+    </div>
+    <div class="email-footer">
+      &copy; 2026 SIGNYBON. Alle rechten voorbehouden.<br>
+      Dit is een automatisch gegenereerd bericht.
+    </div>
+  </div>
+</body>
+</html>

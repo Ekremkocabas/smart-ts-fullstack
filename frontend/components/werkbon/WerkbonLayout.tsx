@@ -1,4 +1,4 @@
-/**
+﻿/**
  * WerkbonLayout - Unified Layout Component for All Werkbon Types
  * 
  * This component provides:
@@ -98,7 +98,7 @@ export const WerkbonLayout: React.FC<WerkbonLayoutProps> = ({
   onSignatureDateChange,
   signatureName,
   onSignatureNameChange,
-  primaryColor = '#D4A017',
+  primaryColor = '#22C55E',
   secondaryColor = '#FFFFFF',
   children,
 }) => {
@@ -112,7 +112,7 @@ export const WerkbonLayout: React.FC<WerkbonLayoutProps> = ({
           style={styles.backButton} 
           onPress={page === 2 ? onPreviousPage : onBack}
         >
-          <Ionicons name="arrow-back" size={24} color="#1B4332" />
+          <Ionicons name="arrow-back" size={24} color="#0F172A" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{title}</Text>
         <View style={styles.headerRight}>
@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 18,
     fontWeight: '700',
-    color: '#1B4332',
+    color: '#0F172A',
     textAlign: 'center',
   },
   headerRight: {
@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E8E9ED',
   },
   pageIndicatorActive: {
-    backgroundColor: '#D4A017',
+    backgroundColor: '#22C55E',
   },
   scrollContent: {
     padding: 16,
@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1B4332',
+    color: '#0F172A',
     marginBottom: 8,
   },
   input: {
@@ -321,7 +321,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: '#1B4332',
+    color: '#0F172A',
     borderWidth: 1,
     borderColor: '#E8E9ED',
   },

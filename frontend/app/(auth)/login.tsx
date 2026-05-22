@@ -199,7 +199,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F6FA',
+    backgroundColor: '#E2E8F0',
   },
   keyboardView: {
     flex: 1,
@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#1B4332',
+    color: '#0F172A',
     marginTop: 16,
   },
   subtitle: {
@@ -266,11 +266,11 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    color: '#1B4332',
+    color: '#0F172A',
     fontSize: 16,
   },
   button: {
-    backgroundColor: '#D4A017',
+    backgroundColor: '#22C55E',
     height: 56,
     borderRadius: 12,
     alignItems: 'center',

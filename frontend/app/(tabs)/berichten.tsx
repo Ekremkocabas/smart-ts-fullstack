@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+﻿import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -35,7 +35,7 @@ interface Bericht {
 export default function BerichtenTab() {
   const { user } = useAuth();
   const { theme } = useTheme();
-  const primaryColor = theme?.primaryColor || '#D4A017';
+  const primaryColor = theme?.primaryColor || '#22C55E';
   const [berichten, setBerichten] = useState<Bericht[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -157,12 +157,12 @@ export default function BerichtenTab() {
 
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#D4A017" />
+          <ActivityIndicator size="large" color="#22C55E" />
         </View>
       ) : (!berichten || berichten.length === 0) ? (
         <ScrollView
           contentContainerStyle={styles.emptyContainer}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#D4A017" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#22C55E" />}
         >
           <Ionicons name="chatbubbles-outline" size={64} color="#E8E9ED" />
           <Text style={styles.emptyTitle}>Geen berichten</Text>
@@ -172,7 +172,7 @@ export default function BerichtenTab() {
         <ScrollView
           style={styles.scrollView}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#D4A017" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#22C55E" />}
         >
           {sorted.map(bericht => {
             if (!bericht) return null;  // Skip null/undefined items
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, paddingVertical: 14,
     backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E8E9ED',
   },
-  title: { fontSize: 26, fontWeight: '700', color: '#1B4332' },
+  title: { fontSize: 26, fontWeight: '700', color: '#0F172A' },
   subtitle: { fontSize: 12, color: '#6c757d', marginTop: 2 },
   unreadBadge: {
     backgroundColor: '#dc3545', width: 28, height: 28, borderRadius: 14,
@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
 
   loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, minHeight: 400 },
-  emptyTitle: { fontSize: 18, fontWeight: '600', color: '#1B4332', marginTop: 16 },
+  emptyTitle: { fontSize: 18, fontWeight: '600', color: '#0F172A', marginTop: 16 },
   emptySubtext: { fontSize: 14, color: '#6c757d', marginTop: 8, textAlign: 'center' },
 
   scrollView: { flex: 1, padding: 16 },
@@ -324,19 +324,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 10,
     borderWidth: 1, borderColor: '#E8E9ED',
   },
-  berichtUnread: { borderLeftWidth: 3, borderLeftColor: '#D4A017' },
-  berichtPinned: { borderColor: '#D4A01750', backgroundColor: '#FFFCF5' },
+  berichtUnread: { borderLeftWidth: 3, borderLeftColor: '#22C55E' },
+  berichtPinned: { borderColor: '#22C55E50', backgroundColor: '#FFFCF5' },
   berichtHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 },
   berichtAvatar: {
     width: 40, height: 40, borderRadius: 20,
-    backgroundColor: '#D4A01720', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#22C55E20', alignItems: 'center', justifyContent: 'center',
   },
-  berichtAvatarText: { fontSize: 16, fontWeight: '600', color: '#D4A017' },
+  berichtAvatarText: { fontSize: 16, fontWeight: '600', color: '#22C55E' },
   berichtNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  berichtFrom: { fontSize: 15, fontWeight: '500', color: '#1B4332' },
+  berichtFrom: { fontSize: 15, fontWeight: '500', color: '#0F172A' },
   berichtTime: { fontSize: 12, color: '#999', marginTop: 2 },
-  unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#D4A017' },
-  berichtSubject: { fontSize: 15, fontWeight: '600', color: '#1B4332', marginBottom: 4 },
+  unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#22C55E' },
+  berichtSubject: { fontSize: 15, fontWeight: '600', color: '#0F172A', marginBottom: 4 },
   berichtPreview: { fontSize: 14, color: '#6c757d', lineHeight: 20 },
   broadcastBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
@@ -353,7 +353,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: '#E8E9ED',
   },
   modalCloseBtn: { padding: 4 },
-  modalTitle: { fontSize: 18, fontWeight: '600', color: '#1B4332', flex: 1 },
+  modalTitle: { fontSize: 18, fontWeight: '600', color: '#0F172A', flex: 1 },
   deleteBtn: { padding: 6 },
   terugBtn: {
     margin: 16,
@@ -369,13 +369,13 @@ const styles = StyleSheet.create({
   detailMeta: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 20, paddingBottom: 12 },
   detailAvatar: {
     width: 48, height: 48, borderRadius: 24,
-    backgroundColor: '#D4A01720', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#22C55E20', alignItems: 'center', justifyContent: 'center',
   },
-  detailAvatarText: { fontSize: 20, fontWeight: '600', color: '#D4A017' },
-  detailFrom: { fontSize: 16, fontWeight: '600', color: '#1B4332' },
+  detailAvatarText: { fontSize: 20, fontWeight: '600', color: '#22C55E' },
+  detailFrom: { fontSize: 16, fontWeight: '600', color: '#0F172A' },
   detailDate: { fontSize: 13, color: '#999', marginTop: 2 },
-  detailSubject: { fontSize: 20, fontWeight: '700', color: '#1B4332', paddingHorizontal: 20, marginBottom: 12 },
-  detailInhoud: { fontSize: 16, color: '#1B4332', lineHeight: 24, paddingHorizontal: 20 },
+  detailSubject: { fontSize: 20, fontWeight: '700', color: '#0F172A', paddingHorizontal: 20, marginBottom: 12 },
+  detailInhoud: { fontSize: 16, color: '#0F172A', lineHeight: 24, paddingHorizontal: 20 },
 
   // Tab Selector Styles
   tabSelector: {
@@ -385,11 +385,11 @@ const styles = StyleSheet.create({
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 6, paddingVertical: 12,
   },
-  tabActive: { borderBottomWidth: 2, borderBottomColor: '#D4A017' },
+  tabActive: { borderBottomWidth: 2, borderBottomColor: '#22C55E' },
   tabText: { fontSize: 14, color: '#6c757d', fontWeight: '500' },
-  tabTextActive: { color: '#D4A017', fontWeight: '600' },
+  tabTextActive: { color: '#22C55E', fontWeight: '600' },
   docBadge: {
-    backgroundColor: '#D4A017', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2, marginLeft: 4,
+    backgroundColor: '#22C55E', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2, marginLeft: 4,
   },
   docBadgeText: { color: '#fff', fontSize: 11, fontWeight: '600' },
 
@@ -403,7 +403,7 @@ const styles = StyleSheet.create({
   },
   docInfo: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
   docDetails: { flex: 1 },
-  docName: { fontSize: 15, fontWeight: '600', color: '#1B4332' },
+  docName: { fontSize: 15, fontWeight: '600', color: '#0F172A' },
   docMeta: { fontSize: 12, color: '#6c757d', marginTop: 2 },
   docDelete: { padding: 8 },
 
@@ -415,5 +415,5 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F6FA', borderRadius: 10, padding: 12, marginBottom: 8,
     borderWidth: 1, borderColor: '#E8E9ED',
   },
-  attachmentName: { flex: 1, fontSize: 14, color: '#1B4332' },
+  attachmentName: { flex: 1, fontSize: 14, color: '#0F172A' },
 });

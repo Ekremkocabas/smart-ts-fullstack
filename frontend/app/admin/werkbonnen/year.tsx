@@ -13,11 +13,11 @@ export default function WerkbonnenYearScreen() {
   const extraHeader = (
     <View style={styles.nav}>
       <TouchableOpacity onPress={() => setJaar((y) => y - 1)} style={styles.navBtn} accessibilityLabel="Vorig jaar">
-        <Ionicons name="chevron-back" size={22} color={theme.secondaryColor || '#1B4332'} />
+        <Ionicons name="chevron-back" size={22} color={theme.secondaryColor || '#0F172A'} />
       </TouchableOpacity>
-      <Text style={[styles.navLabel, { color: theme.secondaryColor || '#1B4332' }]}>Kalenderjaar {jaar}</Text>
+      <Text style={[styles.navLabel, { color: theme.secondaryColor || '#0F172A' }]}>Kalenderjaar {jaar}</Text>
       <TouchableOpacity onPress={() => setJaar((y) => y + 1)} style={styles.navBtn} accessibilityLabel="Volgend jaar">
-        <Ionicons name="chevron-forward" size={22} color={theme.secondaryColor || '#1B4332'} />
+        <Ionicons name="chevron-forward" size={22} color={theme.secondaryColor || '#0F172A'} />
       </TouchableOpacity>
     </View>
   );
@@ -49,5 +49,5 @@ const styles = StyleSheet.create({
     borderColor: '#E8E9ED',
   },
   navBtn: { padding: 8 },
-  navLabel: { fontSize: 16, fontWeight: '700', color: '#1B4332' },
+  navLabel: { fontSize: 16, fontWeight: '700', color: '#0F172A' },
 });

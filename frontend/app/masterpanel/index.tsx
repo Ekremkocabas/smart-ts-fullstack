@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -11,8 +11,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { apiClient } from '../../context/AuthContext';
 
-const SIGNYBON_GREEN = '#1B4332';
-const SIGNYBON_GOLD = '#D4A017';
+const SIGNYBON_GREEN = '#0F172A';
+const SIGNYBON_GOLD = '#22C55E';
 
 interface TopClient {
   company_id: string;
@@ -507,11 +507,11 @@ const styles = StyleSheet.create({
   cardTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   cardIcon: {
     width: 42, height: 42, borderRadius: 12,
-    backgroundColor: '#1B433215',
+    backgroundColor: '#0F172A15',
     alignItems: 'center', justifyContent: 'center',
   },
   cardValue: { fontSize: 28, fontWeight: '800', color: SIGNYBON_GREEN },
-  cardLabel: { fontSize: 13, color: '#1B4332', fontWeight: '600', marginTop: 4 },
+  cardLabel: { fontSize: 13, color: '#0F172A', fontWeight: '600', marginTop: 4 },
   cardSub: { fontSize: 11, color: '#6c757d', marginTop: 4 },
 
   sectionFull: {

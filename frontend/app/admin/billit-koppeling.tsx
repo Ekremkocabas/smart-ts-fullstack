@@ -146,13 +146,13 @@ export default function BillitKoppelingScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.push('/admin/facturatie-koppeling' as any)}>
-          <Ionicons name="arrow-back" size={22} color={theme.primaryColor || '#D4A017'} />
+          <Ionicons name="arrow-back" size={22} color={theme.primaryColor || '#22C55E'} />
         </TouchableOpacity>
         <View style={styles.headerIcon}>
           <Text style={styles.headerLetter}>B</Text>
         </View>
         <View style={styles.headerCenter}>
-          <Text style={[styles.title, { color: theme.secondaryColor || '#1B4332' }]}>Billit Koppeling</Text>
+          <Text style={[styles.title, { color: theme.secondaryColor || '#0F172A' }]}>Billit Koppeling</Text>
           <Text style={styles.subtitle}>Facturatie integratie instellen</Text>
         </View>
         {settings.billit_actief && (
@@ -306,7 +306,7 @@ export default function BillitKoppelingScreen() {
           {/* Info over handmatig */}
           {settings.billit_actief && !settings.billit_auto_versturen && (
             <View style={[styles.helpBox, { marginTop: 12 }]}>
-              <Ionicons name="hand-left-outline" size={16} color={theme.primaryColor || '#D4A017'} />
+              <Ionicons name="hand-left-outline" size={16} color={theme.primaryColor || '#22C55E'} />
               <Text style={[styles.helpText, { color: '#7A5200' }]}>
                 Handmatige modus: naast elke verzonden werkbon verschijnt een Billit-icoon waarmee u de werkbon apart naar Billit kunt sturen.
               </Text>
@@ -341,7 +341,7 @@ export default function BillitKoppelingScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F6FA' },
   noAccess: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  noAccessText: { fontSize: 20, color: '#1B4332', marginTop: 16 },
+  noAccessText: { fontSize: 20, color: '#0F172A', marginTop: 16 },
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
   // Header
@@ -365,7 +365,7 @@ const styles = StyleSheet.create({
   },
   headerLetter: { fontSize: 20, fontWeight: '800', color: '#0066CC' },
   headerCenter: { flex: 1 },
-  title: { fontSize: 20, fontWeight: 'bold', color: '#1B4332' },
+  title: { fontSize: 20, fontWeight: 'bold', color: '#0F172A' },
   subtitle: { fontSize: 12, color: '#6c757d' },
   activeBadge: {
     flexDirection: 'row',
@@ -390,16 +390,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E8E9ED',
   },
-  sectionTitle: { fontSize: 16, fontWeight: '600', color: '#1B4332', marginBottom: 16 },
+  sectionTitle: { fontSize: 16, fontWeight: '600', color: '#0F172A', marginBottom: 16 },
 
   // Form
-  label: { fontSize: 13, fontWeight: '600', color: '#1B4332', marginBottom: 6 },
+  label: { fontSize: 13, fontWeight: '600', color: '#0F172A', marginBottom: 6 },
   input: {
     backgroundColor: '#F5F6FA',
     borderRadius: 10,
     padding: 14,
     fontSize: 15,
-    color: '#1B4332',
+    color: '#0F172A',
     borderWidth: 1,
     borderColor: '#E8E9ED',
   },
@@ -425,7 +425,7 @@ const styles = StyleSheet.create({
     padding: 12,
     marginTop: 8,
   },
-  helpText: { flex: 1, fontSize: 12, color: '#1B4332', lineHeight: 18 },
+  helpText: { flex: 1, fontSize: 12, color: '#0F172A', lineHeight: 18 },
   helpLink: { color: '#0066CC', fontWeight: '600' },
   tag: {
     backgroundColor: '#E0E8FF',
@@ -447,7 +447,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E8E9ED',
   },
-  dropdownText: { fontSize: 15, color: '#1B4332' },
+  dropdownText: { fontSize: 15, color: '#0F172A' },
   dropdownMenu: {
     backgroundColor: '#FFFFFF',
     borderRadius: 10,
@@ -465,7 +465,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#F5F6FA',
   },
   dropdownItemActive: { backgroundColor: '#F0F7FF' },
-  dropdownItemText: { fontSize: 14, color: '#1B4332' },
+  dropdownItemText: { fontSize: 14, color: '#0F172A' },
   dropdownItemTextActive: { color: '#0066CC', fontWeight: '600' },
 
   // Toggle
@@ -480,7 +480,7 @@ const styles = StyleSheet.create({
   },
   toggleRowDisabled: { opacity: 0.5 },
   toggleInfo: { flex: 1 },
-  toggleLabel: { fontSize: 14, fontWeight: '600', color: '#1B4332' },
+  toggleLabel: { fontSize: 14, fontWeight: '600', color: '#0F172A' },
   toggleDesc: { fontSize: 12, color: '#6c757d', marginTop: 2, lineHeight: 17 },
   textDisabled: { color: '#adb5bd' },
 

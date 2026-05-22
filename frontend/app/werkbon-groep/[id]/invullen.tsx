@@ -244,7 +244,7 @@ export default function WerkbonGroepInvullen() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingBox}>
-          <ActivityIndicator size="large" color="#1B4332" />
+          <ActivityIndicator size="large" color="#0F172A" />
           <Text style={styles.loadingText}>Maand-werkbon laden...</Text>
         </View>
       </SafeAreaView>
@@ -256,7 +256,7 @@ export default function WerkbonGroepInvullen() {
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="close" size={28} color="#1B4332" />
+            <Ionicons name="close" size={28} color="#0F172A" />
           </TouchableOpacity>
           <Text style={styles.title}>Maand werkbon</Text>
           <View style={{ width: 28 }} />
@@ -276,7 +276,7 @@ export default function WerkbonGroepInvullen() {
       >
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="close" size={28} color="#1B4332" />
+            <Ionicons name="close" size={28} color="#0F172A" />
           </TouchableOpacity>
           <View style={{ flex: 1, marginLeft: 12 }}>
             <Text style={styles.title}>Maand werkbon invullen</Text>
@@ -296,7 +296,7 @@ export default function WerkbonGroepInvullen() {
             </View>
             {weeks.length >= 2 && (
               <TouchableOpacity style={styles.copyBtn} onPress={copyFromFirstWeek}>
-                <Ionicons name="copy-outline" size={16} color="#1B4332" />
+                <Ionicons name="copy-outline" size={16} color="#0F172A" />
                 <Text style={styles.copyBtnText}>Kopieer week 1 → alle</Text>
               </TouchableOpacity>
             )}
@@ -323,7 +323,7 @@ export default function WerkbonGroepInvullen() {
                   <Ionicons
                     name={w.expanded ? 'chevron-up' : 'chevron-down'}
                     size={20}
-                    color="#1B4332"
+                    color="#0F172A"
                     style={{ marginLeft: 8 }}
                   />
                 </TouchableOpacity>
@@ -369,7 +369,7 @@ export default function WerkbonGroepInvullen() {
                     ))}
 
                     <TouchableOpacity style={styles.addBtn} onPress={() => addRegel(weekIdx)}>
-                      <Ionicons name="add-circle-outline" size={18} color="#1B4332" />
+                      <Ionicons name="add-circle-outline" size={18} color="#0F172A" />
                       <Text style={styles.addBtnText}>Teamlid toevoegen</Text>
                     </TouchableOpacity>
 
@@ -454,21 +454,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderBottomWidth: 1, borderBottomColor: '#E8E9ED',
   },
-  title: { fontSize: 18, fontWeight: '700', color: '#1B4332' },
+  title: { fontSize: 18, fontWeight: '700', color: '#0F172A' },
   subtitle: { fontSize: 12, color: '#6c757d', marginTop: 2 },
   summaryCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     backgroundColor: '#E8F4EA',
     borderRadius: 12, padding: 14, marginBottom: 14,
   },
-  summaryHeader: { fontSize: 11, color: '#1B4332', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
-  summaryValue: { fontSize: 14, color: '#1B4332', fontWeight: '700', marginTop: 4 },
+  summaryHeader: { fontSize: 11, color: '#0F172A', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  summaryValue: { fontSize: 14, color: '#0F172A', fontWeight: '700', marginTop: 4 },
   copyBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: '#fff', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8,
-    borderWidth: 1, borderColor: '#1B4332',
+    borderWidth: 1, borderColor: '#0F172A',
   },
-  copyBtnText: { fontSize: 12, color: '#1B4332', fontWeight: '700' },
+  copyBtnText: { fontSize: 12, color: '#0F172A', fontWeight: '700' },
   weekCard: {
     backgroundColor: '#fff', borderRadius: 12, marginBottom: 12,
     borderWidth: 1, borderColor: '#E8E9ED', overflow: 'hidden',
@@ -477,10 +477,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 14, paddingVertical: 12,
   },
-  weekTitle: { fontSize: 16, fontWeight: '700', color: '#1B4332' },
+  weekTitle: { fontSize: 16, fontWeight: '700', color: '#0F172A' },
   weekDates: { fontSize: 11, color: '#6c757d', marginTop: 2 },
   weekTotBadge: {
-    backgroundColor: '#D4A017', borderRadius: 999,
+    backgroundColor: '#22C55E', borderRadius: 999,
     paddingHorizontal: 12, paddingVertical: 5,
   },
   weekTotText: { color: '#fff', fontSize: 13, fontWeight: '700' },
@@ -496,7 +496,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff', borderRadius: 8,
     paddingHorizontal: 10, paddingVertical: 8,
-    fontSize: 13, color: '#1B4332',
+    fontSize: 13, color: '#0F172A',
     borderWidth: 1, borderColor: '#E8E9ED',
   },
   dagenRow: { flexDirection: 'row', gap: 4 },
@@ -506,25 +506,25 @@ const styles = StyleSheet.create({
     width: '100%',
     backgroundColor: '#fff', borderRadius: 6,
     paddingVertical: 8, paddingHorizontal: 4,
-    textAlign: 'center', fontSize: 13, color: '#1B4332',
+    textAlign: 'center', fontSize: 13, color: '#0F172A',
     borderWidth: 1, borderColor: '#E8E9ED',
   },
   addBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     paddingVertical: 10, marginTop: 4, marginBottom: 4,
     backgroundColor: '#fff', borderRadius: 8,
-    borderWidth: 1, borderColor: '#1B4332', borderStyle: 'dashed',
+    borderWidth: 1, borderColor: '#0F172A', borderStyle: 'dashed',
   },
-  addBtnText: { color: '#1B4332', fontSize: 13, fontWeight: '700' },
+  addBtnText: { color: '#0F172A', fontSize: 13, fontWeight: '700' },
   subSectionTitle: {
-    fontSize: 12, color: '#1B4332', fontWeight: '700',
+    fontSize: 12, color: '#0F172A', fontWeight: '700',
     textTransform: 'uppercase', letterSpacing: 0.4,
     marginTop: 14, marginBottom: 6,
   },
   multiline: {
     backgroundColor: '#F5F6FA', borderRadius: 8,
     paddingHorizontal: 12, paddingVertical: 10,
-    fontSize: 13, color: '#1B4332',
+    fontSize: 13, color: '#0F172A',
     minHeight: 70, textAlignVertical: 'top',
     borderWidth: 1, borderColor: '#E8E9ED',
   },
@@ -534,7 +534,7 @@ const styles = StyleSheet.create({
   },
   saveBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: '#1B4332', borderRadius: 12, paddingVertical: 14,
+    backgroundColor: '#0F172A', borderRadius: 12, paddingVertical: 14,
   },
   saveBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });

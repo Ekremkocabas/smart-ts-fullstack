@@ -99,7 +99,7 @@ export default function WerkbonForm() {
   const [teamlidSearchRol, setTeamlidSearchRol] = useState<string | null>(null);
   const searchTimeout = useRef<any>(null);
 
-  const primary = theme?.primaryColor || '#D4A017';
+  const primary = theme?.primaryColor || '#22C55E';
 
   const searchTeamleden = (text: string, index: number, rolFilter?: string | null) => {
     updateUrenRegel(index, { teamlidNaam: text, teamlidId: undefined });
@@ -325,7 +325,7 @@ export default function WerkbonForm() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color="#1B4332" />
+            <Ionicons name="arrow-back" size={24} color="#0F172A" />
           </TouchableOpacity>
           <View style={styles.headerCenter}>
             <Text style={styles.headerTitle}>{getTypeTitle()}</Text>
@@ -428,7 +428,7 @@ export default function WerkbonForm() {
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                   <Text style={[styles.sectionTitle, { flex: 1, marginBottom: 0 }]}>KM heen & terug</Text>
                   {kmTotaal > 0 && (
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#D4A017' }}>Totaal: {kmTotaal} km</Text>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#22C55E' }}>Totaal: {kmTotaal} km</Text>
                   )}
                 </View>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
@@ -542,7 +542,7 @@ export default function WerkbonForm() {
             onPress={handleNext}
           >
             <Text style={styles.nextButtonText}>Volgende</Text>
-            <Ionicons name="arrow-forward" size={20} color="#1B4332" />
+            <Ionicons name="arrow-forward" size={20} color="#0F172A" />
           </TouchableOpacity>
         </View>
 
@@ -553,7 +553,7 @@ export default function WerkbonForm() {
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Selecteer klant</Text>
                 <TouchableOpacity onPress={() => setShowKlantPicker(false)}>
-                  <Ionicons name="close" size={24} color="#1B4332" />
+                  <Ionicons name="close" size={24} color="#0F172A" />
                 </TouchableOpacity>
               </View>
               <FlatList
@@ -591,7 +591,7 @@ export default function WerkbonForm() {
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Selecteer werf</Text>
                 <TouchableOpacity onPress={() => setShowWerfPicker(false)}>
-                  <Ionicons name="close" size={24} color="#1B4332" />
+                  <Ionicons name="close" size={24} color="#0F172A" />
                 </TouchableOpacity>
               </View>
               <FlatList
@@ -699,13 +699,13 @@ export default function WerkbonForm() {
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
           <Text style={[styles.sectionTitle, { flex: 1, marginBottom: 0 }]}>Urenregistratie</Text>
           <TouchableOpacity onPress={() => changeWeekNummer(-1)} style={{ padding: 6 }}>
-            <Ionicons name="chevron-back" size={20} color="#1B4332" />
+            <Ionicons name="chevron-back" size={20} color="#0F172A" />
           </TouchableOpacity>
-          <Text style={{ fontSize: 15, fontWeight: '700', marginHorizontal: 4, color: '#1B4332' }}>
+          <Text style={{ fontSize: 15, fontWeight: '700', marginHorizontal: 4, color: '#0F172A' }}>
             Week {urenData.weekNummer} / {urenData.jaar}
           </Text>
           <TouchableOpacity onPress={() => changeWeekNummer(1)} style={{ padding: 6 }}>
-            <Ionicons name="chevron-forward" size={20} color="#1B4332" />
+            <Ionicons name="chevron-forward" size={20} color="#0F172A" />
           </TouchableOpacity>
         </View>
         
@@ -811,7 +811,7 @@ export default function WerkbonForm() {
             onPress={() => setShowTeamlidTypeModal(false)}
           >
             <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 20, margin: 24, gap: 8 }}>
-              <Text style={{ fontSize: 16, fontWeight: '700', color: '#1B4332', marginBottom: 8 }}>Teamlid type selecteren</Text>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: '#0F172A', marginBottom: 8 }}>Teamlid type selecteren</Text>
               {([
                 { type: 'werknemer', label: 'Werknemer', icon: 'person-outline', desc: 'Interne medewerker zoeken' },
                 { type: 'onderaannemer', label: 'Onderaannemer', icon: 'business-outline', desc: 'Externe onderaannemer zoeken' },
@@ -824,7 +824,7 @@ export default function WerkbonForm() {
                 >
                   <Ionicons name={opt.icon} size={22} color={primary} />
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#1B4332' }}>{opt.label}</Text>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#0F172A' }}>{opt.label}</Text>
                     <Text style={{ fontSize: 12, color: '#6c757d', marginTop: 2 }}>{opt.desc}</Text>
                   </View>
                   <Ionicons name="chevron-forward" size={16} color="#adb5bd" />
@@ -1008,7 +1008,7 @@ export default function WerkbonForm() {
                 <Ionicons
                   name={star <= (opleveringData.rating || 0) ? 'star' : 'star-outline'}
                   size={32}
-                  color={star <= (opleveringData.rating || 0) ? '#D4A017' : '#ccc'}
+                  color={star <= (opleveringData.rating || 0) ? '#22C55E' : '#ccc'}
                 />
               </TouchableOpacity>
             ))}
@@ -1020,7 +1020,7 @@ export default function WerkbonForm() {
           <Text style={styles.fieldLabel}>Opleverpunten</Text>
           {opleveringData.opleverpunten.map((punt) => (
             <View key={punt.id} style={{ backgroundColor: '#F5F6FA', borderRadius: 10, padding: 12, marginBottom: 8 }}>
-              <Text style={{ fontSize: 14, fontWeight: '500', color: '#1B4332', marginBottom: 8 }}>{punt.text}</Text>
+              <Text style={{ fontSize: 14, fontWeight: '500', color: '#0F172A', marginBottom: 8 }}>{punt.text}</Text>
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 {STATUS_OPTS.map((opt) => (
                   <TouchableOpacity
@@ -1054,7 +1054,7 @@ export default function WerkbonForm() {
                 }
               }}
             >
-              <Ionicons name="add" size={20} color="#1B4332" />
+              <Ionicons name="add" size={20} color="#0F172A" />
             </TouchableOpacity>
           </View>
         </View>
@@ -1159,7 +1159,7 @@ export default function WerkbonForm() {
                 }
               }}
             >
-              <Ionicons name="add" size={20} color="#1B4332" />
+              <Ionicons name="add" size={20} color="#0F172A" />
             </TouchableOpacity>
           </View>
         </View>
@@ -1180,7 +1180,7 @@ export default function WerkbonForm() {
             style={[styles.toggle, projectData.vervolgwerkNodig && { backgroundColor: primary }]}
             onPress={() => setProjectData({ vervolgwerkNodig: !projectData.vervolgwerkNodig })}
           >
-            <Text style={[styles.toggleText, projectData.vervolgwerkNodig && { color: '#1B4332' }]}>
+            <Text style={[styles.toggleText, projectData.vervolgwerkNodig && { color: '#0F172A' }]}>
               {projectData.vervolgwerkNodig ? 'Ja' : 'Nee'}
             </Text>
           </TouchableOpacity>
@@ -1248,7 +1248,7 @@ export default function WerkbonForm() {
                   style={[styles.eenheidButton, prestatieData.eenheid === e && { backgroundColor: primary }]}
                   onPress={() => setPrestatieData({ eenheid: e as any })}
                 >
-                  <Text style={[styles.eenheidText, prestatieData.eenheid === e && { color: '#1B4332' }]}>{e}</Text>
+                  <Text style={[styles.eenheidText, prestatieData.eenheid === e && { color: '#0F172A' }]}>{e}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -1259,7 +1259,7 @@ export default function WerkbonForm() {
                   style={[styles.eenheidButton, prestatieData.eenheid === e && { backgroundColor: primary }]}
                   onPress={() => setPrestatieData({ eenheid: e as any })}
                 >
-                  <Text style={[styles.eenheidText, prestatieData.eenheid === e && { color: '#1B4332' }]}>{e}</Text>
+                  <Text style={[styles.eenheidText, prestatieData.eenheid === e && { color: '#0F172A' }]}>{e}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -1315,7 +1315,7 @@ export default function WerkbonForm() {
         {prestatieData.ruimtes.map((r) => (
           <View key={r.id} style={{ backgroundColor: '#F5F6FA', borderRadius: 12, padding: 12, marginBottom: 10 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <Text style={{ fontWeight: '600', color: '#1B4332' }}>Ruimte</Text>
+              <Text style={{ fontWeight: '600', color: '#0F172A' }}>Ruimte</Text>
               <TouchableOpacity onPress={() => removeRuimte(r.id)}>
                 <Ionicons name="trash-outline" size={18} color="#dc3545" />
               </TouchableOpacity>
@@ -1396,7 +1396,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F6FA', justifyContent: 'center', alignItems: 'center',
   },
   headerCenter: { flex: 1, alignItems: 'center' },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#1B4332' },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#0F172A' },
   headerStep: { fontSize: 13, color: '#6C7A89', marginTop: 2 },
   
   content: { flex: 1, padding: 16 },
@@ -1408,7 +1408,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  sectionTitle: { fontSize: 16, fontWeight: '600', color: '#1B4332', marginBottom: 12 },
+  sectionTitle: { fontSize: 16, fontWeight: '600', color: '#0F172A', marginBottom: 12 },
   
   fieldGroup: { marginBottom: 16 },
   fieldLabel: { fontSize: 14, fontWeight: '500', color: '#6C7A89', marginBottom: 8 },
@@ -1427,7 +1427,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 12,
     fontSize: 16,
-    color: '#1B4332',
+    color: '#0F172A',
     backgroundColor: '#F5F6FA',
     borderRadius: 12,
     borderWidth: 1,
@@ -1438,7 +1438,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
     fontSize: 16,
-    color: '#1B4332',
+    color: '#0F172A',
     borderWidth: 1,
     borderColor: '#E8E9ED',
     minHeight: 100,
@@ -1455,7 +1455,7 @@ const styles = StyleSheet.create({
     borderColor: '#E8E9ED',
     gap: 10,
   },
-  selectedItemText: { flex: 1, fontSize: 16, color: '#1B4332' },
+  selectedItemText: { flex: 1, fontSize: 16, color: '#0F172A' },
   
   pickerButtons: { flexDirection: 'row', gap: 12 },
   pickerButton: {
@@ -1469,7 +1469,7 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   pickerButtonSecondary: { backgroundColor: '#F5F6FA' },
-  pickerButtonText: { fontSize: 15, fontWeight: '500', color: '#D4A017' },
+  pickerButtonText: { fontSize: 15, fontWeight: '500', color: '#22C55E' },
   
   photoButtons: { flexDirection: 'row', gap: 12, marginBottom: 12 },
   photoButton: {
@@ -1484,7 +1484,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E8E9ED',
   },
-  photoButtonText: { fontSize: 15, fontWeight: '500', color: '#1B4332' },
+  photoButtonText: { fontSize: 15, fontWeight: '500', color: '#0F172A' },
   photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   photoItem: { position: 'relative' },
   photoPlaceholder: {
@@ -1576,7 +1576,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
   },
-  teamlidDropdownNaam: { fontSize: 14, color: '#1B4332', fontWeight: '500' },
+  teamlidDropdownNaam: { fontSize: 14, color: '#0F172A', fontWeight: '500' },
   teamlidDropdownRol: { fontSize: 11, color: '#6c757d' },
   teamlidInput: {
     backgroundColor: '#FFFFFF',
@@ -1612,7 +1612,7 @@ const styles = StyleSheet.create({
   afkortingBadge: {
     width: 48,
     height: 48,
-    backgroundColor: '#D4A017',
+    backgroundColor: '#22C55E',
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1634,7 +1634,7 @@ const styles = StyleSheet.create({
   afkortingModalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1B4332',
+    color: '#0F172A',
     marginBottom: 16,
     textAlign: 'center',
   },
@@ -1649,9 +1649,9 @@ const styles = StyleSheet.create({
     width: 50,
     fontSize: 16,
     fontWeight: '700',
-    color: '#D4A017',
+    color: '#22C55E',
   },
-  afkortingOptionLabel: { fontSize: 15, color: '#1B4332' },
+  afkortingOptionLabel: { fontSize: 15, color: '#0F172A' },
   
   // Checklist
   checklistItem: {
@@ -1662,7 +1662,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F5F6FA',
   },
-  checklistText: { flex: 1, fontSize: 15, color: '#1B4332' },
+  checklistText: { flex: 1, fontSize: 15, color: '#0F172A' },
   checklistTextChecked: { color: '#6C7A89', textDecorationLine: 'line-through' },
   
   addItemRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
@@ -1700,7 +1700,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F5F6FA',
   },
-  taakText: { flex: 1, fontSize: 15, color: '#1B4332' },
+  taakText: { flex: 1, fontSize: 15, color: '#0F172A' },
   taakTextCompleted: { color: '#6C7A89', textDecorationLine: 'line-through' },
   
   toggleRow: {
@@ -1709,7 +1709,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 16,
   },
-  toggleLabel: { fontSize: 15, color: '#1B4332' },
+  toggleLabel: { fontSize: 15, color: '#0F172A' },
   toggle: {
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -1751,7 +1751,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: '#FFD966', // Light yellow for better visibility
   },
-  nextButtonText: { fontSize: 17, fontWeight: '600', color: '#1B4332' },
+  nextButtonText: { fontSize: 17, fontWeight: '600', color: '#0F172A' },
   
   // Modal (uses afkorting modal styles above)
   modalContent: {
@@ -1767,7 +1767,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
-  modalTitle: { fontSize: 18, fontWeight: '600', color: '#1B4332' },
+  modalTitle: { fontSize: 18, fontWeight: '600', color: '#0F172A' },
   modalItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1776,7 +1776,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F5F6FA',
   },
-  modalItemText: { fontSize: 16, color: '#1B4332' },
+  modalItemText: { fontSize: 16, color: '#0F172A' },
   modalInput: {
     backgroundColor: '#F5F6FA',
     borderRadius: 12,
@@ -1789,10 +1789,10 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 12,
   },
-  modalButtonText: { fontSize: 16, fontWeight: '600', color: '#1B4332' },
+  modalButtonText: { fontSize: 16, fontWeight: '600', color: '#0F172A' },
   emptyText: { textAlign: 'center', color: '#6C7A89', paddingVertical: 20 },
   statusBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, borderWidth: 1.5, borderColor: '#dee2e6', backgroundColor: '#fff' },
   statusBtnText: { fontSize: 13, fontWeight: '600', color: '#495057' },
   checkboxRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  checkboxLabel: { fontSize: 15, color: '#1B4332', fontWeight: '500' },
+  checkboxLabel: { fontSize: 15, color: '#0F172A', fontWeight: '500' },
 });

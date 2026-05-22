@@ -1,4 +1,4 @@
-/**
+﻿/**
  * PhotoUpload - Unified Photo Upload Component
  * Used across all werkbon types
  * 
@@ -64,7 +64,7 @@ export const PhotoUpload: React.FC<PhotoUploadProps> = ({
   photos,
   onPhotosChange,
   maxPhotos = 5,
-  primaryColor = '#D4A017',
+  primaryColor = '#22C55E',
   label = "Foto's",
 }) => {
   const [loading, setLoading] = useState(false);
@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1B4332',
+    color: '#0F172A',
   },
   counter: {
     fontSize: 13,

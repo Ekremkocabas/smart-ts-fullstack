@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Archived UI: "Recent aangemaakte werkbonnen" block previously shown on the dashboard.
  * Not imported anywhere — kept as reference if you want to restore a recent list elsewhere.
  *
@@ -28,7 +28,7 @@ export function ArchivedRecentWerkbonnenSection({ items }: { items: ArchivedRece
       case 'ondertekend':
         return '#28a745';
       case 'verzonden':
-        return '#D4A017';
+        return '#22C55E';
       default:
         return '#6c757d';
     }
@@ -86,12 +86,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1B4332',
+    color: '#0F172A',
     marginBottom: 16,
   },
   viewAllLink: {
     fontSize: 14,
-    color: '#D4A017',
+    color: '#22C55E',
     fontWeight: '500',
   },
   recentList: {
@@ -119,19 +119,19 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 10,
-    backgroundColor: '#D4A01715',
+    backgroundColor: '#22C55E15',
     alignItems: 'center',
     justifyContent: 'center',
   },
   weekBadgeText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#D4A017',
+    color: '#22C55E',
   },
   recentKlant: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#1B4332',
+    color: '#0F172A',
   },
   recentWerf: {
     fontSize: 13,

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -243,7 +243,7 @@ export default function RapportenAdmin() {
   if (authLoading) {
     return (
       <View style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}>
-        <ActivityIndicator size="large" color={theme.primaryColor || '#D4A017'} />
+        <ActivityIndicator size="large" color={theme.primaryColor || '#22C55E'} />
         <Text style={{ marginTop: 16, color: '#6c757d' }}>Laden...</Text>
       </View>
     );
@@ -264,7 +264,7 @@ export default function RapportenAdmin() {
     switch (status) {
       case 'concept': return '#ffc107';
       case 'ondertekend': return '#28a745';
-      case 'verzonden': return theme.primaryColor || '#D4A017';
+      case 'verzonden': return theme.primaryColor || '#22C55E';
       default: return '#6c757d';
     }
   };
@@ -294,8 +294,8 @@ export default function RapportenAdmin() {
             <Text style={[styles.tableCell, { flex: 2, fontWeight: '500' }]}>{item.naam}</Text>
             <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>{item.werkbonnen}</Text>
             <View style={{ flex: 1, alignItems: 'flex-end' }}>
-              <View style={[styles.urenBadge, { backgroundColor: `${theme.primaryColor || '#D4A017'}15` }]}>
-                <Text style={[styles.urenBadgeText, { color: theme.primaryColor || '#D4A017' }]}>{item.totaalUren} uur</Text>
+              <View style={[styles.urenBadge, { backgroundColor: `${theme.primaryColor || '#22C55E'}15` }]}>
+                <Text style={[styles.urenBadgeText, { color: theme.primaryColor || '#22C55E' }]}>{item.totaalUren} uur</Text>
               </View>
             </View>
           </View>
@@ -340,7 +340,7 @@ export default function RapportenAdmin() {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={[styles.title, { color: theme.secondaryColor || '#1B4332' }]}>Rapporten</Text>
+          <Text style={[styles.title, { color: theme.secondaryColor || '#0F172A' }]}>Rapporten</Text>
           <Text style={styles.subtitle}>Overzicht van uren en werkbonnen</Text>
         </View>
         <TouchableOpacity style={styles.exportBtn} onPress={exportCSV}>
@@ -350,29 +350,29 @@ export default function RapportenAdmin() {
       </View>
 
       {loading ? (
-        <ActivityIndicator size="large" color={theme.primaryColor || '#D4A017'} style={{ marginVertical: 40 }} />
+        <ActivityIndicator size="large" color={theme.primaryColor || '#22C55E'} style={{ marginVertical: 40 }} />
       ) : (
         <>
           {/* Summary Cards */}
           <View style={styles.summaryGrid}>
             <View style={styles.summaryCard}>
-              <Ionicons name="timer-outline" size={28} color={theme.primaryColor || '#D4A017'} />
-              <Text style={[styles.summaryValue, { color: theme.secondaryColor || '#1B4332' }]}>{totaalUren}</Text>
+              <Ionicons name="timer-outline" size={28} color={theme.primaryColor || '#22C55E'} />
+              <Text style={[styles.summaryValue, { color: theme.secondaryColor || '#0F172A' }]}>{totaalUren}</Text>
               <Text style={styles.summaryLabel}>Totaal uren</Text>
             </View>
             <View style={styles.summaryCard}>
               <Ionicons name="document-text-outline" size={28} color="#3498db" />
-              <Text style={[styles.summaryValue, { color: theme.secondaryColor || '#1B4332' }]}>{totaalWerkbonnen}</Text>
+              <Text style={[styles.summaryValue, { color: theme.secondaryColor || '#0F172A' }]}>{totaalWerkbonnen}</Text>
               <Text style={styles.summaryLabel}>Totaal werkbonnen</Text>
             </View>
             <View style={styles.summaryCard}>
               <Ionicons name="people-outline" size={28} color="#9b59b6" />
-              <Text style={[styles.summaryValue, { color: theme.secondaryColor || '#1B4332' }]}>{actieveWerknemers}</Text>
+              <Text style={[styles.summaryValue, { color: theme.secondaryColor || '#0F172A' }]}>{actieveWerknemers}</Text>
               <Text style={styles.summaryLabel}>Actieve werknemers</Text>
             </View>
             <View style={styles.summaryCard}>
               <Ionicons name="business-outline" size={28} color="#e67e22" />
-              <Text style={[styles.summaryValue, { color: theme.secondaryColor || '#1B4332' }]}>{actieveWerven}</Text>
+              <Text style={[styles.summaryValue, { color: theme.secondaryColor || '#0F172A' }]}>{actieveWerven}</Text>
               <Text style={styles.summaryLabel}>Actieve werven</Text>
             </View>
           </View>
@@ -382,11 +382,11 @@ export default function RapportenAdmin() {
             {tabs.map((tab) => (
               <TouchableOpacity
                 key={tab.key}
-                style={[styles.tab, activeTab === tab.key && styles.tabActive, activeTab === tab.key && { backgroundColor: `${theme.primaryColor || '#D4A017'}15` }]}
+                style={[styles.tab, activeTab === tab.key && styles.tabActive, activeTab === tab.key && { backgroundColor: `${theme.primaryColor || '#22C55E'}15` }]}
                 onPress={() => setActiveTab(tab.key as any)}
               >
-                <Ionicons name={tab.icon as any} size={18} color={activeTab === tab.key ? (theme.primaryColor || '#D4A017') : '#6c757d'} />
-                <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive, activeTab === tab.key && { color: theme.primaryColor || '#D4A017' }]}>{tab.label}</Text>
+                <Ionicons name={tab.icon as any} size={18} color={activeTab === tab.key ? (theme.primaryColor || '#22C55E') : '#6c757d'} />
+                <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive, activeTab === tab.key && { color: theme.primaryColor || '#22C55E' }]}>{tab.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#1B4332',
+    color: '#0F172A',
   },
   subtitle: {
     fontSize: 14,
@@ -460,7 +460,7 @@ const styles = StyleSheet.create({
   summaryValue: {
     fontSize: 32,
     fontWeight: '700',
-    color: '#1B4332',
+    color: '#0F172A',
     marginTop: 8,
   },
   summaryLabel: {
@@ -487,7 +487,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   tabActive: {
-    backgroundColor: '#D4A01715',
+    backgroundColor: '#22C55E15',
   },
   tabText: {
     fontSize: 13,
@@ -495,7 +495,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   tabTextActive: {
-    color: '#D4A017',
+    color: '#22C55E',
     fontWeight: '600',
   },
   content: {
@@ -535,10 +535,10 @@ const styles = StyleSheet.create({
   },
   tableCell: {
     fontSize: 14,
-    color: '#1B4332',
+    color: '#0F172A',
   },
   urenBadge: {
-    backgroundColor: '#D4A01715',
+    backgroundColor: '#22C55E15',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
@@ -546,7 +546,7 @@ const styles = StyleSheet.create({
   urenBadgeText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#D4A017',
+    color: '#22C55E',
   },
   statusDot: {
     width: 12,
@@ -584,7 +584,7 @@ const styles = StyleSheet.create({
   },
   noAccessText: {
     fontSize: 20,
-    color: '#1B4332',
+    color: '#0F172A',
     marginTop: 16,
   },
 });

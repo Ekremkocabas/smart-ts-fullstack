@@ -6,7 +6,7 @@ export default function WerkbonLayout() {
     <Stack
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: '#1B4332' },
+        contentStyle: { backgroundColor: '#0F172A' },
       }}
     />
   );

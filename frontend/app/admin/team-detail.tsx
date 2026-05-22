@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -118,7 +118,7 @@ export default function TeamDetail() {
   if (loading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color={theme.primaryColor || '#D4A017'} style={{ marginTop: 40 }} />
+        <ActivityIndicator size="large" color={theme.primaryColor || '#22C55E'} style={{ marginTop: 40 }} />
       </View>
     );
   }
@@ -128,9 +128,9 @@ export default function TeamDetail() {
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color={theme.secondaryColor || '#1B4332'} />
+            <Ionicons name="arrow-back" size={24} color={theme.secondaryColor || '#0F172A'} />
           </TouchableOpacity>
-          <Text style={[styles.title, { color: theme.secondaryColor || '#1B4332' }]}>Team niet gevonden</Text>
+          <Text style={[styles.title, { color: theme.secondaryColor || '#0F172A' }]}>Team niet gevonden</Text>
         </View>
       </View>
     );
@@ -144,10 +144,10 @@ export default function TeamDetail() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color={theme.secondaryColor || '#1B4332'} />
+          <Ionicons name="arrow-back" size={24} color={theme.secondaryColor || '#0F172A'} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={[styles.title, { color: theme.secondaryColor || '#1B4332' }]}>Team details</Text>
+          <Text style={[styles.title, { color: theme.secondaryColor || '#0F172A' }]}>Team details</Text>
           <Text style={styles.subtitle}>{team.naam}</Text>
         </View>
         <TouchableOpacity style={styles.editBtn} onPress={() => setShowEditModal(true)}>
@@ -169,16 +169,16 @@ export default function TeamDetail() {
         <Text style={styles.sectionTitle}>Ploegbaas</Text>
         {ploegbaasInfo ? (
           <TouchableOpacity style={styles.ploegbaasCard} onPress={() => router.push(`/admin/werknemer-detail?id=${ploegbaasInfo.id}` as any)}>
-            <View style={[styles.ploegbaasAvatar, { backgroundColor: theme.primaryColor || '#D4A017' }]}>
+            <View style={[styles.ploegbaasAvatar, { backgroundColor: theme.primaryColor || '#22C55E' }]}>
               <Text style={styles.ploegbaasAvatarText}>{ploegbaasInfo.naam.charAt(0)}</Text>
             </View>
             <View style={styles.ploegbaasInfo}>
               <Text style={styles.ploegbaasName}>{ploegbaasInfo.naam}</Text>
               <Text style={styles.ploegbaasEmail}>{ploegbaasInfo.email}</Text>
             </View>
-            <View style={[styles.ploegbaasBadge, { backgroundColor: `${theme.primaryColor || '#D4A017'}20` }]}>
-              <Ionicons name="star" size={16} color={theme.primaryColor || '#D4A017'} />
-              <Text style={[styles.ploegbaasBadgeText, { color: theme.primaryColor || '#D4A017' }]}>Ploegbaas</Text>
+            <View style={[styles.ploegbaasBadge, { backgroundColor: `${theme.primaryColor || '#22C55E'}20` }]}>
+              <Ionicons name="star" size={16} color={theme.primaryColor || '#22C55E'} />
+              <Text style={[styles.ploegbaasBadgeText, { color: theme.primaryColor || '#22C55E' }]}>Ploegbaas</Text>
             </View>
           </TouchableOpacity>
         ) : (
@@ -210,7 +210,7 @@ export default function TeamDetail() {
                 </View>
                 {lid.naam === team.ploegbaas && (
                   <View style={styles.starBadge}>
-                    <Ionicons name="star" size={14} color={theme.primaryColor || '#D4A017'} />
+                    <Ionicons name="star" size={14} color={theme.primaryColor || '#22C55E'} />
                   </View>
                 )}
                 <Ionicons name="chevron-forward" size={20} color="#6c757d" />
@@ -227,7 +227,7 @@ export default function TeamDetail() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Team bewerken</Text>
               <TouchableOpacity onPress={() => setShowEditModal(false)}>
-                <Ionicons name="close" size={24} color={theme.secondaryColor || '#1B4332'} />
+                <Ionicons name="close" size={24} color={theme.secondaryColor || '#0F172A'} />
               </TouchableOpacity>
             </View>
             <ScrollView>
@@ -236,11 +236,11 @@ export default function TeamDetail() {
               
               <Text style={styles.label}>Ploegbaas</Text>
               <ScrollView horizontal style={styles.ploegbaasSelector}>
-                <TouchableOpacity style={[styles.selectOption, !formData.ploegbaas && styles.selectOptionActive, !formData.ploegbaas && { backgroundColor: theme.primaryColor || '#D4A017', borderColor: theme.primaryColor || '#D4A017' }]} onPress={() => setFormData({ ...formData, ploegbaas: '' })}>
+                <TouchableOpacity style={[styles.selectOption, !formData.ploegbaas && styles.selectOptionActive, !formData.ploegbaas && { backgroundColor: theme.primaryColor || '#22C55E', borderColor: theme.primaryColor || '#22C55E' }]} onPress={() => setFormData({ ...formData, ploegbaas: '' })}>
                   <Text style={[styles.selectOptionText, !formData.ploegbaas && styles.selectOptionTextActive]}>Geen</Text>
                 </TouchableOpacity>
                 {formData.leden.map((naam) => (
-                  <TouchableOpacity key={naam} style={[styles.selectOption, formData.ploegbaas === naam && styles.selectOptionActive, formData.ploegbaas === naam && { backgroundColor: theme.primaryColor || '#D4A017', borderColor: theme.primaryColor || '#D4A017' }]} onPress={() => setFormData({ ...formData, ploegbaas: naam })}>
+                  <TouchableOpacity key={naam} style={[styles.selectOption, formData.ploegbaas === naam && styles.selectOptionActive, formData.ploegbaas === naam && { backgroundColor: theme.primaryColor || '#22C55E', borderColor: theme.primaryColor || '#22C55E' }]} onPress={() => setFormData({ ...formData, ploegbaas: naam })}>
                     <Text style={[styles.selectOptionText, formData.ploegbaas === naam && styles.selectOptionTextActive]}>{naam}</Text>
                   </TouchableOpacity>
                 ))}
@@ -277,52 +277,52 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
   backBtn: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#E8E9ED' },
   headerCenter: { flex: 1, marginLeft: 16 },
-  title: { fontSize: 24, fontWeight: '700', color: '#1B4332' },
+  title: { fontSize: 24, fontWeight: '700', color: '#0F172A' },
   subtitle: { fontSize: 14, color: '#6c757d' },
   editBtn: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#9b59b6', alignItems: 'center', justifyContent: 'center' },
   teamCard: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 32, alignItems: 'center', marginBottom: 24, borderWidth: 1, borderColor: '#E8E9ED' },
   teamIcon: { width: 80, height: 80, borderRadius: 20, backgroundColor: '#9b59b620', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
-  teamName: { fontSize: 28, fontWeight: '700', color: '#1B4332' },
+  teamName: { fontSize: 28, fontWeight: '700', color: '#0F172A' },
   teamMeta: { fontSize: 15, color: '#6c757d', marginTop: 4 },
   section: { marginBottom: 24 },
-  sectionTitle: { fontSize: 18, fontWeight: '600', color: '#1B4332', marginBottom: 12 },
+  sectionTitle: { fontSize: 18, fontWeight: '600', color: '#0F172A', marginBottom: 12 },
   ploegbaasCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#E8E9ED' },
-  ploegbaasAvatar: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#D4A017', alignItems: 'center', justifyContent: 'center' },
+  ploegbaasAvatar: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#22C55E', alignItems: 'center', justifyContent: 'center' },
   ploegbaasAvatarText: { fontSize: 20, fontWeight: '600', color: '#fff' },
   ploegbaasInfo: { flex: 1, marginLeft: 12 },
-  ploegbaasName: { fontSize: 16, fontWeight: '600', color: '#1B4332' },
+  ploegbaasName: { fontSize: 16, fontWeight: '600', color: '#0F172A' },
   ploegbaasEmail: { fontSize: 13, color: '#6c757d', marginTop: 2 },
-  ploegbaasBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#D4A01720', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 },
-  ploegbaasBadgeText: { fontSize: 12, fontWeight: '600', color: '#D4A017' },
+  ploegbaasBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#22C55E20', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 },
+  ploegbaasBadgeText: { fontSize: 12, fontWeight: '600', color: '#22C55E' },
   emptyPloegbaas: { alignItems: 'center', padding: 32, backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#E8E9ED' },
   ledenList: { gap: 8 },
   lidCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#E8E9ED' },
   lidAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#9b59b620', alignItems: 'center', justifyContent: 'center' },
   lidAvatarText: { fontSize: 16, fontWeight: '600', color: '#9b59b6' },
   lidInfo: { flex: 1, marginLeft: 12 },
-  lidName: { fontSize: 15, fontWeight: '500', color: '#1B4332' },
+  lidName: { fontSize: 15, fontWeight: '500', color: '#0F172A' },
   lidEmail: { fontSize: 13, color: '#6c757d' },
   starBadge: { marginRight: 8 },
   emptyState: { alignItems: 'center', padding: 40, backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#E8E9ED' },
   emptyText: { fontSize: 14, color: '#6c757d', marginTop: 12 },
   noAccess: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  noAccessText: { fontSize: 20, color: '#1B4332', marginTop: 16 },
+  noAccessText: { fontSize: 20, color: '#0F172A', marginTop: 16 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   modalContent: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 24, width: '100%', maxWidth: 500, maxHeight: '90%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  modalTitle: { fontSize: 20, fontWeight: '600', color: '#1B4332' },
+  modalTitle: { fontSize: 20, fontWeight: '600', color: '#0F172A' },
   label: { fontSize: 14, color: '#6c757d', marginBottom: 6, marginTop: 16 },
-  input: { backgroundColor: '#F5F6FA', borderRadius: 10, padding: 14, fontSize: 16, color: '#1B4332', borderWidth: 1, borderColor: '#E8E9ED' },
+  input: { backgroundColor: '#F5F6FA', borderRadius: 10, padding: 14, fontSize: 16, color: '#0F172A', borderWidth: 1, borderColor: '#E8E9ED' },
   ploegbaasSelector: { marginBottom: 8 },
   selectOption: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8, backgroundColor: '#F5F6FA', marginRight: 8, borderWidth: 1, borderColor: '#E8E9ED' },
-  selectOptionActive: { backgroundColor: '#D4A017', borderColor: '#D4A017' },
+  selectOptionActive: { backgroundColor: '#22C55E', borderColor: '#22C55E' },
   selectOptionText: { fontSize: 14, color: '#6c757d' },
   selectOptionTextActive: { color: '#fff' },
   werknemersList: { maxHeight: 250, borderWidth: 1, borderColor: '#E8E9ED', borderRadius: 10, marginTop: 8 },
   werknemerRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#E8E9ED' },
   checkbox: { width: 28, height: 28, borderRadius: 6, backgroundColor: '#E8E9ED', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   checkboxActive: { backgroundColor: '#9b59b6' },
-  werknemerNaam: { flex: 1, fontSize: 15, color: '#1B4332' },
+  werknemerNaam: { flex: 1, fontSize: 15, color: '#0F172A' },
   werknemerRol: { fontSize: 12, color: '#6c757d', backgroundColor: '#F5F6FA', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 },
   saveBtn: { backgroundColor: '#9b59b6', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 20 },
   saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * SignatureCanvas - Unified Signature Component
  * Used across all werkbon types (productie, oplevering, project)
  * 
@@ -82,7 +82,7 @@ const WebSignatureCanvas = ({ onEnd, onClear, signatureRef }: any) => {
     if (!ctx) return;
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.strokeStyle = '#1B4332';
+    ctx.strokeStyle = '#0F172A';
     ctx.lineWidth = 2;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -102,7 +102,7 @@ const WebSignatureCanvas = ({ onEnd, onClear, signatureRef }: any) => {
     if (!ctx) return;
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.strokeStyle = '#1B4332';
+    ctx.strokeStyle = '#0F172A';
     ctx.lineWidth = 2;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -177,7 +177,7 @@ export const SignatureCanvas: React.FC<SignatureCanvasProps> = ({
   onSignatureClear,
   onSignatureOk,
   onSignatureChange,
-  primaryColor = '#D4A017',
+  primaryColor = '#22C55E',
 }) => {
   // For native: store signature data internally and provide it via ref
   const nativeSignatureRef = useRef<any>(null);
@@ -271,7 +271,7 @@ export const SignatureCanvas: React.FC<SignatureCanvasProps> = ({
               webStyle={nativeSignatureStyle}
               descriptionText=""
               backgroundColor="#FFFFFF"
-              penColor="#1B4332"
+              penColor="#0F172A"
               imageType="image/png"
               trimWhitespace={false}
               autoClear={false}
@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1B4332',
+    color: '#0F172A',
   },
   clearButton: {
     flexDirection: 'row',

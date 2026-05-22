@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   View,
@@ -65,7 +65,7 @@ const getStatusColor = (status: string) => {
     case 'ondertekend':
       return '#28a745';
     case 'verzonden':
-      return '#D4A017';
+      return '#22C55E';
     default:
       return '#6c757d';
   }
@@ -227,11 +227,11 @@ export function WerkbonnenPeriodList({ title, description, weekNummer, jaar, maa
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <TouchableOpacity onPress={() => router.push('/admin/werkbonnen' as any)} style={styles.backRow}>
-        <Ionicons name="arrow-back" size={22} color={theme.primaryColor || '#D4A017'} />
-        <Text style={[styles.backText, { color: theme.primaryColor || '#D4A017' }]}>Terug naar werkbonnen</Text>
+        <Ionicons name="arrow-back" size={22} color={theme.primaryColor || '#22C55E'} />
+        <Text style={[styles.backText, { color: theme.primaryColor || '#22C55E' }]}>Terug naar werkbonnen</Text>
       </TouchableOpacity>
       {extraHeader}
-      <Text style={[styles.title, { color: theme.secondaryColor || '#1B4332' }]}>{title}</Text>
+      <Text style={[styles.title, { color: theme.secondaryColor || '#0F172A' }]}>{title}</Text>
       <Text style={styles.desc}>{description}</Text>
       <Text style={styles.meta}>
         {total} werkbon{total !== 1 ? 'nen' : ''} in deze periode
@@ -250,7 +250,7 @@ export function WerkbonnenPeriodList({ title, description, weekNummer, jaar, maa
       </View>
 
       {loading ? (
-        <ActivityIndicator size="large" color={theme.primaryColor || '#D4A017'} style={{ marginVertical: 40 }} />
+        <ActivityIndicator size="large" color={theme.primaryColor || '#22C55E'} style={{ marginVertical: 40 }} />
       ) : (
         <View style={styles.tableContainer}>
           <View style={styles.tableHeader}>
@@ -278,17 +278,17 @@ export function WerkbonnenPeriodList({ title, description, weekNummer, jaar, maa
               >
                 <View style={styles.seqCell}><Text style={styles.seqText}>{index + 1}</Text></View>
                 <View style={styles.tableCell}>
-                  <View style={[styles.weekBadge, { backgroundColor: `${theme.primaryColor || '#D4A017'}15` }]}>
-                    <Text style={[styles.weekText, { color: theme.primaryColor || '#D4A017' }]}>W{wb.week_nummer}</Text>
+                  <View style={[styles.weekBadge, { backgroundColor: `${theme.primaryColor || '#22C55E'}15` }]}>
+                    <Text style={[styles.weekText, { color: theme.primaryColor || '#22C55E' }]}>W{wb.week_nummer}</Text>
                   </View>
                 </View>
                 <View style={[styles.tableCell, { flex: 1.5 }]}>
-                  <Text style={[styles.klantText, { color: theme.secondaryColor || '#1B4332' }]}>{wb.klant_naam}</Text>
+                  <Text style={[styles.klantText, { color: theme.secondaryColor || '#0F172A' }]}>{wb.klant_naam}</Text>
                   <Text style={styles.werfText}>{wb.werf_naam}</Text>
                 </View>
                 <Text style={styles.tableCell}>{wb.ingevuld_door_naam || wb.created_by_naam || '-'}</Text>
                 <View style={styles.tableCell}>
-                  <Text style={[styles.urenText, { color: theme.secondaryColor || '#1B4332' }]}>{calcTotalUren(wb)} u</Text>
+                  <Text style={[styles.urenText, { color: theme.secondaryColor || '#0F172A' }]}>{calcTotalUren(wb)} u</Text>
                 </View>
                 <View style={styles.tableCell}>
                   <View style={[styles.statusBadge, { backgroundColor: getStatusColor(wb.status) }]}>
@@ -341,9 +341,9 @@ export function WerkbonnenPeriodList({ title, description, weekNummer, jaar, maa
               disabled={loadingMore}
             >
               {loadingMore ? (
-                <ActivityIndicator color={theme.primaryColor || '#D4A017'} />
+                <ActivityIndicator color={theme.primaryColor || '#22C55E'} />
               ) : (
-                <Text style={[styles.moreBtnText, { color: theme.primaryColor || '#D4A017' }]}>
+                <Text style={[styles.moreBtnText, { color: theme.primaryColor || '#22C55E' }]}>
                   Meer laden ({items.length} / {total})
                 </Text>
               )}
@@ -358,8 +358,8 @@ export function WerkbonnenPeriodList({ title, description, weekNummer, jaar, maa
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F6FA', padding: 24 },
   backRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
-  backText: { fontSize: 15, fontWeight: '600', color: '#D4A017' },
-  title: { fontSize: 26, fontWeight: '700', color: '#1B4332' },
+  backText: { fontSize: 15, fontWeight: '600', color: '#22C55E' },
+  title: { fontSize: 26, fontWeight: '700', color: '#0F172A' },
   desc: { fontSize: 14, color: '#6c757d', marginTop: 6 },
   meta: { fontSize: 13, color: '#adb5bd', marginTop: 8, marginBottom: 16 },
   searchBox: {
@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E8E9ED',
   },
-  searchInput: { flex: 1, paddingVertical: 14, paddingLeft: 10, fontSize: 15, color: '#1B4332' },
+  searchInput: { flex: 1, paddingVertical: 14, paddingLeft: 10, fontSize: 15, color: '#0F172A' },
   tableContainer: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
@@ -401,16 +401,16 @@ const styles = StyleSheet.create({
   tableRowAlt: { backgroundColor: '#FAFAFA' },
   tableCell: { flex: 1 },
   weekBadge: {
-    backgroundColor: '#D4A01715',
+    backgroundColor: '#22C55E15',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 6,
     alignSelf: 'flex-start',
   },
-  weekText: { fontSize: 13, fontWeight: '700', color: '#D4A017' },
-  klantText: { fontSize: 14, fontWeight: '600', color: '#1B4332' },
+  weekText: { fontSize: 13, fontWeight: '700', color: '#22C55E' },
+  klantText: { fontSize: 14, fontWeight: '600', color: '#0F172A' },
   werfText: { fontSize: 12, color: '#6c757d', marginTop: 2 },
-  urenText: { fontSize: 14, fontWeight: '600', color: '#1B4332' },
+  urenText: { fontSize: 14, fontWeight: '600', color: '#0F172A' },
   statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, alignSelf: 'flex-start' },
   statusText: { fontSize: 11, fontWeight: '600', color: '#fff', textTransform: 'uppercase' },
   emptyState: { alignItems: 'center', padding: 48 },
@@ -422,7 +422,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#E8E9ED',
     backgroundColor: '#FAFAFA',
   },
-  moreBtnText: { fontSize: 14, fontWeight: '600', color: '#D4A017' },
+  moreBtnText: { fontSize: 14, fontWeight: '600', color: '#22C55E' },
   seqCell: { width: 40, alignItems: 'center', justifyContent: 'center' },
   seqText: { fontSize: 13, color: '#444444', textAlign: 'center', fontWeight: '500' },
   billitBtn: { alignItems: 'center', justifyContent: 'center' },

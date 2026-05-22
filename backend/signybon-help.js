@@ -1,15 +1,15 @@
 /* Signybon conversational support chat — single flow, FAQ → AI → Contact */
 (function(){
   const STYLE = `
-.sb-bubble{position:fixed;bottom:24px;right:24px;width:62px;height:62px;border-radius:50%;background:#1B4332;color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.7rem;cursor:pointer;box-shadow:0 8px 28px rgba(27,67,50,.45);z-index:99998;transition:all .25s;border:none}
+.sb-bubble{position:fixed;bottom:24px;right:24px;width:62px;height:62px;border-radius:50%;background:#0F172A;color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.7rem;cursor:pointer;box-shadow:0 8px 28px rgba(15,23,42,.45);z-index:99998;transition:all .25s;border:none}
 .sb-bubble:hover{transform:scale(1.08)}
 .sb-window{position:fixed;bottom:100px;right:24px;width:420px !important;min-width:420px;height:620px !important;min-height:620px;max-height:620px;background:#fff;border-radius:20px;box-shadow:0 24px 70px rgba(0,0,0,.22);z-index:99999;display:none;flex-direction:column;overflow:hidden;font-family:'Inter',system-ui,sans-serif}
 .sb-rating{display:flex;gap:6px;justify-content:center;margin:8px 0}
 .sb-star{font-size:1.6rem;cursor:pointer;color:#DEE2E6;transition:transform .15s}
-.sb-star:hover,.sb-star.filled{color:#D4A017}
+.sb-star:hover,.sb-star.filled{color:#22C55E}
 .sb-star:hover{transform:scale(1.15)}
 .sb-window.open{display:flex}
-.sb-header{background:#1B4332;color:#fff;padding:18px 22px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.sb-header{background:#0F172A;color:#fff;padding:18px 22px;display:flex;align-items:center;justify-content:space-between;gap:12px}
 .sb-header-left{display:flex;align-items:center;gap:12px}
 .sb-header-logo{flex-shrink:0}
 .sb-header-text h4{font-size:1rem;font-weight:700;margin:0;line-height:1.2}
@@ -19,21 +19,21 @@
 .sb-body{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:10px;background:#FAFBFC}
 .sb-msg{max-width:88%;padding:11px 15px;border-radius:14px;font-size:.88rem;line-height:1.5;word-wrap:break-word}
 .sb-msg.bot{background:#fff;color:#212529;align-self:flex-start;border-bottom-left-radius:4px;border:1px solid #ECEFF1;box-shadow:0 1px 3px rgba(0,0,0,.04)}
-.sb-msg.user{background:#1B4332;color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
+.sb-msg.user{background:#0F172A;color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
 .sb-msg.system{background:#FFF8E1;color:#7B5E00;align-self:center;font-size:.78rem;text-align:center;border-radius:10px;padding:8px 14px;border:1px solid #FFE082}
 .sb-options{align-self:flex-start;max-width:90%;display:flex;flex-direction:column;gap:6px;margin-top:2px}
-.sb-option-btn{text-align:left;padding:10px 14px;background:#fff;border:1.5px solid #E0E4E8;border-radius:12px;font-size:.83rem;cursor:pointer;font-family:inherit;color:#1B4332;font-weight:500;transition:all .15s}
-.sb-option-btn:hover{border-color:#1B4332;background:rgba(27,67,50,.05)}
-.sb-option-btn.ai{border-color:#D4A017;color:#B8870A}
-.sb-option-btn.ai:hover{background:rgba(212,160,23,.08)}
+.sb-option-btn{text-align:left;padding:10px 14px;background:#fff;border:1.5px solid #E0E4E8;border-radius:12px;font-size:.83rem;cursor:pointer;font-family:inherit;color:#0F172A;font-weight:500;transition:all .15s}
+.sb-option-btn:hover{border-color:#0F172A;background:rgba(15,23,42,.05)}
+.sb-option-btn.ai{border-color:#22C55E;color:#15803D}
+.sb-option-btn.ai:hover{background:rgba(34,197,94,.08)}
 .sb-input-row{display:flex;padding:14px;border-top:1px solid #E9ECEF;gap:8px;background:#fff}
 .sb-input-row input{flex:1;padding:11px 14px;border:1.5px solid #E0E4E8;border-radius:10px;font-size:.88rem;font-family:inherit;outline:none}
-.sb-input-row input:focus{border-color:#1B4332}
-.sb-send{padding:11px 18px;background:#1B4332;color:#fff;border:none;border-radius:10px;font-weight:600;cursor:pointer;font-size:.88rem;font-family:inherit;display:flex;align-items:center;gap:6px}
+.sb-input-row input:focus{border-color:#0F172A}
+.sb-send{padding:11px 18px;background:#0F172A;color:#fff;border:none;border-radius:10px;font-weight:600;cursor:pointer;font-size:.88rem;font-family:inherit;display:flex;align-items:center;gap:6px}
 .sb-send:disabled{opacity:.5;cursor:not-allowed}
 .sb-form{padding:16px;display:flex;flex-direction:column;gap:10px;background:#fff;border-top:1px solid #E9ECEF}
 .sb-form input,.sb-form textarea{padding:10px 12px;border:1.5px solid #E0E4E8;border-radius:8px;font-size:.85rem;font-family:inherit;outline:none}
-.sb-form input:focus,.sb-form textarea:focus{border-color:#1B4332}
+.sb-form input:focus,.sb-form textarea:focus{border-color:#0F172A}
 .sb-form textarea{min-height:90px;resize:vertical}
 .sb-form label{font-size:.7rem;font-weight:700;color:#6c757d;text-transform:uppercase;letter-spacing:.05em;margin-top:2px}
 .sb-spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:sbspin .6s linear infinite;vertical-align:middle}
@@ -131,11 +131,7 @@
       <div class="sb-header">
         <div class="sb-header-left">
           <div class="sb-header-logo">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="36" height="36">
-              <rect x="15" y="15" width="70" height="70" rx="12" ry="12" fill="#D4A017" transform="rotate(45 50 50)"/>
-              <rect x="23" y="23" width="54" height="54" rx="9" ry="9" fill="#fff" transform="rotate(45 50 50)"/>
-              <rect x="36" y="36" width="28" height="28" rx="5" ry="5" fill="#D4A017" transform="rotate(45 50 50)"/>
-            </svg>
+            <img src="/favicon.png?v=3" alt="" width="36" height="36" style="display:block;border-radius:6px;background:#fff">
           </div>
           <div class="sb-header-text">
             <h4>Signybon Support</h4>
@@ -276,7 +272,7 @@
       // Always-visible direct contact link
       const link = document.createElement('div');
       link.style.cssText = 'align-self:flex-start;font-size:.78rem;color:#6c757d;margin-top:-2px;cursor:pointer';
-      link.innerHTML = '<span style="color:#D4A017;font-weight:600;text-decoration:underline">Of direct contact opnemen \u2192</span>';
+      link.innerHTML = '<span style="color:#22C55E;font-weight:600;text-decoration:underline">Of direct contact opnemen \u2192</span>';
       link.onclick = showContactForm;
       body().appendChild(link);
 

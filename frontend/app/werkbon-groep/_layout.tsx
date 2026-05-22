@@ -1,4 +1,4 @@
-import { Stack } from 'expo-router';
+﻿import { Stack } from 'expo-router';
 import React from 'react';
 
 export default function WerkbonGroepLayout() {
@@ -6,7 +6,7 @@ export default function WerkbonGroepLayout() {
     <Stack
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: '#1B4332' },
+        contentStyle: { backgroundColor: '#0F172A' },
       }}
     />
   );

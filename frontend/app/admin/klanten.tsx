@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+﻿import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -417,7 +417,7 @@ export default function KlantenAdmin() {
     return (
       <View style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.primaryColor || '#D4A017'} />
+          <ActivityIndicator size="large" color={theme.primaryColor || '#22C55E'} />
           <Text style={styles.loadingText}>Laden...</Text>
         </View>
       </View>
@@ -457,10 +457,10 @@ export default function KlantenAdmin() {
       {/* Header */}
       <View style={[styles.header, isCompact && styles.headerCompact]}>
         <View style={styles.headerLeft}>
-          <Text style={[styles.title, isCompact && styles.titleCompact, { color: theme.secondaryColor || '#1B4332' }]}>Klanten</Text>
+          <Text style={[styles.title, isCompact && styles.titleCompact, { color: theme.secondaryColor || '#0F172A' }]}>Klanten</Text>
           {!isCompact && <Text style={styles.subtitle}>{klanten.length} klanten • B2B klantenbeheer</Text>}
         </View>
-        <TouchableOpacity style={[styles.addBtn, { backgroundColor: theme.primaryColor || '#D4A017' }]} onPress={openAddModal}>
+        <TouchableOpacity style={[styles.addBtn, { backgroundColor: theme.primaryColor || '#22C55E' }]} onPress={openAddModal}>
           <Ionicons name="add" size={22} color="#fff" />
           {!isCompact && <Text style={styles.addBtnText}>Nieuwe Klant</Text>}
         </TouchableOpacity>
@@ -485,7 +485,7 @@ export default function KlantenAdmin() {
 
       {/* List */}
       {loading ? (
-        <ActivityIndicator size="large" color={theme.primaryColor || '#D4A017'} style={{ marginTop: 40 }} />
+        <ActivityIndicator size="large" color={theme.primaryColor || '#22C55E'} style={{ marginTop: 40 }} />
       ) : (
         <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
           {filteredKlanten.length === 0 ? (
@@ -503,8 +503,8 @@ export default function KlantenAdmin() {
                     <View style={styles.klantNameRow}>
                       <Text style={styles.klantName}>{klant.bedrijfsnaam || klant.naam}</Text>
                       {klant.klantnummer && (
-                        <View style={[styles.klantnummerBadge, { backgroundColor: `${theme.primaryColor || '#D4A017'}20` }]}>
-                          <Text style={[styles.klantnummerText, { color: theme.primaryColor || '#D4A017' }]}>{klant.klantnummer}</Text>
+                        <View style={[styles.klantnummerBadge, { backgroundColor: `${theme.primaryColor || '#22C55E'}20` }]}>
+                          <Text style={[styles.klantnummerText, { color: theme.primaryColor || '#22C55E' }]}>{klant.klantnummer}</Text>
                         </View>
                       )}
                     </View>
@@ -524,8 +524,8 @@ export default function KlantenAdmin() {
                     </View>
                   </View>
                   <View style={styles.klantActions}>
-                    <View style={[styles.prijsmodelBadge, { backgroundColor: klant.prijsmodel === 'uurtarief' ? '#3498db20' : klant.prijsmodel === 'vaste_prijs' ? '#27ae6020' : klant.prijsmodel === 'dagvergoeding' ? '#9b59b620' : `${theme.primaryColor || '#D4A017'}20` }]}>
-                      <Text style={[styles.prijsmodelText, { color: klant.prijsmodel === 'uurtarief' ? '#3498db' : klant.prijsmodel === 'vaste_prijs' ? '#27ae60' : klant.prijsmodel === 'dagvergoeding' ? '#9b59b6' : (theme.primaryColor || '#D4A017') }]}>
+                    <View style={[styles.prijsmodelBadge, { backgroundColor: klant.prijsmodel === 'uurtarief' ? '#3498db20' : klant.prijsmodel === 'vaste_prijs' ? '#27ae6020' : klant.prijsmodel === 'dagvergoeding' ? '#9b59b620' : `${theme.primaryColor || '#22C55E'}20` }]}>
+                      <Text style={[styles.prijsmodelText, { color: klant.prijsmodel === 'uurtarief' ? '#3498db' : klant.prijsmodel === 'vaste_prijs' ? '#27ae60' : klant.prijsmodel === 'dagvergoeding' ? '#9b59b6' : (theme.primaryColor || '#22C55E') }]}>
                         {PRIJS_MODELLEN.find(p => p.key === normalizePrijsmodel(klant.prijsmodel))?.label || normalizePrijsmodel(klant.prijsmodel)}
                       </Text>
                     </View>
@@ -577,7 +577,7 @@ export default function KlantenAdmin() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{editingKlant ? 'Klant Bewerken' : 'Nieuwe Klant'}</Text>
               <TouchableOpacity onPress={() => setShowModal(false)}>
-                <Ionicons name="close" size={28} color={theme.secondaryColor || '#1B4332'} />
+                <Ionicons name="close" size={28} color={theme.secondaryColor || '#0F172A'} />
               </TouchableOpacity>
             </View>
 
@@ -586,11 +586,11 @@ export default function KlantenAdmin() {
               {sections.map((section, index) => (
                 <TouchableOpacity
                   key={section.key}
-                  style={[styles.sectionTab, activeSection === index && styles.sectionTabActive, activeSection === index && { backgroundColor: `${theme.primaryColor || '#D4A017'}20` }]}
+                  style={[styles.sectionTab, activeSection === index && styles.sectionTabActive, activeSection === index && { backgroundColor: `${theme.primaryColor || '#22C55E'}20` }]}
                   onPress={() => setActiveSection(index)}
                 >
-                  <Ionicons name={section.icon as any} size={18} color={activeSection === index ? (theme.primaryColor || '#D4A017') : '#6c757d'} />
-                  {!isCompact && <Text style={[styles.sectionTabText, activeSection === index && styles.sectionTabTextActive, activeSection === index && { color: theme.primaryColor || '#D4A017' }]}>{section.label}</Text>}
+                  <Ionicons name={section.icon as any} size={18} color={activeSection === index ? (theme.primaryColor || '#22C55E') : '#6c757d'} />
+                  {!isCompact && <Text style={[styles.sectionTabText, activeSection === index && styles.sectionTabTextActive, activeSection === index && { color: theme.primaryColor || '#22C55E' }]}>{section.label}</Text>}
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -607,11 +607,11 @@ export default function KlantenAdmin() {
                   
                   <Text style={styles.label}>Type klant</Text>
                   <View style={styles.typeToggle}>
-                    <TouchableOpacity style={[styles.typeBtn, formData.type_klant === 'bedrijf' && styles.typeBtnActive, formData.type_klant === 'bedrijf' && { backgroundColor: theme.primaryColor || '#D4A017', borderColor: theme.primaryColor || '#D4A017' }]} onPress={() => setFormData({ ...formData, type_klant: 'bedrijf' })}>
+                    <TouchableOpacity style={[styles.typeBtn, formData.type_klant === 'bedrijf' && styles.typeBtnActive, formData.type_klant === 'bedrijf' && { backgroundColor: theme.primaryColor || '#22C55E', borderColor: theme.primaryColor || '#22C55E' }]} onPress={() => setFormData({ ...formData, type_klant: 'bedrijf' })}>
                       <Ionicons name="business" size={18} color={formData.type_klant === 'bedrijf' ? '#fff' : '#6c757d'} />
                       <Text style={[styles.typeBtnText, formData.type_klant === 'bedrijf' && styles.typeBtnTextActive]}>Bedrijf</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.typeBtn, formData.type_klant === 'particulier' && styles.typeBtnActive, formData.type_klant === 'particulier' && { backgroundColor: theme.primaryColor || '#D4A017', borderColor: theme.primaryColor || '#D4A017' }]} onPress={() => setFormData({ ...formData, type_klant: 'particulier' })}>
+                    <TouchableOpacity style={[styles.typeBtn, formData.type_klant === 'particulier' && styles.typeBtnActive, formData.type_klant === 'particulier' && { backgroundColor: theme.primaryColor || '#22C55E', borderColor: theme.primaryColor || '#22C55E' }]} onPress={() => setFormData({ ...formData, type_klant: 'particulier' })}>
                       <Ionicons name="person" size={18} color={formData.type_klant === 'particulier' ? '#fff' : '#6c757d'} />
                       <Text style={[styles.typeBtnText, formData.type_klant === 'particulier' && styles.typeBtnTextActive]}>Particulier</Text>
                     </TouchableOpacity>
@@ -687,7 +687,7 @@ export default function KlantenAdmin() {
                 <View style={styles.section}>
                   <View style={styles.sectionHeader}>
                     <Text style={styles.sectionTitle}>Contactpersonen</Text>
-                    <TouchableOpacity style={[styles.addContactBtn, { backgroundColor: theme.primaryColor || '#D4A017' }]} onPress={openAddContact}>
+                    <TouchableOpacity style={[styles.addContactBtn, { backgroundColor: theme.primaryColor || '#22C55E' }]} onPress={openAddContact}>
                       <Ionicons name="add" size={20} color="#fff" />
                       <Text style={styles.addContactBtnText}>Toevoegen</Text>
                     </TouchableOpacity>
@@ -723,7 +723,7 @@ export default function KlantenAdmin() {
                         </View>
                         <View style={styles.contactActions}>
                           <TouchableOpacity onPress={() => openEditContact(contact)}>
-                            <Ionicons name="create-outline" size={20} color={theme.primaryColor || '#D4A017'} />
+                            <Ionicons name="create-outline" size={20} color={theme.primaryColor || '#22C55E'} />
                           </TouchableOpacity>
                           <TouchableOpacity onPress={() => deleteContact(contact.id)}>
                             <Ionicons name="trash-outline" size={20} color="#dc3545" />
@@ -771,7 +771,7 @@ export default function KlantenAdmin() {
                     {PRIJS_MODELLEN.map((model) => (
                       <TouchableOpacity
                         key={model.key}
-                        style={[styles.prijsmodelOption, formData.prijsmodel === model.key && styles.prijsmodelOptionActive, formData.prijsmodel === model.key && { backgroundColor: theme.primaryColor || '#D4A017', borderColor: theme.primaryColor || '#D4A017' }]}
+                        style={[styles.prijsmodelOption, formData.prijsmodel === model.key && styles.prijsmodelOptionActive, formData.prijsmodel === model.key && { backgroundColor: theme.primaryColor || '#22C55E', borderColor: theme.primaryColor || '#22C55E' }]}
                         onPress={() => setFormData({ ...formData, prijsmodel: model.key })}
                       >
                         <Text style={[styles.prijsmodelOptionText, formData.prijsmodel === model.key && styles.prijsmodelOptionTextActive]}>
@@ -1069,9 +1069,9 @@ export default function KlantenAdmin() {
                   
                   {formData.klantnummer && (
                     <View style={styles.infoBox}>
-                      <Ionicons name="barcode-outline" size={20} color={theme.primaryColor || '#D4A017'} />
+                      <Ionicons name="barcode-outline" size={20} color={theme.primaryColor || '#22C55E'} />
                       <Text style={styles.infoBoxLabel}>Klantnummer:</Text>
-                      <Text style={[styles.infoBoxValue, { color: theme.primaryColor || '#D4A017' }]}>{formData.klantnummer}</Text>
+                      <Text style={[styles.infoBoxValue, { color: theme.primaryColor || '#22C55E' }]}>{formData.klantnummer}</Text>
                     </View>
                   )}
                   
@@ -1109,7 +1109,7 @@ export default function KlantenAdmin() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{editingContact ? 'Contact Bewerken' : 'Nieuw Contact'}</Text>
               <TouchableOpacity onPress={() => setShowContactModal(false)}>
-                <Ionicons name="close" size={24} color={theme.secondaryColor || '#1B4332'} />
+                <Ionicons name="close" size={24} color={theme.secondaryColor || '#0F172A'} />
               </TouchableOpacity>
             </View>
             
@@ -1177,14 +1177,14 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff', padding: 16, borderBottomWidth: 1, borderBottomColor: '#E8E9ED' },
   headerCompact: { padding: 12 },
   headerLeft: {},
-  title: { fontSize: 24, fontWeight: 'bold', color: '#1B4332' },
+  title: { fontSize: 24, fontWeight: 'bold', color: '#0F172A' },
   titleCompact: { fontSize: 18 },
   subtitle: { fontSize: 13, color: '#6c757d' },
-  addBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#D4A017', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10 },
+  addBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#22C55E', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10 },
   addBtnText: { color: '#fff', fontWeight: '600' },
   searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', margin: 16, padding: 12, borderRadius: 10, gap: 10, borderWidth: 1, borderColor: '#E8E9ED' },
   searchBarCompact: { margin: 12, padding: 10 },
-  searchInput: { flex: 1, fontSize: 16, color: '#1B4332' },
+  searchInput: { flex: 1, fontSize: 16, color: '#0F172A' },
   list: { flex: 1 },
   listContent: { padding: 16 },
   emptyState: { alignItems: 'center', paddingTop: 60 },
@@ -1194,9 +1194,9 @@ const styles = StyleSheet.create({
   klantHeader: { flexDirection: 'row', justifyContent: 'space-between' },
   klantInfo: { flex: 1 },
   klantNameRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  klantName: { fontSize: 17, fontWeight: '600', color: '#1B4332' },
-  klantnummerBadge: { backgroundColor: '#D4A01720', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  klantnummerText: { fontSize: 11, color: '#D4A017', fontWeight: '600' },
+  klantName: { fontSize: 17, fontWeight: '600', color: '#0F172A' },
+  klantnummerBadge: { backgroundColor: '#22C55E20', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  klantnummerText: { fontSize: 11, color: '#22C55E', fontWeight: '600' },
   klantMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 6 },
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   metaText: { fontSize: 13, color: '#6c757d' },
@@ -1207,46 +1207,46 @@ const styles = StyleSheet.create({
   klantDetails: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#E8E9ED' },
   detailItem: { flexDirection: 'row', gap: 6 },
   detailLabel: { fontSize: 13, color: '#6c757d' },
-  detailValue: { fontSize: 13, color: '#1B4332', fontWeight: '500' },
+  detailValue: { fontSize: 13, color: '#0F172A', fontWeight: '500' },
   noAccess: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  noAccessText: { fontSize: 20, color: '#1B4332', marginTop: 16 },
+  noAccessText: { fontSize: 20, color: '#0F172A', marginTop: 16 },
   
   // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalContent: { backgroundColor: '#fff', width: '95%', maxWidth: 800, maxHeight: '95%', borderRadius: 16, overflow: 'hidden' },
   modalContentCompact: { width: '100%', height: '100%', borderRadius: 0, maxHeight: '100%' },
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: '#E8E9ED' },
-  modalTitle: { fontSize: 20, fontWeight: '600', color: '#1B4332' },
+  modalTitle: { fontSize: 20, fontWeight: '600', color: '#0F172A' },
   sectionTabs: { flexDirection: 'row', backgroundColor: '#F5F6FA', paddingVertical: 8, paddingHorizontal: 8, maxHeight: 56 },
   sectionTab: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, marginRight: 6 },
-  sectionTabActive: { backgroundColor: '#D4A01720' },
+  sectionTabActive: { backgroundColor: '#22C55E20' },
   sectionTabText: { fontSize: 14, color: '#6c757d' },
-  sectionTabTextActive: { color: '#D4A017', fontWeight: '600' },
+  sectionTabTextActive: { color: '#22C55E', fontWeight: '600' },
   formContent: { flex: 1, padding: 16 },
   section: { marginBottom: 16 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  sectionTitle: { fontSize: 18, fontWeight: '600', color: '#1B4332', marginBottom: 12 },
+  sectionTitle: { fontSize: 18, fontWeight: '600', color: '#0F172A', marginBottom: 12 },
   subSectionTitle: { fontSize: 15, fontWeight: '600', color: '#6c757d', marginBottom: 8, marginTop: 16 },
   label: { fontSize: 14, color: '#6c757d', marginBottom: 6, marginTop: 12 },
-  input: { backgroundColor: '#F5F6FA', borderRadius: 10, padding: 14, fontSize: 16, color: '#1B4332', borderWidth: 1, borderColor: '#E8E9ED' },
+  input: { backgroundColor: '#F5F6FA', borderRadius: 10, padding: 14, fontSize: 16, color: '#0F172A', borderWidth: 1, borderColor: '#E8E9ED' },
   textArea: { minHeight: 80, textAlignVertical: 'top' },
   row: { flexDirection: 'row' },
   rowCompact: { flexDirection: 'column' },
   halfField: { flex: 1, marginRight: 12 },
   typeToggle: { flexDirection: 'row', gap: 12, marginTop: 8 },
   typeBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 14, borderRadius: 10, borderWidth: 1, borderColor: '#E8E9ED', backgroundColor: '#F5F6FA' },
-  typeBtnActive: { backgroundColor: '#D4A017', borderColor: '#D4A017' },
+  typeBtnActive: { backgroundColor: '#22C55E', borderColor: '#22C55E' },
   typeBtnText: { fontSize: 14, color: '#6c757d', fontWeight: '500' },
   typeBtnTextActive: { color: '#fff' },
   toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#F5F6FA', padding: 16, borderRadius: 10, marginTop: 12 },
   toggleInfo: {},
-  toggleLabel: { fontSize: 15, color: '#1B4332', fontWeight: '500' },
+  toggleLabel: { fontSize: 15, color: '#0F172A', fontWeight: '500' },
   toggleHint: { fontSize: 12, color: '#6c757d' },
   
   // Pricing
   prijsmodelGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 8 },
   prijsmodelOption: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: '#E8E9ED', backgroundColor: '#F5F6FA' },
-  prijsmodelOptionActive: { backgroundColor: '#D4A017', borderColor: '#D4A017' },
+  prijsmodelOptionActive: { backgroundColor: '#22C55E', borderColor: '#22C55E' },
   prijsmodelOptionText: { fontSize: 14, color: '#6c757d' },
   prijsmodelOptionTextActive: { color: '#fff', fontWeight: '600' },
   betaaltermijnRow: { flexDirection: 'row', gap: 10, marginTop: 8 },
@@ -1260,18 +1260,18 @@ const styles = StyleSheet.create({
   facturatieAdresSection: { marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#E8E9ED' },
   
   // Extra
-  infoBox: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#D4A01710', padding: 14, borderRadius: 10, marginBottom: 12 },
+  infoBox: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#22C55E10', padding: 14, borderRadius: 10, marginBottom: 12 },
   infoBoxLabel: { fontSize: 14, color: '#6c757d' },
-  infoBoxValue: { fontSize: 16, color: '#D4A017', fontWeight: '600' },
+  infoBoxValue: { fontSize: 16, color: '#22C55E', fontWeight: '600' },
   
   // Contacts
-  addContactBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#D4A017', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
+  addContactBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#22C55E', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
   addContactBtnText: { color: '#fff', fontWeight: '600', fontSize: 13 },
   emptyContacts: { alignItems: 'center', padding: 30, backgroundColor: '#F5F6FA', borderRadius: 10 },
   emptyContactsText: { color: '#6c757d', marginTop: 8 },
   contactCard: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#F5F6FA', padding: 14, borderRadius: 10, marginBottom: 10 },
   contactInfo: { flex: 1 },
-  contactName: { fontSize: 16, fontWeight: '600', color: '#1B4332' },
+  contactName: { fontSize: 16, fontWeight: '600', color: '#0F172A' },
   contactFunctieBadge: { backgroundColor: '#3498db20', alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginTop: 4 },
   contactFunctieText: { fontSize: 12, color: '#3498db', fontWeight: '500' },
   contactDetails: { marginTop: 8, gap: 4 },

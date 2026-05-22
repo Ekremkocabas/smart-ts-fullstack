@@ -76,7 +76,7 @@ export default function WerkbonTypeSelect() {
   const [showDraftModal, setShowDraftModal] = useState(false);
   const [selectedType, setSelectedType] = useState<WerkbonType | null>(null);
 
-  const primary = theme?.primaryColor || '#D4A017';
+  const primary = theme?.primaryColor || '#22C55E';
 
   // User's allowed werkbon types (per-user permission)
   const userWerkbonTypes = user?.werkbon_types || ['uren'];
@@ -148,7 +148,7 @@ export default function WerkbonTypeSelect() {
           style={styles.backButton} 
           onPress={() => router.back()}
         >
-          <Ionicons name="arrow-back" size={24} color="#1B4332" />
+          <Ionicons name="arrow-back" size={24} color="#0F172A" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Werkbon Aanmaken</Text>
         <View style={{ width: 44 }} />
@@ -185,8 +185,8 @@ export default function WerkbonTypeSelect() {
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     <Text style={styles.cardTitle}>{option.title}</Text>
                     {locked && (
-                      <View style={{ backgroundColor: '#D4A017', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
-                        <Text style={{ color: '#1B4332', fontSize: 10, fontWeight: '700' }}>PRO</Text>
+                      <View style={{ backgroundColor: '#22C55E', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+                        <Text style={{ color: '#0F172A', fontSize: 10, fontWeight: '700' }}>PRO</Text>
                       </View>
                     )}
                   </View>
@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1B4332',
+    color: '#0F172A',
   },
   content: {
     flex: 1,
@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#1B4332',
+    color: '#0F172A',
     marginBottom: 8,
   },
   subtitle: {
@@ -334,7 +334,7 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#1B4332',
+    color: '#0F172A',
     marginBottom: 4,
   },
   cardDescription: {
@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
   noPermissionsText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1B4332',
+    color: '#0F172A',
     marginTop: 16,
     textAlign: 'center',
   },
@@ -387,7 +387,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1B4332',
+    color: '#0F172A',
     marginBottom: 8,
   },
   modalMessage: {
@@ -421,6 +421,6 @@ const styles = StyleSheet.create({
   modalButtonPrimaryText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#1B4332',
+    color: '#0F172A',
   },
 });

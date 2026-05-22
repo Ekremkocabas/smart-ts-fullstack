@@ -8,15 +8,16 @@
 <link rel="icon" type="image/png" href="/favicon.png?v=2">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 :root{
-  --green:#1B4332;--green-light:#2D6A4F;--green-dark:#143328;
-  --gold:#D4A017;--gold-light:#E8BC3A;
-  --white:#FFFFFF;--gray-50:#F8F9FA;--gray-100:#F1F3F5;--gray-200:#E9ECEF;
-  --gray-300:#DEE2E6;--gray-400:#ADB5BD;--gray-500:#6C757D;--gray-600:#495057;
-  --gray-700:#343A40;--gray-800:#212529;
+  --green:#0F172A;--green-light:#1E293B;--green-dark:#020617;
+  --gold:#22C55E;--gold-light:#4ADE80;
+  --navy:#0F172A;--navy-light:#1E293B;
+  --white:#FFFFFF;--gray-50:#F8FAFC;--gray-100:#F1F5F9;--gray-200:#E2E8F0;
+  --gray-300:#CBD5E1;--gray-400:#94A3B8;--gray-500:#64748B;--gray-600:#475569;
+  --gray-700:#334155;--gray-800:#1E293B;
   --radius:12px;--radius-lg:20px;
   --shadow-sm:0 1px 3px rgba(0,0,0,.08);
   --shadow-md:0 4px 16px rgba(0,0,0,.1);
@@ -25,7 +26,7 @@
   --transition:all .3s cubic-bezier(.4,0,.2,1);
 }
 html{scroll-behavior:smooth;font-size:16px}
-body{font-family:'Inter',system-ui,-apple-system,sans-serif;color:var(--gray-800);background:var(--white);line-height:1.6;overflow-x:hidden}
+body{font-family:'Poppins',system-ui,-apple-system,sans-serif;color:var(--gray-800);background:var(--white);line-height:1.6;overflow-x:hidden}
 img{max-width:100%;display:block}
 a{text-decoration:none;color:inherit}
 .container{max-width:1200px;margin:0 auto;padding:0 24px}
@@ -56,7 +57,7 @@ a{text-decoration:none;color:inherit}
 .lang-btn:hover{color:var(--gray-800)}
 .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 22px;border-radius:8px;font-weight:600;font-size:.9rem;border:none;cursor:pointer;transition:var(--transition);font-family:inherit}
 .btn-primary{background:var(--green);color:var(--white)}
-.btn-primary:hover{background:var(--green-light);transform:translateY(-1px);box-shadow:0 4px 16px rgba(27,67,50,.3)}
+.btn-primary:hover{background:var(--green-light);transform:translateY(-1px);box-shadow:0 4px 16px rgba(15,23,42,.3)}
 .btn-outline{background:transparent;border:2px solid var(--gray-300);color:var(--gray-700)}
 .btn-outline:hover{border-color:var(--green);color:var(--green)}
 .btn-white{background:var(--white);color:var(--green)}
@@ -72,8 +73,8 @@ a{text-decoration:none;color:inherit}
 
 /* ─── HERO ─── */
 .hero{min-height:100vh;display:flex;align-items:center;padding:120px 0 80px;position:relative;overflow:hidden}
-.hero::before{content:'';position:absolute;top:-200px;right:-200px;width:600px;height:600px;border-radius:50%;background:radial-gradient(circle,rgba(212,160,23,.08) 0%,transparent 70%);pointer-events:none}
-.hero::after{content:'';position:absolute;bottom:-100px;left:-100px;width:400px;height:400px;border-radius:50%;background:radial-gradient(circle,rgba(27,67,50,.06) 0%,transparent 70%);pointer-events:none}
+.hero::before{content:'';position:absolute;top:-200px;right:-200px;width:600px;height:600px;border-radius:50%;background:radial-gradient(circle,rgba(34,197,94,.08) 0%,transparent 70%);pointer-events:none}
+.hero::after{content:'';position:absolute;bottom:-100px;left:-100px;width:400px;height:400px;border-radius:50%;background:radial-gradient(circle,rgba(15,23,42,.06) 0%,transparent 70%);pointer-events:none}
 .hero .container{display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:center}
 .hero-content{position:relative;z-index:1}
 .hero h1{font-size:clamp(2.5rem,5vw,4.2rem);font-weight:900;line-height:1.1;letter-spacing:-.03em;margin-bottom:24px}
@@ -91,8 +92,8 @@ a{text-decoration:none;color:inherit}
 .hero-float-1{bottom:-20px;left:-20px}
 .hero-float-2{top:20px;right:-20px;animation-delay:-3s}
 .hero-float .icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.2rem}
-.hero-float .icon.green{background:rgba(27,67,50,.1);color:var(--green)}
-.hero-float .icon.gold{background:rgba(212,160,23,.1);color:var(--gold)}
+.hero-float .icon.green{background:rgba(15,23,42,.1);color:var(--green)}
+.hero-float .icon.gold{background:rgba(34,197,94,.1);color:var(--gold)}
 .hero-float .label{font-size:.75rem;color:var(--gray-500)}
 .hero-float .value{font-size:1rem;font-weight:700;color:var(--gray-800)}
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
@@ -104,7 +105,7 @@ a{text-decoration:none;color:inherit}
 /* ─── SECTIONS ─── */
 .section{padding:100px 0}
 .section-header{text-align:center;max-width:600px;margin:0 auto 60px}
-.section-label{display:inline-block;font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--gold);background:rgba(212,160,23,.1);padding:6px 16px;border-radius:20px;margin-bottom:16px}
+.section-label{display:inline-block;font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--gold);background:rgba(34,197,94,.1);padding:6px 16px;border-radius:20px;margin-bottom:16px}
 .section-title{font-size:clamp(1.8rem,3.5vw,2.8rem);font-weight:800;color:var(--gray-800);line-height:1.2;letter-spacing:-.02em;margin-bottom:16px}
 .section-desc{font-size:1.05rem;color:var(--gray-500);line-height:1.7}
 
@@ -113,7 +114,7 @@ a{text-decoration:none;color:inherit}
 .voor-wie-card{background:var(--white);border:1px solid var(--gray-200);border-radius:var(--radius-lg);padding:36px;transition:var(--transition);position:relative;overflow:hidden}
 .voor-wie-card:hover{border-color:var(--green);box-shadow:var(--shadow-md);transform:translateY(-4px)}
 .voor-wie-card.coming-soon{opacity:.85}
-.voor-wie-card .badge{position:absolute;top:16px;right:16px;background:rgba(212,160,23,.1);color:var(--gold);font-size:.7rem;font-weight:700;padding:4px 12px;border-radius:20px;text-transform:uppercase;letter-spacing:.05em}
+.voor-wie-card .badge{position:absolute;top:16px;right:16px;background:rgba(34,197,94,.1);color:var(--gold);font-size:.7rem;font-weight:700;padding:4px 12px;border-radius:20px;text-transform:uppercase;letter-spacing:.05em}
 .voor-wie-card .emoji{font-size:2.2rem;margin-bottom:16px}
 .voor-wie-card h3{font-size:1.15rem;font-weight:700;color:var(--gray-800);margin-bottom:10px}
 .voor-wie-card p{font-size:.92rem;color:var(--gray-500);line-height:1.65}
@@ -157,7 +158,7 @@ a{text-decoration:none;color:inherit}
 
 /* ─── CTA ─── */
 .cta-section{background:var(--green);padding:100px 0;position:relative;overflow:hidden}
-.cta-section::before{content:'';position:absolute;top:-100px;right:-100px;width:400px;height:400px;border-radius:50%;background:rgba(212,160,23,.1)}
+.cta-section::before{content:'';position:absolute;top:-100px;right:-100px;width:400px;height:400px;border-radius:50%;background:rgba(34,197,94,.1)}
 .cta-section::after{content:'';position:absolute;bottom:-80px;left:-80px;width:300px;height:300px;border-radius:50%;background:rgba(255,255,255,.03)}
 .cta-content{text-align:center;position:relative;z-index:1}
 .cta-content h2{font-size:clamp(2rem,4vw,3rem);font-weight:900;color:var(--white);margin-bottom:16px;letter-spacing:-.02em}
@@ -209,7 +210,7 @@ a{text-decoration:none;color:inherit}
 <!-- NAVBAR -->
 <nav class="navbar" id="navbar">
   <div class="navbar-inner">
-    <a href="#" class="navbar-logo"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="36" height="36"><rect x="15" y="15" width="70" height="70" rx="12" ry="12" fill="#D4A017" transform="rotate(45 50 50)"/><rect x="23" y="23" width="54" height="54" rx="9" ry="9" fill="#1B4332" transform="rotate(45 50 50)"/><rect x="36" y="36" width="28" height="28" rx="5" ry="5" fill="#D4A017" transform="rotate(45 50 50)"/></svg> Signybon</a>
+    <a href="#" class="navbar-logo"><img src="/favicon.png?v=3" alt="" width="36" height="36" style="border-radius:6px"> Signybon</a>
     <div class="navbar-links">
       <a href="#functies" data-i18n="nav_functies">Functies</a>
       <a href="#hoe-het-werkt" data-i18n="nav_hoe">Hoe het werkt</a>
@@ -445,7 +446,7 @@ a{text-decoration:none;color:inherit}
   <div class="container">
     <div class="footer-inner">
       <div class="footer-brand">
-        <div class="footer-logo"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="28" height="28"><rect x="15" y="15" width="70" height="70" rx="12" ry="12" fill="#D4A017" transform="rotate(45 50 50)"/><rect x="23" y="23" width="54" height="54" rx="9" ry="9" fill="#1B4332" transform="rotate(45 50 50)"/><rect x="36" y="36" width="28" height="28" rx="5" ry="5" fill="#D4A017" transform="rotate(45 50 50)"/></svg> Signybon</div>
+        <div class="footer-logo"><img src="/favicon.png?v=3" alt="" width="28" height="28" style="border-radius:5px"> Signybon</div>
         <div class="footer-desc" data-i18n="footer_desc">Digitale werkbonnen voor de bouwsector.</div>
       </div>
       <div class="footer-right">

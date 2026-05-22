@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth, apiClient, PlanInfo } from '../context/AuthContext';
@@ -86,7 +86,7 @@ export default function AbonnementSection({ highlight }: Props) {
   };
 
   return (
-    <View style={[styles.container, highlight && { borderColor: '#D4A017', borderWidth: 2 }]}>
+    <View style={[styles.container, highlight && { borderColor: '#22C55E', borderWidth: 2 }]}>
       <View style={styles.header}>
         <Text style={styles.title}>Abonnement</Text>
         {info?.subscription?.status === 'trial' && (
@@ -137,7 +137,7 @@ export default function AbonnementSection({ highlight }: Props) {
         <View style={styles.tableHeader}>
           <Text style={[styles.cellText, styles.tableHeaderCell, { flex: 1.4 }]}>Functie</Text>
           <Text style={[styles.cellText, styles.tableHeaderCell, { flex: 1, textAlign: 'center' }]}>Basic</Text>
-          <Text style={[styles.cellText, styles.tableHeaderCell, { flex: 1, textAlign: 'center', color: '#D4A017' }]}>Pro</Text>
+          <Text style={[styles.cellText, styles.tableHeaderCell, { flex: 1, textAlign: 'center', color: '#22C55E' }]}>Pro</Text>
         </View>
         {PLAN_FEATURES_TABLE.map((row) => (
           <View key={row.label} style={styles.tableRow}>
@@ -181,35 +181,35 @@ function PlanCard({ name, price, features, onSelect, current, highlight, disable
 const styles = StyleSheet.create({
   container: { backgroundColor: '#fff', borderRadius: 12, padding: 20, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
-  title: { fontSize: 18, fontWeight: '700', color: '#1B4332' },
-  trialBadge: { backgroundColor: '#1B4332', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
+  title: { fontSize: 18, fontWeight: '700', color: '#0F172A' },
+  trialBadge: { backgroundColor: '#0F172A', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
   trialBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
   usageCard: { backgroundColor: '#f8fafc', borderRadius: 10, padding: 14, marginBottom: 16 },
-  cardTitle: { fontSize: 14, fontWeight: '700', color: '#1B4332', marginBottom: 10 },
+  cardTitle: { fontSize: 14, fontWeight: '700', color: '#0F172A', marginBottom: 10 },
   usageRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 },
   usageLabel: { color: '#475569', fontSize: 14 },
-  usageValue: { color: '#1B4332', fontSize: 14, fontWeight: '600' },
+  usageValue: { color: '#0F172A', fontSize: 14, fontWeight: '600' },
   usageInfinite: { color: '#16a34a', fontSize: 14, fontWeight: '700' },
   cards: { flexDirection: 'row', gap: 12, marginBottom: 16, flexWrap: 'wrap' },
   planCard: { flex: 1, minWidth: 240, backgroundColor: '#fff', borderRadius: 12, padding: 18, borderWidth: 1, borderColor: '#e2e8f0' },
-  planCardHighlight: { borderColor: '#D4A017', borderWidth: 2 },
+  planCardHighlight: { borderColor: '#22C55E', borderWidth: 2 },
   planCardCurrent: { backgroundColor: '#f0fdf4', borderColor: '#16a34a' },
-  planBadge: { position: 'absolute', top: -8, right: 12, backgroundColor: '#D4A017', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 999 },
-  planBadgeText: { color: '#1B4332', fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
-  planName: { fontSize: 16, fontWeight: '700', color: '#1B4332', marginBottom: 4 },
-  planPrice: { fontSize: 28, fontWeight: '800', color: '#1B4332' },
+  planBadge: { position: 'absolute', top: -8, right: 12, backgroundColor: '#22C55E', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 999 },
+  planBadgeText: { color: '#0F172A', fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
+  planName: { fontSize: 16, fontWeight: '700', color: '#0F172A', marginBottom: 4 },
+  planPrice: { fontSize: 28, fontWeight: '800', color: '#0F172A' },
   planPriceSuffix: { fontSize: 14, fontWeight: '500', color: '#64748b' },
   planFeatures: { gap: 8, marginVertical: 14 },
   planFeatureRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   planFeatureText: { color: '#334155', fontSize: 13, flex: 1 },
-  selectBtn: { backgroundColor: '#1B4332', borderRadius: 8, paddingVertical: 12, alignItems: 'center' },
-  selectBtnHighlight: { backgroundColor: '#D4A017' },
+  selectBtn: { backgroundColor: '#0F172A', borderRadius: 8, paddingVertical: 12, alignItems: 'center' },
+  selectBtnHighlight: { backgroundColor: '#22C55E' },
   selectBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
   currentBtn: { backgroundColor: '#dcfce7', borderRadius: 8, paddingVertical: 12, alignItems: 'center' },
   currentBtnText: { color: '#16a34a', fontWeight: '700', fontSize: 14 },
   tableCard: { backgroundColor: '#f8fafc', borderRadius: 10, padding: 14 },
   tableHeader: { flexDirection: 'row', paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: '#e2e8f0', marginBottom: 4 },
-  tableHeaderCell: { fontWeight: '700', color: '#1B4332' },
+  tableHeaderCell: { fontWeight: '700', color: '#0F172A' },
   tableRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6 },
   cellText: { color: '#475569', fontSize: 13 },
 });

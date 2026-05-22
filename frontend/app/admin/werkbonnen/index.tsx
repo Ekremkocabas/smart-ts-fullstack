@@ -11,7 +11,7 @@ const hubCards = [
     title: 'Deze week',
     subtitle: 'Werkbonnen van de huidige ISO-week',
     icon: 'calendar' as const,
-    color: '#D4A017',
+    color: '#22C55E',
     route: '/admin/werkbonnen/week' as const,
   },
   {
@@ -35,7 +35,7 @@ const hubCards = [
     title: 'Volledig overzicht',
     subtitle: 'Uren, prestatie, oplevering & project — filters & export',
     icon: 'layers-outline' as const,
-    color: '#1B4332',
+    color: '#0F172A',
     route: '/admin/werkbonnen/volledig' as const,
   },
 ];
@@ -55,14 +55,14 @@ export default function WerkbonnenHub() {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <Text style={[styles.title, { color: theme.secondaryColor || '#1B4332' }]}>Werkbonnen</Text>
+      <Text style={[styles.title, { color: theme.secondaryColor || '#0F172A' }]}>Werkbonnen</Text>
       <Text style={styles.subtitle}>
         Kies een periode of open het volledige overzicht met alle types werkbonnen.
       </Text>
 
       <View style={styles.grid}>
         {hubCards.map((card) => {
-          const resolvedColor = card.color === '#D4A017' ? (theme.primaryColor || '#D4A017') : card.color === '#1B4332' ? (theme.secondaryColor || '#1B4332') : card.color;
+          const resolvedColor = card.color === '#22C55E' ? (theme.primaryColor || '#22C55E') : card.color === '#0F172A' ? (theme.secondaryColor || '#0F172A') : card.color;
           return (
           <TouchableOpacity
             key={card.key}
@@ -73,7 +73,7 @@ export default function WerkbonnenHub() {
             <View style={[styles.cardIcon, { backgroundColor: `${resolvedColor}18` }]}>
               <Ionicons name={card.icon} size={28} color={resolvedColor} />
             </View>
-            <Text style={[styles.cardTitle, { color: theme.secondaryColor || '#1B4332' }]}>{card.title}</Text>
+            <Text style={[styles.cardTitle, { color: theme.secondaryColor || '#0F172A' }]}>{card.title}</Text>
             <Text style={styles.cardSub}>{card.subtitle}</Text>
             <View style={styles.cardFooter}>
               <Text style={[styles.cardLink, { color: resolvedColor }]}>Openen</Text>
@@ -89,7 +89,7 @@ export default function WerkbonnenHub() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F6FA', padding: 24 },
-  title: { fontSize: 28, fontWeight: '700', color: '#1B4332', marginBottom: 8 },
+  title: { fontSize: 28, fontWeight: '700', color: '#0F172A', marginBottom: 8 },
   subtitle: { fontSize: 15, color: '#6c757d', marginBottom: 28, lineHeight: 22 },
   grid: { gap: 16 },
   card: {
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 12,
   },
-  cardTitle: { fontSize: 18, fontWeight: '700', color: '#1B4332' },
+  cardTitle: { fontSize: 18, fontWeight: '700', color: '#0F172A' },
   cardSub: { fontSize: 14, color: '#6c757d', marginTop: 6, lineHeight: 20 },
   cardFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4, marginTop: 16 },
   cardLink: { fontSize: 14, fontWeight: '600' },

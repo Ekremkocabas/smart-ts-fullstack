@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -13,8 +13,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { apiClient } from '../../context/AuthContext';
 
-const SIGNYBON_GREEN = '#1B4332';
-const SIGNYBON_GOLD = '#D4A017';
+const SIGNYBON_GREEN = '#0F172A';
+const SIGNYBON_GOLD = '#22C55E';
 
 interface Announcement {
   id: string;
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 14,
-    color: '#1B4332',
+    color: '#0F172A',
     outlineWidth: 0 as any,
   },
   textarea: {
@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 14,
     fontSize: 14,
-    color: '#1B4332',
+    color: '#0F172A',
     minHeight: 140,
     textAlignVertical: 'top',
     outlineWidth: 0 as any,

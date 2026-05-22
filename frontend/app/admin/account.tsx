@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -94,10 +94,10 @@ export default function AccountScreen() {
     <View style={styles.container}>
       <View style={[styles.header, isCompact && styles.headerCompact]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color={theme.secondaryColor || '#1B4332'} />
+          <Ionicons name="arrow-back" size={24} color={theme.secondaryColor || '#0F172A'} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={[styles.title, isCompact && styles.titleCompact, { color: theme.secondaryColor || '#1B4332' }]}>Account</Text>
+          <Text style={[styles.title, isCompact && styles.titleCompact, { color: theme.secondaryColor || '#0F172A' }]}>Account</Text>
           {!isCompact && <Text style={styles.subtitle}>Beheer uw accountinstellingen</Text>}
         </View>
       </View>
@@ -106,18 +106,18 @@ export default function AccountScreen() {
         {/* User Info Card */}
         <View style={[styles.card, isCompact && styles.cardCompact]}>
           <View style={styles.cardHeader}>
-            <Ionicons name="person-circle-outline" size={24} color={theme.primaryColor || '#D4A017'} />
+            <Ionicons name="person-circle-outline" size={24} color={theme.primaryColor || '#22C55E'} />
             <Text style={styles.cardTitle}>Profiel</Text>
           </View>
           <View style={styles.profileInfo}>
-            <View style={[styles.profileAvatar, { backgroundColor: theme.primaryColor || '#D4A017' }]}>
+            <View style={[styles.profileAvatar, { backgroundColor: theme.primaryColor || '#22C55E' }]}>
               <Text style={styles.profileAvatarText}>{user?.naam?.charAt(0) || 'A'}</Text>
             </View>
             <View style={styles.profileDetails}>
               <Text style={styles.profileName}>{user?.naam || 'Gebruiker'}</Text>
               <Text style={styles.profileEmail}>{user?.email || '-'}</Text>
-              <View style={[styles.roleBadge, { backgroundColor: `${theme.primaryColor || '#D4A017'}20` }]}>
-                <Text style={[styles.roleText, { color: theme.primaryColor || '#D4A017' }]}>{user?.rol || 'Admin'}</Text>
+              <View style={[styles.roleBadge, { backgroundColor: `${theme.primaryColor || '#22C55E'}20` }]}>
+                <Text style={[styles.roleText, { color: theme.primaryColor || '#22C55E' }]}>{user?.rol || 'Admin'}</Text>
               </View>
             </View>
           </View>
@@ -126,7 +126,7 @@ export default function AccountScreen() {
         {/* Password Change Card */}
         <View style={[styles.card, isCompact && styles.cardCompact]}>
           <View style={styles.cardHeader}>
-            <Ionicons name="key-outline" size={24} color={theme.primaryColor || '#D4A017'} />
+            <Ionicons name="key-outline" size={24} color={theme.primaryColor || '#22C55E'} />
             <Text style={styles.cardTitle}>Wachtwoord Wijzigen</Text>
           </View>
 
@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
   headerCompact: { padding: 12 },
   backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   headerCenter: { flex: 1, marginLeft: 8 },
-  title: { fontSize: 24, fontWeight: 'bold', color: '#1B4332' },
+  title: { fontSize: 24, fontWeight: 'bold', color: '#0F172A' },
   titleCompact: { fontSize: 18 },
   subtitle: { fontSize: 13, color: '#6c757d' },
   content: { flex: 1 },
@@ -256,19 +256,19 @@ const styles = StyleSheet.create({
   card: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: '#E8E9ED' },
   cardCompact: { padding: 16 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
-  cardTitle: { fontSize: 18, fontWeight: '600', color: '#1B4332' },
+  cardTitle: { fontSize: 18, fontWeight: '600', color: '#0F172A' },
   profileInfo: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-  profileAvatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#D4A017', alignItems: 'center', justifyContent: 'center' },
+  profileAvatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#22C55E', alignItems: 'center', justifyContent: 'center' },
   profileAvatarText: { color: '#fff', fontSize: 24, fontWeight: '600' },
   profileDetails: { flex: 1 },
-  profileName: { fontSize: 18, fontWeight: '600', color: '#1B4332' },
+  profileName: { fontSize: 18, fontWeight: '600', color: '#0F172A' },
   profileEmail: { fontSize: 14, color: '#6c757d', marginTop: 2 },
-  roleBadge: { backgroundColor: '#D4A01720', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, alignSelf: 'flex-start', marginTop: 8 },
-  roleText: { fontSize: 12, color: '#D4A017', fontWeight: '600' },
+  roleBadge: { backgroundColor: '#22C55E20', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, alignSelf: 'flex-start', marginTop: 8 },
+  roleText: { fontSize: 12, color: '#22C55E', fontWeight: '600' },
   formGroup: { marginBottom: 16 },
   label: { fontSize: 14, color: '#6c757d', marginBottom: 6, fontWeight: '500' },
   passwordInput: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F5F6FA', borderRadius: 10, borderWidth: 1, borderColor: '#E8E9ED' },
-  input: { flex: 1, padding: 14, fontSize: 16, color: '#1B4332' },
+  input: { flex: 1, padding: 14, fontSize: 16, color: '#0F172A' },
   eyeBtn: { padding: 14 },
   errorBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#dc354515', padding: 12, borderRadius: 8, marginBottom: 16 },
   errorText: { color: '#dc3545', fontSize: 14, flex: 1 },
@@ -280,5 +280,5 @@ const styles = StyleSheet.create({
   tipsCard: { backgroundColor: '#f8fff8' },
   tipsList: { gap: 10 },
   tipItem: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  tipText: { fontSize: 14, color: '#1B4332' },
+  tipText: { fontSize: 14, color: '#0F172A' },
 });

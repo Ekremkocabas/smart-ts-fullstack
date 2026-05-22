@@ -614,9 +614,9 @@ def get_pdf_colors(instellingen: dict) -> dict:
     Smart-Tech color (orange / dark navy) as a fallback — that would leak the
     look of one tenant onto every other tenant who hasn't picked colors yet.
     """
-    primary   = instellingen.get("werkbon_primary_color")   or "#1B4332"
-    secondary = instellingen.get("werkbon_secondary_color") or "#D4A017"
-    accent    = instellingen.get("werkbon_accent_color")    or "#1B4332"
+    primary   = instellingen.get("werkbon_primary_color")   or "#0F172A"
+    secondary = instellingen.get("werkbon_secondary_color") or "#22C55E"
+    accent    = instellingen.get("werkbon_accent_color")    or "#0F172A"
     return {"primary": primary, "secondary": secondary, "accent": accent}
 
 def get_company_address_2lines(settings: dict) -> tuple[str, str]:
@@ -691,8 +691,8 @@ def get_company_color(settings: dict, color_type: str = "primary") -> str:
             return color
     # Fallback chain: legacy flat field → Signybon brand color
     if color_type == "primary":
-        return settings.get("primary_color") or "#1B4332"
-    return settings.get("accent_color") or settings.get("secondary_color") or "#D4A017"
+        return settings.get("primary_color") or "#0F172A"
+    return settings.get("accent_color") or settings.get("secondary_color") or "#22C55E"
 
 def get_pdf_text(settings: dict, text_type: str) -> str:
     """Get PDF text - prefer new structured fields, fallback to legacy"""
@@ -1317,14 +1317,14 @@ class BedrijfsInstellingen(BaseModel):
     # Theme settings for remote control. Defaults are the Signybon brand
     # palette so a brand-new tenant never inherits Smart-Tech (or any other
     # tenant's) colors before they pick their own.
-    primary_color: str = "#1B4332"
-    secondary_color: str = "#D4A017"
-    accent_color: str = "#1B4332"
+    primary_color: str = "#0F172A"
+    secondary_color: str = "#22C55E"
+    accent_color: str = "#0F172A"
 
     # Werkbon PDF colors — separate from web branding, same Signybon defaults.
-    werkbon_primary_color: str = "#1B4332"
-    werkbon_secondary_color: str = "#D4A017"
-    werkbon_accent_color: str = "#1B4332"
+    werkbon_primary_color: str = "#0F172A"
+    werkbon_secondary_color: str = "#22C55E"
+    werkbon_accent_color: str = "#0F172A"
 
     ondernemingsnummer: Optional[str] = None  # Belgian enterprise number
 
@@ -2884,7 +2884,7 @@ def make_safe_reportlab_image(image_bytes: Optional[bytes], width: float, height
 _DAGEN_KM = ["maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag"]
 _DAGEN_KM_KORT = ["Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo"]
 
-def build_km_pdf_block(werkbon: dict, styles: Any, secondary_color: str = "#1B4332", accent_color: str = "#D4A017") -> list:
+def build_km_pdf_block(werkbon: dict, styles: Any, secondary_color: str = "#0F172A", accent_color: str = "#22C55E") -> list:
     """Return a list of story elements for the KM section, or empty list if no KM."""
     km = werkbon.get("km_afstand") or {}
     km_total = sum(safe_float(km.get(d, 0)) for d in _DAGEN_KM)
@@ -4951,19 +4951,19 @@ async def register_company(request: Request, data: CompanyRegister):
             <!DOCTYPE html><html><head><meta charset="utf-8"><style>
             body{{font-family:'Helvetica Neue',Arial,sans-serif;line-height:1.6;color:#333;max-width:620px;margin:0 auto;background:#f5f6fa}}
             .wrap{{background:#fff;border-radius:14px;overflow:hidden;margin:20px;box-shadow:0 4px 20px rgba(0,0,0,.08)}}
-            .header{{background:#1B4332;color:#fff;padding:36px 30px;text-align:center}}
-            .header h1{{color:#D4A017;margin:0;font-size:34px;font-weight:900;letter-spacing:1px}}
+            .header{{background:#0F172A;color:#fff;padding:36px 30px;text-align:center}}
+            .header h1{{color:#22C55E;margin:0;font-size:34px;font-weight:900;letter-spacing:1px}}
             .header p{{color:rgba(255,255,255,.85);margin:6px 0 0;font-size:14px}}
-            .content{{padding:32px 36px;color:#1B4332}}
-            .content h2{{font-size:22px;color:#1B4332;margin:0 0 12px}}
+            .content{{padding:32px 36px;color:#0F172A}}
+            .content h2{{font-size:22px;color:#0F172A;margin:0 0 12px}}
             .content .lead{{font-size:15px;color:#495057;margin-bottom:24px}}
             .btn-wrap{{text-align:center;margin:28px 0}}
-            .btn{{display:inline-block;background:#1B4332;color:#fff !important;padding:16px 40px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px}}
-            .steps{{background:#f8f9fa;border-radius:12px;padding:22px 26px;margin-top:24px;border-left:4px solid #D4A017}}
-            .steps h3{{color:#1B4332;font-size:16px;margin:0 0 14px}}
+            .btn{{display:inline-block;background:#22C55E;color:#fff !important;padding:16px 40px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px}}
+            .steps{{background:#f8f9fa;border-radius:12px;padding:22px 26px;margin-top:24px;border-left:4px solid #22C55E}}
+            .steps h3{{color:#0F172A;font-size:16px;margin:0 0 14px}}
             .step{{margin:10px 0;font-size:14px;color:#495057;display:flex;align-items:flex-start;gap:10px}}
-            .step-num{{display:inline-flex;align-items:center;justify-content:center;background:#D4A017;color:#1B4332;width:24px;height:24px;border-radius:50%;font-weight:800;font-size:12px;flex-shrink:0}}
-            .footer{{background:#1B4332;padding:22px;text-align:center;font-size:12px;color:rgba(255,255,255,.7)}}
+            .step-num{{display:inline-flex;align-items:center;justify-content:center;background:#22C55E;color:#fff;width:24px;height:24px;border-radius:50%;font-weight:800;font-size:12px;flex-shrink:0}}
+            .footer{{background:#0F172A;padding:22px;text-align:center;font-size:12px;color:rgba(255,255,255,.7)}}
             </style></head><body>
             <div class="wrap">
               <div class="header">
@@ -9824,9 +9824,9 @@ async def _build_app_settings_response(settings: dict) -> dict:
     yet never inherits another tenant's look."""
     return {
         "bedrijfsnaam": settings.get("bedrijfsnaam", "Signybon"),
-        "primary_color": settings.get("primary_color", "#1B4332"),
-        "secondary_color": settings.get("secondary_color", "#D4A017"),
-        "accent_color": settings.get("accent_color", "#1B4332"),
+        "primary_color": settings.get("primary_color", "#0F172A"),
+        "secondary_color": settings.get("secondary_color", "#22C55E"),
+        "accent_color": settings.get("accent_color", "#0F172A"),
         "pdf_voettekst": settings.get("pdf_voettekst"),
         "uren_confirmation_text": settings.get("uren_confirmation_text"),
         "oplevering_confirmation_text": settings.get("oplevering_confirmation_text"),
@@ -9835,9 +9835,9 @@ async def _build_app_settings_response(settings: dict) -> dict:
 
 SIGNYBON_DEFAULT_SETTINGS = {
     "bedrijfsnaam": "Signybon",
-    "primary_color": "#1B4332",
-    "secondary_color": "#D4A017",
-    "accent_color": "#1B4332",
+    "primary_color": "#0F172A",
+    "secondary_color": "#22C55E",
+    "accent_color": "#0F172A",
     "pdf_voettekst": None,
     "uren_confirmation_text": None,
     "oplevering_confirmation_text": None,
@@ -10160,7 +10160,7 @@ async def help_ticket(request: Request, data: HelpTicketRequest):
         <p><b>E-mail:</b> {data.email}</p>
         <p><b>Bedrijfsnaam:</b> {data.bedrijfsnaam or '-'}</p>
         <p><b>Vraag:</b></p>
-        <div style="background:#f8f9fa;padding:14px;border-radius:8px;border-left:4px solid #1B4332;white-space:pre-wrap">{data.vraag}</div>
+        <div style="background:#f8f9fa;padding:14px;border-radius:8px;border-left:4px solid #0F172A;white-space:pre-wrap">{data.vraag}</div>
         """
         params = {
             "from": f"Signybon Support <{os.environ.get('SENDER_EMAIL', 'noreply@signybon.com')}>",
@@ -10893,17 +10893,17 @@ async def master_ticket_reply(
             html = f"""
             <div style="font-family:'Helvetica Neue',Arial,sans-serif;max-width:620px;margin:0 auto;background:#f5f6fa;padding:20px">
               <div style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.08)">
-                <div style="background:#1B4332;color:#fff;padding:30px;text-align:center">
-                  <h1 style="color:#D4A017;margin:0;font-size:28px;font-weight:900;letter-spacing:1px">SIGNYBON</h1>
+                <div style="background:#0F172A;color:#fff;padding:30px;text-align:center">
+                  <h1 style="color:#22C55E;margin:0;font-size:28px;font-weight:900;letter-spacing:1px">SIGNYBON</h1>
                   <p style="margin:6px 0 0;color:rgba(255,255,255,.85);font-size:13px">Support</p>
                 </div>
                 <div style="padding:30px">
-                  <h2 style="color:#1B4332;margin:0 0 14px;font-size:20px">Signybon Support heeft uw vraag beantwoord</h2>
+                  <h2 style="color:#0F172A;margin:0 0 14px;font-size:20px">Signybon Support heeft uw vraag beantwoord</h2>
                   <p style="color:#495057;font-size:14px;margin:0 0 18px">Beste {ticket.get('naam', '')},</p>
                   <p style="color:#495057;font-size:14px;margin:0 0 14px"><b>Uw vraag:</b></p>
                   <div style="background:#f8f9fa;padding:14px;border-radius:8px;border-left:4px solid #adb5bd;color:#495057;white-space:pre-wrap;font-size:13px">{ticket.get('vraag', '')}</div>
                   <p style="color:#495057;font-size:14px;margin:18px 0 14px"><b>Ons antwoord:</b></p>
-                  <div style="background:#f8f9fa;padding:14px;border-radius:8px;border-left:4px solid #1B4332;color:#1B4332;white-space:pre-wrap;font-size:14px">{body.message}</div>
+                  <div style="background:#f8f9fa;padding:14px;border-radius:8px;border-left:4px solid #0F172A;color:#0F172A;white-space:pre-wrap;font-size:14px">{body.message}</div>
                   <p style="color:#6c757d;font-size:12px;margin-top:24px">Met vriendelijke groet,<br/>Signybon Support</p>
                 </div>
               </div>
@@ -10981,10 +10981,10 @@ async def master_create_announcement(
                 html = f"""
                 <div style="font-family:'Helvetica Neue',Arial,sans-serif;max-width:620px;margin:0 auto;background:#f5f6fa;padding:20px">
                   <div style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.08)">
-                    <div style="background:#1B4332;color:#fff;padding:30px;text-align:center">
-                      <h1 style="color:#D4A017;margin:0;font-size:28px;font-weight:900;letter-spacing:1px">SIGNYBON</h1>
+                    <div style="background:#0F172A;color:#fff;padding:30px;text-align:center">
+                      <h1 style="color:#22C55E;margin:0;font-size:28px;font-weight:900;letter-spacing:1px">SIGNYBON</h1>
                     </div>
-                    <div style="padding:30px;color:#1B4332">
+                    <div style="padding:30px;color:#0F172A">
                       <h2 style="margin:0 0 16px;font-size:20px">{body.subject}</h2>
                       <div style="font-size:14px;color:#495057;white-space:pre-wrap;line-height:1.6">{body.content}</div>
                       <p style="color:#6c757d;font-size:12px;margin-top:24px">Met vriendelijke groet,<br/>Het Signybon team</p>
@@ -11281,13 +11281,13 @@ async def _trial_notification_loop():
                         html = f"""
                         <div style='font-family:Arial,sans-serif;max-width:620px;margin:0 auto;background:#f5f6fa;padding:20px'>
                           <div style='background:#fff;border-radius:14px;overflow:hidden'>
-                            <div style='background:#1B4332;color:#fff;padding:30px;text-align:center'>
-                              <h1 style='color:#D4A017;margin:0;font-size:28px;font-weight:900;letter-spacing:1px'>SIGNYBON</h1>
+                            <div style='background:#0F172A;color:#fff;padding:30px;text-align:center'>
+                              <h1 style='color:#22C55E;margin:0;font-size:28px;font-weight:900;letter-spacing:1px'>SIGNYBON</h1>
                             </div>
-                            <div style='padding:30px;color:#1B4332'>
+                            <div style='padding:30px;color:#0F172A'>
                               <h2 style='margin:0 0 14px;font-size:20px'>{subject}</h2>
                               <p style='font-size:14px;color:#495057;line-height:1.6'>{msg}</p>
-                              <p style='margin-top:24px'><a href='https://signybon.com' style='display:inline-block;background:#1B4332;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:700'>Activeer abonnement</a></p>
+                              <p style='margin-top:24px'><a href='https://signybon.com' style='display:inline-block;background:#22C55E;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:700'>Activeer abonnement</a></p>
                             </div>
                           </div>
                         </div>
@@ -11307,7 +11307,7 @@ async def _trial_notification_loop():
                 try:
                     summary_html = f"""
                     <div style='font-family:Arial,sans-serif;max-width:620px;margin:0 auto'>
-                      <h2 style='color:#1B4332'>Signybon — Trial overzicht</h2>
+                      <h2 style='color:#0F172A'>Signybon — Trial overzicht</h2>
                       <p><b>Vandaag verlopen:</b> {len(expiring_today)} bedrijven</p>
                       <p><b>Binnenkort verlopen:</b> {len(expiring_soon)} bedrijven</p>
                     </div>

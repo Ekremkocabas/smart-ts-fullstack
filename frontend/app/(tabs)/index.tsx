@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useState } from 'react';
+﻿import React, { useMemo, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -21,7 +21,7 @@ const getStatusColor = (status: string) => {
   switch (status) {
     case 'concept': return '#ffc107';
     case 'ondertekend': return '#28a745';
-    case 'verzonden': return '#D4A017';
+    case 'verzonden': return '#22C55E';
     default: return '#6c757d';
   }
 };
@@ -239,7 +239,7 @@ export default function WerkbonnenScreen() {
           style={styles.copyBtn}
           onPress={() => handleCopy(item)}
         >
-          <Ionicons name="copy-outline" size={18} color="#D4A017" />
+          <Ionicons name="copy-outline" size={18} color="#22C55E" />
         </TouchableOpacity>
         <TouchableOpacity
           testID="werkbon-delete-btn"
@@ -287,8 +287,8 @@ export default function WerkbonnenScreen() {
           <Text style={[styles.statValue, { color: '#28a745' }]}>{weekStats.uren}</Text>
           <Text style={styles.statLabel}>Uren deze week</Text>
         </View>
-        <View style={[styles.statCard, { borderLeftColor: '#D4A017' }]}>
-          <Text style={[styles.statValue, { color: '#D4A017' }]}>{maandStats.count}</Text>
+        <View style={[styles.statCard, { borderLeftColor: '#22C55E' }]}>
+          <Text style={[styles.statValue, { color: '#22C55E' }]}>{maandStats.count}</Text>
           <Text style={styles.statLabel}>Werkbonnen deze maand</Text>
         </View>
       </View>
@@ -333,7 +333,7 @@ export default function WerkbonnenScreen() {
 
       {isLoading && werkbonnen.length === 0 ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#D4A017" />
+          <ActivityIndicator size="large" color="#22C55E" />
         </View>
       ) : filtered.length === 0 ? (
         <View style={styles.emptyContainer}>
@@ -357,7 +357,7 @@ export default function WerkbonnenScreen() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#D4A017" />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#22C55E" />
           }
         />
       )}
@@ -378,10 +378,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E8E9ED',
   },
-  title: { fontSize: 26, fontWeight: 'bold', color: '#1B4332' },
+  title: { fontSize: 26, fontWeight: 'bold', color: '#0F172A' },
   subtitle: { fontSize: 12, color: '#6c757d', marginTop: 2 },
   addButton: {
-    backgroundColor: '#D4A017',
+    backgroundColor: '#22C55E',
     width: 44, height: 44, borderRadius: 22,
     alignItems: 'center', justifyContent: 'center',
   },
@@ -406,7 +406,7 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
   },
-  statValue: { fontSize: 22, fontWeight: 'bold', color: '#1B4332' },
+  statValue: { fontSize: 22, fontWeight: 'bold', color: '#0F172A' },
   statLabel: { fontSize: 10, color: '#6c757d', marginTop: 2 },
   filterScroll: { maxHeight: 48 },
   filterContent: {
@@ -430,17 +430,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   weekChipActive: {
-    backgroundColor: '#D4A017',
-    borderColor: '#D4A017',
+    backgroundColor: '#22C55E',
+    borderColor: '#22C55E',
   },
   weekChipText: { fontSize: 12, color: '#6c757d', fontWeight: '500' },
   weekChipTextActive: { color: '#fff', fontWeight: '700' },
   loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  emptyText: { fontSize: 18, fontWeight: '600', color: '#1B4332', marginTop: 16, textAlign: 'center' },
+  emptyText: { fontSize: 18, fontWeight: '600', color: '#0F172A', marginTop: 16, textAlign: 'center' },
   emptySubtext: { fontSize: 14, color: '#6c757d', marginTop: 8 },
   emptyButton: {
-    backgroundColor: '#D4A017',
+    backgroundColor: '#22C55E',
     paddingHorizontal: 24, paddingVertical: 12,
     borderRadius: 8, marginTop: 24,
   },
@@ -478,10 +478,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E8E9ED',
   },
-  weekText: { color: '#1B4332', fontSize: 13, fontWeight: '600' },
+  weekText: { color: '#0F172A', fontSize: 13, fontWeight: '600' },
   statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
   statusText: { color: '#fff', fontSize: 11, fontWeight: '700' },
-  klantNaam: { fontSize: 16, fontWeight: '600', color: '#1B4332' },
+  klantNaam: { fontSize: 16, fontWeight: '600', color: '#0F172A' },
   werfNaam: { fontSize: 13, color: '#6c757d', marginTop: 3 },
   werkbonFooter: { flexDirection: 'row', marginTop: 10, gap: 14 },
   infoItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
@@ -492,7 +492,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#D4A01740',
+    borderColor: '#22C55E40',
   },
   deleteBtn: {
     width: 42, height: 42,

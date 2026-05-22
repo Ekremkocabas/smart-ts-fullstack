@@ -4,9 +4,10 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from '
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 
-const SIGNYBON_GREEN = '#1B4332';
-const SIGNYBON_GOLD = '#D4A017';
-const BG = '#F5F6FA';
+const NAVY = '#0F172A';
+const NAVY_LIGHT = '#1E293B';
+const GREEN = '#22C55E';
+const BG = '#E2E8F0';
 
 const menuItems: { icon: any; label: string; route: string }[] = [
   { icon: 'grid-outline', label: 'Dashboard', route: '/masterpanel' },
@@ -20,11 +21,7 @@ function SignybonDiamond() {
   React.useEffect(() => {
     if (ref.current) {
       ref.current.innerHTML =
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="36" height="36">' +
-        '<rect x="15" y="15" width="70" height="70" rx="12" ry="12" fill="#D4A017" transform="rotate(45 50 50)"/>' +
-        '<rect x="23" y="23" width="54" height="54" rx="9" ry="9" fill="#1B4332" transform="rotate(45 50 50)"/>' +
-        '<rect x="36" y="36" width="28" height="28" rx="5" ry="5" fill="#D4A017" transform="rotate(45 50 50)"/>' +
-        '</svg>';
+        '<img src="/favicon.png?v=3" alt="" width="36" height="36" style="display:block;border-radius:6px;background:#fff" />';
     }
   }, []);
   return <View ref={ref} style={{ width: 36, height: 36 }} />;
@@ -46,7 +43,7 @@ function Sidebar() {
           {Platform.OS === 'web' ? (
             <SignybonDiamond />
           ) : (
-            <Ionicons name="diamond-outline" size={30} color={SIGNYBON_GOLD} />
+            <Ionicons name="diamond-outline" size={30} color={GREEN} />
           )}
         </View>
         <View>
@@ -69,7 +66,7 @@ function Sidebar() {
               <Ionicons
                 name={item.icon}
                 size={22}
-                color={isActive ? SIGNYBON_GOLD : '#cfd9d3'}
+                color={isActive ? GREEN : '#cfd9d3'}
               />
               <Text style={[styles.menuLabel, isActive && styles.menuLabelActive]}>
                 {item.label}
@@ -147,7 +144,7 @@ const styles = StyleSheet.create({
   },
   sidebar: {
     width: 260,
-    backgroundColor: SIGNYBON_GREEN,
+    backgroundColor: NAVY,
     flexDirection: 'column',
   },
   sidebarHeader: {
@@ -165,7 +162,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   brand: {
-    color: SIGNYBON_GOLD,
+    color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '900',
     letterSpacing: 1,
@@ -190,7 +187,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   menuItemActive: {
-    backgroundColor: 'rgba(212,160,23,0.15)',
+    backgroundColor: NAVY_LIGHT,
+    borderLeftWidth: 4,
+    borderLeftColor: GREEN,
   },
   menuLabel: {
     color: '#cfd9d3',
@@ -198,7 +197,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   menuLabelActive: {
-    color: SIGNYBON_GOLD,
+    color: GREEN,
     fontWeight: '700',
   },
   footer: {

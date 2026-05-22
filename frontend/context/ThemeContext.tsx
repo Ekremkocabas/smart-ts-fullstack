@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+﻿import React, { createContext, useContext, useEffect, useState } from 'react';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
@@ -29,9 +29,9 @@ interface AppTheme {
 }
 
 const defaultTheme: AppTheme = {
-  primaryColor: '#1B4332',
-  secondaryColor: '#D4A017',
-  accentColor: '#1B4332',
+  primaryColor: '#0F172A',
+  secondaryColor: '#22C55E',
+  accentColor: '#0F172A',
   bedrijfsnaam: 'Signybon',
 };
 

@@ -32,7 +32,7 @@ export default function WerkbonReview() {
     validateStep, validationErrors, nextStep, clearDraft,
   } = useWerkbonFormStore();
 
-  const primary = theme?.primaryColor || '#D4A017';
+  const primary = theme?.primaryColor || '#22C55E';
 
   const getDisplayKlant = () => klantNaam || manualKlantNaam || '-';
   const getDisplayWerf = () => werfNaam || manualWerfNaam || '-';
@@ -169,7 +169,7 @@ export default function WerkbonReview() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#1B4332" />
+          <Ionicons name="arrow-back" size={24} color="#0F172A" />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Controle</Text>
@@ -456,7 +456,7 @@ export default function WerkbonReview() {
           style={styles.signButton}
           onPress={handleProceedToSign}
         >
-          <Ionicons name="create-outline" size={20} color="#1B4332" />
+          <Ionicons name="create-outline" size={20} color="#0F172A" />
           <Text style={styles.signButtonText}>Ondertekenen</Text>
         </TouchableOpacity>
       </View>
@@ -504,7 +504,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F6FA', justifyContent: 'center', alignItems: 'center',
   },
   headerCenter: { flex: 1, alignItems: 'center' },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#1B4332' },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#0F172A' },
   headerStep: { fontSize: 13, color: '#6C7A89', marginTop: 2 },
   
   content: { flex: 1, padding: 16 },
@@ -531,7 +531,7 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1B4332',
+    color: '#0F172A',
     marginBottom: 16,
   },
   
@@ -544,7 +544,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   infoLabel: { flex: 1, fontSize: 14, color: '#6C7A89' },
-  infoValue: { fontSize: 15, fontWeight: '500', color: '#1B4332' },
+  infoValue: { fontSize: 15, fontWeight: '500', color: '#0F172A' },
   
   // Uren specific
   urenRegelSummary: {
@@ -556,9 +556,9 @@ const styles = StyleSheet.create({
     borderBottomColor: '#F5F6FA',
   },
   teamlidInfo: { flex: 1 },
-  teamlidName: { fontSize: 15, color: '#1B4332' },
-  afkortingenText: { fontSize: 12, color: '#D4A017', marginTop: 2 },
-  urenTotal: { fontSize: 15, fontWeight: '600', color: '#1B4332' },
+  teamlidName: { fontSize: 15, color: '#0F172A' },
+  afkortingenText: { fontSize: 12, color: '#22C55E', marginTop: 2 },
+  urenTotal: { fontSize: 15, fontWeight: '600', color: '#0F172A' },
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -568,17 +568,17 @@ const styles = StyleSheet.create({
     borderTopWidth: 2,
     borderTopColor: '#E8E9ED',
   },
-  totalLabel: { fontSize: 16, fontWeight: '600', color: '#1B4332' },
+  totalLabel: { fontSize: 16, fontWeight: '600', color: '#0F172A' },
   totalValue: { fontSize: 18, fontWeight: '700' },
   
   descriptionBlock: { marginTop: 16 },
   descriptionLabel: { fontSize: 14, fontWeight: '500', color: '#6C7A89', marginBottom: 6 },
-  descriptionText: { fontSize: 15, color: '#1B4332', lineHeight: 22 },
+  descriptionText: { fontSize: 15, color: '#0F172A', lineHeight: 22 },
   
   // Checklist
   checklistSummary: { marginTop: 16 },
   checkItem: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
-  checkItemText: { fontSize: 14, color: '#1B4332' },
+  checkItemText: { fontSize: 14, color: '#0F172A' },
   checkItemUnchecked: { color: '#6C7A89' },
   
   // Project
@@ -604,7 +604,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
-  prestatieWerk: { fontSize: 18, fontWeight: '700', color: '#1B4332', marginBottom: 4 },
+  prestatieWerk: { fontSize: 18, fontWeight: '700', color: '#0F172A', marginBottom: 4 },
   prestatieAmount: { fontSize: 24, fontWeight: '700', color: '#e67e22' },
   
   // Attachments
@@ -622,7 +622,7 @@ const styles = StyleSheet.create({
   },
   gpsAddressText: { flex: 1, fontSize: 13, color: '#6C7A89' },
   
-  opmerkingenText: { fontSize: 15, color: '#1B4332', lineHeight: 22 },
+  opmerkingenText: { fontSize: 15, color: '#0F172A', lineHeight: 22 },
   
   infoBox: {
     flexDirection: 'row',
@@ -671,5 +671,5 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: '#FFD966',
   },
-  signButtonText: { fontSize: 14, fontWeight: '600', color: '#1B4332' },
+  signButtonText: { fontSize: 14, fontWeight: '600', color: '#0F172A' },
 });
