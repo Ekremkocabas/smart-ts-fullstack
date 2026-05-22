@@ -2280,7 +2280,7 @@ PLAN_FEATURES: Dict[str, Dict[str, Any]] = {
     "basic": {
         "werkbon_types": ["uren"],
         "billit": False,
-        "berichten": False,
+        "berichten": True,
         "planning_advanced": False,
         "pdf_custom": False,
         "rapporten_export": False,
@@ -9384,8 +9384,6 @@ async def bevestig_planning(planning_id: str, werknemer_id: str, werknemer_naam:
 async def get_berichten(user_id: str, current_user: Dict = Depends(get_current_user)):
     """Get messages for a user (broadcasts + direct messages). Excludes messages hidden by this user."""
     company_id = _require_tenant(current_user)
-    _sub_b, plan_b, _co_b = await _resolve_company_plan(company_id)
-    _require_feature(plan_b, "berichten", "Berichten")
     base = {
         "$or": [{"naar_id": user_id}, {"is_broadcast": True}, {"van_id": user_id}],
         "hidden_for_users": {"$nin": [user_id]},
@@ -9410,8 +9408,6 @@ async def get_ongelezen_berichten(user_id: str, current_user: Dict = Depends(get
 async def create_bericht(data: BerichtCreate, current_user: Dict = Depends(get_current_user)):
     """Create bericht - uses authenticated user's identity from JWT"""
     company_id_b = _require_tenant(current_user)
-    _sub_b2, plan_b2, _co_b2 = await _resolve_company_plan(company_id_b)
-    _require_feature(plan_b2, "berichten", "Berichten")
     # Use authenticated user's identity from JWT (NOT from request parameters)
     van_id = current_user["user_id"]
     van_naam = current_user["naam"]

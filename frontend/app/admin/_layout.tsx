@@ -299,7 +299,7 @@ export default function AdminLayout() {
           }
         }
       } catch (e) { /* ignore */ }
-      setFav('/favicon.png?v=2');
+      setFav('/favicon.png?v=4');
     })();
   }, []);
 

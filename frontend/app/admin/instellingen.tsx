@@ -30,12 +30,15 @@ const getScreenSize = () => {
   return 'desktop';
 };
 
-// Color presets for picker
+// Color presets for picker — Signybon brand palette + neutrals
 const COLOR_PRESETS = [
-  '#22C55E', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4',
-  '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE',
-  '#0F172A', '#16213E', '#0F3460', '#E94560', '#533483',
-  '#2C3E50', '#34495E', '#27AE60', '#2980B9', '#8E44AD',
+  // Brand
+  '#0F172A', '#1E293B', '#22C55E', '#16A34A', '#4ADE80',
+  // Neutrals
+  '#FFFFFF', '#F8FAFC', '#E2E8F0', '#CBD5E1', '#94A3B8',
+  '#64748B', '#475569', '#334155', '#020617', '#000000',
+  // Accents
+  '#3B82F6', '#8B5CF6', '#EF4444', '#F59E0B', '#EC4899',
 ];
 
 interface AdresStructured {
@@ -117,7 +120,7 @@ const defaultInstellingen: Instellingen = {
   branding: {
     primary_color: '#22C55E',
     secondary_color: '#0F172A',
-    accent_color: '#16213E',
+    accent_color: '#1E293B',
   },
   pdf_texts: {
     voettekst: '',
@@ -127,9 +130,9 @@ const defaultInstellingen: Instellingen = {
     prestatie_bevestiging: '',
   },
   werkbon_pdf_colors: {
-    primary: '#E8A020',
-    secondary: '#0F172A',
-    accent: '#22C55E',
+    primary: '#0F172A',
+    secondary: '#22C55E',
+    accent: '#1E293B',
   },
 };
 
@@ -191,7 +194,7 @@ export default function InstellingenAdmin() {
             logo_base64: data.branding?.logo_base64 || data.logo_base64,
             primary_color: data.branding?.primary_color || data.primary_color || '#22C55E',
             secondary_color: data.branding?.secondary_color || data.secondary_color || '#0F172A',
-            accent_color: data.branding?.accent_color || data.accent_color || '#16213E',
+            accent_color: data.branding?.accent_color || data.accent_color || '#1E293B',
           },
           pdf_texts: {
             ...defaultInstellingen.pdf_texts,
@@ -203,9 +206,9 @@ export default function InstellingenAdmin() {
             project_bevestiging: data.pdf_texts?.project_bevestiging || data.project_confirmation_text || '',
           },
           werkbon_pdf_colors: {
-            primary:   data.werkbon_primary_color   || data.werkbon_pdf_colors?.primary   || '#E8A020',
-            secondary: data.werkbon_secondary_color || data.werkbon_pdf_colors?.secondary || '#0F172A',
-            accent:    data.werkbon_accent_color    || data.werkbon_pdf_colors?.accent    || '#22C55E',
+            primary:   data.werkbon_primary_color   || data.werkbon_pdf_colors?.primary   || '#0F172A',
+            secondary: data.werkbon_secondary_color || data.werkbon_pdf_colors?.secondary || '#22C55E',
+            accent:    data.werkbon_accent_color    || data.werkbon_pdf_colors?.accent    || '#1E293B',
           },
         };
         setInstellingen(merged);

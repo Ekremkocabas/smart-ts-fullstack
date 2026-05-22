@@ -225,9 +225,12 @@ export default function BerichtenAdmin() {
     }
   }, [fetchData, user]);
 
-  // Filter werknemers by type
+  // Filter werknemers by type — backend normalize_role maps legacy roles to
+  // {worker, planner, onderaannemer, admin, master_admin, platform_admin}.
+  // 'manager' / 'werknemer' / 'ploegbaas' / 'beheerder' are mapped server-side
+  // before they ever reach this list, so we only check normalized roles here.
   const werknemersByType = {
-    werknemers: werknemers.filter(w => w.rol === 'worker' || w.rol === 'planner' || w.rol === 'manager'),
+    werknemers: werknemers.filter(w => w.rol === 'worker' || w.rol === 'planner'),
     onderaannemers: werknemers.filter(w => w.rol === 'onderaannemer'),
   };
 
