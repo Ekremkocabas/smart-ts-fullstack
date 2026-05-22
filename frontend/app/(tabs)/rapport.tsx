@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -214,7 +214,7 @@ export default function RapportScreen() {
         </View>
       ) : rapport.length === 0 ? (
         <View style={styles.center}>
-          <Ionicons name="bar-chart-outline" size={56} color="#2d3a5f" />
+          <Ionicons name="bar-chart-outline" size={56} color="#334155" />
           <Text style={styles.emptyText}>Geen gegevens voor {periodeLabel}</Text>
         </View>
       ) : (

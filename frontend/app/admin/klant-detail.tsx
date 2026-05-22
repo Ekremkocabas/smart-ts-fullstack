@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -164,7 +164,7 @@ export default function KlantDetail() {
       {/* Klant Card */}
       <View style={styles.klantCard}>
         <View style={styles.klantIcon}>
-          <Ionicons name="briefcase" size={40} color="#1abc9c" />
+          <Ionicons name="briefcase" size={40} color="#22C55E" />
         </View>
         <Text style={styles.klantName}>{klant.naam}</Text>
         {klant.contactpersoon && <Text style={styles.klantContact}>Contact: {klant.contactpersoon}</Text>}
@@ -274,9 +274,9 @@ const styles = StyleSheet.create({
   headerCenter: { flex: 1, marginLeft: 16 },
   title: { fontSize: 24, fontWeight: '700', color: '#0F172A' },
   subtitle: { fontSize: 14, color: '#6c757d' },
-  editBtn: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#1abc9c', alignItems: 'center', justifyContent: 'center' },
+  editBtn: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#22C55E', alignItems: 'center', justifyContent: 'center' },
   klantCard: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 32, alignItems: 'center', marginBottom: 24, borderWidth: 1, borderColor: '#E8E9ED' },
-  klantIcon: { width: 80, height: 80, borderRadius: 20, backgroundColor: '#1abc9c20', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  klantIcon: { width: 80, height: 80, borderRadius: 20, backgroundColor: '#22C55E20', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
   klantName: { fontSize: 28, fontWeight: '700', color: '#0F172A' },
   klantContact: { fontSize: 15, color: '#6c757d', marginTop: 4 },
   section: { marginBottom: 24 },
@@ -301,6 +301,6 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 20, fontWeight: '600', color: '#0F172A' },
   label: { fontSize: 14, color: '#6c757d', marginBottom: 6, marginTop: 16 },
   input: { backgroundColor: '#F5F6FA', borderRadius: 10, padding: 14, fontSize: 16, color: '#0F172A', borderWidth: 1, borderColor: '#E8E9ED' },
-  saveBtn: { backgroundColor: '#1abc9c', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 20 },
+  saveBtn: { backgroundColor: '#22C55E', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 20 },
   saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });

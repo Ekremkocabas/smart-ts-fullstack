@@ -8,21 +8,13 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 
-// Signybon diamond logo (3-layer rotated squares)
-function SignybonLogo() {
-  return (
-    <View style={{ width: 60, height: 60, alignItems: 'center', justifyContent: 'center' }}>
-      <View style={{ width: 40, height: 40, backgroundColor: '#22C55E', borderRadius: 8, transform: [{ rotate: '45deg' }], position: 'absolute' }} />
-      <View style={{ width: 30, height: 30, backgroundColor: '#0F172A', borderRadius: 6, transform: [{ rotate: '45deg' }], position: 'absolute' }} />
-      <View style={{ width: 16, height: 16, backgroundColor: '#22C55E', borderRadius: 3, transform: [{ rotate: '45deg' }], position: 'absolute' }} />
-    </View>
-  );
-}
+const SIGNYBON_ICON = require('../../assets/icon.png');
 
 export default function AdminLogin() {
   const { user, isLoading, setUser, login: authLogin } = useAuth();
@@ -106,9 +98,7 @@ export default function AdminLogin() {
       <KeyboardAvoidingView behavior="padding" style={styles.content}>
         <View style={styles.card}>
           <View style={styles.header}>
-            <View style={styles.iconContainer}>
-              <SignybonLogo />
-            </View>
+            <Image source={SIGNYBON_ICON} style={styles.brandLogo} resizeMode="contain" />
             <Text style={styles.title}>SIGNYBON</Text>
             <Text style={styles.subtitle}>Het digitale werkbonplatform</Text>
           </View>
@@ -208,14 +198,11 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   header: { alignItems: 'center', marginBottom: 32 },
-  iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 20,
-    backgroundColor: '#0F172A15',
-    alignItems: 'center',
-    justifyContent: 'center',
+  brandLogo: {
+    width: 90,
+    height: 90,
     marginBottom: 16,
+    borderRadius: 16,
   },
   title: {
     fontSize: 32,

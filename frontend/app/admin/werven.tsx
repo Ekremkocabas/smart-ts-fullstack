@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
   input: { backgroundColor: '#F5F6FA', borderRadius: 10, padding: 14, fontSize: 16, color: '#0F172A', borderWidth: 1, borderColor: '#E8E9ED' },
   klantScroll: { marginBottom: 8 },
   klantChip: { backgroundColor: '#F5F6FA', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, marginRight: 8, borderWidth: 1, borderColor: '#E8E9ED' },
-  klantChipActive: { backgroundColor: '#1abc9c', borderColor: '#1abc9c' },
+  klantChipActive: { backgroundColor: '#22C55E', borderColor: '#22C55E' },
   klantChipText: { color: '#6c757d', fontSize: 14 },
   klantChipTextActive: { color: '#fff' },
   saveBtn: { backgroundColor: '#e67e22', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 20 },

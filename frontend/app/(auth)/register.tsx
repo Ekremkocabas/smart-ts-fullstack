@@ -256,12 +256,12 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#16213e',
+    backgroundColor: '#1E293B',
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 56,
     borderWidth: 1,
-    borderColor: '#2d3a5f',
+    borderColor: '#334155',
   },
   inputIcon: {
     marginRight: 12,

@@ -98,7 +98,12 @@
       "Bash(Select-Object Name)",
       "PowerShell(Remove-Item *)",
       "Bash(npx eas-cli *)",
-      "PowerShell(Join-Path *)"
+      "PowerShell(Join-Path *)",
+      "Bash(rm -f frontend/assets/images/app-image.png frontend/assets/images/logo-square.png frontend/assets/images/new-logo-original.png frontend/assets/images/old-adaptive-icon.png frontend/assets/images/old-favicon.png frontend/assets/images/old-icon.png frontend/assets/images/partial-react-logo.png frontend/assets/images/react-logo.png frontend/assets/images/react-logo@2x.png frontend/assets/images/react-logo@3x.png frontend/assets/images/smarttech-logo.png)",
+      "Bash(rm -f 'ChatGPT Image 22 mei 2026, 14_33_24.png' 'ChatGPT Image 22 mei 2026, 14_33_39.png' logo_dark.jpg logo_light.jpg logo_dark_b64.txt logo_dark_base64.txt logo_dark_full.txt logo_light_b64.txt logo_light_base64.txt)",
+      "Bash(rm -f backend_test.py backend_test_comprehensive.py backend_specific_test.py admin_login_test.py critical_bug_test.py bug_fix_verification.py werkbon_test.py test_result.md)",
+      "Bash(rm -f WEBPANEL_DOKUMENTASYON.md PHASE_2A_SECURITY_REPORT.md SYSTEM_ANALYSIS_REPORT.md UPDATE_SAMENVATTING.md)",
+      "Bash(rm -rf github_upload design-mockups backend/tests memory)"
     ]
   }
 }

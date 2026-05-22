@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Inloggen — Signybon</title>
-<link rel="icon" type="image/png" href="/favicon.png?v=3">
+<link rel="icon" type="image/png" href="/favicon.png?v=4">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -19,16 +19,23 @@
 }
 body{font-family:'Poppins',system-ui,sans-serif;background:var(--gray-light);color:var(--text-dark);min-height:100vh;display:flex;flex-direction:column}
 .header{background:var(--navy);padding:18px 40px;display:flex;align-items:center;gap:14px}
-.header img.logo-icon{height:52px;width:52px;display:block;flex-shrink:0}
-.header .brand{color:var(--white);font-size:26px;font-weight:800;letter-spacing:1px;font-family:'Poppins',sans-serif}
+.header img.logo-icon{height:46px;width:46px;display:block;flex-shrink:0}
+.header .brand{color:var(--white);font-size:22px;font-weight:800;letter-spacing:1px}
 .brand-tagline{color:rgba(255,255,255,.6);font-size:12px;margin-left:auto;font-weight:500}
-.login-container{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:20px}
-.login-card{background:var(--white);padding:40px;border-radius:12px;box-shadow:0 10px 25px rgba(0,0,0,.05);width:100%;max-width:420px}
-.login-card h2{margin:0 0 24px;color:var(--navy);font-size:24px;text-align:center;font-weight:700}
-.form-group{margin-bottom:20px}
+.login-container{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:40px 20px}
+.brand-block{text-align:center;margin-bottom:28px}
+.brand-block img{width:88px;height:88px;display:block;margin:0 auto 14px;border-radius:18px;box-shadow:0 8px 20px rgba(15,23,42,.18)}
+.brand-block h1{color:var(--navy);font-size:30px;font-weight:800;letter-spacing:1px;margin-bottom:6px}
+.brand-block p{color:var(--text-muted);font-size:14px;font-weight:500}
+.login-card{background:var(--white);padding:36px 40px;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.06);width:100%;max-width:420px}
+.login-card h2{margin:0 0 22px;color:var(--navy);font-size:20px;text-align:center;font-weight:700}
+.form-group{margin-bottom:18px}
 .form-group label{display:block;margin-bottom:8px;color:var(--text-dark);font-weight:500;font-size:14px}
 .form-group input{width:100%;padding:12px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;color:var(--text-dark);background:var(--white)}
 .form-group input:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(34,197,94,.2)}
+.forgot-row{display:flex;justify-content:flex-end;margin-top:-4px;margin-bottom:18px}
+.forgot-row a{color:var(--navy);font-size:13px;font-weight:500;text-decoration:none}
+.forgot-row a:hover{text-decoration:underline}
 .btn-login{width:100%;background:var(--green);color:var(--white);border:none;padding:14px;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;font-family:inherit;transition:background-color .2s}
 .btn-login:hover{background:var(--green-dark)}
 .btn-login:disabled{opacity:.6;cursor:not-allowed}
@@ -43,7 +50,29 @@ body{font-family:'Poppins',system-ui,sans-serif;background:var(--gray-light);col
 .alert.show{display:block}
 .spinner{display:inline-block;width:18px;height:18px;border:3px solid rgba(255,255,255,.3);border-top-color:var(--white);border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:8px}
 @keyframes spin{to{transform:rotate(360deg)}}
-@media(max-width:500px){.header{padding:16px 20px}.login-card{padding:32px 24px}}
+
+/* Forgot password modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);display:none;align-items:center;justify-content:center;z-index:1000;padding:20px}
+.modal-overlay.show{display:flex}
+.modal{background:var(--white);border-radius:14px;padding:32px;width:100%;max-width:440px;box-shadow:0 20px 50px rgba(0,0,0,.25)}
+.modal h3{color:var(--navy);font-size:22px;font-weight:700;margin-bottom:8px}
+.modal p{color:var(--text-muted);font-size:14px;margin-bottom:20px;line-height:1.5}
+.modal .form-group{margin-bottom:18px}
+.modal .btn-row{display:flex;gap:10px;margin-top:8px}
+.modal .btn-row button{flex:1;padding:12px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;border:none;transition:all .2s}
+.btn-cancel{background:var(--gray-light);color:var(--text-dark)}
+.btn-cancel:hover{background:#cbd5e1}
+.btn-send{background:var(--green);color:var(--white)}
+.btn-send:hover{background:var(--green-dark)}
+.btn-send:disabled{opacity:.6;cursor:not-allowed}
+
+@media(max-width:500px){
+  .header{padding:16px 20px}
+  .login-card{padding:28px 24px}
+  .brand-block img{width:72px;height:72px}
+  .brand-block h1{font-size:26px}
+  .modal{padding:24px}
+}
 </style>
 </head>
 <body>
@@ -53,6 +82,11 @@ body{font-family:'Poppins',system-ui,sans-serif;background:var(--gray-light);col
   <div class="brand-tagline">Het digitale werkbonplatform</div>
 </div>
 <div class="login-container">
+  <div class="brand-block">
+    <img src="/favicon.png?v=4" alt="">
+    <h1>Welkom terug</h1>
+    <p>Het digitale werkbonplatform voor uw bedrijf</p>
+  </div>
   <div class="login-card">
     <h2>Inloggen</h2>
     <div class="alert alert-success" id="alertSuccess"></div>
@@ -66,12 +100,33 @@ body{font-family:'Poppins',system-ui,sans-serif;background:var(--gray-light);col
         <label for="wachtwoord">Wachtwoord</label>
         <input type="password" id="wachtwoord" placeholder="••••••••" required>
       </div>
+      <div class="forgot-row">
+        <a href="#" id="forgotLink">Wachtwoord vergeten?</a>
+      </div>
       <button type="submit" class="btn-login" id="submitBtn">Inloggen</button>
     </form>
   </div>
   <div class="below-card">
     <a href="/register" class="primary">Nog geen account? Registreer nu — 30 dagen gratis</a>
     <a href="/" class="muted">Terug naar homepage</a>
+  </div>
+</div>
+
+<!-- Forgot password modal -->
+<div class="modal-overlay" id="forgotModal">
+  <div class="modal">
+    <h3>Wachtwoord vergeten?</h3>
+    <p>Vul uw e-mailadres in. Wij sturen u een link om uw wachtwoord opnieuw in te stellen.</p>
+    <div class="alert alert-error" id="forgotError"></div>
+    <div class="alert alert-success" id="forgotSuccess"></div>
+    <div class="form-group">
+      <label for="forgotEmail">E-mailadres</label>
+      <input type="email" id="forgotEmail" placeholder="naam@bedrijf.be" required>
+    </div>
+    <div class="btn-row">
+      <button type="button" class="btn-cancel" id="forgotCancel">Annuleer</button>
+      <button type="button" class="btn-send" id="forgotSend">Stuur een link</button>
+    </div>
   </div>
 </div>
 
@@ -89,6 +144,11 @@ if (verified === '1') {
 } else if (verified === 'expired') {
   const s = document.getElementById('alertError');
   s.textContent = 'Verificatielink is ongeldig of verlopen.';
+  s.classList.add('show');
+}
+if (params.get('reset') === 'ok') {
+  const s = document.getElementById('alertSuccess');
+  s.textContent = 'Uw wachtwoord is opnieuw ingesteld. U kunt nu inloggen met uw nieuwe wachtwoord.';
   s.classList.add('show');
 }
 
@@ -122,8 +182,6 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     if (!res.ok) {
       throw new Error(data.detail || 'Inloggen mislukt');
     }
-    // Store token + auxiliary data the React panel expects, then redirect.
-    // Keys must stay in sync with AuthContext.tsx (loadUser reads these).
     localStorage.setItem('token', data.token);
     localStorage.setItem('user', JSON.stringify(data.user));
     if (data.platform_access) {
@@ -138,9 +196,6 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     if (data.user && data.user.rol === 'platform_admin') {
       window.location.href = '/masterpanel';
     } else {
-      // Skip /admin (which redirects on null user during AuthContext hydration)
-      // and go straight to the dashboard so the React app finds a logged-in
-      // session on first render.
       window.location.href = '/admin/dashboard';
     }
   } catch (err) {
@@ -150,7 +205,63 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     btn.textContent = 'Inloggen';
   }
 });
+
+// ─── Forgot password modal ───
+const forgotModal = document.getElementById('forgotModal');
+const forgotEmail = document.getElementById('forgotEmail');
+const forgotErr = document.getElementById('forgotError');
+const forgotSuc = document.getElementById('forgotSuccess');
+const forgotSendBtn = document.getElementById('forgotSend');
+
+document.getElementById('forgotLink').addEventListener('click', (e) => {
+  e.preventDefault();
+  forgotErr.classList.remove('show');
+  forgotSuc.classList.remove('show');
+  forgotEmail.value = document.getElementById('email').value || '';
+  forgotModal.classList.add('show');
+  setTimeout(() => forgotEmail.focus(), 50);
+});
+document.getElementById('forgotCancel').addEventListener('click', () => {
+  forgotModal.classList.remove('show');
+});
+forgotModal.addEventListener('click', (e) => {
+  if (e.target === forgotModal) forgotModal.classList.remove('show');
+});
+
+forgotSendBtn.addEventListener('click', async () => {
+  forgotErr.classList.remove('show');
+  forgotSuc.classList.remove('show');
+  const email = forgotEmail.value.trim().toLowerCase();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    forgotErr.textContent = 'Vul een geldig e-mailadres in.';
+    forgotErr.classList.add('show');
+    return;
+  }
+  forgotSendBtn.disabled = true;
+  forgotSendBtn.innerHTML = '<span class="spinner"></span>Bezig...';
+  try {
+    const res = await fetch('/api/auth/forgot-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.detail || 'Er is iets misgegaan.');
+    }
+    forgotSuc.textContent = 'Wij hebben een resetlink gestuurd naar uw e-mailadres. Controleer ook uw spam map.';
+    forgotSuc.classList.add('show');
+    forgotEmail.value = '';
+    setTimeout(() => { forgotModal.classList.remove('show'); }, 3500);
+  } catch (err) {
+    forgotErr.textContent = err.message;
+    forgotErr.classList.add('show');
+  } finally {
+    forgotSendBtn.disabled = false;
+    forgotSendBtn.textContent = 'Stuur een link';
+  }
+});
 </script>
-<script src="/signybon-help.js"></script>
+<script src="/signybon-help.js?v=4"></script>
 </body>
 </html>

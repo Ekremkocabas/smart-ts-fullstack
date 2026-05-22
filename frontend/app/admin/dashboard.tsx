@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -139,7 +139,7 @@ export default function AdminDashboard() {
 
   const quickActions = [
     { icon: 'person-add', label: 'Nieuwe werknemer', route: '/admin/werknemers', color: '#3498db' },
-    { icon: 'add-circle', label: 'Nieuwe klant', route: '/admin/klanten', color: '#1abc9c' },
+    { icon: 'add-circle', label: 'Nieuwe klant', route: '/admin/klanten', color: '#22C55E' },
     { icon: 'business', label: 'Nieuwe werf', route: '/admin/werven', color: '#e67e22' },
     { icon: 'document-text', label: 'Bekijk werkbonnen', route: '/admin/werkbonnen', color: theme.primaryColor || '#22C55E' },
     { icon: 'bar-chart', label: 'Rapporten', route: '/admin/rapporten', color: '#9b59b6' },
@@ -263,8 +263,8 @@ export default function AdminDashboard() {
               style={[styles.statCard, styles.statCardLarge]}
               onPress={() => router.push('/admin/klanten')}
             >
-              <View style={[styles.statIcon, { backgroundColor: '#1abc9c15' }]}>
-                <Ionicons name="briefcase" size={28} color="#1abc9c" />
+              <View style={[styles.statIcon, { backgroundColor: '#22C55E15' }]}>
+                <Ionicons name="briefcase" size={28} color="#22C55E" />
               </View>
               <Text style={styles.statValue}>{stats?.totaalKlanten || 0}</Text>
               <Text style={styles.statLabel}>Klanten</Text>

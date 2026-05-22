@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -206,7 +206,7 @@ export default function WerkbonDetail() {
         <Text style={[styles.sectionTitle, { color: theme.secondaryColor || '#0F172A' }]}>Overzicht</Text>
         <View style={styles.overviewGrid}>
           <View style={styles.overviewCard}>
-            <Ionicons name="briefcase" size={24} color="#1abc9c" />
+            <Ionicons name="briefcase" size={24} color="#22C55E" />
             <Text style={styles.overviewLabel}>Klant</Text>
             <Text style={styles.overviewValue}>{werkbon.klant_naam}</Text>
           </View>

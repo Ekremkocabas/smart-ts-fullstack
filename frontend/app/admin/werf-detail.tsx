@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -203,7 +203,7 @@ export default function WerfDetail() {
             <Ionicons name="briefcase-outline" size={20} color="#6c757d" />
             <Text style={styles.detailLabel}>Klant</Text>
             <TouchableOpacity onPress={() => werf.klant_id && router.push(`/admin/klant-detail?id=${werf.klant_id}` as any)}>
-              <Text style={[styles.detailValue, { color: '#1abc9c' }]}>{klantNaam}</Text>
+              <Text style={[styles.detailValue, { color: '#22C55E' }]}>{klantNaam}</Text>
             </TouchableOpacity>
           </View>
           <View style={styles.detailRow}>
@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
   input: { backgroundColor: '#F5F6FA', borderRadius: 10, padding: 14, fontSize: 16, color: '#0F172A', borderWidth: 1, borderColor: '#E8E9ED' },
   klantSelector: { marginTop: 8 },
   klantOption: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8, backgroundColor: '#F5F6FA', marginRight: 8, borderWidth: 1, borderColor: '#E8E9ED' },
-  klantOptionActive: { backgroundColor: '#1abc9c', borderColor: '#1abc9c' },
+  klantOptionActive: { backgroundColor: '#22C55E', borderColor: '#22C55E' },
   klantOptionText: { fontSize: 14, color: '#6c757d' },
   klantOptionTextActive: { color: '#fff' },
   activeToggle: { marginTop: 8 },

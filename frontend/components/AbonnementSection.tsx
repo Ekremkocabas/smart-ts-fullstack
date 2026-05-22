@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth, apiClient, PlanInfo } from '../context/AuthContext';
@@ -95,7 +95,7 @@ export default function AbonnementSection({ highlight }: Props) {
           </View>
         )}
         {currentPlan === 'free' && (
-          <View style={[styles.trialBadge, { backgroundColor: '#10b981' }]}>
+          <View style={[styles.trialBadge, { backgroundColor: '#22C55E' }]}>
             <Text style={styles.trialBadgeText}>Gratis (Signybon)</Text>
           </View>
         )}

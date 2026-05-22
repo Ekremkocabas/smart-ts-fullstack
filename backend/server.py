@@ -371,7 +371,7 @@ async def get_current_user(
 
     # Resolve company_id with self-heal for users whose record was created
     # before multi-tenant scoping was enforced. Avoid the "default_company"
-    # fallback for non-legacy users — that path leaks Smart-Tech data.
+    # fallback for non-legacy users — that path leaks another tenant's data.
     company_id = user.get("company_id")
     normalized_role = normalize_role(user.get("rol", "worker"))
     # Treat "default_company" as suspicious for any user that actually owns
@@ -611,7 +611,7 @@ def get_pdf_colors(instellingen: dict) -> dict:
     """Get werkbon PDF colors — ONLY from werkbon_* fields, never from branding colors.
 
     Defaults are the Signybon brand palette (green/gold). NEVER use a legacy
-    Smart-Tech color (orange / dark navy) as a fallback — that would leak the
+    legacy tenant color (orange / dark navy) as a fallback — that would leak the
     look of one tenant onto every other tenant who hasn't picked colors yet.
     """
     primary   = instellingen.get("werkbon_primary_color")   or "#0F172A"
@@ -679,7 +679,7 @@ def make_logo_or_brand_flowable(instellingen: dict, width_mm: float, height_mm: 
 def get_company_color(settings: dict, color_type: str = "primary") -> str:
     """Get company color — prefer structured branding fields, fallback to legacy
     flat fields, and finally to the Signybon brand palette. NEVER falls back to
-    any legacy Smart-Tech color so tenants without picked colors see Signybon's
+    any legacy tenant color so tenants without picked colors see Signybon's
     defaults, not another tenant's identity."""
     branding = settings.get("branding")
     if branding and isinstance(branding, dict):
@@ -1315,7 +1315,7 @@ class BedrijfsInstellingen(BaseModel):
     automatisch_naar_klant: bool = False  # Auto-include client email in werkbon email
     
     # Theme settings for remote control. Defaults are the Signybon brand
-    # palette so a brand-new tenant never inherits Smart-Tech (or any other
+    # palette so a brand-new tenant never inherits a legacy tenant's (or any other
     # tenant's) colors before they pick their own.
     primary_color: str = "#0F172A"
     secondary_color: str = "#22C55E"
@@ -2006,7 +2006,7 @@ async def send_welcome_email(user_email: str, user_naam: str, temp_password: str
     sender = sender_email if "<" in sender_email else f"{bedrijfsnaam} <{sender_email}>"
 
     # Tenant brand palette — the welcome email is the new worker's first
-    # impression, so it must wear the tenant's own colors, not Smart-Tech's.
+    # impression, so it must wear the tenant's own colors, not another tenant's.
     _C = get_pdf_colors(instellingen)
     _primary = _C["primary"]
     _secondary = _C["secondary"]
@@ -2102,7 +2102,7 @@ async def send_klant_welcome_email(klant_email: str, klant_naam: str, instelling
     bedrijfsnaam = get_email_brand_name(instellingen)
     logo_base64 = instellingen.get("logo_base64", "")
     # Resolve colors via get_pdf_colors so we get the Signybon-default fallback
-    # chain (not Smart-Tech orange/navy) when the tenant has no colors picked.
+    # chain (not a legacy orange/navy) when the tenant has no colors picked.
     _C = get_pdf_colors(instellingen)
     primary_color = _C["primary"]
     secondary_color = _C["secondary"]
@@ -2254,7 +2254,7 @@ def _require_tenant(current_user: Dict) -> str:
     """Return the user's company_id or raise 403 — NEVER silently fall back to
     'default_company'. A missing company_id on the JWT means we cannot identify
     the tenant, and assuming default_company would hand the requester all of
-    the legacy Smart-Tech data. Platform/master admin endpoints that legitimately
+    the legacy tenant data. Platform/master admin endpoints that legitimately
     cross tenants must NOT call this helper — they pass the target company_id
     explicitly as a path/query parameter."""
     company_id = current_user.get("company_id") if current_user else None
@@ -5489,6 +5489,123 @@ async def admin_reset_password(user_id: str, data: dict, current_user: Dict = De
 
     return {"message": "Wachtwoord succesvol gewijzigd", "success": True, "new_password": new_password}
 
+@api_router.post("/auth/forgot-password")
+@limiter.limit("5/minute")
+async def forgot_password(request: Request, data: dict):
+    """Request a password reset link by e-mail. Sends a one-time token good for 1 hour.
+
+    Returns 404 when no account matches the e-mail so the user knows to register
+    instead. (Email-enumeration tradeoff accepted in exchange for clear UX.)
+    """
+    email = (data.get("email") or "").strip().lower()
+    if not email or "@" not in email:
+        raise HTTPException(status_code=400, detail="Vul een geldig e-mailadres in.")
+
+    user = await db.users.find_one({"email": email})
+    if not user:
+        raise HTTPException(status_code=404, detail="Er bestaat geen account met dit e-mailadres.")
+
+    # Issue a reset token (one-time, 1 hour validity)
+    token = secrets.token_urlsafe(48)
+    now = datetime.now(timezone.utc)
+    await db.password_reset_tokens.insert_one({
+        "token": token,
+        "user_id": user["id"],
+        "email": email,
+        "company_id": user.get("company_id"),
+        "created_at": now,
+        "expires_at": now + timedelta(hours=1),
+        "used": False,
+    })
+
+    reset_url = f"{APP_URL}/reset-password?token={token}"
+    naam = user.get("naam") or ""
+
+    if resend.api_key:
+        try:
+            html = f"""
+            <!DOCTYPE html><html><head><meta charset=\"utf-8\"><style>
+            body{{font-family:'Helvetica Neue',Arial,sans-serif;line-height:1.6;color:#0F172A;max-width:620px;margin:0 auto;background:#f5f6fa}}
+            .wrap{{background:#fff;border-radius:14px;overflow:hidden;margin:20px;box-shadow:0 4px 20px rgba(0,0,0,.08)}}
+            .header{{background:#0F172A;color:#fff;padding:36px 30px;text-align:center}}
+            .header h1{{color:#22C55E;margin:0;font-size:30px;font-weight:900;letter-spacing:1px}}
+            .header p{{color:rgba(255,255,255,.85);margin:6px 0 0;font-size:14px}}
+            .content{{padding:32px 36px;color:#0F172A}}
+            .content h2{{font-size:22px;color:#0F172A;margin:0 0 12px}}
+            .content p{{font-size:15px;color:#475569;margin-bottom:14px}}
+            .btn-wrap{{text-align:center;margin:28px 0}}
+            .btn{{display:inline-block;background:#22C55E;color:#fff !important;padding:16px 40px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px}}
+            .note{{background:#f1f5f9;border-left:4px solid #22C55E;border-radius:8px;padding:14px 18px;margin-top:22px;font-size:13px;color:#475569}}
+            .footer{{background:#0F172A;padding:20px;text-align:center;font-size:12px;color:rgba(255,255,255,.7)}}
+            </style></head><body>
+            <div class=\"wrap\">
+              <div class=\"header\">
+                <h1>SIGNYBON</h1>
+                <p>Wachtwoord herstellen</p>
+              </div>
+              <div class=\"content\">
+                <h2>Hallo {naam},</h2>
+                <p>U heeft een aanvraag gedaan om uw wachtwoord opnieuw in te stellen. Klik op de knop hieronder om een nieuw wachtwoord te kiezen.</p>
+                <div class=\"btn-wrap\">
+                  <a href=\"{reset_url}\" class=\"btn\">Reset wachtwoord</a>
+                </div>
+                <p>Werkt de knop niet? Kopieer dan deze link in uw browser:<br><a href=\"{reset_url}\" style=\"color:#22C55E;word-break:break-all\">{reset_url}</a></p>
+                <div class=\"note\"><strong>Deze link is 1 uur geldig.</strong> Heeft u geen wachtwoord-reset aangevraagd? Negeer dan deze e-mail — uw account blijft veilig.</div>
+              </div>
+              <div class=\"footer\">Signybon &mdash; Het digitale werkbonplatform</div>
+            </div>
+            </body></html>"""
+            await asyncio.to_thread(resend.Emails.send, {
+                "from": f"Signybon <{SENDER_EMAIL}>",
+                "to": [email],
+                "subject": "Reset uw Signybon wachtwoord",
+                "html": html,
+                "reply_to": ["info@signybon.com"],
+            })
+        except Exception as e:
+            logging.error(f"Password reset email failed: {e}")
+
+    return {"message": "Een resetlink is verstuurd naar uw e-mailadres.", "success": True}
+
+
+@api_router.post("/auth/reset-password")
+@limiter.limit("5/minute")
+async def reset_password(request: Request, data: dict):
+    """Consume a reset token and set a new password."""
+    token = (data.get("token") or "").strip()
+    new_password = data.get("new_password") or ""
+    if not token:
+        raise HTTPException(status_code=400, detail="Ongeldige link.")
+    if len(new_password) < 8:
+        raise HTTPException(status_code=400, detail="Wachtwoord moet minimaal 8 karakters bevatten.")
+
+    record = await db.password_reset_tokens.find_one({"token": token})
+    if not record:
+        raise HTTPException(status_code=400, detail="Deze resetlink is ongeldig.")
+    if record.get("used"):
+        raise HTTPException(status_code=400, detail="Deze resetlink is al gebruikt.")
+    expires = record.get("expires_at")
+    if expires and expires.tzinfo is None:
+        expires = expires.replace(tzinfo=timezone.utc)
+    if not expires or expires < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="Deze resetlink is verlopen. Vraag een nieuwe link aan.")
+
+    user_id = record["user_id"]
+    new_hash = hash_password(new_password)
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": {
+            "password_hash": new_hash,
+            "password_changed_at": datetime.now(timezone.utc),
+        }, "$unset": {"wachtwoord_plain": ""}}
+    )
+    await db.password_reset_tokens.update_one(
+        {"token": token},
+        {"$set": {"used": True, "used_at": datetime.now(timezone.utc)}}
+    )
+    return {"message": "Wachtwoord opnieuw ingesteld.", "success": True}
+
+
 @api_router.get("/auth/user-password/{user_id}")
 async def get_user_password(user_id: str, current_user: Dict = Depends(require_roles(["admin", "master_admin"]))):
     """
@@ -6686,7 +6803,7 @@ class ReassignUsersBody(BaseModel):
 
 @api_router.get("/_admin/orphaned-users")
 async def list_orphaned_users(current_user: Dict = Depends(require_roles(["platform_admin"]))):
-    """List users stuck in default_company (excluding the legacy Smart-Tech tenant admin)."""
+    """List users stuck in default_company (excluding the legacy tenant admin)."""
     cursor = db.users.find(
         {"company_id": "default_company", "email": {"$ne": "info@smart-techbv.be"}},
         {"_id": 0, "id": 1, "email": 1, "naam": 1, "rol": 1, "created_at": 1, "actief": 1},
@@ -10007,7 +10124,7 @@ async def get_uren_deze_week(
 ):
     """Total uren for all werkbonnen in the given ISO week — STRICTLY scoped
     to the current tenant. Previous version omitted the company_id filter and
-    summed hours across every tenant, so Smart-Tech's dashboard surfaced
+    summed hours across every tenant, so the founding tenant's dashboard surfaced
     werkbonnen and uren that belonged to other Signybon customers."""
     company_id = _require_tenant(current_user)
     now = datetime.now(timezone.utc)
@@ -10187,7 +10304,7 @@ _PROTECTED_COMPANY_IDS = {"signybon_platform", "default_company"}
 def _legacy_scope_query(company_id: str, base: Optional[dict] = None) -> dict:
     """Tenant scoping for the master panel — same as _company_scope_query but
     treats default_company as also matching documents whose company_id field
-    is missing (legacy Smart-Tech data predating multi-tenant migration)."""
+    is missing (legacy data predating multi-tenant migration)."""
     base = dict(base or {})
     if company_id == "default_company":
         base["$or"] = [{"company_id": "default_company"}, {"company_id": {"$exists": False}}]
@@ -10644,7 +10761,7 @@ async def master_klant_detail(company_id: str, current_user: Dict = Depends(_mas
     ) or {}
 
     # default_company also matches docs that have no company_id field at all
-    # (legacy Smart-Tech data from before multi-tenant migration)
+    # (legacy data from before multi-tenant migration)
     werknemers = await db.users.find(
         _legacy_scope_query(company_id),
         {"_id": 0, "id": 1, "naam": 1, "email": 1, "rol": 1, "actief": 1, "last_login_at": 1},
@@ -11173,7 +11290,7 @@ async def ensure_indexes():
             })
             logging.info("[bootstrap] Created signybon_platform company doc")
 
-        # Smart-Tech legacy bootstrap: surface the original tenant in the
+        # Legacy bootstrap: surface the original tenant in the
         # master panel by writing a companies document for default_company.
         # Pulls bedrijfsnaam / email / btw_nummer from the existing
         # instellingen doc so the listing reflects real values. Idempotent.
@@ -11351,7 +11468,7 @@ async def startup_migrate():
         # This prevents "Sort exceeded memory limit" errors
         await ensure_indexes()
 
-        # === ONE-SHOT: drop orphan ekrem@smart-techbv.be in default_company ===
+        # === ONE-SHOT: drop legacy orphan user in default_company ===
         # Werknemer was created before register-worker company_id fix landed,
         # so it's invisible in the E.K Consulting tenant and blocks re-add.
         try:
@@ -11359,7 +11476,7 @@ async def startup_migrate():
                 {"email": "ekrem@smart-techbv.be", "company_id": "default_company"}
             )
             if orphan_drop.deleted_count:
-                logging.info("[migrate] Dropped orphan user ekrem@smart-techbv.be from default_company")
+                logging.info("[migrate] Dropped legacy orphan user from default_company")
         except Exception as orphan_err:
             logging.warning("[migrate] Orphan ekrem drop failed: %s", orphan_err)
 
@@ -11484,6 +11601,7 @@ import os
 LANDING_PATH = os.path.join(os.path.dirname(__file__), "landing.html")
 REGISTER_PATH = os.path.join(os.path.dirname(__file__), "register.html")
 LOGIN_PATH = os.path.join(os.path.dirname(__file__), "login.html")
+RESET_PASSWORD_PATH = os.path.join(os.path.dirname(__file__), "reset-password.html")
 FAVICON_ICO_PATH = os.path.join(os.path.dirname(__file__), "favicon.ico")
 FAVICON_PNG_PATH = os.path.join(os.path.dirname(__file__), "favicon.png")
 ICON_WHITE_PATH = os.path.join(os.path.dirname(__file__), "icon-white.png")
@@ -11543,6 +11661,11 @@ async def serve_help_widget():
 @app.get("/login")
 async def serve_login():
     return FileResponse(LOGIN_PATH, media_type="text/html", headers=_NO_CACHE_HEADERS)
+
+
+@app.get("/reset-password")
+async def serve_reset_password():
+    return FileResponse(RESET_PASSWORD_PATH, media_type="text/html", headers=_NO_CACHE_HEADERS)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # STATIC FILE SERVING FOR WEB PANEL (Railway deployment)

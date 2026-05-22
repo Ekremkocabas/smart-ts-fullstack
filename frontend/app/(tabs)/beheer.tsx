@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -545,7 +545,7 @@ export default function BeheerScreen() {
                       testID={`werknemer-active-switch-${werknemer.id}`}
                       value={werknemer.actief}
                       onValueChange={() => toggleWerknemerActief(werknemer)}
-                      trackColor={{ false: '#2d3a5f', true: '#22C55E' }}
+                      trackColor={{ false: '#334155', true: '#22C55E' }}
                       thumbColor="#fff"
                     />
                     <TouchableOpacity
@@ -900,7 +900,7 @@ export default function BeheerScreen() {
               <Switch
                 value={selfieActiveren}
                 onValueChange={setSelfieActiveren}
-                trackColor={{ false: '#2d3a5f', true: '#22C55E80' }}
+                trackColor={{ false: '#334155', true: '#22C55E80' }}
                 thumbColor={selfieActiveren ? '#22C55E' : '#555'}
               />
             </View>
@@ -916,7 +916,7 @@ export default function BeheerScreen() {
               <Switch
                 value={smsVerificatieActiveren}
                 onValueChange={setSmsVerificatieActiveren}
-                trackColor={{ false: '#2d3a5f', true: '#22C55E80' }}
+                trackColor={{ false: '#334155', true: '#22C55E80' }}
                 thumbColor={smsVerificatieActiveren ? '#22C55E' : '#555'}
                 disabled={true}
               />
@@ -933,7 +933,7 @@ export default function BeheerScreen() {
               <Switch
                 value={automatischNaarKlant}
                 onValueChange={setAutomatischNaarKlant}
-                trackColor={{ false: '#2d3a5f', true: '#22C55E80' }}
+                trackColor={{ false: '#334155', true: '#22C55E80' }}
                 thumbColor={automatischNaarKlant ? '#22C55E' : '#555'}
               />
             </View>
