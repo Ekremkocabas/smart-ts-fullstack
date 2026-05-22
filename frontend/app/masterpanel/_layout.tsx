@@ -21,10 +21,10 @@ function SignybonDiamond() {
   React.useEffect(() => {
     if (ref.current) {
       ref.current.innerHTML =
-        '<img src="/favicon.png?v=3" alt="" width="36" height="36" style="display:block;border-radius:6px;background:#fff" />';
+        '<img src="/icon-white.png?v=4" alt="" width="40" height="40" style="display:block;object-fit:contain" />';
     }
   }, []);
-  return <View ref={ref} style={{ width: 36, height: 36 }} />;
+  return <View ref={ref} style={{ width: 40, height: 40 }} />;
 }
 
 function Sidebar() {

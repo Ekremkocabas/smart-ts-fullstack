@@ -131,7 +131,7 @@
       <div class="sb-header">
         <div class="sb-header-left">
           <div class="sb-header-logo">
-            <img src="/favicon.png?v=3" alt="" width="36" height="36" style="display:block;border-radius:6px;background:#fff">
+            <img src="/icon-white.png?v=4" alt="" width="38" height="38" style="display:block;object-fit:contain">
           </div>
           <div class="sb-header-text">
             <h4>Signybon Support</h4>

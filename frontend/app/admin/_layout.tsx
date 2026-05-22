@@ -81,8 +81,8 @@ function Sidebar() {
                 </View>
               )}
             </View>
-            <View>
-              <Text style={[styles.logoText, { color: theme.secondaryColor || '#0F172A' }]}>{(theme.bedrijfsnaam || 'Signybon').toUpperCase()}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.logoText} numberOfLines={1}>{(theme.bedrijfsnaam || 'Signybon').toUpperCase()}</Text>
               <Text style={styles.logoSubtext}>Beheerportaal</Text>
             </View>
           </View>
@@ -107,28 +107,28 @@ function Sidebar() {
           return (
             <TouchableOpacity
               key={index}
-              style={[styles.menuItem, isActive && { backgroundColor: `${theme.primaryColor || '#0F172A'}15` }, locked && { opacity: 0.55 }]}
+              style={[styles.menuItem, isActive && styles.menuItemActive, locked && { opacity: 0.55 }]}
               onPress={handlePress}
             >
               <Ionicons
                 name={isActive ? item.icon.replace('-outline', '') as any : item.icon as any}
                 size={22}
-                color={isActive ? theme.primaryColor || '#0F172A' : '#6c757d'}
+                color={isActive ? '#22C55E' : '#94A3B8'}
               />
               {!collapsed && (
-                <Text style={[styles.menuLabel, isActive && { color: theme.secondaryColor || '#0F172A' }]}>
+                <Text style={[styles.menuLabel, isActive && styles.menuLabelActive]}>
                   {item.label}
                 </Text>
               )}
               {locked && !collapsed && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 'auto', gap: 6 }}>
-                  <Ionicons name="lock-closed" size={12} color="#6c757d" />
+                  <Ionicons name="lock-closed" size={12} color="#94A3B8" />
                   <View style={{ backgroundColor: '#22C55E', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
                     <Text style={{ color: '#0F172A', fontSize: 10, fontWeight: '700', letterSpacing: 0.5 }}>PRO</Text>
                   </View>
                 </View>
               )}
-              {isActive && !collapsed && !locked && <View style={[styles.activeIndicator, { backgroundColor: theme.primaryColor || '#0F172A' }]} />}
+              {isActive && !collapsed && !locked && <View style={styles.activeIndicator} />}
             </TouchableOpacity>
           );
         })}
@@ -532,16 +532,17 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   logoIcon: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     borderRadius: 10,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   sidebarLogoImage: {
-    width: 30,
-    height: 30,
+    width: 38,
+    height: 38,
   },
   logoText: {
     fontSize: 18,

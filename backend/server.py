@@ -11490,6 +11490,9 @@ REGISTER_PATH = os.path.join(os.path.dirname(__file__), "register.html")
 LOGIN_PATH = os.path.join(os.path.dirname(__file__), "login.html")
 FAVICON_ICO_PATH = os.path.join(os.path.dirname(__file__), "favicon.ico")
 FAVICON_PNG_PATH = os.path.join(os.path.dirname(__file__), "favicon.png")
+ICON_WHITE_PATH = os.path.join(os.path.dirname(__file__), "icon-white.png")
+ICON_TRANSPARENT_PATH = os.path.join(os.path.dirname(__file__), "icon-transparent.png")
+LOGO_WHITE_BG_PATH = os.path.join(os.path.dirname(__file__), "logo-white-bg.png")
 
 @app.get("/favicon.ico")
 async def serve_favicon_ico():
@@ -11498,6 +11501,18 @@ async def serve_favicon_ico():
 @app.get("/favicon.png")
 async def serve_favicon_png():
     return FileResponse(FAVICON_PNG_PATH, media_type="image/png")
+
+@app.get("/icon-white.png")
+async def serve_icon_white():
+    return FileResponse(ICON_WHITE_PATH, media_type="image/png")
+
+@app.get("/icon-transparent.png")
+async def serve_icon_transparent():
+    return FileResponse(ICON_TRANSPARENT_PATH, media_type="image/png")
+
+@app.get("/logo-white-bg.png")
+async def serve_logo_white_bg():
+    return FileResponse(LOGO_WHITE_BG_PATH, media_type="image/png")
 
 # HTML must never be browser-cached — stale copies retain old redirects and
 # old entry-chunk filenames, which is exactly what caused the double-login
