@@ -5053,6 +5053,30 @@ async def register_worker_with_email(
 ):
     """Register a new worker. Only admin/master_admin can create users."""
     company_id = _require_tenant(current_user)
+
+    # Defensive: if the admin token still carries "default_company" (legacy
+    # multi-tenant artifact), resolve to the admin's real company via email
+    # match BEFORE stamping the new werknemer. Prevents orphaned werknemers
+    # that end up under "default_company" while their admin self-heals away.
+    if company_id == "default_company":
+        owned = await db.companies.find_one(
+            {"$or": [
+                {"email": current_user.get("email", "").lower()},
+                {"contact_email": current_user.get("email", "").lower()},
+            ]},
+            {"_id": 0, "id": 1},
+        )
+        if owned and owned.get("id") and owned["id"] != "default_company":
+            company_id = owned["id"]
+            await db.users.update_one(
+                {"id": current_user["user_id"]},
+                {"$set": {"company_id": company_id}},
+            )
+            logging.info(
+                "[register-worker] Admin %s self-healed default_company -> %s before creating werknemer",
+                current_user.get("email"), company_id,
+            )
+
     _sub, plan, _co = await _resolve_company_plan(company_id)
     await _enforce_limit(
         company_id, plan, "werknemers", "users",
@@ -5079,9 +5103,13 @@ async def register_worker_with_email(
         team_id=team_id,
         telefoon=telefoon,
         werkbon_types=wbt,
-        company_id=_require_tenant(current_user),
+        company_id=company_id,
     )
     await db.users.insert_one(user.dict())
+    logging.info(
+        "[register-worker] created werknemer id=%s email=%s rol=%s company_id=%s by admin=%s",
+        user.id, user.email, user.rol, user.company_id, current_user.get("email"),
+    )
     clear_cache("auth:users")
 
     email_result = {"success": False, "error": "E-mail verzenden staat uitgeschakeld"}
@@ -5751,6 +5779,21 @@ async def save_push_token(user_id: str, data: dict):
 
     logging.info(f"[PUSH] Saving push token for user {user_id}: {push_token[:30]}...")
 
+    # A device token is unique per physical device. If the same device was
+    # previously logged in as another user, that user still holds the token
+    # and would receive pushes meant for the new user (or worse, the new user
+    # would receive pushes meant for them). Clear the token from any other
+    # user before assigning it to avoid cross-account leakage.
+    stolen = await db.users.update_many(
+        {"push_token": push_token, "id": {"$ne": user_id}},
+        {"$set": {"push_token": None}},
+    )
+    if stolen.modified_count:
+        logging.info(
+            "[PUSH] Cleared shared push token from %d other user(s) before assigning to %s",
+            stolen.modified_count, user_id,
+        )
+
     result = await db.users.update_one({"id": user_id}, {"$set": {"push_token": push_token}})
 
     logging.info(f"[PUSH] Update result: matched={result.matched_count}, modified={result.modified_count}")
@@ -6203,6 +6246,10 @@ async def get_werkbonnen(
 
     if is_admin:
         query = _werkbonnen_admin_filter_query(week_nummer, jaar, maand)
+        # Hide unfilled placeholders created by /planning/maand-bulk. They
+        # only enter the admin list once the werknemer actually saves work
+        # against them (status flips to 'concept' or further).
+        query["status"] = {"$ne": "stub"}
         query = _company_scope_query(company_id, query)
         eff_limit = 50 if dashboard else limit
         eff_skip = 0 if dashboard else skip
@@ -6687,7 +6734,12 @@ async def update_werkbon(werkbon_id: str, update_data: WerkbonUpdate, current_us
     if update_data.handtekening_data:
         update_dict["handtekening_datum"] = datetime.now(timezone.utc)
         update_dict["status"] = "ondertekend"
-    
+    elif existing.get("status") == "stub" and "status" not in update_dict:
+        # Werknemer is filling in a placeholder created by /planning/maand-bulk.
+        # Promote the stub to a real concept werkbon so it shows up in the
+        # admin werkbonnen list.
+        update_dict["status"] = "concept"
+
     if "uren" in update_dict:
         update_dict["uren"] = [uur.dict() if hasattr(uur, 'dict') else uur for uur in update_dict["uren"]]
     
@@ -7713,6 +7765,27 @@ async def update_werkbon_groep(
         {"id": groep_id, "company_id": company_id},
         {"$set": update_dict},
     )
+
+    # Cascade signature state to every child werkbon so per-week lists stay
+    # consistent with the groep. Lifts stubs out of 'concept' too — the
+    # admin werkbonnen list filters those out (status="stub") but if any
+    # child slipped through with status="concept" we still promote it.
+    if update_data.handtekening_data:
+        child_update = {
+            "status": "ondertekend",
+            "handtekening_naam": update_data.handtekening_naam or "",
+            "handtekening_datum": datetime.now(timezone.utc),
+            "updated_at": datetime.now(timezone.utc),
+        }
+        if update_data.handtekening_data:
+            child_update["handtekening_data"] = update_data.handtekening_data
+        if update_data.selfie_data:
+            child_update["selfie_data"] = update_data.selfie_data
+        await db.werkbonnen.update_many(
+            {"groep_id": groep_id, "company_id": company_id},
+            {"$set": child_update},
+        )
+
     return await db.werkbon_groepen.find_one({"id": groep_id, "company_id": company_id}, {"_id": 0})
 
 
@@ -9217,6 +9290,10 @@ async def _create_planning_maand_bulk_impl(data: PlanningMaandBulkCreate, curren
             ingevuld_door_naam=current_user.get("naam") or "",
             toegewezen_aan=list(data.werknemer_ids),
             groep_id=groep.id,
+            # Placeholder werkbon — invisible in the admin werkbonnen list
+            # until the werknemer actually fills it in (status -> "concept")
+            # or signs it (status -> "ondertekend").
+            status="stub",
             **week_dates,
         )
         wbd = werkbon.dict()

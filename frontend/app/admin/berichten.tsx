@@ -214,7 +214,11 @@ export default function BerichtenAdmin() {
         apiClient.get('/api/auth/users'),
       ]);
       setBerichten(Array.isArray(berichtenRes.data) ? berichtenRes.data : []);
-      setWerknemers(Array.isArray(usersRes.data) ? usersRes.data.filter((u: Werknemer) => u.actief && u.rol !== 'beheerder' && u.rol !== 'admin' && u.rol !== 'master_admin') : []);
+      // Keep every active non-admin. Includes legacy rol values so a fresh
+      // tenant doesn't see an empty list when the backend hasn't normalized
+      // yet (cached rows, manual DB edits, etc).
+      const ADMIN_ROLES = new Set(['beheerder', 'admin', 'master_admin', 'platform_admin']);
+      setWerknemers(Array.isArray(usersRes.data) ? usersRes.data.filter((u: Werknemer) => u.actief && !ADMIN_ROLES.has(u.rol)) : []);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   }, [user]);
@@ -225,12 +229,12 @@ export default function BerichtenAdmin() {
     }
   }, [fetchData, user]);
 
-  // Filter werknemers by type — backend normalize_role maps legacy roles to
-  // {worker, planner, onderaannemer, admin, master_admin, platform_admin}.
-  // 'manager' / 'werknemer' / 'ploegbaas' / 'beheerder' are mapped server-side
-  // before they ever reach this list, so we only check normalized roles here.
+  // Filter werknemers by type. Tolerant of legacy rol values that may bypass
+  // backend normalize_role (cached responses, manual DB writes). Everything
+  // non-onderaannemer ends up in the werknemers bucket so users created with
+  // legacy 'werknemer'/'manager'/'ploegbaas' still appear.
   const werknemersByType = {
-    werknemers: werknemers.filter(w => w.rol === 'worker' || w.rol === 'planner'),
+    werknemers: werknemers.filter(w => w.rol !== 'onderaannemer'),
     onderaannemers: werknemers.filter(w => w.rol === 'onderaannemer'),
   };
 

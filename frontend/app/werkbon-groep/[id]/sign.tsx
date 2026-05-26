@@ -228,14 +228,38 @@ export default function WerkbonGroepSignScreen() {
     if (!id) return;
     setIsSaving(true);
     try {
-      // One PUT signs every week in the bundle: the backend marks the groep
-      // as 'ondertekend' and the verzenden endpoint later cascades 'verzonden'
-      // down to each child werkbon.
+      // Step 1: persist signature. Backend marks the groep + every child
+      // werkbon as 'ondertekend'.
       await apiClient.put(`/api/werkbon-groepen/${id}`, {
         handtekening_data: signature,
         handtekening_naam: naam.trim(),
         selfie_data: selfieBase64 || undefined,
       });
+
+      // Step 2: generate combined PDF, email it to company + klant, and
+      // cascade 'verzonden' down to each child werkbon. Done inline so the
+      // werknemer doesn't have to take a second action — one tap signs AND
+      // sends.
+      let emailOk = false;
+      let emailErr = '';
+      try {
+        await apiClient.post(
+          `/api/werkbon-groepen/${id}/verzenden`,
+          {},
+          { timeout: 120000 },
+        );
+        emailOk = true;
+      } catch (sendErr: any) {
+        emailErr = sendErr?.response?.data?.detail || sendErr?.message || 'E-mail kon niet worden verstuurd';
+        console.warn('[werkbon-groep] verzenden failed', sendErr);
+      }
+
+      showAlert(
+        'Werkbon verstuurd',
+        emailOk
+          ? 'Werkbon is getekend en verstuurd!'
+          : `Werkbon is getekend maar e-mail is mislukt: ${emailErr}`,
+      );
       router.replace('/(tabs)/planning');
     } catch (error: any) {
       const message = error.response?.data?.detail || error.message || 'Kon handtekening niet opslaan';
