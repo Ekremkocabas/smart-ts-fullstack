@@ -1993,8 +1993,17 @@ async def is_admin(email: str) -> bool:
 
 # ==================== AUTH ROUTES ====================
 
-async def send_welcome_email(user_email: str, user_naam: str, temp_password: str, instellingen: dict):
-    """Send welcome email directly to the new worker."""
+async def send_welcome_email(
+    user_email: str,
+    user_naam: str,
+    temp_password: str,
+    instellingen: dict,
+    rol: str = "werknemer",
+):
+    """Send the Signybon-branded welcome email to a freshly created werknemer
+    or onderaannemer. Body is trilingual (NL / EN / TR) because crews on these
+    sites mix all three. The CTA points to the public Signybon download page;
+    after install the user logs in with the credentials in the card below."""
 
     if not resend.api_key:
         logging.warning("RESEND_API_KEY not configured, skipping welcome email")
@@ -2002,90 +2011,140 @@ async def send_welcome_email(user_email: str, user_naam: str, temp_password: str
 
     bedrijfsnaam = get_email_brand_name(instellingen)
 
-    sender_email = os.environ.get("SENDER_EMAIL") or instellingen.get("email") or ""
-    sender = sender_email if "<" in sender_email else f"{bedrijfsnaam} <{sender_email}>"
+    # Always send FROM Signybon's verified sender so DMARC stays clean across
+    # tenants. Reply-To routes responses back to the actual company.
+    company_reply = (instellingen.get("email") or "").strip()
+    from_addr = f"{bedrijfsnaam} <{SENDER_EMAIL}>"
 
-    # Tenant brand palette — the welcome email is the new worker's first
-    # impression, so it must wear the tenant's own colors, not another tenant's.
+    # Resolve tenant brand palette with the Signybon navy/green fallback chain
+    # baked into get_pdf_colors. Header stays Signybon-navy; the CTA picks up
+    # the tenant accent so a customer with a custom palette still sees their
+    # color on the action button.
     _C = get_pdf_colors(instellingen)
-    _primary = _C["primary"]
-    _secondary = _C["secondary"]
+    accent_color = _C.get("primary") or "#22C55E"
 
-    html_content = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <style>
-            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; }}
-            .header {{ background: {_primary}; color: white; padding: 30px; text-align: center; }}
-            .header h1 {{ color: {_secondary}; margin: 0; }}
-            .content {{ padding: 30px; }}
-            .credentials {{ background: #f8f9fa; border-left: 4px solid {_secondary}; padding: 20px; margin: 20px 0; }}
-            .credentials strong {{ color: {_secondary}; }}
-            .steps {{ background: #fff3cd; padding: 20px; border-radius: 8px; margin: 20px 0; }}
-            .steps h3 {{ color: #856404; margin-top: 0; }}
-            .step {{ margin: 12px 0; padding-left: 20px; }}
-            .footer {{ background: #f8f9fa; padding: 20px; text-align: center; font-size: 12px; color: #666; }}
-        </style>
-    </head>
-    <body>
+    # rol_label triple — picks worker vs subcontractor copy per language.
+    normalized = normalize_role(rol or "worker")
+    if normalized == "onderaannemer":
+        rol_nl, rol_en, rol_tr = "onderaannemer", "subcontractor", "taşeron"
+    else:
+        rol_nl, rol_en, rol_tr = "werknemer", "worker", "çalışan"
+
+    download_url = "https://signybon.com/download"
+    icon_url = f"{APP_URL}/icon-white.png"
+
+    html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welkom bij Signybon</title>
+    <style>
+        body {{ margin: 0; padding: 0; background: #F1F5F9; font-family: 'Helvetica Neue', Arial, sans-serif; color: #0F172A; }}
+        .wrap {{ max-width: 620px; margin: 0 auto; background: #FFFFFF; }}
+        .header {{ background: #0F172A; padding: 36px 24px 28px; text-align: center; }}
+        .header img {{ display: block; margin: 0 auto 12px; height: 56px; width: auto; }}
+        .header .brand {{ color: #FFFFFF; font-size: 26px; font-weight: 800; letter-spacing: 4px; margin: 0; }}
+        .content {{ padding: 32px 28px 8px; }}
+        .lang-block {{ margin: 0 0 22px; padding: 0 4px; }}
+        .lang-block p {{ margin: 0; font-size: 15px; line-height: 1.6; color: #1E293B; }}
+        .lang-flag {{ font-size: 13px; font-weight: 700; color: #64748B; letter-spacing: 0.5px; margin-bottom: 6px; text-transform: uppercase; }}
+        .divider {{ height: 1px; background: #E2E8F0; margin: 22px 0; border: 0; }}
+        .cta-wrap {{ text-align: center; margin: 28px 0 8px; }}
+        .cta {{ display: inline-block; background: {accent_color}; color: #FFFFFF !important; text-decoration: none; padding: 16px 42px; border-radius: 10px; font-size: 16px; font-weight: 700; letter-spacing: 0.3px; box-shadow: 0 4px 14px rgba(34,197,94,0.25); }}
+        .creds {{ background: #1E293B; border-radius: 12px; padding: 22px 24px; margin: 24px 0 14px; color: #FFFFFF; }}
+        .creds .label {{ font-size: 12px; color: #94A3B8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }}
+        .creds .value {{ font-size: 16px; font-weight: 600; color: #FFFFFF; font-family: 'SFMono-Regular', Menlo, Consolas, monospace; word-break: break-all; }}
+        .creds .row + .row {{ margin-top: 14px; }}
+        .note {{ font-size: 12px; color: #64748B; line-height: 1.5; padding: 0 4px; }}
+        .note p {{ margin: 0 0 4px; }}
+        .footer {{ background: #F1F5F9; padding: 22px 24px; text-align: center; font-size: 12px; color: #64748B; }}
+        .footer strong {{ color: #0F172A; }}
+    </style>
+</head>
+<body>
+    <div class="wrap">
         <div class="header">
-            <h1>{bedrijfsnaam}</h1>
-            <p>Nieuwe Werknemer Aangemaakt</p>
+            <img src="{icon_url}" alt="Signybon" />
+            <p class="brand">SIGNYBON</p>
         </div>
-        
+
         <div class="content">
-            <h2>Nieuwe werknemer: {user_naam}</h2>
-            
-            <p>Er is een nieuw account aangemaakt in het werkbon systeem.</p>
-            
-            <div class="credentials">
-                <h3>Inloggegevens voor {user_naam}</h3>
-                <p><strong>E-mail:</strong> {user_email}</p>
-                <p><strong>Tijdelijk wachtwoord:</strong> {temp_password}</p>
+            <div class="lang-block">
+                <div class="lang-flag">🇳🇱 Nederlands</div>
+                <p>Welkom bij Signybon! U bent toegevoegd als <strong>{rol_nl}</strong> bij <strong>{bedrijfsnaam}</strong>. Download de Signybon app om uw werkbonnen digitaal in te vullen en te ondertekenen.</p>
             </div>
-            
-            <div style="background: {_primary}; border-radius: 8px; padding: 20px; margin: 20px 0; text-align: center;">
-                <p style="color: {_secondary}; font-weight: bold; margin: 0 0 10px 0;">📱 {bedrijfsnaam} App</p>
-                <p style="color: #ddd; margin: 0 0 15px 0;">Open de link hieronder op je telefoon en voeg toe aan het beginscherm</p>
-                <a href="{APP_URL}" style="background: {_secondary}; color: {_primary}; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; display: inline-block;">
-                    🔗 Open {bedrijfsnaam} App
-                </a>
-                <p style="color: #666; font-size: 11px; margin: 10px 0 0 0;">Tip: In je browser → "Toevoegen aan beginscherm" voor een app-pictogram</p>
+
+            <div class="lang-block">
+                <div class="lang-flag">🇬🇧 English</div>
+                <p>Welcome to Signybon! You have been added as a <strong>{rol_en}</strong> at <strong>{bedrijfsnaam}</strong>. Download the Signybon app to digitally fill in and sign your work orders.</p>
             </div>
-            
-            <div class="steps">
-                <h3>Instructies voor de werknemer:</h3>
-                <div class="step">1. Open de Werkbon app en log in met bovenstaande e-mailadres en tijdelijk wachtwoord.</div>
-                <div class="step">2. Ga naar <strong>Werkbonnen</strong> en klik op <strong>+</strong> om een nieuwe werkbon aan te maken.</div>
-                <div class="step">3. Controleer eerst het <strong>weeknummer</strong>. Selecteer daarna de juiste <strong>klant</strong> en <strong>werf</strong>.</div>
-                <div class="step">4. Vul per dag de <strong>effectief gewerkte uren</strong> in. Gebruik indien nodig de afkortingen Z, V, BV of BF.</div>
-                <div class="step">5. Voeg een <strong>korte beschrijving van de uitgevoerde werken</strong> toe en noteer ook eventuele <strong>extra gebruikte materialen</strong>.</div>
-                <div class="step">6. Vul de dagelijkse <strong>KM-afstand</strong> in voor het woon-werkverkeer of de gereden verplaatsingen indien van toepassing.</div>
-                <div class="step">7. Ga daarna naar <strong>Ondertekenen</strong> en laat de verantwoordelijke werfleider of contactpersoon op de werf de werkbon ondertekenen en zijn/haar naam invullen.</div>
-                <div class="step">8. Controleer alles nog één keer en klik vervolgens op <strong>Versturen als PDF</strong> om de werkbon te verzenden.</div>
+
+            <div class="lang-block">
+                <div class="lang-flag">🇹🇷 Türkçe</div>
+                <p>Signybon'a hoş geldiniz! <strong>{bedrijfsnaam}</strong> tarafından <strong>{rol_tr}</strong> olarak eklendiniz. İş formlarınızı dijital olarak doldurmak ve imzalamak için Signybon uygulamasını indirin.</p>
+            </div>
+
+            <div class="cta-wrap">
+                <a href="{download_url}" class="cta">📱 Download de App →</a>
+            </div>
+
+            <hr class="divider" />
+
+            <div class="lang-block">
+                <div class="lang-flag">🇳🇱 Nederlands</div>
+                <p>Na het downloaden: open de app, tik op <strong>'Inloggen'</strong> en gebruik onderstaande gegevens.</p>
+            </div>
+
+            <div class="lang-block">
+                <div class="lang-flag">🇬🇧 English</div>
+                <p>After downloading: open the app, tap <strong>'Login'</strong> and use the credentials below.</p>
+            </div>
+
+            <div class="lang-block">
+                <div class="lang-flag">🇹🇷 Türkçe</div>
+                <p>İndirdikten sonra: uygulamayı açın, <strong>'Giriş Yap'</strong>a dokunun ve aşağıdaki bilgileri kullanın.</p>
+            </div>
+
+            <div class="creds">
+                <div class="row">
+                    <div class="label">E-mail</div>
+                    <div class="value">{user_email}</div>
+                </div>
+                <div class="row">
+                    <div class="label">Wachtwoord / Password / Şifre</div>
+                    <div class="value">{temp_password}</div>
+                </div>
+            </div>
+
+            <div class="note">
+                <p>🇳🇱 Wijzig uw wachtwoord na de eerste login.</p>
+                <p>🇬🇧 Change your password after first login.</p>
+                <p>🇹🇷 İlk girişten sonra şifrenizi değiştirin.</p>
             </div>
         </div>
-        
+
         <div class="footer">
-            <p>Dit is een automatisch gegenereerd bericht van {bedrijfsnaam}.</p>
+            <p style="margin:0 0 4px;"><strong>Signybon</strong> — Het digitale werkbonplatform</p>
+            <p style="margin:0;">Dit is een automatisch bericht van {bedrijfsnaam}.</p>
         </div>
-    </body>
-    </html>
-    """
-    
+    </div>
+</body>
+</html>"""
+
     try:
         params = {
-            "from": sender,
+            "from": from_addr,
             "to": [user_email],
-            "subject": f"Nieuwe Werknemer: {user_naam} - Inloggegevens",
+            "subject": f"Welkom bij {bedrijfsnaam} — uw Signybon toegang",
             "html": html_content,
             "headers": {"List-Unsubscribe": "<mailto:info@signybon.com>"},
         }
+        if company_reply:
+            params["reply_to"] = [company_reply]
 
         result = await asyncio.to_thread(resend.Emails.send, params)
-        logging.info(f"Welcome email sent to worker {user_email}: {result}")
+        logging.info(f"Welcome email sent to {rol} {user_email}: {result}")
         return {"success": True, "email_id": result.get("id")}
     except Exception as e:
         logging.error(f"Failed to send welcome email: {str(e)}")
@@ -5115,7 +5174,7 @@ async def register_worker_with_email(
     email_result = {"success": False, "error": "E-mail verzenden staat uitgeschakeld"}
     if send_email:
         instellingen = await get_instellingen_for_company(current_user.get("company_id"))
-        email_result = await send_welcome_email(email, naam, password, instellingen)
+        email_result = await send_welcome_email(email, naam, password, instellingen, rol=rol)
     
     return {
         "user": UserResponse(**user.dict()),
@@ -5147,7 +5206,7 @@ async def resend_worker_info_email(user_id: str, current_user: Dict = Depends(re
     )
 
     instellingen = await get_instellingen_for_company(company_id)
-    email_result = await send_welcome_email(user["email"], user["naam"], new_password, instellingen)
+    email_result = await send_welcome_email(user["email"], user["naam"], new_password, instellingen, rol=user.get("rol", "worker"))
     updated_user = await db.users.find_one({"id": user_id, "company_id": company_id}, {"_id": 0})
 
     return ResendInfoMailResponse(
